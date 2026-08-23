@@ -1,0 +1,12 @@
+GIMP Palette
+Name: Hook Cord - Ghost Chain
+Columns: 4
+#
+  0   0   0	transparent a000
+ 54 116 137	mist a056
+ 66 142 165	halo a080
+ 76 153 174	shadow a096
+104 184 201	base a124
+148 217 228	light a154
+207 244 245	bright a190
+245 255 250	hot a232
