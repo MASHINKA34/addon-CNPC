@@ -69,6 +69,14 @@ public final class TeleportPathController {
     private boolean active;
     private int currentPhase = -1;
     private int highestPhaseReached;
+    /** Lowest phase the health lookup may hand back; an immune phase advances it by hand. */
+    private int forcedPhaseFloor;
+    /** Game time the immune window closes at, or NOT_SCHEDULED while the boss is vulnerable. */
+    private long invulnerableUntil = NOT_SCHEDULED;
+    /** Whether a summon has already run in the current immune window. */
+    private boolean invulnerableSummonedOnce;
+    /** Phase the last immune window belonged to, so a phase only turns immune once per fight. */
+    private int invulnerablePhaseIndex = -1;
     private long outOfCombatSince = NOT_SCHEDULED;
     private boolean encounterResetDone;
     private double lockedX;
@@ -138,6 +146,9 @@ public final class TeleportPathController {
         updateNearestPlayerTarget(level, data, gameTime);
         tickHookPulls(level, gameTime);
         faceCombatTarget();
+        // Runs before updatePhase so the phase it unlocks is switched to in this same tick,
+        // and above the busy/no-target early returns so a locked boss cannot stay immune.
+        tickInvulnerability(level, gameTime, data);
         updatePhase(level, gameTime, data);
         updateBossBar(level, data);
         BossPhaseData phase = data.getPhase(currentPhase);
@@ -165,7 +176,8 @@ public final class TeleportPathController {
         preparePath(points);
         scheduleMissingAbilities(gameTime, phase, points.size() >= 2);
 
-        if (points.size() >= 2 && gameTime >= nextTeleportAt) {
+        if (points.size() >= 2 && gameTime >= nextTeleportAt
+                && (!isInvulnerable() || phase.isInvulnerableAllowTeleport())) {
             nextTeleportAt = NOT_SCHEDULED;
             beginAction(PendingAction.TELEPORT, phase.getTeleportPreparationAnimation(),
                     phase.getTeleportPreparationTicks(), gameTime, null, data, phase);
@@ -204,6 +216,9 @@ public final class TeleportPathController {
         encounterResetDone = false;
         lastPathIndex = -1;
         previousPathSize = 0;
+        // A boss that was left wounded starts the next fight straight in a later phase, so
+        // the immune window has to be armed here too and not only on a phase change.
+        enterPhase(gameTime, data.getPhase(currentPhase));
     }
 
     private void updatePhase(ServerLevel level, long gameTime, TeleportPathData data) {
@@ -226,16 +241,100 @@ public final class TeleportPathController {
 
         // Inside a fight the phase only ever advances, so healing the boss - a potion, a
         // script, a regeneration effect - cannot rewind the encounter mid-combat.
-        highestPhaseReached = Math.max(highestPhaseReached, data.resolvePhaseIndex(healthPercent()));
+        int healthPhase = Math.max(data.resolvePhaseIndex(healthPercent()), forcedPhaseFloor);
+        highestPhaseReached = Math.max(highestPhaseReached, healthPhase);
         if (highestPhaseReached == currentPhase) {
             return;
         }
         currentPhase = highestPhaseReached;
         cancelPendingAndSchedules();
+        // After the schedules are wiped, so an immediate summon is not cleared again.
+        enterPhase(gameTime, data.getPhase(currentPhase));
         playAnimation(data.getPhaseTransitionAnimation());
         if (!data.getPhaseTransitionAnimation().isEmpty()) {
             busyUntil = gameTime + data.getPhaseTransitionLockTicks();
         }
+    }
+
+    /**
+     * Arms the immune window when the boss steps into a phase that has one.
+     *
+     * <p>Keyed on the phase index so a phase only turns immune once per encounter: the last
+     * phase has nowhere to advance to, and would otherwise re-arm itself forever.</p>
+     */
+    private void enterPhase(long gameTime, BossPhaseData phase) {
+        if (!phase.isInvulnerableEnabled() || invulnerablePhaseIndex == currentPhase) {
+            return;
+        }
+        invulnerablePhaseIndex = currentPhase;
+        invulnerableUntil = gameTime + phase.getInvulnerableDurationTicks();
+        invulnerableSummonedOnce = false;
+        if (phase.isInvulnerableSummonImmediately()) {
+            // Set to now rather than left unscheduled: scheduleMissingAbilities fills an
+            // unscheduled summon in with a whole fresh cooldown.
+            nextSummonAt = gameTime;
+        }
+    }
+
+    /**
+     * Closes the immune window once its phase's exit condition is met.
+     *
+     * <p>Only the phase floor is raised here. {@link #updatePhase} runs later in the same
+     * tick and performs the switch, which keeps the transition animation and its lock in a
+     * single place.</p>
+     */
+    private void tickInvulnerability(ServerLevel level, long gameTime, TeleportPathData data) {
+        if (invulnerableUntil == NOT_SCHEDULED) {
+            return;
+        }
+        BossPhaseData phase = data.getPhase(invulnerablePhaseIndex);
+        // The flag being switched off mid-fight ends the window too, rather than stranding
+        // the boss immune until its timer happens to run out.
+        if (phase.isInvulnerableEnabled() && !isInvulnerableWindowOver(level, phase, gameTime)) {
+            return;
+        }
+        invulnerableUntil = NOT_SCHEDULED;
+        // The floor is what actually moves the boss on: it lost no health while immune, so
+        // the health lookup would keep handing back the phase it has just finished.
+        forcedPhaseFloor = Math.min(invulnerablePhaseIndex + 1, data.getPhaseCount() - 1);
+    }
+
+    private boolean isInvulnerableWindowOver(ServerLevel level, BossPhaseData phase, long gameTime) {
+        boolean timerDone = gameTime >= invulnerableUntil;
+        if (!phase.invulnerableWaitsForMinions()) {
+            return timerDone;
+        }
+        // "All of them are dead" only means anything once a wave has been called for -
+        // otherwise the phase would end on the very tick it began. The summon counts as
+        // called for even if nothing spawned, so a boss walled into a corner with nowhere
+        // to put its clones still gets out of the phase.
+        boolean minionsDone = invulnerableSummonedOnce && BossMinionUtil.countAlive(level, npc) == 0;
+        if (!phase.invulnerableWaitsForTimer()) {
+            return minionsDone;
+        }
+        return phase.getInvulnerableEndMode() == BossPhaseData.INVULNERABLE_END_TIMER_AND_MINIONS
+                ? timerDone && minionsDone
+                : timerDone || minionsDone;
+    }
+
+    /** Whether the boss is in an immune phase right now. Read by the damage handler and the HUD. */
+    public boolean isInvulnerable() {
+        return active && invulnerableUntil != NOT_SCHEDULED;
+    }
+
+    /** @return ticks left on the immune window, or 0 when the boss is vulnerable */
+    public int invulnerableTicksLeft() {
+        if (!isInvulnerable() || !(npc.level() instanceof ServerLevel level)) {
+            return 0;
+        }
+        return (int) Math.max(0L, invulnerableUntil - level.getGameTime());
+    }
+
+    private void clearInvulnerability() {
+        invulnerableUntil = NOT_SCHEDULED;
+        invulnerableSummonedOnce = false;
+        invulnerablePhaseIndex = -1;
+        forcedPhaseFloor = 0;
     }
 
     /**
@@ -261,6 +360,7 @@ public final class TeleportPathController {
 
         currentPhase = 0;
         highestPhaseReached = 0;
+        clearInvulnerability();
         cancelPendingAndSchedules();
         activePulls.clear();
         busyUntil = 0L;
@@ -585,6 +685,11 @@ public final class TeleportPathController {
     /** Rotates ability priority so short cooldowns cannot permanently starve another attack. */
     private boolean tryStartDueAbility(ServerLevel level, TeleportPathData data,
                                        BossPhaseData phase, long gameTime) {
+        if (isInvulnerable()) {
+            // An immune boss only calls for help. The other attacks keep their timers and
+            // pick up where they left off once it can be hurt again.
+            return tryStartSummon(level, data, phase, gameTime);
+        }
         for (int offset = 0; offset < ABILITY_COUNT; offset++) {
             int ability = (nextAbilityPriority + offset) % ABILITY_COUNT;
             boolean started = switch (ability) {
@@ -872,6 +977,7 @@ public final class TeleportPathController {
     private void executePendingAction(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (pendingAction == PendingAction.SUMMON) {
             summonMinions(level, phase);
+            invulnerableSummonedOnce = true;
         } else if (pendingAction == PendingAction.GROUND_ATTACK) {
             performAreaAttack(level, phase);
         } else if (pendingAction == PendingAction.RANGED_ATTACK) {
@@ -1252,6 +1358,7 @@ public final class TeleportPathController {
         active = false;
         highestPhaseReached = 0;
         currentPhase = -1;
+        clearInvulnerability();
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
         activePulls.clear();
