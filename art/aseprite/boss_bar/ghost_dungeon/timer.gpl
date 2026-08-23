@@ -1,0 +1,15 @@
+GIMP Palette
+Name: ghost_dungeon boss-bar timer
+Columns: 4
+# Exact colors sampled from the parent boss bar.
+  0   0   0	outline
+  3   5  16	track_edge
+ 12  18  30	track_shadow
+ 19  22  34	track_dark
+ 20  23  35	track_mid
+ 39  40  50	stone_dark
+ 53  53  70	stone_low
+ 58  58  75	stone_mid
+105 108 113	stone_light
+138 138 139	stone_high
+200 121 255	rune
