@@ -25,7 +25,8 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
         this.phase = data.getPhase(phaseIndex);
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 256;
+        // Two columns of abilities end at guiTop + 151, so the panel no longer needs 256.
+        imageHeight = 184;
         closeOnEsc = true;
     }
 
@@ -50,22 +51,22 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
             addTextField(field);
         }
 
-        addButton(new GuiButtonNop(this, 10, guiLeft + 8, guiTop + 46, 234, 24,
-                "cnpcgeckoaddon.boss.teleport_settings"));
-        addButton(new GuiButtonNop(this, 11, guiLeft + 8, guiTop + 73, 234, 24,
-                "cnpcgeckoaddon.boss.summon_settings"));
-        addButton(new GuiButtonNop(this, 12, guiLeft + 8, guiTop + 100, 234, 24,
-                "cnpcgeckoaddon.boss.ground_settings"));
-        addButton(new GuiButtonNop(this, 13, guiLeft + 8, guiTop + 127, 234, 24,
-                "cnpcgeckoaddon.boss.ranged_settings"));
-        addButton(new GuiButtonNop(this, 14, guiLeft + 8, guiTop + 154, 234, 24,
-                "cnpcgeckoaddon.boss.melee_settings"));
-        addButton(new GuiButtonNop(this, 15, guiLeft + 8, guiTop + 181, 234, 24,
-                "cnpcgeckoaddon.boss.fluid_settings"));
-        addButton(new GuiButtonNop(this, 16, guiLeft + 8, guiTop + 208, 234, 24,
-                "cnpcgeckoaddon.boss.hook_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 234, 60, 20,
+        // Two columns: a single 234-wide stack ran out of rows at the seventh ability.
+        addAbilityButton(10, 0, 0, "cnpcgeckoaddon.boss.teleport_settings");
+        addAbilityButton(11, 1, 0, "cnpcgeckoaddon.boss.summon_settings");
+        addAbilityButton(12, 0, 1, "cnpcgeckoaddon.boss.ground_settings");
+        addAbilityButton(13, 1, 1, "cnpcgeckoaddon.boss.ranged_settings");
+        addAbilityButton(14, 0, 2, "cnpcgeckoaddon.boss.melee_settings");
+        addAbilityButton(15, 1, 2, "cnpcgeckoaddon.boss.fluid_settings");
+        addAbilityButton(16, 0, 3, "cnpcgeckoaddon.boss.hook_settings");
+        addAbilityButton(17, 1, 3, "cnpcgeckoaddon.boss.invulnerable_settings");
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 158, 60, 20,
                 "gui.done", button -> close()));
+    }
+
+    private void addAbilityButton(int id, int column, int row, String label) {
+        addButton(new GuiButtonNop(this, id, guiLeft + 8 + column * 120, guiTop + 46 + row * 27,
+                114, 24, label));
     }
 
     @Override
@@ -84,6 +85,8 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
             setSubGui(new SubGuiBossFluidSpit(npc, phase, phaseIndex));
         } else if (button.id == 16) {
             setSubGui(new SubGuiBossHook(npc, phase, phaseIndex));
+        } else if (button.id == 17) {
+            setSubGui(new SubGuiBossInvulnerable(phase, phaseIndex));
         }
     }
 
