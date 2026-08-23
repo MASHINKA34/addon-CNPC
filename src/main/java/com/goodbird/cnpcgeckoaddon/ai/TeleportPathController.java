@@ -75,7 +75,9 @@ public final class TeleportPathController {
     /** Entity id -> game time at which the drag ends. */
     private final List<HookPull> activePulls = new ArrayList<>();
 
-    private record HookPull(int targetId, long endsAt, double strength, double stopDistance) {
+    /** A gather point of null means "keep pulling toward the boss wherever it is". */
+    private record HookPull(int targetId, long endsAt, double strength, double stopDistance,
+                            Vec3 gatherPoint) {
     }
     private PendingAction pendingAction = PendingAction.NONE;
     private long pendingActionAt = NOT_SCHEDULED;
@@ -151,6 +153,18 @@ public final class TeleportPathController {
         }
 
         tryStartDueAbility(level, data, phase, gameTime);
+    }
+
+    /**
+     * The phase this boss is fighting in right now, or null when it is not an active boss.
+     * Used by delayed effects - a projectile only lands several ticks after it was fired.
+     */
+    public BossPhaseData activePhase() {
+        if (!active || currentPhase < 0) {
+            return null;
+        }
+        TeleportPathData data = settings();
+        return data.isEnabled() ? data.getPhase(currentPhase) : null;
     }
 
     private TeleportPathData settings() {
@@ -545,15 +559,22 @@ public final class TeleportPathController {
 
         double strength = phase.getHookPullStrength() / 20.0D;
         long endsAt = gameTime + phase.getHookPullDurationTicks();
+        // A cinch reels everyone onto one spot and keeps them there for the full duration,
+        // so the release distance is deliberately ignored - the point is to end up with a
+        // tight pile that the next area attack can catch.
+        boolean cinch = phase.getHookMode() == BossPhaseData.HOOK_MODE_CINCH;
+        Vec3 gatherPoint = cinch ? npc.position() : null;
+        double stopDistance = cinch ? 0.0D : phase.getHookStopDistance();
         for (LivingEntity victim : victims) {
             drawHookChain(level, victim);
             if (phase.getHookDamage() > 0) {
                 victim.hurt(level.damageSources().mobAttack(npc), phase.getHookDamage());
             }
+            phase.getHookEffects().applyAll(victim, npc);
             // Re-hooking someone already being dragged just refreshes their pull.
             activePulls.removeIf(pull -> pull.targetId() == victim.getId());
-            activePulls.add(new HookPull(victim.getId(), endsAt, strength, phase.getHookStopDistance()));
-            applyPull(victim, strength);
+            activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint));
+            applyPull(victim, strength, gatherPoint);
         }
         level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.CHAIN_PLACE,
                 SoundSource.HOSTILE, 2.0F, 0.6F);
@@ -578,20 +599,22 @@ public final class TeleportPathController {
                 iterator.remove();
                 continue;
             }
+            Vec3 destination = pull.gatherPoint() != null ? pull.gatherPoint() : npc.position();
             double stop = pull.stopDistance();
-            if (npc.distanceToSqr(victim) <= stop * stop) {
+            if (stop > 0.0D && victim.position().distanceToSqr(destination) <= stop * stop) {
                 iterator.remove();
                 continue;
             }
-            applyPull(victim, pull.strength());
+            applyPull(victim, pull.strength(), pull.gatherPoint());
             if ((gameTime & 1L) == 0L) {
                 drawHookChain(level, victim);
             }
         }
     }
 
-    private void applyPull(LivingEntity victim, double strength) {
-        Vec3 delta = npc.position().subtract(victim.position());
+    private void applyPull(LivingEntity victim, double strength, Vec3 gatherPoint) {
+        Vec3 destination = gatherPoint != null ? gatherPoint : npc.position();
+        Vec3 delta = destination.subtract(victim.position());
         double distance = delta.length();
         if (distance < 1.0E-4D) {
             return;
@@ -850,6 +873,10 @@ public final class TeleportPathController {
     private void performAreaAttack(ServerLevel level, BossPhaseData phase) {
         for (LivingEntity target : getAreaTargets(level, phase)) {
             boolean damaged = target.hurt(level.damageSources().mobAttack(npc), phase.getAreaAttackDamage());
+            // Applied even when the hit was absorbed by invulnerability frames or armour:
+            // a plague aura that stops working because the victim was briefly immune would
+            // feel broken rather than fair.
+            phase.getAreaAttackEffects().applyAll(target, npc);
             if (damaged && phase.getAreaAttackKnockback() > 0) {
                 target.knockback(phase.getAreaAttackKnockback(),
                         npc.getX() - target.getX(), npc.getZ() - target.getZ());
@@ -1002,6 +1029,7 @@ public final class TeleportPathController {
             npc.swing(InteractionHand.MAIN_HAND);
         }
         boolean damaged = target.hurt(level.damageSources().mobAttack(npc), phase.getMeleeAttackDamage());
+        phase.getMeleeAttackEffects().applyAll(target, npc);
         if (damaged && phase.getMeleeAttackKnockback() > 0) {
             target.knockback(phase.getMeleeAttackKnockback(),
                     npc.getX() - target.getX(), npc.getZ() - target.getZ());

@@ -10,20 +10,22 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-/** Chain hook: yanks victims toward the boss. */
+/** Chain hook: yanks victims toward the boss, or cinches a whole group onto one spot. */
 public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int TARGET_MODE_BUTTON = 3;
-    private static final int TARGET_COUNT_FIELD = 4;
-    private static final int DAMAGE_FIELD = 5;
-    private static final int STRENGTH_FIELD = 6;
-    private static final int DURATION_FIELD = 7;
-    private static final int STOP_FIELD = 8;
-    private static final int MIN_RANGE_FIELD = 9;
-    private static final int MAX_RANGE_FIELD = 10;
-    private static final int ACTION_DELAY_FIELD = 11;
-    private static final int COOLDOWN_FIELD = 12;
+    private static final int HOOK_MODE_BUTTON = 4;
+    private static final int TARGET_COUNT_FIELD = 5;
+    private static final int STOP_FIELD = 6;
+    private static final int DAMAGE_FIELD = 7;
+    private static final int STRENGTH_FIELD = 8;
+    private static final int DURATION_FIELD = 9;
+    private static final int MIN_RANGE_FIELD = 10;
+    private static final int MAX_RANGE_FIELD = 11;
+    private static final int ACTION_DELAY_FIELD = 12;
+    private static final int COOLDOWN_FIELD = 13;
+    private static final int EFFECTS_BUTTON = 67;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -62,16 +64,24 @@ public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener
                 BossTargetMode.LABELS, phase.getHookTargetMode()));
         y += 21;
 
-        addNumberField(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.hook_targets", y,
-                phase.getHookTargetCount(), 1, 8, 1);
+        addLabel(new GuiLabel(HOOK_MODE_BUTTON, "cnpcgeckoaddon.boss.hook_mode", guiLeft + 6, y + 6));
+        addButton(new GuiButtonNop(this, HOOK_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+                BossPhaseData.HOOK_MODE_LABELS, phase.getHookMode()));
+        y += 21;
+
+        addPairRow(TARGET_COUNT_FIELD, STOP_FIELD, "cnpcgeckoaddon.boss.hook_targets_stop", y,
+                phase.getHookTargetCount(), 1, 8, 1,
+                phase.getHookStopDistance(), 0, 32, 2);
         y += 21;
         addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y, phase.getHookDamage(), 0, 1000, 4);
         y += 21;
-        addPullRow(y, phase.getHookPullStrength(), phase.getHookPullDurationTicks());
+        addPairRow(STRENGTH_FIELD, DURATION_FIELD, "cnpcgeckoaddon.boss.hook_pull", y,
+                phase.getHookPullStrength(), 1, 20, 8,
+                phase.getHookPullDurationTicks(), 1, 200, 20);
         y += 21;
-        addNumberField(STOP_FIELD, "cnpcgeckoaddon.boss.hook_stop", y, phase.getHookStopDistance(), 0, 32, 2);
-        y += 21;
-        addRangeRow(y, phase.getHookMinRange(), phase.getHookMaxRange());
+        addPairRow(MIN_RANGE_FIELD, MAX_RANGE_FIELD, "cnpcgeckoaddon.boss.range", y,
+                phase.getHookMinRange(), 0, 64, 4,
+                phase.getHookMaxRange(), 1, 128, 24);
         y += 21;
         addNumberField(ACTION_DELAY_FIELD, "cnpcgeckoaddon.boss.action_delay", y,
                 phase.getHookActionDelayTicks(), 0, 1200, 10);
@@ -79,21 +89,19 @@ public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.getHookCooldownTicks(), 1, 12000, 160);
 
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 232, 120, 20,
+                "cnpcgeckoaddon.boss.effects_settings"));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 232, 60, 20,
                 "gui.done", button -> close()));
     }
 
-    /** Strength and duration share a row so the whole ability still fits one screen. */
-    private void addPullRow(int y, int strength, int duration) {
-        addLabel(new GuiLabel(STRENGTH_FIELD, "cnpcgeckoaddon.boss.hook_pull", guiLeft + 6, y + 6));
-        addPairedField(STRENGTH_FIELD, guiLeft + 130, y, strength, 1, 20, 8);
-        addPairedField(DURATION_FIELD, guiLeft + 190, y, duration, 1, 200, 20);
-    }
-
-    private void addRangeRow(int y, int min, int max) {
-        addLabel(new GuiLabel(MIN_RANGE_FIELD, "cnpcgeckoaddon.boss.range", guiLeft + 6, y + 6));
-        addPairedField(MIN_RANGE_FIELD, guiLeft + 130, y, min, 0, 64, 4);
-        addPairedField(MAX_RANGE_FIELD, guiLeft + 190, y, max, 1, 128, 24);
+    /** Two small numbers on one line, so the whole ability still fits a single screen. */
+    private void addPairRow(int leftId, int rightId, String label, int y,
+                            int leftValue, int leftMin, int leftMax, int leftFallback,
+                            int rightValue, int rightMin, int rightMax, int rightFallback) {
+        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
+        addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
@@ -114,10 +122,15 @@ public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
-        if (button.id == ENABLED_BUTTON) {
+        if (button.id == EFFECTS_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossEffectList(phase.getHookEffects(), "cnpcgeckoaddon.boss.effects_hook"));
+        } else if (button.id == ENABLED_BUTTON) {
             phase.setHookEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {
             phase.setHookTargetMode(button.getValue());
+        } else if (button.id == HOOK_MODE_BUTTON) {
+            phase.setHookMode(button.getValue());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting hook animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
@@ -147,14 +160,14 @@ public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener
         }
         GuiTextFieldNop count = getTextField(TARGET_COUNT_FIELD);
         if (count != null) phase.setHookTargetCount(count.getInteger());
+        GuiTextFieldNop stop = getTextField(STOP_FIELD);
+        if (stop != null) phase.setHookStopDistance(stop.getInteger());
         GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
         if (damage != null) phase.setHookDamage(damage.getInteger());
         GuiTextFieldNop strength = getTextField(STRENGTH_FIELD);
         if (strength != null) phase.setHookPullStrength(strength.getInteger());
         GuiTextFieldNop duration = getTextField(DURATION_FIELD);
         if (duration != null) phase.setHookPullDurationTicks(duration.getInteger());
-        GuiTextFieldNop stop = getTextField(STOP_FIELD);
-        if (stop != null) phase.setHookStopDistance(stop.getInteger());
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
         if (min != null && max != null) phase.setHookRange(min.getInteger(), max.getInteger());

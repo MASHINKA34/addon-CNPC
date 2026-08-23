@@ -5,6 +5,16 @@ import net.minecraft.util.Mth;
 
 /** Ability and animation settings for one health phase of a stationary boss. */
 public final class BossPhaseData {
+    /** Each victim is dragged toward the boss. */
+    public static final int HOOK_MODE_PULL = 0;
+    /** Every victim is reeled in to one common point and held there for the whole pull. */
+    public static final int HOOK_MODE_CINCH = 1;
+
+    public static final String[] HOOK_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.hook_mode_pull",
+            "cnpcgeckoaddon.boss.hook_mode_cinch"
+    };
+
     /** Health percentage at which this phase takes over. Phase 1 is pinned to 100. */
     private int startHealthPercent = 100;
 
@@ -76,6 +86,13 @@ public final class BossPhaseData {
     private int hookStopDistance = 2;
     private int hookMinRange = 4;
     private int hookMaxRange = 24;
+    private int hookMode = HOOK_MODE_PULL;
+
+    private final BossEffectSet areaAttackEffects = new BossEffectSet();
+    private final BossEffectSet rangedAttackEffects = new BossEffectSet();
+    private final BossEffectSet meleeAttackEffects = new BossEffectSet();
+    private final BossEffectSet fluidSpitEffects = new BossEffectSet();
+    private final BossEffectSet hookEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -141,6 +158,12 @@ public final class BossPhaseData {
         tag.putInt("HookStopDistance", hookStopDistance);
         tag.putInt("HookMinRange", hookMinRange);
         tag.putInt("HookMaxRange", hookMaxRange);
+        tag.putInt("HookMode", hookMode);
+        tag.put("AreaAttackEffects", areaAttackEffects.writeToNBT());
+        tag.put("RangedAttackEffects", rangedAttackEffects.writeToNBT());
+        tag.put("MeleeAttackEffects", meleeAttackEffects.writeToNBT());
+        tag.put("FluidSpitEffects", fluidSpitEffects.writeToNBT());
+        tag.put("HookEffects", hookEffects.writeToNBT());
         return tag;
     }
 
@@ -217,6 +240,13 @@ public final class BossPhaseData {
         setHookRange(
                 value(tag, "HookMinRange", 4, 0, 64),
                 value(tag, "HookMaxRange", 24, 1, 128));
+        hookMode = value(tag, "HookMode", HOOK_MODE_PULL, HOOK_MODE_PULL, HOOK_MODE_CINCH);
+
+        areaAttackEffects.readFromNBT(tag, "AreaAttackEffects");
+        rangedAttackEffects.readFromNBT(tag, "RangedAttackEffects");
+        meleeAttackEffects.readFromNBT(tag, "MeleeAttackEffects");
+        fluidSpitEffects.readFromNBT(tag, "FluidSpitEffects");
+        hookEffects.readFromNBT(tag, "HookEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -397,6 +427,15 @@ public final class BossPhaseData {
         hookMinRange = Math.min(min, max);
         hookMaxRange = Math.max(min, max);
     }
+
+    public int getHookMode() { return hookMode; }
+    public void setHookMode(int value) { hookMode = Mth.clamp(value, HOOK_MODE_PULL, HOOK_MODE_CINCH); }
+
+    public BossEffectSet getAreaAttackEffects() { return areaAttackEffects; }
+    public BossEffectSet getRangedAttackEffects() { return rangedAttackEffects; }
+    public BossEffectSet getMeleeAttackEffects() { return meleeAttackEffects; }
+    public BossEffectSet getFluidSpitEffects() { return fluidSpitEffects; }
+    public BossEffectSet getHookEffects() { return hookEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();

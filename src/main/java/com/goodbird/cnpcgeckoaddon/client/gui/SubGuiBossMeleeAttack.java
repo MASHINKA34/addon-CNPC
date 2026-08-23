@@ -67,6 +67,8 @@ public final class SubGuiBossMeleeAttack extends GuiBasic implements ITextfieldL
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.getMeleeAttackCooldownTicks(), 1, 12000, 30);
 
+        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 230, 120, 20,
+                "cnpcgeckoaddon.boss.effects_settings"));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
                 "gui.done", button -> close()));
     }
@@ -89,6 +91,11 @@ public final class SubGuiBossMeleeAttack extends GuiBasic implements ITextfieldL
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 67) {
+            applyFields();
+            setSubGui(new SubGuiBossEffectList(phase.getMeleeAttackEffects(), "cnpcgeckoaddon.boss.effects_melee"));
+            return;
+        }
         if (button.id == TARGET_MODE_BUTTON) {
             phase.setMeleeAttackTargetMode(button.getValue());
         } else if (button.id == ENABLED_BUTTON) {

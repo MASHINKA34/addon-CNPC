@@ -69,6 +69,8 @@ public final class SubGuiBossRangedAttack extends GuiBasic implements ITextfield
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.projectile_hint",
                 guiLeft + 8, guiTop + 212, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 230, 120, 20,
+                "cnpcgeckoaddon.boss.effects_settings"));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
                 "gui.done", button -> close()));
     }
@@ -91,6 +93,11 @@ public final class SubGuiBossRangedAttack extends GuiBasic implements ITextfield
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 67) {
+            applyFields();
+            setSubGui(new SubGuiBossEffectList(phase.getRangedAttackEffects(), "cnpcgeckoaddon.boss.effects_ranged"));
+            return;
+        }
         if (button.id == TARGET_MODE_BUTTON) {
             phase.setRangedAttackTargetMode(button.getValue());
         } else if (button.id == ENABLED_BUTTON) {

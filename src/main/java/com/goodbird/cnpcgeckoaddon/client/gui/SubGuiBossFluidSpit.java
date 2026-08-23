@@ -78,6 +78,8 @@ public final class SubGuiBossFluidSpit extends GuiBasic implements ITextfieldLis
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.getFluidSpitCooldownTicks(), 1, 12000, 120);
 
+        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 232, 120, 20,
+                "cnpcgeckoaddon.boss.effects_settings"));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 232, 60, 20,
                 "gui.done", button -> close()));
     }
@@ -113,6 +115,11 @@ public final class SubGuiBossFluidSpit extends GuiBasic implements ITextfieldLis
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 67) {
+            applyFields();
+            setSubGui(new SubGuiBossEffectList(phase.getFluidSpitEffects(), "cnpcgeckoaddon.boss.effects_fluid"));
+            return;
+        }
         if (button.id == TARGET_MODE_BUTTON) {
             phase.setFluidSpitTargetMode(button.getValue());
         } else if (button.id == ENABLED_BUTTON) {

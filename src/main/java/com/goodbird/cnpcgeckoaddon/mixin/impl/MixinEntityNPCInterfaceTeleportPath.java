@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
+import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.level.Level;
@@ -12,13 +13,19 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityNPCInterface.class)
-public abstract class MixinEntityNPCInterfaceTeleportPath extends PathfinderMob {
+public abstract class MixinEntityNPCInterfaceTeleportPath extends PathfinderMob implements IBossController {
 
     @Unique
     private TeleportPathController cnpcgeckoaddon$teleportPathController;
 
     protected MixinEntityNPCInterfaceTeleportPath(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
+    }
+
+    @Override
+    @Unique
+    public TeleportPathController cnpcgeckoaddon$getTeleportPathController() {
+        return cnpcgeckoaddon$teleportPathController;
     }
 
     @Inject(method = "tick", at = @At("TAIL"), remap = false)

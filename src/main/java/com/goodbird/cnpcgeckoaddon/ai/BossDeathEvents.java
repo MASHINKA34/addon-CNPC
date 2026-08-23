@@ -1,12 +1,20 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
+import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.phys.EntityHitResult;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
@@ -40,6 +48,37 @@ public class BossDeathEvents {
         if (data.isExplosionEnabled()) {
             BossExplosionScheduler.schedule(level, npc, data);
         }
+    }
+
+    /**
+     * Hangs the configured potion effects on whoever a boss projectile hits.
+     *
+     * <p>Ranged attacks and fluid spits land several ticks after they are fired, so the
+     * effect cannot be applied when the ability executes - by then the victim may well have
+     * dodged. Reading the boss' current phase at impact keeps the effect tied to the attack
+     * that actually connected.</p>
+     */
+    @SubscribeEvent
+    public static void onProjectileImpact(final ProjectileImpactEvent event) {
+        if (!(event.getRayTraceResult() instanceof EntityHitResult hit)
+                || !(hit.getEntity() instanceof LivingEntity victim)) {
+            return;
+        }
+        Projectile projectile = event.getProjectile();
+        if (projectile.level().isClientSide
+                || !(projectile.getOwner() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        BossPhaseData phase = controller == null ? null : controller.activePhase();
+        if (phase == null) {
+            return;
+        }
+        BossEffectSet effects = projectile instanceof EntityFluidSpit
+                ? phase.getFluidSpitEffects()
+                : phase.getRangedAttackEffects();
+        effects.applyAll(victim, npc);
     }
 
     @SubscribeEvent

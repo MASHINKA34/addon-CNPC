@@ -62,6 +62,8 @@ public final class SubGuiBossAreaAttack extends GuiBasic implements ITextfieldLi
                 phase.getAreaAttackCooldownTicks(), 1, 12000, 100);
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 216, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 230, 120, 20,
+                "cnpcgeckoaddon.boss.effects_settings"));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
                 "gui.done", button -> close()));
     }
@@ -77,6 +79,11 @@ public final class SubGuiBossAreaAttack extends GuiBasic implements ITextfieldLi
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 67) {
+            applyFields();
+            setSubGui(new SubGuiBossEffectList(phase.getAreaAttackEffects(), "cnpcgeckoaddon.boss.effects_area"));
+            return;
+        }
         if (button.id == ENABLED_BUTTON) {
             phase.setAreaAttackEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
