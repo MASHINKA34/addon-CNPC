@@ -1,0 +1,15 @@
+GIMP Palette
+Name: sculk boss-bar timer
+Columns: 4
+# Exact colors sampled from the parent boss bar.
+  2   5   9	outline
+  4   9  15	empty
+  5  15  23	empty_blue
+  7  22  32	vein
+  3  29  40	sculk_dark
+ 10  29  41	slate_dark
+ 22  49  61	slate
+ 34  62  73	slate_light
+ 67  91  99	slate_high
+  4  91 111	turquoise
+ 10 187 194	cyan
