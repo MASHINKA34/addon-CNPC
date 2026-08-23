@@ -103,6 +103,7 @@ public final class BossPhaseData {
     private int hookMinRange = 4;
     private int hookMaxRange = 24;
     private int hookMode = HOOK_MODE_PULL;
+    private String hookCordStyle = HookCordStyles.PARTICLES;
 
     private boolean invulnerableEnabled;
     private int invulnerableEndMode = INVULNERABLE_END_TIMER_OR_MINIONS;
@@ -181,6 +182,7 @@ public final class BossPhaseData {
         tag.putInt("HookMinRange", hookMinRange);
         tag.putInt("HookMaxRange", hookMaxRange);
         tag.putInt("HookMode", hookMode);
+        tag.putString("HookCordStyle", hookCordStyle);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
         tag.putInt("InvulnerableDurationTicks", invulnerableDurationTicks);
@@ -268,6 +270,8 @@ public final class BossPhaseData {
                 value(tag, "HookMinRange", 4, 0, 64),
                 value(tag, "HookMaxRange", 24, 1, 128));
         hookMode = value(tag, "HookMode", HOOK_MODE_PULL, HOOK_MODE_PULL, HOOK_MODE_CINCH);
+        // An absent key reads as an empty string, which normalizes back to the plain sparks.
+        hookCordStyle = HookCordStyles.normalize(tag.getString("HookCordStyle"));
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
         invulnerableEndMode = value(tag, "InvulnerableEndMode", INVULNERABLE_END_TIMER_OR_MINIONS,
@@ -465,6 +469,8 @@ public final class BossPhaseData {
 
     public int getHookMode() { return hookMode; }
     public void setHookMode(int value) { hookMode = Mth.clamp(value, HOOK_MODE_PULL, HOOK_MODE_CINCH); }
+    public String getHookCordStyle() { return hookCordStyle; }
+    public void setHookCordStyle(String value) { hookCordStyle = HookCordStyles.normalize(value); }
 
     /** While this phase runs the boss takes no damage and only its summon ability fires. */
     public boolean isInvulnerableEnabled() { return invulnerableEnabled; }
