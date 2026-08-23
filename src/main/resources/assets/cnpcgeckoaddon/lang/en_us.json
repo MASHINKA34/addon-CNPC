@@ -141,5 +141,17 @@
   "cnpcgeckoaddon.boss.hook_mode": "Hook type",
   "cnpcgeckoaddon.boss.hook_mode_pull": "Pull to boss",
   "cnpcgeckoaddon.boss.hook_mode_cinch": "Cinch into a pile",
-  "cnpcgeckoaddon.boss.hook_targets_stop": "Victims / release at"
+  "cnpcgeckoaddon.boss.hook_targets_stop": "Victims / release at",
+  "cnpcgeckoaddon.boss.invulnerable_settings": "Immune phase...",
+  "cnpcgeckoaddon.boss.invulnerable_phase": "Immunity - phase",
+  "cnpcgeckoaddon.boss.invulnerable_enabled": "Boss takes no damage",
+  "cnpcgeckoaddon.boss.invulnerable_end_mode": "Ends when",
+  "cnpcgeckoaddon.boss.invulnerable_end_timer": "Timer runs out",
+  "cnpcgeckoaddon.boss.invulnerable_end_minions": "All minions are dead",
+  "cnpcgeckoaddon.boss.invulnerable_end_either": "Timer or minions",
+  "cnpcgeckoaddon.boss.invulnerable_end_both": "Timer and minions",
+  "cnpcgeckoaddon.boss.invulnerable_duration": "Duration (ticks)",
+  "cnpcgeckoaddon.boss.invulnerable_teleport": "Allow teleports",
+  "cnpcgeckoaddon.boss.invulnerable_summon_now": "Summon immediately",
+  "cnpcgeckoaddon.boss.invulnerable_hint": "Only summons run, then the next phase starts."
 }

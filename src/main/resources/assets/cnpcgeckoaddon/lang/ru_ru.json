@@ -141,5 +141,17 @@
   "cnpcgeckoaddon.boss.hook_mode": "Тип хука",
   "cnpcgeckoaddon.boss.hook_mode_pull": "Рывок к боссу",
   "cnpcgeckoaddon.boss.hook_mode_cinch": "Стяжка в кучу",
-  "cnpcgeckoaddon.boss.hook_targets_stop": "Целей / отпускать на"
+  "cnpcgeckoaddon.boss.hook_targets_stop": "Целей / отпускать на",
+  "cnpcgeckoaddon.boss.invulnerable_settings": "Неуязвимость...",
+  "cnpcgeckoaddon.boss.invulnerable_phase": "Неуязвимость - фаза",
+  "cnpcgeckoaddon.boss.invulnerable_enabled": "Босс не получает урона",
+  "cnpcgeckoaddon.boss.invulnerable_end_mode": "Заканчивается",
+  "cnpcgeckoaddon.boss.invulnerable_end_timer": "По таймеру",
+  "cnpcgeckoaddon.boss.invulnerable_end_minions": "Все приспешники мертвы",
+  "cnpcgeckoaddon.boss.invulnerable_end_either": "Таймер или приспешники",
+  "cnpcgeckoaddon.boss.invulnerable_end_both": "Таймер и приспешники",
+  "cnpcgeckoaddon.boss.invulnerable_duration": "Длительность (тики)",
+  "cnpcgeckoaddon.boss.invulnerable_teleport": "Разрешить телепорты",
+  "cnpcgeckoaddon.boss.invulnerable_summon_now": "Призвать сразу",
+  "cnpcgeckoaddon.boss.invulnerable_hint": "Работает только призыв, потом следующая фаза."
 }
