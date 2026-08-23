@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
+import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -25,7 +26,12 @@ public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener
     private static final int MAX_RANGE_FIELD = 11;
     private static final int ACTION_DELAY_FIELD = 12;
     private static final int COOLDOWN_FIELD = 13;
+    private static final int CORD_STYLE_BUTTON = 14;
     private static final int EFFECTS_BUTTON = 67;
+
+    private static final String[] CORD_STYLE_LABELS = HookCordStyles.values().stream()
+            .map(HookCordStyles.Style::translationKey)
+            .toArray(String[]::new);
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -69,6 +75,11 @@ public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener
                 BossPhaseData.HOOK_MODE_LABELS, phase.getHookMode()));
         y += 21;
 
+        addLabel(new GuiLabel(CORD_STYLE_BUTTON, "cnpcgeckoaddon.boss.hook_cord", guiLeft + 6, y + 6));
+        addButton(new GuiButtonNop(this, CORD_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+                CORD_STYLE_LABELS, cordStyleIndex()));
+        y += 21;
+
         addPairRow(TARGET_COUNT_FIELD, STOP_FIELD, "cnpcgeckoaddon.boss.hook_targets_stop", y,
                 phase.getHookTargetCount(), 1, 8, 1,
                 phase.getHookStopDistance(), 0, 32, 2);
@@ -83,16 +94,26 @@ public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener
                 phase.getHookMinRange(), 0, 64, 4,
                 phase.getHookMaxRange(), 1, 128, 24);
         y += 21;
-        addNumberField(ACTION_DELAY_FIELD, "cnpcgeckoaddon.boss.action_delay", y,
-                phase.getHookActionDelayTicks(), 0, 1200, 10);
-        y += 21;
-        addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
+        // The two tick counts share a line so the cord style gets one of its own and the
+        // screen still ends above the buttons.
+        addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.hook_timing", y,
+                phase.getHookActionDelayTicks(), 0, 1200, 10,
                 phase.getHookCooldownTicks(), 1, 12000, 160);
 
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 232, 60, 20,
                 "gui.done", button -> close()));
+    }
+
+    private int cordStyleIndex() {
+        String id = phase.getHookCordStyle();
+        for (int i = 0; i < HookCordStyles.values().size(); i++) {
+            if (HookCordStyles.values().get(i).id().equals(id)) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     /** Two small numbers on one line, so the whole ability still fits a single screen. */
@@ -131,6 +152,8 @@ public final class SubGuiBossHook extends GuiBasic implements ITextfieldListener
             phase.setHookTargetMode(button.getValue());
         } else if (button.id == HOOK_MODE_BUTTON) {
             phase.setHookMode(button.getValue());
+        } else if (button.id == CORD_STYLE_BUTTON) {
+            phase.setHookCordStyle(HookCordStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting hook animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
