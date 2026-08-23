@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -11,8 +12,11 @@ import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossBarStyle;
+import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossTimer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,6 +27,10 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.level.block.state.BlockState;
@@ -59,6 +67,13 @@ public final class TeleportPathController {
     private static final int ABILITY_COUNT = 6;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
+    /** The client counts down on its own, so the server only has to correct it now and then. */
+    private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
+    private static final ResourceLocation RAGE_MODIFIER_ID =
+            ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_rage");
+    /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
+    private static final List<Holder<Attribute>> RAGE_ATTRIBUTES =
+            List.of(Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE);
     private static final Set<TeleportPathController> INSTANCES =
             Collections.newSetFromMap(new WeakHashMap<>());
 
@@ -83,6 +98,12 @@ public final class TeleportPathController {
     private long nextBlockFeedbackAt;
     private long outOfCombatSince = NOT_SCHEDULED;
     private boolean encounterResetDone;
+    /** Game time the fight started at, or NOT_SCHEDULED while no encounter is running. */
+    private long encounterStartedAt = NOT_SCHEDULED;
+    /** Once set, stays set until the encounter ends - a phase change does not calm the boss. */
+    private boolean rageActive;
+    private byte lastTimerState = PacketSyncBossTimer.STATE_NONE;
+    private long nextTimerSyncAt;
     private double lockedX;
     private double lockedZ;
     /** Where the boss stood when it activated - the spot a reset sends it back to. */
@@ -154,7 +175,9 @@ public final class TeleportPathController {
         // and above the busy/no-target early returns so a locked boss cannot stay immune.
         tickInvulnerability(level, gameTime, data);
         updatePhase(level, gameTime, data);
+        tickRage(level, gameTime, data);
         updateBossBar(level, data);
+        syncBossTimer(gameTime, data);
         BossPhaseData phase = data.getPhase(currentPhase);
 
         if (data.isCombatOnly() && !hasCombatTarget()) {
@@ -387,6 +410,7 @@ public final class TeleportPathController {
         currentPhase = 0;
         highestPhaseReached = 0;
         clearInvulnerability();
+        clearRage();
         cancelPendingAndSchedules();
         activePulls.clear();
         busyUntil = 0L;
@@ -409,6 +433,201 @@ public final class TeleportPathController {
             lockedX = homeX;
             lockedZ = homeZ;
         }
+    }
+
+    /**
+     * Runs the enrage countdown and sets the boss off once it expires.
+     *
+     * <p>The clock freezes instead of resetting whenever the boss is left without a combat
+     * target: a lap around the nearest corner is not supposed to buy a fresh timer. Pushing
+     * the start forward is what freezes it, and keeps the deadline exactly
+     * {@code encounterStartedAt + delay}. Only {@link #endEncounter} clears the whole thing,
+     * at the same moment the phase rolls back.</p>
+     */
+    private void tickRage(ServerLevel level, long gameTime, TeleportPathData data) {
+        if (!data.isRageEnabled()) {
+            // Switching the timer off mid-fight has to take the bonus away with it,
+            // otherwise the boss stays enraged until somebody kills it.
+            clearRage();
+            return;
+        }
+        if (encounterStartedAt == NOT_SCHEDULED) {
+            if (!hasCombatTarget()) {
+                return;
+            }
+            encounterStartedAt = gameTime;
+        }
+        if (rageActive) {
+            return;
+        }
+        if (!hasCombatTarget()) {
+            encounterStartedAt++;
+            return;
+        }
+        if (gameTime < encounterStartedAt + data.getRageDelayTicks()) {
+            return;
+        }
+        beginRage(level, gameTime, data);
+    }
+
+    private void beginRage(ServerLevel level, long gameTime, TeleportPathData data) {
+        rageActive = true;
+        applyRageAttributes(rageMultiplier());
+        playAnimation(data.getRageAnimation());
+        busyUntil = Math.max(busyUntil, gameTime + data.getRageLockTicks());
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ENDER_DRAGON_GROWL,
+                SoundSource.HOSTILE, 2.0F, 0.7F);
+        level.sendParticles(ParticleTypes.ANGRY_VILLAGER, npc.getX(), npc.getY(0.9D), npc.getZ(), 40,
+                npc.getBbWidth() * 0.8D, npc.getBbHeight() * 0.5D, npc.getBbWidth() * 0.8D, 0.1D);
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, npc.getX(), npc.getY(0.4D), npc.getZ(), 30,
+                npc.getBbWidth() * 0.7D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.7D, 0.02D);
+    }
+
+    /** Whether the boss is enraged right now. Read by the HUD and by the stat scaling below. */
+    public boolean isRageActive() {
+        return active && rageActive;
+    }
+
+    /** @return ticks left before the boss enrages, or 0 when it already has or never will */
+    public int rageTicksLeft() {
+        TeleportPathData data = settings();
+        if (rageActive || !data.isRageEnabled() || encounterStartedAt == NOT_SCHEDULED
+                || !(npc.level() instanceof ServerLevel level)) {
+            return 0;
+        }
+        return (int) Math.max(0L, encounterStartedAt + data.getRageDelayTicks() - level.getGameTime());
+    }
+
+    /** @return the full length of the countdown, for the HUD to draw a fill fraction against */
+    public int rageTotalTicks() {
+        TeleportPathData data = settings();
+        return data.isRageEnabled() ? data.getRageDelayTicks() : 0;
+    }
+
+    private double rageMultiplier() {
+        return settings().getRageMultiplierPercent() / 100.0D;
+    }
+
+    /**
+     * Scales a stat that grows with the rage: damage, knockback, pull strength.
+     *
+     * <p>Applied everywhere the setting is read rather than written back into the phase,
+     * because a phase is persisted NBT - multiplying it in place would save the doubled
+     * value and let every fight stack another factor on top of the last one.</p>
+     *
+     * <p>A zero passes through untouched: zero knockback and zero hook damage mean "none at
+     * all", and the rage is not supposed to invent an effect the boss never had.</p>
+     */
+    private int rageUp(int value) {
+        if (!rageActive || value <= 0) {
+            return value;
+        }
+        return Math.max(1, (int) Math.round(value * rageMultiplier()));
+    }
+
+    /** The other half of {@link #rageUp}, for cooldowns - the boss acts more often, not less. */
+    private int rageDown(int value) {
+        if (!rageActive || value <= 0) {
+            return value;
+        }
+        return Math.max(1, (int) Math.round(value / rageMultiplier()));
+    }
+
+    /**
+     * Hangs the rage bonus on the entity itself.
+     *
+     * <p>Transient on purpose: a permanent modifier is written into the entity NBT, and the
+     * boss would come back from a world reload still doubled, forever.</p>
+     */
+    private void applyRageAttributes(double multiplier) {
+        // ADD_MULTIPLIED_TOTAL is the 1.21 name of the old MULTIPLY_TOTAL - it scales the
+        // finished value by 1 + amount, so a 200% setting has to be handed 1.0.
+        AttributeModifier modifier = new AttributeModifier(RAGE_MODIFIER_ID, multiplier - 1.0D,
+                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+        for (Holder<Attribute> attribute : RAGE_ATTRIBUTES) {
+            AttributeInstance instance = npc.getAttribute(attribute);
+            if (instance == null) {
+                continue;
+            }
+            instance.removeModifier(RAGE_MODIFIER_ID);
+            instance.addTransientModifier(modifier);
+        }
+    }
+
+    /**
+     * Calms the boss down and takes the attribute bonus off again.
+     *
+     * <p>Idempotent, so every path that ends a fight - a reset, a death, the level being
+     * unloaded - can call it without checking first.</p>
+     */
+    public void clearRage() {
+        if (!rageActive && encounterStartedAt == NOT_SCHEDULED) {
+            return;
+        }
+        rageActive = false;
+        encounterStartedAt = NOT_SCHEDULED;
+        for (Holder<Attribute> attribute : RAGE_ATTRIBUTES) {
+            AttributeInstance instance = npc.getAttribute(attribute);
+            if (instance != null) {
+                // Removing a modifier that is not there is a no-op, not an error.
+                instance.removeModifier(RAGE_MODIFIER_ID);
+            }
+        }
+    }
+
+    /**
+     * Keeps the countdown on everyone watching the boss bar in step with the server.
+     *
+     * <p>A state change goes out at once; a running countdown only needs the occasional
+     * correction, because the client subtracts the ticks itself in between. The two states
+     * with nothing left to count are sent once and then left alone.</p>
+     */
+    private void syncBossTimer(long gameTime, TeleportPathData data) {
+        if (bossEvent.getPlayers().isEmpty()) {
+            return;
+        }
+        byte state = timerState(data);
+        boolean counting = state == PacketSyncBossTimer.STATE_COUNTDOWN
+                || state == PacketSyncBossTimer.STATE_INVULNERABLE;
+        if (state == lastTimerState && (!counting || gameTime < nextTimerSyncAt)) {
+            return;
+        }
+        lastTimerState = state;
+        nextTimerSyncAt = gameTime + TIMER_SYNC_INTERVAL_TICKS;
+        PacketSyncBossTimer packet = buildTimerPacket(data);
+        for (ServerPlayer player : bossEvent.getPlayers()) {
+            NetworkWrapper.send(player, packet);
+        }
+    }
+
+    private byte timerState(TeleportPathData data) {
+        if (isInvulnerable()) {
+            return PacketSyncBossTimer.STATE_INVULNERABLE;
+        }
+        if (rageActive) {
+            return PacketSyncBossTimer.STATE_RAGE;
+        }
+        if (!data.isRageEnabled() || encounterStartedAt == NOT_SCHEDULED) {
+            return PacketSyncBossTimer.STATE_NONE;
+        }
+        return PacketSyncBossTimer.STATE_COUNTDOWN;
+    }
+
+    /** The immune window borrows the same countdown, so the HUD only has one thing to draw. */
+    private PacketSyncBossTimer buildTimerPacket(TeleportPathData data) {
+        byte state = timerState(data);
+        int remaining = 0;
+        int total = 0;
+        if (state == PacketSyncBossTimer.STATE_INVULNERABLE) {
+            remaining = invulnerableTicksLeft();
+            total = data.getPhase(invulnerablePhaseIndex).getInvulnerableDurationTicks();
+        } else if (state == PacketSyncBossTimer.STATE_COUNTDOWN) {
+            remaining = rageTicksLeft();
+            total = data.getRageDelayTicks();
+        } else if (state == PacketSyncBossTimer.STATE_RAGE) {
+            total = data.getRageDelayTicks();
+        }
+        return new PacketSyncBossTimer(bossEvent.getId(), remaining, total, state);
     }
 
     private int healthPercent() {
@@ -544,6 +763,9 @@ public final class TeleportPathController {
         for (ServerPlayer player : eligible) {
             if (!bossEvent.getPlayers().contains(player)) {
                 NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style));
+                // Whoever just joined the bar has no countdown yet, and the throttled sync
+                // below would leave them staring at an empty timer for up to five ticks.
+                NetworkWrapper.send(player, buildTimerPacket(data));
                 bossEvent.addPlayer(player);
             }
         }
@@ -573,6 +795,10 @@ public final class TeleportPathController {
 
     public void shutdown() {
         stopBossBar();
+        // The level is going away with the boss still enraged: the modifier is transient and
+        // never reaches the save file, but the entity object outlives an unload, so it is
+        // taken off here rather than left for a tick that may never come.
+        clearRage();
         INSTANCES.remove(this);
     }
 
@@ -596,6 +822,8 @@ public final class TeleportPathController {
     }
 
     private void hideBossBar() {
+        lastTimerState = PacketSyncBossTimer.STATE_NONE;
+        nextTimerSyncAt = 0L;
         for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
             bossEvent.removePlayer(player);
             NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
@@ -660,41 +888,41 @@ public final class TeleportPathController {
     private void scheduleMissingAbilities(long gameTime, BossPhaseData phase, boolean hasPath) {
         if (hasPath && nextTeleportAt == NOT_SCHEDULED) scheduleNextTeleport(gameTime, phase);
         if (phase.canSummon()) {
-            if (nextSummonAt == NOT_SCHEDULED) nextSummonAt = gameTime + phase.getSummonCooldownTicks();
+            if (nextSummonAt == NOT_SCHEDULED) nextSummonAt = gameTime + rageDown(phase.getSummonCooldownTicks());
         } else {
             nextSummonAt = NOT_SCHEDULED;
         }
         if (phase.isAreaAttackEnabled()) {
             if (nextGroundAttackAt == NOT_SCHEDULED) {
-                nextGroundAttackAt = gameTime + phase.getAreaAttackCooldownTicks();
+                nextGroundAttackAt = gameTime + rageDown(phase.getAreaAttackCooldownTicks());
             }
         } else {
             nextGroundAttackAt = NOT_SCHEDULED;
         }
         if (phase.isRangedAttackEnabled()) {
             if (nextRangedAttackAt == NOT_SCHEDULED) {
-                nextRangedAttackAt = gameTime + phase.getRangedAttackCooldownTicks();
+                nextRangedAttackAt = gameTime + rageDown(phase.getRangedAttackCooldownTicks());
             }
         } else {
             nextRangedAttackAt = NOT_SCHEDULED;
         }
         if (phase.isMeleeAttackEnabled()) {
             if (nextMeleeAttackAt == NOT_SCHEDULED) {
-                nextMeleeAttackAt = gameTime + phase.getMeleeAttackCooldownTicks();
+                nextMeleeAttackAt = gameTime + rageDown(phase.getMeleeAttackCooldownTicks());
             }
         } else {
             nextMeleeAttackAt = NOT_SCHEDULED;
         }
         if (phase.canSpitFluid()) {
             if (nextFluidSpitAt == NOT_SCHEDULED) {
-                nextFluidSpitAt = gameTime + phase.getFluidSpitCooldownTicks();
+                nextFluidSpitAt = gameTime + rageDown(phase.getFluidSpitCooldownTicks());
             }
         } else {
             nextFluidSpitAt = NOT_SCHEDULED;
         }
         if (phase.isHookEnabled()) {
             if (nextHookAt == NOT_SCHEDULED) {
-                nextHookAt = gameTime + phase.getHookCooldownTicks();
+                nextHookAt = gameTime + rageDown(phase.getHookCooldownTicks());
             }
         } else {
             nextHookAt = NOT_SCHEDULED;
@@ -702,8 +930,8 @@ public final class TeleportPathController {
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
-        int min = phase.getTeleportMinDelayTicks();
-        int spread = phase.getTeleportMaxDelayTicks() - min;
+        int min = rageDown(phase.getTeleportMinDelayTicks());
+        int spread = Math.max(0, rageDown(phase.getTeleportMaxDelayTicks()) - min);
         int delay = min + (spread == 0 ? 0 : npc.getRandom().nextInt(spread + 1));
         nextTeleportAt = gameTime + delay;
     }
@@ -743,8 +971,10 @@ public final class TeleportPathController {
         }
         beginAction(PendingAction.GROUND_ATTACK, phase.getAreaAttackAnimation(),
                 phase.getAreaAttackActionDelayTicks(), gameTime, null, data, phase);
+        // Only the cooldown is scaled: the action delay is measured against the attack
+        // animation, and shortening it would land the hit before the swing does.
         nextGroundAttackAt = gameTime + phase.getAreaAttackActionDelayTicks()
-                + phase.getAreaAttackCooldownTicks();
+                + rageDown(phase.getAreaAttackCooldownTicks());
         return true;
     }
 
@@ -760,7 +990,7 @@ public final class TeleportPathController {
         beginAction(PendingAction.RANGED_ATTACK, phase.getRangedAttackAnimation(),
                 phase.getRangedAttackActionDelayTicks(), gameTime, target, data, phase);
         nextRangedAttackAt = gameTime + phase.getRangedAttackActionDelayTicks()
-                + phase.getRangedAttackCooldownTicks();
+                + rageDown(phase.getRangedAttackCooldownTicks());
         return true;
     }
 
@@ -776,7 +1006,7 @@ public final class TeleportPathController {
         beginAction(PendingAction.MELEE_ATTACK, phase.getMeleeAttackAnimation(),
                 phase.getMeleeAttackActionDelayTicks(), gameTime, target, data, phase);
         nextMeleeAttackAt = gameTime + phase.getMeleeAttackActionDelayTicks()
-                + phase.getMeleeAttackCooldownTicks();
+                + rageDown(phase.getMeleeAttackCooldownTicks());
         return true;
     }
 
@@ -792,7 +1022,7 @@ public final class TeleportPathController {
         beginAction(PendingAction.FLUID_SPIT, phase.getFluidSpitAnimation(),
                 phase.getFluidSpitActionDelayTicks(), gameTime, target, data, phase);
         nextFluidSpitAt = gameTime + phase.getFluidSpitActionDelayTicks()
-                + phase.getFluidSpitCooldownTicks();
+                + rageDown(phase.getFluidSpitCooldownTicks());
         return true;
     }
 
@@ -821,7 +1051,7 @@ public final class TeleportPathController {
         npc.getLookControl().setLookAt(target, 30.0F, 30.0F);
         EntityFluidSpit spit = new EntityFluidSpit(EntityRegistry.entityFluidSpit, npc, level);
         spit.configure(fluid, phase.getFluidSpitLifetimeTicks(), phase.getFluidSpitRadius(),
-                phase.getFluidSpitDamage());
+                rageUp(phase.getFluidSpitDamage()));
         spit.setPos(npc.getX(), npc.getEyeY() - 0.1D, npc.getZ());
 
         // Aim at the feet with a slight arc so the puddle lands on the ground the target
@@ -854,7 +1084,7 @@ public final class TeleportPathController {
         }
         beginAction(PendingAction.HOOK, phase.getHookAnimation(),
                 phase.getHookActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        nextHookAt = gameTime + phase.getHookActionDelayTicks() + phase.getHookCooldownTicks();
+        nextHookAt = gameTime + phase.getHookActionDelayTicks() + rageDown(phase.getHookCooldownTicks());
         return true;
     }
 
@@ -884,7 +1114,7 @@ public final class TeleportPathController {
             return;
         }
 
-        double strength = phase.getHookPullStrength() / 20.0D;
+        double strength = rageUp(phase.getHookPullStrength()) / 20.0D;
         long endsAt = gameTime + phase.getHookPullDurationTicks();
         // A cinch reels everyone onto one spot and keeps them there for the full duration,
         // so the release distance is deliberately ignored - the point is to end up with a
@@ -895,7 +1125,7 @@ public final class TeleportPathController {
         for (LivingEntity victim : victims) {
             drawHookChain(level, victim);
             if (phase.getHookDamage() > 0) {
-                victim.hurt(level.damageSources().mobAttack(npc), phase.getHookDamage());
+                victim.hurt(level.damageSources().mobAttack(npc), rageUp(phase.getHookDamage()));
             }
             phase.getHookEffects().applyAll(victim, npc);
             // Re-hooking someone already being dragged just refreshes their pull.
@@ -977,7 +1207,7 @@ public final class TeleportPathController {
         }
         beginAction(PendingAction.SUMMON, phase.getSummonAnimation(),
                 phase.getSummonActionDelayTicks(), gameTime, null, data, phase);
-        nextSummonAt = gameTime + phase.getSummonActionDelayTicks() + phase.getSummonCooldownTicks();
+        nextSummonAt = gameTime + phase.getSummonActionDelayTicks() + rageDown(phase.getSummonCooldownTicks());
         return true;
     }
 
@@ -1200,13 +1430,14 @@ public final class TeleportPathController {
 
     private void performAreaAttack(ServerLevel level, BossPhaseData phase) {
         for (LivingEntity target : getAreaTargets(level, phase)) {
-            boolean damaged = target.hurt(level.damageSources().mobAttack(npc), phase.getAreaAttackDamage());
+            boolean damaged = target.hurt(level.damageSources().mobAttack(npc),
+                    rageUp(phase.getAreaAttackDamage()));
             // Applied even when the hit was absorbed by invulnerability frames or armour:
             // a plague aura that stops working because the victim was briefly immune would
             // feel broken rather than fair.
             phase.getAreaAttackEffects().applyAll(target, npc);
             if (damaged && phase.getAreaAttackKnockback() > 0) {
-                target.knockback(phase.getAreaAttackKnockback(),
+                target.knockback(rageUp(phase.getAreaAttackKnockback()),
                         npc.getX() - target.getX(), npc.getZ() - target.getZ());
             }
         }
@@ -1330,7 +1561,7 @@ public final class TeleportPathController {
         DataRanged ranged = npc.stats.ranged;
         int previousDamage = ranged.getStrength();
         try {
-            ranged.setStrength(phase.getRangedAttackDamage());
+            ranged.setStrength(rageUp(phase.getRangedAttackDamage()));
             double distanceSquared = npc.distanceToSqr(target);
             boolean indirect = ranged.getFireType() == 2
                     ? !npc.getSensing().hasLineOfSight(target)
@@ -1356,10 +1587,11 @@ public final class TeleportPathController {
         if (phase.getMeleeAttackAnimation().isEmpty()) {
             npc.swing(InteractionHand.MAIN_HAND);
         }
-        boolean damaged = target.hurt(level.damageSources().mobAttack(npc), phase.getMeleeAttackDamage());
+        boolean damaged = target.hurt(level.damageSources().mobAttack(npc),
+                rageUp(phase.getMeleeAttackDamage()));
         phase.getMeleeAttackEffects().applyAll(target, npc);
         if (damaged && phase.getMeleeAttackKnockback() > 0) {
-            target.knockback(phase.getMeleeAttackKnockback(),
+            target.knockback(rageUp(phase.getMeleeAttackKnockback()),
                     npc.getX() - target.getX(), npc.getZ() - target.getZ());
         }
     }
@@ -1385,6 +1617,7 @@ public final class TeleportPathController {
         highestPhaseReached = 0;
         currentPhase = -1;
         clearInvulnerability();
+        clearRage();
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
         activePulls.clear();

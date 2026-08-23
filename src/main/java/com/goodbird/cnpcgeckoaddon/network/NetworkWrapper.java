@@ -30,6 +30,8 @@ public class NetworkWrapper {
         registerPacket(registrar, PacketSyncTileAnimation.TYPE,PacketSyncTileAnimation::encode,PacketSyncTileAnimation::decode,PacketSyncTileAnimation::handle);
         registerPacket(registrar, PacketSyncBossBarStyle.TYPE, PacketSyncBossBarStyle::encode,
                 PacketSyncBossBarStyle::decode, PacketSyncBossBarStyle::handle);
+        registerPacket(registrar, PacketSyncBossTimer.TYPE, PacketSyncBossTimer::encode,
+                PacketSyncBossTimer::decode, PacketSyncBossTimer::handle);
     }
 
     /**

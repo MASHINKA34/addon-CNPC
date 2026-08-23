@@ -50,6 +50,9 @@ public class BossDeathEvents {
             TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
             if (controller != null) {
                 controller.stopBossBar();
+                // CustomNPCs is free to respawn this very entity, so the rage bonus has to
+                // come off here and not on a tick the NPC may never get.
+                controller.clearRage();
             }
         }
         TeleportPathData data = ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData();
