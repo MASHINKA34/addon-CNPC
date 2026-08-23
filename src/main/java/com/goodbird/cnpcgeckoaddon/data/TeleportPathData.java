@@ -17,6 +17,9 @@ public final class TeleportPathData {
     public static final int MIN_PHASES = 1;
     public static final int MAX_PHASES = 8;
 
+    public static final int MIN_RESET_TICKS = 20;
+    public static final int MAX_RESET_TICKS = 12000;
+
     /** Minions are silently discarded, the way a despawning mob disappears. */
     public static final int MINION_REMOVAL_VANISH = 0;
     /** Minions are killed instead, so death animations, drops and kill scripts still run. */
@@ -68,6 +71,9 @@ public final class TeleportPathData {
     private static final String EXPLOSION_MODE_KEY = "GeckoBossExplosionMode";
     private static final String EXPLOSION_FIRE_KEY = "GeckoBossExplosionFire";
     private static final String BOSS_BAR_STYLE_KEY = "GeckoBossBarStyle";
+    private static final String RESET_TICKS_KEY = "GeckoBossResetTicks";
+    private static final String RESET_HEAL_KEY = "GeckoBossResetHeal";
+    private static final String RESET_RETURN_KEY = "GeckoBossResetReturn";
 
     private boolean enabled;
     private boolean combatOnly = true;
@@ -88,6 +94,10 @@ public final class TeleportPathData {
     private int targetRecheckTicks = 20;
     private boolean targetRequiresLineOfSight;
     private boolean keepTargetOutOfRange;
+
+    private int resetTicks = 100;
+    private boolean resetHeal = true;
+    private boolean resetReturn;
 
     private boolean clearMinionsOnDeath = true;
     private boolean clearMinionsOnReset = true;
@@ -132,6 +142,9 @@ public final class TeleportPathData {
         tag.putInt(TARGET_INTERVAL_KEY, targetRecheckTicks);
         tag.putBoolean(TARGET_LOS_KEY, targetRequiresLineOfSight);
         tag.putBoolean(TARGET_KEEP_KEY, keepTargetOutOfRange);
+        tag.putInt(RESET_TICKS_KEY, resetTicks);
+        tag.putBoolean(RESET_HEAL_KEY, resetHeal);
+        tag.putBoolean(RESET_RETURN_KEY, resetReturn);
         tag.putBoolean(MINIONS_DEATH_KEY, clearMinionsOnDeath);
         tag.putBoolean(MINIONS_RESET_KEY, clearMinionsOnReset);
         tag.putInt(MINIONS_REMOVAL_KEY, minionRemovalMode);
@@ -165,6 +178,12 @@ public final class TeleportPathData {
                 ? Mth.clamp(tag.getInt(TARGET_INTERVAL_KEY), 1, 200) : 20;
         targetRequiresLineOfSight = tag.getBoolean(TARGET_LOS_KEY);
         keepTargetOutOfRange = tag.getBoolean(TARGET_KEEP_KEY);
+        resetTicks = tag.contains(RESET_TICKS_KEY)
+                ? Mth.clamp(tag.getInt(RESET_TICKS_KEY), MIN_RESET_TICKS, MAX_RESET_TICKS) : 100;
+        // Coming back to a fight against a boss still standing at 10% health is nobody's
+        // idea of a second attempt, so bosses saved before this option existed get it on.
+        resetHeal = !tag.contains(RESET_HEAL_KEY) || tag.getBoolean(RESET_HEAL_KEY);
+        resetReturn = tag.getBoolean(RESET_RETURN_KEY);
         // Bosses configured before this option existed leave their minions behind when
         // they die, which is never what anyone wanted - so these default to on.
         clearMinionsOnDeath = !tag.contains(MINIONS_DEATH_KEY) || tag.getBoolean(MINIONS_DEATH_KEY);
@@ -295,6 +314,18 @@ public final class TeleportPathData {
     /** Keeps the current player target even after it left the search radius. */
     public boolean isKeepTargetOutOfRange() { return keepTargetOutOfRange; }
     public void setKeepTargetOutOfRange(boolean value) { keepTargetOutOfRange = value; }
+
+    /** How long the boss has to be left alone before the encounter counts as over. */
+    public int getResetTicks() { return resetTicks; }
+    public void setResetTicks(int value) {
+        resetTicks = Mth.clamp(value, MIN_RESET_TICKS, MAX_RESET_TICKS);
+    }
+    /** Whether the reset also puts the boss back to full health. */
+    public boolean isResetHeal() { return resetHeal; }
+    public void setResetHeal(boolean value) { resetHeal = value; }
+    /** Whether the reset also sends the boss back to where it stood when it activated. */
+    public boolean isResetReturn() { return resetReturn; }
+    public void setResetReturn(boolean value) { resetReturn = value; }
 
     /** Whether the minions this boss summoned are cleaned up once the boss dies. */
     public boolean isClearMinionsOnDeath() { return clearMinionsOnDeath; }
