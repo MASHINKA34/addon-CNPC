@@ -47,4 +47,13 @@ public final class BossTimerClientBridge {
     public static Timer get(UUID eventId) {
         return TIMERS.get(eventId);
     }
+
+    /**
+     * Forgets every bar. Called when the client leaves a world: the bosses it was watching
+     * do not exist on the next server, and a replay of their countdowns would put a dead
+     * boss's timer under a live boss's bar.
+     */
+    public static void clear() {
+        TIMERS.clear();
+    }
 }

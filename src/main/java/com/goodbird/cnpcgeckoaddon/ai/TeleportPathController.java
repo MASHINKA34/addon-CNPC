@@ -583,7 +583,8 @@ public final class TeleportPathController {
      * with nothing left to count are sent once and then left alone.</p>
      */
     private void syncBossTimer(long gameTime, TeleportPathData data) {
-        if (bossEvent.getPlayers().isEmpty()) {
+        ServerBossEvent bar = timerBossEvent();
+        if (bar.getPlayers().isEmpty()) {
             return;
         }
         byte state = timerState(data);
@@ -595,9 +596,18 @@ public final class TeleportPathController {
         lastTimerState = state;
         nextTimerSyncAt = gameTime + TIMER_SYNC_INTERVAL_TICKS;
         PacketSyncBossTimer packet = buildTimerPacket(data);
-        for (ServerPlayer player : bossEvent.getPlayers()) {
+        for (ServerPlayer player : bar.getPlayers()) {
             NetworkWrapper.send(player, packet);
         }
+    }
+
+    /**
+     * The bar the countdown belongs on: the styled one while it is up, the NPC's own bar
+     * otherwise. Without this a boss left on style {@code none} would count down against a
+     * bar id nobody is drawing.
+     */
+    private ServerBossEvent timerBossEvent() {
+        return BossBarStyles.isEnabled(activeBossBarStyle) ? bossEvent : npc.bossInfo;
     }
 
     private byte timerState(TeleportPathData data) {
@@ -627,7 +637,7 @@ public final class TeleportPathController {
         } else if (state == PacketSyncBossTimer.STATE_RAGE) {
             total = data.getRageDelayTicks();
         }
-        return new PacketSyncBossTimer(bossEvent.getId(), remaining, total, state);
+        return new PacketSyncBossTimer(timerBossEvent().getId(), remaining, total, state);
     }
 
     private int healthPercent() {
@@ -822,8 +832,12 @@ public final class TeleportPathController {
     }
 
     private void hideBossBar() {
-        lastTimerState = PacketSyncBossTimer.STATE_NONE;
-        nextTimerSyncAt = 0L;
+        if (BossBarStyles.isEnabled(activeBossBarStyle)) {
+            // Only when the styled bar really was up. On style `none` this runs every tick,
+            // and resetting the throttle there would put a countdown packet on every one.
+            lastTimerState = PacketSyncBossTimer.STATE_NONE;
+            nextTimerSyncAt = 0L;
+        }
         for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
             bossEvent.removePlayer(player);
             NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
