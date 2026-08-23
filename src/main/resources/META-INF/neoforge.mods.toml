@@ -1,0 +1,58 @@
+# Mod metadata for NeoForge 1.21.1.
+# Format reference: https://docs.neoforged.net/docs/gettingstarted/modfiles/#neoforgemodstoml
+
+modLoader="javafml" #mandatory
+loaderVersion="[4,)" #mandatory
+
+issueTrackerURL="https://github.com/Goodbird/CNPC-Geckolib-Addon/issues" #optional
+
+license="Mixed third-party licenses - see META-INF/MOBMODELS_NOTICE.txt"
+
+[[mods]] #mandatory
+modId="cnpcgeckoaddon" #mandatory
+version="${file.jarVersion}" #mandatory
+displayName="CNPC-Gecko-Addon" #mandatory
+authors="Goodbird" #optional
+description='''
+Allows you to use geckolib models on your npcs
+    '''
+
+# NeoForge only picks up mixin configs that are declared here. The legacy
+# "MixinConfigs" jar manifest attribute is a Forge 1.12 leftover and is ignored,
+# so without these entries none of the addon's mixins apply outside of a dev run.
+[[mixins]]
+config="mixins.cnpcgeckoaddon.json"
+
+[[mixins]]
+config="mixins.cnpcgeckoaddon.compat.json"
+
+[[dependencies.cnpcgeckoaddon]] #optional
+modId="neoforge" #mandatory
+type="required"
+versionRange="[21.1.150,)" #mandatory
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.cnpcgeckoaddon]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1, 1.22)"
+ordering="NONE"
+side="BOTH"
+
+# Every mixin in mixins.cnpcgeckoaddon.json targets CustomNPCs and the addon is
+# built directly against the GeckoLib API, so both are hard requirements.
+[[dependencies.cnpcgeckoaddon]]
+modId="customnpcs"
+type="required"
+# The unofficial 1.21.1 port does not use a predictable version scheme, so this
+# stays unbounded on purpose - only the presence of the mod is required.
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.cnpcgeckoaddon]]
+modId="geckolib"
+type="required"
+versionRange="[4.7,)"
+ordering="AFTER"
+side="BOTH"

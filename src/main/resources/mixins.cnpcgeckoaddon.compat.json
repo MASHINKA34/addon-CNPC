@@ -1,0 +1,18 @@
+{
+  "required": false,
+  "minVersion": "0.8.5",
+  "package": "com.goodbird.cnpcgeckoaddon.mixin.compat",
+  "compatibilityLevel": "JAVA_21",
+  "plugin": "com.goodbird.cnpcgeckoaddon.mixin.compat.CompatMixinPlugin",
+  "mixins": [
+    "MixinLivingEntityEffects",
+    "MixinEntityLingeringSpell",
+    "MixinEntityProjectileSpell",
+    "MixinC2SMessageReload"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

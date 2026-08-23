@@ -1,0 +1,34 @@
+{
+  "minVersion": "0.8.5",
+  "compatibilityLevel": "JAVA_21",
+  "package": "com.goodbird.cnpcgeckoaddon.mixin.impl",
+  "mixins": [
+    "BlockEntityAccessor",
+    "MixinBlockScriptedWrapper",
+    "MixinDataAI",
+    "MixinDataDisplay",
+    "MixinDataRanged",
+    "MixinEntityAIAttackTarget",
+    "MixinEntityAIPounceTarget",
+    "MixinEntityAIRangedAttack",
+    "MixinEntityCustomNpc",
+    "MixinEntityNPCInterfaceRanged",
+    "MixinEntityNPCInterfaceSoundReaction",
+    "MixinEntityNPCInterfaceTeleportPath",
+    "MixinEntityUtil",
+    "MixinFlowingFluid",
+    "MixinModelData",
+    "MixinNpcWrapper",
+    "MixinWrapperNpcApi",
+    "TileScriptedMixin"
+  ],
+  "client": [
+    "MixinBlockScriptedRenderer",
+    "MixinGuiCreationEntities",
+    "MixinGuiNpcAI",
+    "MixinRenderNPCInterface",
+    "MixinSubGuiNpcProjectiles",
+    "MixinSubGuiNpcRangeProperties"
+  ],
+  "server": []
+}

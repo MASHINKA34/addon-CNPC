@@ -1,0 +1,108 @@
+CNPC-Gecko-Addon MobModels bundle for Minecraft 1.21.1 NeoForge
+
+Prepared for private use in the "kal" modpack.
+
+This archive is based on:
+- CNPC-Gecko-Addon by Goodbird
+- CustomNPCs by Noppes / CustomNPCs-Unofficial maintainers
+- GeckoLib
+
+Bundled model, animation, and texture resources originate from:
+- Born in Chaos
+- L_Ender's Cataclysm
+- Scape and Run: Parasites
+- Sculk Horde
+- Arthropod Phobia Expansions
+- Bosses'Rise 2.1.2 for NeoForge 1.21.1
+- Mowzie's Mobs 1.8.2 for NeoForge 1.21.1
+- Legend of The Dwerden 3.0.1 for Forge 1.20.1 (All Rights Reserved)
+- Arda's Sculks 1.4.3.5_1 for NeoForge 1.21.1 (LGPL-2.1-only)
+- Luminous: Nether 1.3.3 for NeoForge 1.21.1 (All Rights Reserved)
+- Call from the Depths 1.22.1 for Forge 1.20.1 (All Rights Reserved)
+- From The Shadows Reborn 3.0 for NeoForge 1.21.1 (AGPL-3.0)
+- Nether Sentinel 1.0.0 for Forge 1.20.1 (Apache-2.0)
+- Skarrier Mobs 1.0.6 for Forge 1.20.1 (All Rights Reserved)
+- Blighted Beasts 1.6.5 for Forge 1.19.2 (archive metadata: All Rights Reserved)
+- Deep Dark: Regrowth 1.2.6.1 for Forge 1.20.1 (Academic Free License v3.0)
+- Deeper and Darker 1.1.6 / 1.4.1 (archive metadata: All Rights Reserved / GPL-3.0)
+- Sculk Infection 1.1.32 for Fabric 1.20.1 (CC0-1.0)
+- Dungeons 2 Mobs 0.1.1 for Forge 1.20.1 (license not specified in archive)
+- Echoes 1.0.0 for NeoForge 1.21.1 (MIT)
+- Nether Update Expanded Beta 2.24 for Forge 1.20.1 (All Rights Reserved)
+- Infernal Expansion Redux 0.3.13 for NeoForge 1.21.1 (AGPL-3.0)
+- BetterNether 21.0.11 for Fabric 1.21.1 (MIT; some assets CC BY-NC-SA 4.0)
+- Piglin Proliferation 2.0.15 for NeoForge 1.21.1 (MIT code; assets CC BY-NC-SA 4.0)
+- Netherific / Nourished Nether 0.2.5 for Forge 1.20.1 (All Rights Reserved)
+- Creatures Expanded 3.2.1 for Forge 1.20.1 (All Rights Reserved)
+- Moss And Monsters 1.01 for Forge 1.18.2 (Academic Free License v3.0)
+- Mycelium Mire 1.24 for Forge 1.19.2 (All Rights Reserved)
+- Ager's Mosslings and Villages 1.4 for Forge 1.19.2 (Academic Free License v3.0)
+- The Undergarden 0.9.6 for NeoForge 1.21.1 (MIT)
+- Critters & Cryptids 1.5.1 for Forge 1.19.2 (Academic Free License v3.0)
+- ReDev Mobs 1.0.3 beta for NeoForge 1.21.1 (license not specified in archive)
+- Wrought Nights: Critters 1.0.2 for Forge 1.19.2 (Academic Free License v3.0)
+
+The original authors retain all rights to their respective resources.
+Do not publish or monetize this combined archive without permission from
+the respective authors. Install the same archive on the server and on
+every connecting client.
+
+Bundle update date: 2026-08-20
+
+Texture behavior:
+- Bundled mob models automatically use their matching base entity texture
+  while the NPC still has the default Steve/Alex skin.
+- A manually selected non-default NPC texture remains available as an override.
+- Resource paths are normalized to lowercase for Minecraft 1.21.1.
+- Textures stored by mods under both textures/entity and textures/entities
+  are supported.
+
+Bosses'Rise integration:
+- Entity geometry is bundled from assets/block_factorys_bosses/geo/entity.
+- The mod's nonstandard anim_bosses_rise/entity resources are exposed under
+  the standard GeckoLib animations/entity path used by CNPC-Gecko-Addon.
+
+Mowzie's Mobs integration:
+- Bundled animated GeckoLib creatures: bluff, elokosa, sculptor, sol_visage,
+  umvuthana, and umvuthi.
+- Converted legacy Java creatures: Frostmaw, Ferrous Wroughtnaut, Foliaath,
+  Baby Foliaath, Grottol, Naga, and Lantern. Their AdvancedModelRenderer
+  geometry, UV layout, hierarchy, and MMModelAnimator keyframes were converted
+  into standalone GeckoLib JSON. Each also includes portable idle and walk
+  loops for use with Custom NPCs.
+- The conversion is a resource adaptation only. No Mowzie's Mobs classes or
+  runtime dependency are packaged in this archive.
+
+2026-08-20 donor integration:
+- All GeckoLib geometry, animation, and entity texture resources found in the
+  seven listed donor archives are bundled under their original namespaces.
+- Skarrier Mobs creatures implemented as generated Java ModelPart models were
+  converted to standalone GeckoLib geometry. Their vanilla AnimationDefinition
+  keyframes were converted as well; no Skarrier classes are packaged.
+- Arda's Sculks fox and its vanilla fish/ghost render shapes, plus the Call from
+  the Depths deep citizen, have portable GeckoLib geometry and idle/walk loops.
+- Default model textures are selected through META-INF/MOBMODEL_TEXTURES.tsv.
+- Selecting a model automatically selects its same-name animation file when it
+  is available.
+- The donor mods themselves are not bundled and are not runtime dependencies.
+
+2026-08-20 second donor integration (addon 1.1.0):
+- Added 271 selectable geometry files from the 19 donor projects listed above.
+- Existing GeckoLib JSON geometry, author animation clips, and entity textures
+  are kept under isolated resource namespaces.
+- Java ModelPart and MCreator geometries were converted to standalone GeckoLib
+  JSON. Authored AnimationDefinition clips are preserved where available;
+  models driven only by runtime Java trigonometry include portable idle, walk,
+  and attack loops suitable for Custom NPCs.
+- Vanilla-rendered donor variants (infected mobs, piglins, moongus creatures,
+  and similar entities) include standalone compatible geometry so the original
+  donor mod is not needed at runtime.
+- No donor classes, registries, world generation, AI, sounds, or mod metadata
+  are packaged. This bundle provides visual NPC resources only.
+
+Important redistribution note:
+- "Allowed in modpacks" is not permission to extract and republish a mod's art.
+- Several donors are All Rights Reserved. This combined archive is prepared
+  only for the private voidcube/kal server and its players.
+- Do not upload this archive to public mod sites, sell it, monetize it, or use
+  it in a public pack without explicit permission from every relevant author.
