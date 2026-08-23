@@ -276,13 +276,16 @@ public final class BossTimerOverlay {
                 : Mth.clamp(timer.remainingTicks / (float) timer.totalTicks, 0.0F, 1.0F);
     }
 
+    /**
+     * The shader colour the fill is multiplied by. The timer artwork is painted as a dark
+     * neutral ramp - unlike the health fills, which carry their own colour - so the state is
+     * what colours it, and channels above 1 are what stop the result coming out muddy.
+     */
     private static float[] tint(TimerState timer) {
         return switch (timer.state) {
-            case PacketSyncBossTimer.STATE_RAGE -> new float[]{1.0F, 0.28F, 0.22F, pulse()};
-            case PacketSyncBossTimer.STATE_INVULNERABLE -> new float[]{0.62F, 0.85F, 1.0F, 1.0F};
-            // The artwork already carries the style's own colour, so a plain countdown is
-            // drawn exactly as it was painted.
-            default -> new float[]{1.0F, 1.0F, 1.0F, 1.0F};
+            case PacketSyncBossTimer.STATE_RAGE -> new float[]{1.60F, 0.45F, 0.35F, pulse()};
+            case PacketSyncBossTimer.STATE_INVULNERABLE -> new float[]{0.95F, 1.35F, 1.60F, 1.0F};
+            default -> new float[]{1.45F, 1.05F, 0.42F, 1.0F};
         };
     }
 
