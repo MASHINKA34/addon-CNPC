@@ -188,10 +188,10 @@ public final class HookCordRenderer {
             previous = next;
         }
 
-        drawHead(poseStack, buffers, level, style, to, lastDirection, cameraPos, baseFrame,
-                frames, headTexture);
         // The vanilla entity batches were flushed before this stage, so ours has to be too.
         buffers.endBatch(renderType);
+        drawHead(poseStack, buffers, level, style, to, lastDirection, cameraPos, baseFrame,
+                frames, headTexture);
     }
 
     private static void drawHead(PoseStack poseStack, MultiBufferSource.BufferSource buffers,
