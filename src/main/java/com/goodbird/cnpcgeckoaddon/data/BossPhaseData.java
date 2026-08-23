@@ -15,6 +15,22 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.hook_mode_cinch"
     };
 
+    /** The immune phase runs for its full duration and nothing else ends it. */
+    public static final int INVULNERABLE_END_TIMER = 0;
+    /** The immune phase lasts until every minion it summoned is dead. */
+    public static final int INVULNERABLE_END_MINIONS_DEAD = 1;
+    /** Whichever of the two comes first ends the immune phase. */
+    public static final int INVULNERABLE_END_TIMER_OR_MINIONS = 2;
+    /** The immune phase only ends once both are satisfied. */
+    public static final int INVULNERABLE_END_TIMER_AND_MINIONS = 3;
+
+    public static final String[] INVULNERABLE_END_LABELS = {
+            "cnpcgeckoaddon.boss.invulnerable_end_timer",
+            "cnpcgeckoaddon.boss.invulnerable_end_minions",
+            "cnpcgeckoaddon.boss.invulnerable_end_either",
+            "cnpcgeckoaddon.boss.invulnerable_end_both"
+    };
+
     /** Health percentage at which this phase takes over. Phase 1 is pinned to 100. */
     private int startHealthPercent = 100;
 
@@ -88,6 +104,12 @@ public final class BossPhaseData {
     private int hookMaxRange = 24;
     private int hookMode = HOOK_MODE_PULL;
 
+    private boolean invulnerableEnabled;
+    private int invulnerableEndMode = INVULNERABLE_END_TIMER_OR_MINIONS;
+    private int invulnerableDurationTicks = 200;
+    private boolean invulnerableAllowTeleport;
+    private boolean invulnerableSummonImmediately = true;
+
     private final BossEffectSet areaAttackEffects = new BossEffectSet();
     private final BossEffectSet rangedAttackEffects = new BossEffectSet();
     private final BossEffectSet meleeAttackEffects = new BossEffectSet();
@@ -159,6 +181,11 @@ public final class BossPhaseData {
         tag.putInt("HookMinRange", hookMinRange);
         tag.putInt("HookMaxRange", hookMaxRange);
         tag.putInt("HookMode", hookMode);
+        tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
+        tag.putInt("InvulnerableEndMode", invulnerableEndMode);
+        tag.putInt("InvulnerableDurationTicks", invulnerableDurationTicks);
+        tag.putBoolean("InvulnerableAllowTeleport", invulnerableAllowTeleport);
+        tag.putBoolean("InvulnerableSummonImmediately", invulnerableSummonImmediately);
         tag.put("AreaAttackEffects", areaAttackEffects.writeToNBT());
         tag.put("RangedAttackEffects", rangedAttackEffects.writeToNBT());
         tag.put("MeleeAttackEffects", meleeAttackEffects.writeToNBT());
@@ -241,6 +268,14 @@ public final class BossPhaseData {
                 value(tag, "HookMinRange", 4, 0, 64),
                 value(tag, "HookMaxRange", 24, 1, 128));
         hookMode = value(tag, "HookMode", HOOK_MODE_PULL, HOOK_MODE_PULL, HOOK_MODE_CINCH);
+
+        invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
+        invulnerableEndMode = value(tag, "InvulnerableEndMode", INVULNERABLE_END_TIMER_OR_MINIONS,
+                INVULNERABLE_END_TIMER, INVULNERABLE_END_TIMER_AND_MINIONS);
+        invulnerableDurationTicks = value(tag, "InvulnerableDurationTicks", 200, 20, 12000);
+        invulnerableAllowTeleport = tag.getBoolean("InvulnerableAllowTeleport");
+        invulnerableSummonImmediately = !tag.contains("InvulnerableSummonImmediately")
+                || tag.getBoolean("InvulnerableSummonImmediately");
 
         areaAttackEffects.readFromNBT(tag, "AreaAttackEffects");
         rangedAttackEffects.readFromNBT(tag, "RangedAttackEffects");
@@ -430,6 +465,39 @@ public final class BossPhaseData {
 
     public int getHookMode() { return hookMode; }
     public void setHookMode(int value) { hookMode = Mth.clamp(value, HOOK_MODE_PULL, HOOK_MODE_CINCH); }
+
+    /** While this phase runs the boss takes no damage and only its summon ability fires. */
+    public boolean isInvulnerableEnabled() { return invulnerableEnabled; }
+    public void setInvulnerableEnabled(boolean value) { invulnerableEnabled = value; }
+    public int getInvulnerableEndMode() { return invulnerableEndMode; }
+    public void setInvulnerableEndMode(int value) {
+        invulnerableEndMode = Mth.clamp(value, INVULNERABLE_END_TIMER, INVULNERABLE_END_TIMER_AND_MINIONS);
+    }
+    public int getInvulnerableDurationTicks() { return invulnerableDurationTicks; }
+    public void setInvulnerableDurationTicks(int value) {
+        invulnerableDurationTicks = Mth.clamp(value, 20, 12000);
+    }
+    public boolean isInvulnerableAllowTeleport() { return invulnerableAllowTeleport; }
+    public void setInvulnerableAllowTeleport(boolean value) { invulnerableAllowTeleport = value; }
+    /** Skips the first summon cooldown so the phase opens with a wave instead of an idle wait. */
+    public boolean isInvulnerableSummonImmediately() { return invulnerableSummonImmediately; }
+    public void setInvulnerableSummonImmediately(boolean value) { invulnerableSummonImmediately = value; }
+
+    /**
+     * Whether dead minions are part of this phase's exit condition.
+     *
+     * <p>A phase with no clone configured can never satisfy "all minions are dead", so the
+     * minion half of the condition is dropped there - otherwise the boss would stay immune
+     * for the rest of the fight.</p>
+     */
+    public boolean invulnerableWaitsForMinions() {
+        return canSummon() && invulnerableEndMode != INVULNERABLE_END_TIMER;
+    }
+
+    /** Counterpart of {@link #invulnerableWaitsForMinions()}; the two are never both false. */
+    public boolean invulnerableWaitsForTimer() {
+        return invulnerableEndMode != INVULNERABLE_END_MINIONS_DEAD || !canSummon();
+    }
 
     public BossEffectSet getAreaAttackEffects() { return areaAttackEffects; }
     public BossEffectSet getRangedAttackEffects() { return rangedAttackEffects; }
