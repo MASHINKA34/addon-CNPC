@@ -57,9 +57,10 @@ public final class BossTimerOverlay {
     private static final int TEXT_COLOR = 0xFFFFFF;
     private static final int FLAT_BORDER = 0xFF0B0B0B;
     private static final int FLAT_TRACK = 0xC0000000;
-    private static final int FLAT_COUNTDOWN = 0x00E8B23A;
-    private static final int FLAT_RAGE = 0x00E23A2E;
-    private static final int FLAT_IMMUNE = 0x008FD4FF;
+    /** RGB only - {@link #flatColor} puts the alpha on, because rage pulses. */
+    private static final int FLAT_COUNTDOWN_RGB = 0xE8B23A;
+    private static final int FLAT_RAGE_RGB = 0xE23A2E;
+    private static final int FLAT_IMMUNE_RGB = 0x8FD4FF;
 
     private static final Map<UUID, TimerState> TIMERS = new HashMap<>();
     private static long clientTick;
@@ -291,9 +292,9 @@ public final class BossTimerOverlay {
 
     private static int flatColor(TimerState timer) {
         int rgb = switch (timer.state) {
-            case PacketSyncBossTimer.STATE_RAGE -> FLAT_RAGE;
-            case PacketSyncBossTimer.STATE_INVULNERABLE -> FLAT_IMMUNE;
-            default -> FLAT_COUNTDOWN;
+            case PacketSyncBossTimer.STATE_RAGE -> FLAT_RAGE_RGB;
+            case PacketSyncBossTimer.STATE_INVULNERABLE -> FLAT_IMMUNE_RGB;
+            default -> FLAT_COUNTDOWN_RGB;
         };
         float alpha = timer.state == PacketSyncBossTimer.STATE_RAGE ? pulse() : 1.0F;
         return (Math.round(alpha * 255.0F) << 24) | rgb;
