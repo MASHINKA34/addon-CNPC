@@ -1,0 +1,15 @@
+GIMP Palette
+Name: Hook Cord - Living Vine
+Columns: 4
+#
+  0   0   0	transparent a000
+ 25  43  35	outline a255
+ 38  70  62	shadow a255
+ 60 102  61	base a255
+ 83 128  65	mid a255
+137 161  72	light a255
+193 190  91	highlight a255
+ 82  56  41	dry_dark a255
+137  91  55	dry a255
+181 124  67	wood_light a255
+106  73  44	thorn a255
