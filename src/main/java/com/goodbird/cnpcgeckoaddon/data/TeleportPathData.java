@@ -20,6 +20,11 @@ public final class TeleportPathData {
     public static final int MIN_RESET_TICKS = 20;
     public static final int MAX_RESET_TICKS = 12000;
 
+    public static final int MIN_RAGE_DELAY_TICKS = 100;
+    public static final int MAX_RAGE_DELAY_TICKS = 72000;
+    public static final int MIN_RAGE_MULTIPLIER_PERCENT = 100;
+    public static final int MAX_RAGE_MULTIPLIER_PERCENT = 1000;
+
     /** Minions are silently discarded, the way a despawning mob disappears. */
     public static final int MINION_REMOVAL_VANISH = 0;
     /** Minions are killed instead, so death animations, drops and kill scripts still run. */
@@ -74,6 +79,11 @@ public final class TeleportPathData {
     private static final String RESET_TICKS_KEY = "GeckoBossResetTicks";
     private static final String RESET_HEAL_KEY = "GeckoBossResetHeal";
     private static final String RESET_RETURN_KEY = "GeckoBossResetReturn";
+    private static final String RAGE_ENABLED_KEY = "GeckoBossRageEnabled";
+    private static final String RAGE_DELAY_KEY = "GeckoBossRageDelay";
+    private static final String RAGE_MULTIPLIER_KEY = "GeckoBossRageMultiplier";
+    private static final String RAGE_ANIMATION_KEY = "GeckoBossRageAnimation";
+    private static final String RAGE_LOCK_KEY = "GeckoBossRageLock";
 
     private boolean enabled;
     private boolean combatOnly = true;
@@ -98,6 +108,12 @@ public final class TeleportPathData {
     private int resetTicks = 100;
     private boolean resetHeal = true;
     private boolean resetReturn;
+
+    private boolean rageEnabled;
+    private int rageDelayTicks = 3600;
+    private int rageMultiplierPercent = 200;
+    private String rageAnimation = "";
+    private int rageLockTicks = 40;
 
     private boolean clearMinionsOnDeath = true;
     private boolean clearMinionsOnReset = true;
@@ -145,6 +161,11 @@ public final class TeleportPathData {
         tag.putInt(RESET_TICKS_KEY, resetTicks);
         tag.putBoolean(RESET_HEAL_KEY, resetHeal);
         tag.putBoolean(RESET_RETURN_KEY, resetReturn);
+        tag.putBoolean(RAGE_ENABLED_KEY, rageEnabled);
+        tag.putInt(RAGE_DELAY_KEY, rageDelayTicks);
+        tag.putInt(RAGE_MULTIPLIER_KEY, rageMultiplierPercent);
+        tag.putString(RAGE_ANIMATION_KEY, rageAnimation);
+        tag.putInt(RAGE_LOCK_KEY, rageLockTicks);
         tag.putBoolean(MINIONS_DEATH_KEY, clearMinionsOnDeath);
         tag.putBoolean(MINIONS_RESET_KEY, clearMinionsOnReset);
         tag.putInt(MINIONS_REMOVAL_KEY, minionRemovalMode);
@@ -184,6 +205,14 @@ public final class TeleportPathData {
         // idea of a second attempt, so bosses saved before this option existed get it on.
         resetHeal = !tag.contains(RESET_HEAL_KEY) || tag.getBoolean(RESET_HEAL_KEY);
         resetReturn = tag.getBoolean(RESET_RETURN_KEY);
+        rageEnabled = tag.getBoolean(RAGE_ENABLED_KEY);
+        rageDelayTicks = tag.contains(RAGE_DELAY_KEY)
+                ? Mth.clamp(tag.getInt(RAGE_DELAY_KEY), MIN_RAGE_DELAY_TICKS, MAX_RAGE_DELAY_TICKS) : 3600;
+        rageMultiplierPercent = tag.contains(RAGE_MULTIPLIER_KEY)
+                ? Mth.clamp(tag.getInt(RAGE_MULTIPLIER_KEY), MIN_RAGE_MULTIPLIER_PERCENT,
+                MAX_RAGE_MULTIPLIER_PERCENT) : 200;
+        rageAnimation = tag.getString(RAGE_ANIMATION_KEY).trim();
+        rageLockTicks = tag.contains(RAGE_LOCK_KEY) ? Mth.clamp(tag.getInt(RAGE_LOCK_KEY), 0, 1200) : 40;
         // Bosses configured before this option existed leave their minions behind when
         // they die, which is never what anyone wanted - so these default to on.
         clearMinionsOnDeath = !tag.contains(MINIONS_DEATH_KEY) || tag.getBoolean(MINIONS_DEATH_KEY);
@@ -326,6 +355,25 @@ public final class TeleportPathData {
     /** Whether the reset also sends the boss back to where it stood when it activated. */
     public boolean isResetReturn() { return resetReturn; }
     public void setResetReturn(boolean value) { resetReturn = value; }
+
+    /** Whether the boss doubles its stats once the encounter has dragged on long enough. */
+    public boolean isRageEnabled() { return rageEnabled; }
+    public void setRageEnabled(boolean value) { rageEnabled = value; }
+    /** Ticks from the first tick of the fight until the boss enrages. */
+    public int getRageDelayTicks() { return rageDelayTicks; }
+    public void setRageDelayTicks(int value) {
+        rageDelayTicks = Mth.clamp(value, MIN_RAGE_DELAY_TICKS, MAX_RAGE_DELAY_TICKS);
+    }
+    /** What every scaled stat is multiplied by, in percent: 200 doubles them. */
+    public int getRageMultiplierPercent() { return rageMultiplierPercent; }
+    public void setRageMultiplierPercent(int value) {
+        rageMultiplierPercent = Mth.clamp(value, MIN_RAGE_MULTIPLIER_PERCENT, MAX_RAGE_MULTIPLIER_PERCENT);
+    }
+    public String getRageAnimation() { return rageAnimation; }
+    public void setRageAnimation(String value) { rageAnimation = value == null ? "" : value.trim(); }
+    /** How long the boss stands still after enraging, so the animation can play out. */
+    public int getRageLockTicks() { return rageLockTicks; }
+    public void setRageLockTicks(int value) { rageLockTicks = Mth.clamp(value, 0, 1200); }
 
     /** Whether the minions this boss summoned are cleaned up once the boss dies. */
     public boolean isClearMinionsOnDeath() { return clearMinionsOnDeath; }
