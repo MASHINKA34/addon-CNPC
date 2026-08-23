@@ -1,0 +1,15 @@
+GIMP Palette
+Name: Hook Cord - Infernal Chain
+Columns: 4
+#
+  0   0   0	transparent a000
+  8   8  11	gap a255
+ 20  23  31	outline a255
+ 35  40  51	shadow a255
+ 60  63  72	metal a255
+ 95  91  84	metal_light a255
+101  25  20	ember a255
+174  42  26	red a255
+237  85  27	orange a255
+255 166  57	hot a255
+255 226 137	white_hot a255
