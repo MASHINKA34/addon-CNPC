@@ -162,5 +162,6 @@
   "cnpcgeckoaddon.boss.invulnerable_duration": "Длительность (тики)",
   "cnpcgeckoaddon.boss.invulnerable_teleport": "Разрешить телепорты",
   "cnpcgeckoaddon.boss.invulnerable_summon_now": "Призвать сразу",
+  "cnpcgeckoaddon.boss.invulnerable_active": "НЕУЯЗВИМ",
   "cnpcgeckoaddon.boss.invulnerable_hint": "Работает только призыв, потом следующая фаза."
 }

@@ -116,7 +116,11 @@ public final class CustomBossBarOverlay {
         int textY = trackY + (trackHeight - font.lineHeight) / 2;
         graphics.drawString(font, name, textX, textY, 0xFFFFFF, true);
 
-        event.setIncrement(renderHeight + 4);
+        // The countdown hangs off the bottom of the bar, so the next bar has to clear both.
+        int timerHeight = BossTimerOverlay.draw(graphics, barX, barY + renderHeight, renderWidth,
+                scale, style, BossTimerOverlay.get(event.getBossEvent().getId()));
+
+        event.setIncrement(renderHeight + timerHeight + 4);
         event.setCanceled(true);
     }
 

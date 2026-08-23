@@ -162,5 +162,6 @@
   "cnpcgeckoaddon.boss.invulnerable_duration": "Duration (ticks)",
   "cnpcgeckoaddon.boss.invulnerable_teleport": "Allow teleports",
   "cnpcgeckoaddon.boss.invulnerable_summon_now": "Summon immediately",
+  "cnpcgeckoaddon.boss.invulnerable_active": "IMMUNE",
   "cnpcgeckoaddon.boss.invulnerable_hint": "Only summons run, then the next phase starts."
 }
