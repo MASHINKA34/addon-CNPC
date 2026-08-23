@@ -57,8 +57,6 @@ public final class TeleportPathController {
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
     private static final int POST_ACTION_LOCK_TICKS = 10;
     private static final int ABILITY_COUNT = 6;
-    /** How long the boss has to be out of combat before the encounter counts as over. */
-    private static final int COMBAT_RESET_TICKS = 100;
     private static final Set<TeleportPathController> INSTANCES =
             Collections.newSetFromMap(new WeakHashMap<>());
 
@@ -72,9 +70,13 @@ public final class TeleportPathController {
     private int currentPhase = -1;
     private int highestPhaseReached;
     private long outOfCombatSince = NOT_SCHEDULED;
-    private boolean minionsClearedForEncounter;
+    private boolean encounterResetDone;
     private double lockedX;
     private double lockedZ;
+    /** Where the boss stood when it activated - the spot a reset sends it back to. */
+    private double homeX;
+    private double homeY;
+    private double homeZ;
     private long busyUntil;
     private long nextTeleportAt = NOT_SCHEDULED;
     private long nextSummonAt = NOT_SCHEDULED;
@@ -193,52 +195,93 @@ public final class TeleportPathController {
         active = true;
         lockedX = npc.getX();
         lockedZ = npc.getZ();
+        homeX = npc.getX();
+        homeY = npc.getY();
+        homeZ = npc.getZ();
         highestPhaseReached = data.resolvePhaseIndex(healthPercent());
         currentPhase = highestPhaseReached;
         outOfCombatSince = NOT_SCHEDULED;
+        encounterResetDone = false;
         lastPathIndex = -1;
         previousPathSize = 0;
     }
 
     private void updatePhase(ServerLevel level, long gameTime, TeleportPathData data) {
-        int healthPhase = data.resolvePhaseIndex(healthPercent());
         if (hasCombatTarget()) {
             outOfCombatSince = NOT_SCHEDULED;
+            encounterResetDone = false;
         } else if (outOfCombatSince == NOT_SCHEDULED) {
             outOfCombatSince = gameTime;
         }
 
-        // While the fight is running the phase only ever advances, so a heal or a
-        // regeneration effect cannot rewind the encounter mid-combat. Once the boss has
-        // been out of combat long enough the encounter is over, and the phase follows its
-        // health again - that is what lets a boss that de-aggroed and regenerated start
-        // the next fight from phase one instead of staying stuck in its last phase.
-        boolean encounterOver = outOfCombatSince != NOT_SCHEDULED
-                && gameTime - outOfCombatSince >= COMBAT_RESET_TICKS;
-        highestPhaseReached = encounterOver ? healthPhase : Math.max(highestPhaseReached, healthPhase);
-
-        if (!encounterOver) {
-            minionsClearedForEncounter = false;
-        } else if (!minionsClearedForEncounter) {
-            minionsClearedForEncounter = true;
-            if (data.isClearMinionsOnReset()) {
-                BossMinionUtil.clear(level, npc, data.getMinionRemovalMode());
-            }
+        if (outOfCombatSince != NOT_SCHEDULED
+                && gameTime - outOfCombatSince >= data.getResetTicks()) {
+            // The phase is deliberately not recomputed from health here. A boss that was
+            // beaten down and then walked away from does not heal on its own, so reading
+            // the phase back off its health would leave it stuck in the phase the last
+            // fight ended in and open the next one with late-phase abilities.
+            endEncounter(level, data);
+            return;
         }
 
+        // Inside a fight the phase only ever advances, so healing the boss - a potion, a
+        // script, a regeneration effect - cannot rewind the encounter mid-combat.
+        highestPhaseReached = Math.max(highestPhaseReached, data.resolvePhaseIndex(healthPercent()));
         if (highestPhaseReached == currentPhase) {
             return;
         }
-        boolean advancing = highestPhaseReached > currentPhase;
         currentPhase = highestPhaseReached;
         cancelPendingAndSchedules();
-        // Only announce a real phase change. Falling back to an earlier phase is a quiet
-        // reset between fights, not something the boss should perform an animation for.
-        if (advancing) {
-            playAnimation(data.getPhaseTransitionAnimation());
-            if (!data.getPhaseTransitionAnimation().isEmpty()) {
-                busyUntil = gameTime + data.getPhaseTransitionLockTicks();
-            }
+        playAnimation(data.getPhaseTransitionAnimation());
+        if (!data.getPhaseTransitionAnimation().isEmpty()) {
+            busyUntil = gameTime + data.getPhaseTransitionLockTicks();
+        }
+    }
+
+    /**
+     * Puts the boss back the way it was before anyone aggroed it: phase one, no minions,
+     * no boss bar, no scheduled abilities. Everything that is allowed to survive a fight
+     * but not the fight after it unwinds here, so later mechanics only have one place to
+     * hook into.
+     *
+     * <p>Runs once per encounter - the flag is only cleared by the next tick that finds a
+     * real combat target - so repeated calls while the boss idles are free.</p>
+     */
+    private void endEncounter(ServerLevel level, TeleportPathData data) {
+        if (encounterResetDone) {
+            return;
+        }
+        encounterResetDone = true;
+
+        npc.setTarget(null);
+        // Dropping the target on its own is not enough: CustomNPCs remembers everyone who
+        // hurt the boss and picks a new target off that list within ten ticks, which would
+        // restart the fight the moment it was declared over.
+        npc.combatHandler.reset();
+
+        currentPhase = 0;
+        highestPhaseReached = 0;
+        cancelPendingAndSchedules();
+        activePulls.clear();
+        busyUntil = 0L;
+
+        if (data.isClearMinionsOnReset()) {
+            BossMinionUtil.clear(level, npc, data.getMinionRemovalMode());
+        }
+        hideBossBar();
+
+        if (data.isResetHeal()) {
+            npc.setHealth(npc.getMaxHealth());
+        }
+        if (data.isResetReturn()) {
+            npc.teleportTo(homeX, homeY, homeZ);
+            npc.fallDistance = 0.0F;
+            npc.setDeltaMovement(Vec3.ZERO);
+            npc.getNavigation().stop();
+            // A stationary boss is pinned to lockedX/lockedZ every tick, so without this
+            // the teleport is undone before anyone sees it.
+            lockedX = homeX;
+            lockedZ = homeZ;
         }
     }
 
@@ -301,9 +344,27 @@ public final class TeleportPathController {
         return !data.isTargetRequiresLineOfSight() || npc.getSensing().hasLineOfSight(player);
     }
 
+    /**
+     * Whether the boss is really fighting someone right now.
+     *
+     * <p>Deliberately stricter than asking CustomNPCs whether it has a target: it holds on
+     * to one until the victim leaves the NPC's own aggro range, which is configured apart
+     * from the boss' search radius and is routinely far wider, so a player who just walked
+     * off would otherwise keep the encounter alive forever.</p>
+     */
     private boolean hasCombatTarget() {
         LivingEntity target = npc.getTarget();
-        return target != null && target.isAlive();
+        if (target == null || target.isRemoved() || !target.isAlive()
+                || target.level() != npc.level()) {
+            return false;
+        }
+        if (target instanceof Player player && (player.isSpectator() || player.isCreative())) {
+            return false;
+        }
+        // Half a search radius of slack on top, so a target standing right on the edge of
+        // it does not flicker the fight on and off from one tick to the next.
+        double leash = settings().getTargetSearchRadius() * 1.5D;
+        return npc.distanceToSqr(target) <= leash * leash;
     }
 
     private void updateBossBar(ServerLevel level, TeleportPathData data) {
@@ -1192,7 +1253,7 @@ public final class TeleportPathController {
         highestPhaseReached = 0;
         currentPhase = -1;
         outOfCombatSince = NOT_SCHEDULED;
-        minionsClearedForEncounter = false;
+        encounterResetDone = false;
         activePulls.clear();
         busyUntil = 0L;
         cancelPendingAndSchedules();
