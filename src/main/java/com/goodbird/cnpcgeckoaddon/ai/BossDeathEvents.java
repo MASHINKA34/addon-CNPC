@@ -9,6 +9,7 @@ import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.EntityHitResult;
@@ -18,6 +19,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
@@ -60,6 +62,36 @@ public class BossDeathEvents {
         if (data.isExplosionEnabled()) {
             BossExplosionScheduler.schedule(level, npc, data);
         }
+    }
+
+    /**
+     * Swallows every hit aimed at a boss that is in an immune phase.
+     *
+     * <p>This fires before any mitigation is calculated, so the hit is dropped whole rather
+     * than reduced to zero - nothing downstream sees a damage number at all.</p>
+     */
+    @SubscribeEvent
+    public static void onBossIncomingDamage(final LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)) {
+            return;
+        }
+        // Leaving this tag alone keeps /kill working: a boss nobody can remove while it is
+        // immune would be untestable.
+        if (event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null || !controller.isInvulnerable()) {
+            return;
+        }
+        // Cancelling means LivingDamageEvent.Post never runs, so whoever swung still has to
+        // be signed up for the boss bar here.
+        if (event.getSource().getEntity() instanceof ServerPlayer player) {
+            trackParticipant(npc, player);
+        }
+        controller.playInvulnerableHitFeedback();
+        event.setCanceled(true);
     }
 
     @SubscribeEvent

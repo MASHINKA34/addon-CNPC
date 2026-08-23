@@ -57,6 +57,8 @@ public final class TeleportPathController {
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
     private static final int POST_ACTION_LOCK_TICKS = 10;
     private static final int ABILITY_COUNT = 6;
+    /** Quietest gap that still reads as one clang per hit rather than a rattle. */
+    private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     private static final Set<TeleportPathController> INSTANCES =
             Collections.newSetFromMap(new WeakHashMap<>());
 
@@ -77,6 +79,8 @@ public final class TeleportPathController {
     private boolean invulnerableSummonedOnce;
     /** Phase the last immune window belonged to, so a phase only turns immune once per fight. */
     private int invulnerablePhaseIndex = -1;
+    /** Earliest game time the next blocked-hit clang may play at. */
+    private long nextBlockFeedbackAt;
     private long outOfCombatSince = NOT_SCHEDULED;
     private boolean encounterResetDone;
     private double lockedX;
@@ -322,6 +326,27 @@ public final class TeleportPathController {
         return active && invulnerableUntil != NOT_SCHEDULED;
     }
 
+    /**
+     * Shield clang and a puff of sparks for a hit that bounced off an immune boss.
+     *
+     * <p>Self-throttling: a boss ringed by players takes several hits per tick, and one
+     * clang each reads as a bug rather than as immunity.</p>
+     */
+    public void playInvulnerableHitFeedback() {
+        if (!(npc.level() instanceof ServerLevel level)) {
+            return;
+        }
+        long gameTime = level.getGameTime();
+        if (gameTime < nextBlockFeedbackAt) {
+            return;
+        }
+        nextBlockFeedbackAt = gameTime + BLOCK_FEEDBACK_INTERVAL_TICKS;
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.SHIELD_BLOCK,
+                SoundSource.HOSTILE, 0.8F, 0.9F + npc.getRandom().nextFloat() * 0.2F);
+        level.sendParticles(ParticleTypes.ENCHANT, npc.getX(), npc.getY(0.6D), npc.getZ(), 8,
+                npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.05D);
+    }
+
     /** @return ticks left on the immune window, or 0 when the boss is vulnerable */
     public int invulnerableTicksLeft() {
         if (!isInvulnerable() || !(npc.level() instanceof ServerLevel level)) {
@@ -335,6 +360,7 @@ public final class TeleportPathController {
         invulnerableSummonedOnce = false;
         invulnerablePhaseIndex = -1;
         forcedPhaseFloor = 0;
+        nextBlockFeedbackAt = 0L;
     }
 
     /**
