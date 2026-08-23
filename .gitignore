@@ -33,6 +33,15 @@ __pycache__/
 Thumbs.db
 *.log
 
+# --- Third-party mob assets ---
+# Models, animations and textures ripped from other mods for the bundled MobModels
+# feature. They belong to their authors and must not be redistributed through this
+# repository - only the addon's own namespace is tracked. The files still live on
+# disk and still end up in a locally built jar; they are simply not published here.
+# See README.md for what a clean clone does and does not contain.
+src/main/resources/assets/*
+!src/main/resources/assets/cnpcgeckoaddon/
+
 # --- Notes ---
 # lib/*.jar is deliberately NOT ignored. CustomNPCs and Ars Nouveau are not on any
 # Maven repository, and build.gradle resolves them from lib/ via a flatDir repository,
