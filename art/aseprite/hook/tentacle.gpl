@@ -1,0 +1,15 @@
+GIMP Palette
+Name: Hook Cord - Grasping Tentacle
+Columns: 4
+#
+  0   0   0	transparent a000
+ 49  25  61	outline a255
+ 75  35  86	shadow a255
+113  52 111	base a255
+151  67 126	mid a255
+182  92 146	underside a255
+ 94  42  83	sucker_dark a255
+207 122 171	sucker a255
+239 178 199	sucker_light a255
+243 160 203	highlight a255
+255 218 224	specular a255
