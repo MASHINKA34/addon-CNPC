@@ -1,0 +1,14 @@
+GIMP Palette
+Name: moss_cave boss-bar timer
+Columns: 4
+# Exact colors sampled from the parent boss bar.
+  1   1   0	outline
+ 12  24  21	track_shadow
+ 18  28  25	track_low
+ 19  34  29	track_mid
+ 22  36  32	track_high
+ 43  52  55	stone_dark
+ 56  70  70	stone_mid
+ 84 104 105	stone_light
+105 134 133	stone_high
+ 71  87  39	moss
