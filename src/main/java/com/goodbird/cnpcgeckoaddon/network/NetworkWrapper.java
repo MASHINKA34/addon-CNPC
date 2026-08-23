@@ -28,6 +28,8 @@ public class NetworkWrapper {
         final PayloadRegistrar registrar = event.registrar("1");
         registerPacket(registrar, PacketSyncAnimation.TYPE,PacketSyncAnimation::encode,PacketSyncAnimation::decode,PacketSyncAnimation::handle);
         registerPacket(registrar, PacketSyncTileAnimation.TYPE,PacketSyncTileAnimation::encode,PacketSyncTileAnimation::decode,PacketSyncTileAnimation::handle);
+        registerPacket(registrar, PacketSyncBossBarStyle.TYPE, PacketSyncBossBarStyle::encode,
+                PacketSyncBossBarStyle::decode, PacketSyncBossBarStyle::handle);
     }
 
     /**
@@ -49,7 +51,8 @@ public class NetworkWrapper {
     }
 
     public static <MSG extends CustomPacketPayload> void registerPacket(PayloadRegistrar registrar , CustomPacketPayload.Type<MSG> type, BiConsumer<MSG, FriendlyByteBuf> encoder, Function<FriendlyByteBuf, MSG> decoder, Consumer<MSG> handle) {
-        registrar.commonToClient(type, CustomPacketPayload.codec(encoder::accept, decoder::apply), (packet, context) -> handle.accept(packet));
+        registrar.commonToClient(type, CustomPacketPayload.codec(encoder::accept, decoder::apply),
+                (packet, context) -> context.enqueueWork(() -> handle.accept(packet)));
     }
 
     public static <MSG extends CustomPacketPayload> void send(ServerPlayer player, MSG msg) {

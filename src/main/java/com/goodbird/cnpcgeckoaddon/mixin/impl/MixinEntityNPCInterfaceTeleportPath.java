@@ -2,6 +2,8 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.level.Level;
@@ -36,6 +38,24 @@ public abstract class MixinEntityNPCInterfaceTeleportPath extends PathfinderMob 
                         new TeleportPathController((EntityNPCInterface) (Object) this);
             }
             cnpcgeckoaddon$teleportPathController.tick();
+        }
+    }
+
+    @Inject(method = "stopSeenByPlayer", at = @At("HEAD"), remap = false)
+    private void cnpcgeckoaddon$stopBossBarTracking(ServerPlayer player, CallbackInfo ci) {
+        if (cnpcgeckoaddon$teleportPathController != null) {
+            cnpcgeckoaddon$teleportPathController.removeBossBarPlayer(player);
+        }
+    }
+
+    @Inject(method = "remove", at = @At("HEAD"), remap = false)
+    private void cnpcgeckoaddon$shutdownBossBar(Entity.RemovalReason reason, CallbackInfo ci) {
+        if (cnpcgeckoaddon$teleportPathController != null) {
+            if (reason == Entity.RemovalReason.KILLED) {
+                cnpcgeckoaddon$teleportPathController.stopBossBar();
+            } else {
+                cnpcgeckoaddon$teleportPathController.shutdown();
+            }
         }
     }
 }

@@ -67,6 +67,7 @@ public final class TeleportPathData {
     private static final String EXPLOSION_POWER_KEY = "GeckoBossExplosionPower";
     private static final String EXPLOSION_MODE_KEY = "GeckoBossExplosionMode";
     private static final String EXPLOSION_FIRE_KEY = "GeckoBossExplosionFire";
+    private static final String BOSS_BAR_STYLE_KEY = "GeckoBossBarStyle";
 
     private boolean enabled;
     private boolean combatOnly = true;
@@ -97,6 +98,7 @@ public final class TeleportPathData {
     private int explosionPower = 4;
     private int explosionMode = EXPLOSION_MODE_DAMAGE;
     private boolean explosionFire;
+    private String bossBarStyle = BossBarStyles.NONE;
 
     public TeleportPathData() {
         setPhaseCount(2);
@@ -138,6 +140,7 @@ public final class TeleportPathData {
         tag.putInt(EXPLOSION_POWER_KEY, explosionPower);
         tag.putInt(EXPLOSION_MODE_KEY, explosionMode);
         tag.putBoolean(EXPLOSION_FIRE_KEY, explosionFire);
+        tag.putString(BOSS_BAR_STYLE_KEY, bossBarStyle);
         return tag;
     }
 
@@ -179,6 +182,7 @@ public final class TeleportPathData {
                 ? Mth.clamp(tag.getInt(EXPLOSION_MODE_KEY), EXPLOSION_MODE_EFFECT, EXPLOSION_MODE_BLOCKS_ALWAYS)
                 : EXPLOSION_MODE_DAMAGE;
         explosionFire = tag.getBoolean(EXPLOSION_FIRE_KEY);
+        bossBarStyle = BossBarStyles.normalize(tag.getString(BOSS_BAR_STYLE_KEY));
     }
 
     private void readPhases(CompoundTag tag) {
@@ -318,6 +322,8 @@ public final class TeleportPathData {
     }
     public boolean isExplosionFire() { return explosionFire; }
     public void setExplosionFire(boolean value) { explosionFire = value; }
+    public String getBossBarStyle() { return bossBarStyle; }
+    public void setBossBarStyle(String value) { bossBarStyle = BossBarStyles.normalize(value); }
 
     // Compatibility helpers retained for migrated NPCs and scripts.
     public BossPhaseData getPhaseOne() { return phases.get(0); }

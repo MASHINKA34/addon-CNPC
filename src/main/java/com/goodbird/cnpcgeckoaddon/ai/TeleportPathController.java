@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
@@ -9,9 +10,12 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
+import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossBarStyle;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
@@ -20,6 +24,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
@@ -36,7 +41,11 @@ import software.bernie.geckolib.animation.RawAnimation;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.function.Predicate;
 
 /**
@@ -50,10 +59,15 @@ public final class TeleportPathController {
     private static final int ABILITY_COUNT = 6;
     /** How long the boss has to be out of combat before the encounter counts as over. */
     private static final int COMBAT_RESET_TICKS = 100;
+    private static final Set<TeleportPathController> INSTANCES =
+            Collections.newSetFromMap(new WeakHashMap<>());
 
     private enum PendingAction { NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK }
 
     private final EntityNPCInterface npc;
+    private final ServerBossEvent bossEvent;
+    private final Set<UUID> bossBarParticipants = new HashSet<>();
+    private String activeBossBarStyle = BossBarStyles.NONE;
     private boolean active;
     private int currentPhase = -1;
     private int highestPhaseReached;
@@ -92,6 +106,9 @@ public final class TeleportPathController {
 
     public TeleportPathController(EntityNPCInterface npc) {
         this.npc = npc;
+        this.bossEvent = new ServerBossEvent(npc.getDisplayName(), BossEvent.BossBarColor.WHITE,
+                BossEvent.BossBarOverlay.PROGRESS);
+        INSTANCES.add(this);
     }
 
     public void tick() {
@@ -120,6 +137,7 @@ public final class TeleportPathController {
         tickHookPulls(level, gameTime);
         faceCombatTarget();
         updatePhase(level, gameTime, data);
+        updateBossBar(level, data);
         BossPhaseData phase = data.getPhase(currentPhase);
 
         if (data.isCombatOnly() && !hasCombatTarget()) {
@@ -286,6 +304,123 @@ public final class TeleportPathController {
     private boolean hasCombatTarget() {
         LivingEntity target = npc.getTarget();
         return target != null && target.isAlive();
+    }
+
+    private void updateBossBar(ServerLevel level, TeleportPathData data) {
+        String style = BossBarStyles.normalize(data.getBossBarStyle());
+        if (!BossBarStyles.isEnabled(style)) {
+            hideBossBar();
+            restoreNativeBossBar();
+            return;
+        }
+
+        npc.bossInfo.setVisible(false);
+        if (!hasCombatTarget()) {
+            hideBossBar();
+            return;
+        }
+
+        bossEvent.setName(npc.getDisplayName());
+        float maximum = npc.getMaxHealth();
+        bossEvent.setProgress(maximum <= 0.0F ? 0.0F : Mth.clamp(npc.getHealth() / maximum, 0.0F, 1.0F));
+        bossEvent.setVisible(true);
+
+        if (!style.equals(activeBossBarStyle)) {
+            activeBossBarStyle = style;
+            for (ServerPlayer player : bossEvent.getPlayers()) {
+                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style));
+            }
+        }
+
+        double radiusSquared = data.getTargetSearchRadius() * (double) data.getTargetSearchRadius();
+        LivingEntity target = npc.getTarget();
+        if (target instanceof ServerPlayer player) {
+            bossBarParticipants.add(player.getUUID());
+        }
+        Set<ServerPlayer> eligible = new HashSet<>();
+        for (UUID playerId : Set.copyOf(bossBarParticipants)) {
+            Player player = level.getPlayerByUUID(playerId);
+            if (player instanceof ServerPlayer serverPlayer && isBossBarViewer(serverPlayer)
+                    && (serverPlayer == target || npc.distanceToSqr(serverPlayer) <= radiusSquared)) {
+                eligible.add(serverPlayer);
+            } else {
+                bossBarParticipants.remove(playerId);
+            }
+        }
+
+        for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
+            if (!eligible.contains(player)) {
+                bossEvent.removePlayer(player);
+                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
+            }
+        }
+        for (ServerPlayer player : eligible) {
+            if (!bossEvent.getPlayers().contains(player)) {
+                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style));
+                bossEvent.addPlayer(player);
+            }
+        }
+    }
+
+    private boolean isBossBarViewer(ServerPlayer player) {
+        return player.isAlive() && !player.isSpectator() && !player.isCreative() && !player.isRemoved()
+                && (player == npc.getTarget() || npc.canAttack(player) && !npc.isAlliedTo(player));
+    }
+
+    public void trackBossBarPlayer(ServerPlayer player) {
+        TeleportPathData data = settings();
+        if (player.level() == npc.level() && data.isEnabled()
+                && BossBarStyles.isEnabled(data.getBossBarStyle()) && isBossBarViewer(player)) {
+            bossBarParticipants.add(player.getUUID());
+        }
+    }
+
+    public void removeBossBarPlayer(ServerPlayer player) {
+        bossBarParticipants.remove(player.getUUID());
+        if (!bossEvent.getPlayers().contains(player)) {
+            return;
+        }
+        bossEvent.removePlayer(player);
+        NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
+    }
+
+    public void shutdown() {
+        stopBossBar();
+        INSTANCES.remove(this);
+    }
+
+    public void stopBossBar() {
+        hideBossBar();
+        npc.bossInfo.setVisible(false);
+    }
+
+    public static void removePlayerFromBossBars(ServerPlayer player) {
+        for (TeleportPathController controller : List.copyOf(INSTANCES)) {
+            controller.removeBossBarPlayer(player);
+        }
+    }
+
+    public static void shutdownLevel(ServerLevel level) {
+        for (TeleportPathController controller : List.copyOf(INSTANCES)) {
+            if (controller.npc.level() == level) {
+                controller.shutdown();
+            }
+        }
+    }
+
+    private void hideBossBar() {
+        for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
+            bossEvent.removePlayer(player);
+            NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
+        }
+        activeBossBarStyle = BossBarStyles.NONE;
+        bossBarParticipants.clear();
+    }
+
+    private void restoreNativeBossBar() {
+        int mode = npc.display.getBossbar();
+        npc.bossInfo.setVisible(npc.isAlive() && !npc.isRemoved()
+                && (mode == 1 || mode == 2 && hasCombatTarget()));
     }
 
     private void keepStationary() {
@@ -1051,6 +1186,8 @@ public final class TeleportPathController {
     }
 
     private void reset() {
+        hideBossBar();
+        restoreNativeBossBar();
         active = false;
         highestPhaseReached = 0;
         currentPhase = -1;

@@ -18,6 +18,7 @@ public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldList
     private static final int PHASE_COUNT_FIELD = 4;
     private static final int TRANSITION_ANIMATION_FIELD = 5;
     private static final int TRANSITION_LOCK_FIELD = 6;
+    private static final int BOSS_BAR_BUTTON = 25;
 
     private final TeleportPathData data;
     private final EntityNPCInterface npc;
@@ -63,7 +64,8 @@ public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldList
                 "cnpcgeckoaddon.boss.phase_settings"));
         addButton(new GuiButtonNop(this, 24, guiLeft + 128, guiTop + 186, 114, 20,
                 "cnpcgeckoaddon.boss.explosion_settings"));
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.teleport.path_hint", guiLeft + 8, guiTop + 210, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, BOSS_BAR_BUTTON, guiLeft + 8, guiTop + 208, 234, 20,
+                "cnpcgeckoaddon.boss.bar_settings"));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
                 "gui.done", button -> close()));
     }
@@ -108,6 +110,9 @@ public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldList
         } else if (button.id == 24) {
             applyFields();
             setSubGui(new SubGuiBossExplosion(npc, data));
+        } else if (button.id == BOSS_BAR_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossBarStyle(data));
         }
     }
 
