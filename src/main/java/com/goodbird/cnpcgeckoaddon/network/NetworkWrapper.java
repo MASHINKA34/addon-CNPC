@@ -6,6 +6,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -32,6 +33,8 @@ public class NetworkWrapper {
                 PacketSyncBossBarStyle::decode, PacketSyncBossBarStyle::handle);
         registerPacket(registrar, PacketSyncBossTimer.TYPE, PacketSyncBossTimer::encode,
                 PacketSyncBossTimer::decode, PacketSyncBossTimer::handle);
+        registerPacket(registrar, PacketSyncHookCord.TYPE, PacketSyncHookCord::encode,
+                PacketSyncHookCord::decode, PacketSyncHookCord::handle);
     }
 
     /**
@@ -59,6 +62,15 @@ public class NetworkWrapper {
 
     public static <MSG extends CustomPacketPayload> void send(ServerPlayer player, MSG msg) {
         PacketDistributor.sendToPlayer(player, msg);
+    }
+
+
+    /**
+     * Sends to everyone with the entity loaded, which for a world effect is exactly the set
+     * of players who can see it - bystanders included, and nobody a continent away.
+     */
+    public static <MSG extends CustomPacketPayload> void sendToTracking(Entity entity, MSG msg) {
+        PacketDistributor.sendToPlayersTrackingEntity(entity, msg);
     }
 
 

@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
+import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
 import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
@@ -13,6 +14,7 @@ import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossBarStyle;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossTimer;
+import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
@@ -126,7 +128,7 @@ public final class TeleportPathController {
 
     /** A gather point of null means "keep pulling toward the boss wherever it is". */
     private record HookPull(int targetId, long endsAt, double strength, double stopDistance,
-                            Vec3 gatherPoint) {
+                            Vec3 gatherPoint, String cordStyle) {
     }
     private PendingAction pendingAction = PendingAction.NONE;
     private long pendingActionAt = NOT_SCHEDULED;
@@ -412,7 +414,7 @@ public final class TeleportPathController {
         clearInvulnerability();
         clearRage();
         cancelPendingAndSchedules();
-        activePulls.clear();
+        clearHookPulls();
         busyUntil = 0L;
 
         if (data.isClearMinionsOnReset()) {
@@ -1136,19 +1138,70 @@ public final class TeleportPathController {
         boolean cinch = phase.getHookMode() == BossPhaseData.HOOK_MODE_CINCH;
         Vec3 gatherPoint = cinch ? npc.position() : null;
         double stopDistance = cinch ? 0.0D : phase.getHookStopDistance();
+        String cordStyle = phase.getHookCordStyle();
+        boolean textured = HookCordStyles.isTextured(cordStyle);
         for (LivingEntity victim : victims) {
-            drawHookChain(level, victim);
+            if (textured) {
+                sendHookCord(victim.getId(), cordStyle, phase.getHookPullDurationTicks());
+            } else {
+                drawHookChain(level, victim);
+            }
             if (phase.getHookDamage() > 0) {
                 victim.hurt(level.damageSources().mobAttack(npc), rageUp(phase.getHookDamage()));
             }
             phase.getHookEffects().applyAll(victim, npc);
             // Re-hooking someone already being dragged just refreshes their pull.
             activePulls.removeIf(pull -> pull.targetId() == victim.getId());
-            activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint));
+            activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint,
+                    cordStyle));
             applyPull(victim, strength, gatherPoint);
         }
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.CHAIN_PLACE,
-                SoundSource.HOSTILE, 2.0F, 0.6F);
+        playHookSound(level, cordStyle);
+    }
+
+    /** Each cord gets the voice its artwork implies; the plain sparks keep the old clang. */
+    private void playHookSound(ServerLevel level, String cordStyle) {
+        switch (cordStyle) {
+            case HookCordStyles.VINE -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
+                    SoundEvents.WEEPING_VINES_BREAK, SoundSource.HOSTILE, 2.0F, 0.7F);
+            case HookCordStyles.CHAIN_INFERNAL -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
+                    SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE, 2.0F, 0.4F);
+            case HookCordStyles.TENTACLE -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
+                    SoundEvents.SLIME_ATTACK, SoundSource.HOSTILE, 2.0F, 0.6F);
+            case HookCordStyles.GHOST -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
+                    SoundEvents.SOUL_ESCAPE, SoundSource.HOSTILE, 2.0F, 0.8F);
+            default -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
+                    SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE, 2.0F, 0.6F);
+        }
+    }
+
+    /**
+     * Tells everyone watching the boss to draw - or, with a zero duration, to drop - one cord.
+     *
+     * <p>The guard is for the odd client-side call into a reset: the distributor would throw
+     * rather than quietly do nothing there.</p>
+     */
+    private void sendHookCord(int victimId, String cordStyle, int durationTicks) {
+        if (npc.level().isClientSide()) {
+            return;
+        }
+        NetworkWrapper.sendToTracking(npc, new PacketSyncHookCord(npc.getId(), victimId, cordStyle,
+                durationTicks));
+    }
+
+    /** Textured cords outlive their pull unless the client is told the pull is over. */
+    private void dropHookCord(HookPull pull) {
+        if (HookCordStyles.isTextured(pull.cordStyle())) {
+            sendHookCord(pull.targetId(), pull.cordStyle(), 0);
+        }
+    }
+
+    /** Wipes the pulls and every cord they are still drawing, for a reset or a fight end. */
+    private void clearHookPulls() {
+        for (HookPull pull : activePulls) {
+            dropHookCord(pull);
+        }
+        activePulls.clear();
     }
 
     /**
@@ -1165,19 +1218,27 @@ public final class TeleportPathController {
         Iterator<HookPull> iterator = activePulls.iterator();
         while (iterator.hasNext()) {
             HookPull pull = iterator.next();
-            if (gameTime >= pull.endsAt() || !(level.getEntity(pull.targetId()) instanceof LivingEntity victim)
+            boolean expired = gameTime >= pull.endsAt();
+            if (expired || !(level.getEntity(pull.targetId()) instanceof LivingEntity victim)
                     || !victim.isAlive() || victim.isRemoved()) {
+                // The client counts the same duration down on its own, so only a cord cut
+                // short - a death, a despawn - is worth a packet.
+                if (!expired) {
+                    dropHookCord(pull);
+                }
                 iterator.remove();
                 continue;
             }
             Vec3 destination = pull.gatherPoint() != null ? pull.gatherPoint() : npc.position();
             double stop = pull.stopDistance();
             if (stop > 0.0D && victim.position().distanceToSqr(destination) <= stop * stop) {
+                dropHookCord(pull);
                 iterator.remove();
                 continue;
             }
             applyPull(victim, pull.strength(), pull.gatherPoint());
-            if ((gameTime & 1L) == 0L) {
+            // A textured cord is drawn by the client and needs no top-up.
+            if ((gameTime & 1L) == 0L && !HookCordStyles.isTextured(pull.cordStyle())) {
                 drawHookChain(level, victim);
             }
         }
@@ -1634,7 +1695,7 @@ public final class TeleportPathController {
         clearRage();
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
-        activePulls.clear();
+        clearHookPulls();
         busyUntil = 0L;
         cancelPendingAndSchedules();
         lastPathIndex = -1;
