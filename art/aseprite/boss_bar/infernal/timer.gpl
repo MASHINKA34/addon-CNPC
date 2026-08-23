@@ -1,0 +1,13 @@
+GIMP Palette
+Name: infernal boss-bar timer
+Columns: 4
+# Exact colors sampled from the parent boss bar.
+  9   7  10	outline
+ 20  18  22	track
+ 27  24  31	track_low
+ 39  37  42	track_high
+ 44  41  48	iron_dark
+ 65  61  69	iron
+ 91  80  76	iron_hot
+190  38   7	ember
+231  68   6	ember_hot
