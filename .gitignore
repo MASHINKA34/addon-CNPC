@@ -46,3 +46,10 @@ src/main/resources/assets/*
 # lib/*.jar is deliberately NOT ignored. CustomNPCs and Ars Nouveau are not on any
 # Maven repository, and build.gradle resolves them from lib/ via a flatDir repository,
 # so a clone without them cannot compile. See lib/README.md.
+
+# --- Working prompts ---
+# Task briefs handed to the agents that implement a feature. They are scratch work for
+# whoever drives the session, not part of the mod, so only the index that explains how
+# the work is split gets published.
+prompts/*
+!prompts/00-README.md
