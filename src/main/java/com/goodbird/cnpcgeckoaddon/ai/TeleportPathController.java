@@ -142,6 +142,7 @@ public final class TeleportPathController {
     private int previousPathSize;
     private int nextAbilityPriority;
     private long nextRetargetAt = NOT_SCHEDULED;
+    private long nextAggroZoneAt = NOT_SCHEDULED;
     private String reportedBrokenClone = "";
     private String reportedBrokenFluid = "";
 
@@ -174,6 +175,7 @@ public final class TeleportPathController {
         } else {
             rememberCurrentPosition();
         }
+        updateAggroZone(level, data, gameTime);
         updateNearestPlayerTarget(level, data, gameTime);
         if (hasCombatTarget()) {
             beginEncounter(gameTime);
@@ -698,6 +700,101 @@ public final class TeleportPathController {
     }
 
     /**
+     * Starts combat when an eligible player enters the configured block volume. The spatial
+     * entity query only visits loaded entity sections, so a distant absolute box never loads
+     * its chunks merely to discover that nobody is there.
+     */
+    private void updateAggroZone(ServerLevel level, TeleportPathData data, long gameTime) {
+        if (!data.isAggroZoneEnabled()) {
+            nextAggroZoneAt = NOT_SCHEDULED;
+            return;
+        }
+        if (nextAggroZoneAt != NOT_SCHEDULED && gameTime < nextAggroZoneAt) {
+            return;
+        }
+        nextAggroZoneAt = gameTime + data.getAggroZoneRecheckTicks();
+
+        AABB zone = aggroZoneBounds(level, data);
+        List<ServerPlayer> candidates = zone == null
+                ? List.of() : eligibleAggroZonePlayers(level, data, zone);
+        for (ServerPlayer player : candidates) {
+            // Everyone who crossed the trigger together belongs to the fight, even when
+            // only one of them is chosen as the NPC's immediate target.
+            trackParticipant(player);
+        }
+
+        LivingEntity current = npc.getTarget();
+        boolean currentIsCandidate = current instanceof ServerPlayer player && candidates.contains(player);
+        if (data.isAggroZoneKeepInside() && current instanceof Player && !currentIsCandidate) {
+            setTargetIfChanged(selectAggroZoneTarget(candidates, data));
+            return;
+        }
+        if (!hasValidZoneCombatTarget(current, data)) {
+            ServerPlayer selected = selectAggroZoneTarget(candidates, data);
+            if (selected != null) {
+                setTargetIfChanged(selected);
+            }
+        }
+    }
+
+    private List<ServerPlayer> eligibleAggroZonePlayers(ServerLevel level, TeleportPathData data,
+                                                         AABB zone) {
+        return level.getEntitiesOfClass(ServerPlayer.class, zone, player -> player.level() == level
+                && zone.contains(player.position()) && isTargetablePlayer(player, data));
+    }
+
+    /** Intersects Y with this dimension's real build height instead of an obsolete 0..255 range. */
+    private AABB aggroZoneBounds(ServerLevel level, TeleportPathData data) {
+        int minY = Math.max(Math.min(data.getAggroZoneY1(), data.getAggroZoneY2()),
+                level.getMinBuildHeight());
+        int maxY = Math.min(Math.max(data.getAggroZoneY1(), data.getAggroZoneY2()),
+                level.getMaxBuildHeight() - 1);
+        if (minY > maxY) {
+            return null;
+        }
+        int minX = Math.min(data.getAggroZoneX1(), data.getAggroZoneX2());
+        int minZ = Math.min(data.getAggroZoneZ1(), data.getAggroZoneZ2());
+        int maxX = Math.max(data.getAggroZoneX1(), data.getAggroZoneX2());
+        int maxZ = Math.max(data.getAggroZoneZ1(), data.getAggroZoneZ2());
+        // The upper AABB bounds are exclusive, so adding one includes every block of corner 2.
+        return new AABB(minX, minY, minZ, (double) maxX + 1.0D,
+                (double) maxY + 1.0D, (double) maxZ + 1.0D);
+    }
+
+    private ServerPlayer selectAggroZoneTarget(List<ServerPlayer> candidates, TeleportPathData data) {
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        if (data.getAggroZoneTargetMode() == TeleportPathData.AGGRO_ZONE_TARGET_RANDOM) {
+            return candidates.get(npc.getRandom().nextInt(candidates.size()));
+        }
+        ServerPlayer nearest = candidates.getFirst();
+        double nearestDistance = npc.distanceToSqr(nearest);
+        for (int i = 1; i < candidates.size(); i++) {
+            ServerPlayer candidate = candidates.get(i);
+            double distance = npc.distanceToSqr(candidate);
+            if (distance < nearestDistance) {
+                nearest = candidate;
+                nearestDistance = distance;
+            }
+        }
+        return nearest;
+    }
+
+    private boolean hasValidZoneCombatTarget(LivingEntity target, TeleportPathData data) {
+        if (!hasCombatTarget()) {
+            return false;
+        }
+        return !(target instanceof Player player) || isTargetablePlayer(player, data);
+    }
+
+    private void setTargetIfChanged(LivingEntity target) {
+        if (npc.getTarget() != target) {
+            npc.setTarget(target);
+        }
+    }
+
+    /**
      * Locks the boss onto the closest reachable player. Without this a boss keeps chasing
      * whoever aggroed it first, which lets a group trivially kite it with one player.
      */
@@ -711,13 +808,18 @@ public final class TeleportPathController {
         }
         nextRetargetAt = gameTime + data.getTargetRecheckTicks();
 
+        boolean restrictToZone = data.isAggroZoneEnabled() && data.isAggroZoneKeepInside();
+        AABB zoneConstraint = restrictToZone ? aggroZoneBounds(level, data) : null;
         double radius = data.getTargetSearchRadius();
         double radiusSquared = radius * radius;
         Player nearest = null;
         double nearestDistance = Double.MAX_VALUE;
-        for (Player player : level.players()) {
+        Iterable<? extends Player> players = !restrictToZone
+                ? level.players() : zoneConstraint == null
+                ? List.of() : eligibleAggroZonePlayers(level, data, zoneConstraint);
+        for (Player player : players) {
             double distance = npc.distanceToSqr(player);
-            if (distance > radiusSquared || distance >= nearestDistance) {
+            if ((!restrictToZone && distance > radiusSquared) || distance >= nearestDistance) {
                 continue;
             }
             if (!isTargetablePlayer(player, data)) {
@@ -731,7 +833,7 @@ public final class TeleportPathController {
         if (nearest == null) {
             // Only release players: a mob target was picked by the CustomNPCs faction AI
             // and dropping it here would fight with that system every recheck.
-            if (!data.isKeepTargetOutOfRange() && current instanceof Player) {
+            if ((restrictToZone || !data.isKeepTargetOutOfRange()) && current instanceof Player) {
                 npc.setTarget(null);
             }
             return;
@@ -1783,6 +1885,7 @@ public final class TeleportPathController {
         pingPongDirection = 1;
         nextAbilityPriority = 0;
         nextRetargetAt = NOT_SCHEDULED;
+        nextAggroZoneAt = NOT_SCHEDULED;
         clearEncounter();
         reportedBrokenClone = "";
         reportedBrokenFluid = "";
