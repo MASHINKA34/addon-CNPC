@@ -74,7 +74,7 @@ public final class BossDeathEvents {
     }
 
     /**
-     * Swallows every hit aimed at a boss that is in an immune phase.
+     * Swallows every hit aimed at a boss protected by a phase or full-immunity totems.
      *
      * <p>This fires before any mitigation is calculated, so the hit is dropped whole rather
      * than reduced to zero - nothing downstream sees a damage number at all.</p>
@@ -91,7 +91,13 @@ public final class BossDeathEvents {
             return;
         }
         TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
-        if (controller == null || !controller.isInvulnerable()) {
+        if (controller == null) {
+            return;
+        }
+        boolean phaseProtection = controller.isInvulnerable();
+        boolean totemProtection = controller.isTotemProtected()
+                && controller.getTotemProtectionMode() == TeleportPathData.TOTEM_PROTECTION_FULL_IMMUNITY;
+        if (!phaseProtection && !totemProtection) {
             return;
         }
         // Cancelling means LivingDamageEvent.Post never runs, so whoever swung still has to
@@ -99,8 +105,39 @@ public final class BossDeathEvents {
         if (event.getSource().getEntity() instanceof ServerPlayer player) {
             trackParticipant(npc, player);
         }
-        controller.playInvulnerableHitFeedback();
+        if (totemProtection) {
+            controller.playTotemHitFeedback();
+        } else {
+            controller.playInvulnerableHitFeedback();
+        }
         event.setCanceled(true);
+    }
+
+    /**
+     * Clamps the fully mitigated health damage, after armor and effects but before HP changes.
+     * Absorption is applied later and can only make the guarded result safer.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onBossDamagePre(final LivingDamageEvent.Pre event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null || !controller.isTotemProtected()
+                || controller.getTotemProtectionMode() != TeleportPathData.TOTEM_PROTECTION_LETHAL_GUARD) {
+            return;
+        }
+        float maximumDamage = Math.max(0.0F, npc.getHealth() - 1.0F);
+        if (event.getNewDamage() <= maximumDamage) {
+            return;
+        }
+        if (event.getSource().getEntity() instanceof ServerPlayer player) {
+            trackParticipant(npc, player);
+        }
+        event.setNewDamage(maximumDamage);
+        controller.playTotemHitFeedback();
     }
 
     @SubscribeEvent

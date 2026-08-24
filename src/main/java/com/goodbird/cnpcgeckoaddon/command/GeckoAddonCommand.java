@@ -1,8 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.command;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
@@ -33,7 +35,50 @@ public class GeckoAddonCommand {
                 .requires(source -> source.hasPermission(2));
         root.then(Commands.literal("scan").executes(context -> check(context.getSource(), false)));
         root.then(Commands.literal("fix").executes(context -> check(context.getSource(), true)));
+        root.then(Commands.literal("boss").executes(context -> showBossStatus(context.getSource())));
         event.getDispatcher().register(root);
+    }
+
+    private static int showBossStatus(CommandSourceStack source) {
+        int found = 0;
+        for (ServerLevel level : source.getServer().getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (!(entity instanceof EntityNPCInterface npc)) {
+                    continue;
+                }
+                TeleportPathData data = ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData();
+                if (!data.isEnabled()) {
+                    continue;
+                }
+                found++;
+                TeleportPathController controller = npc instanceof IBossController holder
+                        ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
+                int configured = controller == null
+                        ? (int) data.getTotems().entries().stream()
+                        .filter(entry -> entry.isEnabled() && !entry.getCloneName().isEmpty()).count()
+                        : controller.configuredTotemCount();
+                int alive = controller == null ? 0 : controller.aliveTotemCount();
+                boolean protectedNow = controller != null && controller.isTotemProtected();
+                String protection = !data.isTotemsEnabled() ? "disabled"
+                        : data.getTotemProtectionMode() == TeleportPathData.TOTEM_PROTECTION_FULL_IMMUNITY
+                        ? "full immunity" : "lethal guard";
+                String respawn = switch (data.getTotemRespawnMode()) {
+                    case TeleportPathData.TOTEM_RESPAWN_NEVER -> "never";
+                    case TeleportPathData.TOTEM_RESPAWN_DELAYED -> "delayed";
+                    default -> "next encounter";
+                };
+                String bossLine = describe(npc, "boss status");
+                String totemLine = "Totems: " + alive + "/" + configured + ", protection="
+                        + protection + (protectedNow ? " (active)" : " (inactive)")
+                        + ", respawn=" + respawn;
+                source.sendSuccess(() -> Component.literal(bossLine), false);
+                source.sendSuccess(() -> Component.literal(totemLine), false);
+            }
+        }
+        if (found == 0) {
+            source.sendSuccess(() -> Component.literal("No loaded configured bosses found"), false);
+        }
+        return found;
     }
 
     private static int check(CommandSourceStack source, boolean fix) {

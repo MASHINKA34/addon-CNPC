@@ -792,6 +792,43 @@ public final class TeleportPathController {
                 npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.05D);
     }
 
+    /** Beacon-like feedback points at the living object that is supplying the protection. */
+    public void playTotemHitFeedback() {
+        if (!(npc.level() instanceof ServerLevel level)) {
+            return;
+        }
+        long gameTime = level.getGameTime();
+        if (gameTime < nextBlockFeedbackAt) {
+            return;
+        }
+        nextBlockFeedbackAt = gameTime + BLOCK_FEEDBACK_INTERVAL_TICKS;
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE,
+                SoundSource.HOSTILE, 1.0F, 1.2F + npc.getRandom().nextFloat() * 0.15F);
+
+        Entity linked = firstLoadedAliveTotem(level);
+        Vec3 from = npc.position().add(0.0D, npc.getBbHeight() * 0.6D, 0.0D);
+        Vec3 to = linked == null
+                ? from.add(0.0D, npc.getBbHeight() * 0.5D, 0.0D)
+                : linked.position().add(0.0D, linked.getBbHeight() * 0.5D, 0.0D);
+        Vec3 delta = to.subtract(from);
+        int points = Mth.clamp((int) Math.ceil(delta.length() * 2.0D), 4, 24);
+        for (int i = 0; i <= points; i++) {
+            Vec3 point = from.add(delta.scale((double) i / points));
+            level.sendParticles(ParticleTypes.END_ROD, point.x, point.y, point.z,
+                    1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    private Entity firstLoadedAliveTotem(ServerLevel level) {
+        for (TotemRuntime runtime : totemRuntime.values()) {
+            Entity entity = runtime.entityId == null ? null : level.getEntity(runtime.entityId);
+            if (entity != null && entity.isAlive() && BossTotemUtil.isTotemOf(entity, npc)) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
     /** @return ticks left on the immune window, or 0 when the boss is vulnerable */
     public int invulnerableTicksLeft() {
         if (!isInvulnerable() || !(npc.level() instanceof ServerLevel level)) {
