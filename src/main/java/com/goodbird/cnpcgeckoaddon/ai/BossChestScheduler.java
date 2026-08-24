@@ -160,6 +160,9 @@ public final class BossChestScheduler {
     /** Drops anything still waiting in a level that is going away. */
     public static void clear(ServerLevel level) {
         PENDING.removeIf(pending -> pending.dimension().equals(level.dimension()));
+        // Drops belong to a boss in a world that is closing, and entity ids start over in
+        // the next one - keeping them would hand somebody else's loot to another boss.
+        STAGED_DROPS.clear();
     }
 
     private static void place(ServerLevel level, Pending pending) {
@@ -167,6 +170,7 @@ public final class BossChestScheduler {
         if (pos == null) {
             LOGGER.warn("No room for a boss loot chest near {}: nothing around there can be replaced",
                     pending.deathPos());
+            spill(level, pending);
             return;
         }
 
@@ -185,6 +189,7 @@ public final class BossChestScheduler {
         BlockState previous = level.getBlockState(pos);
         BlockState placed = orient(level, block.defaultBlockState(), pos, pending.facing());
         if (!level.setBlock(pos, placed, Block.UPDATE_ALL)) {
+            spill(level, pending);
             return;
         }
         BlockEntity blockEntity = level.getBlockEntity(pos);
@@ -192,6 +197,7 @@ public final class BossChestScheduler {
             // The block claimed to be a container a moment ago. Since it is not making one
             // here, put the world back the way it was rather than leaving a decoy.
             level.setBlock(pos, previous, Block.UPDATE_ALL);
+            spill(level, pending);
             return;
         }
 
@@ -215,6 +221,24 @@ public final class BossChestScheduler {
     }
 
     /**
+     * Last resort for a chest that could not be put down: the loot goes on the ground where
+     * the boss fell.
+     *
+     * <p>The npc drops in here were taken out of the world on the promise of a chest to put
+     * them in. Deleting them because no chest could be built would quietly rob whoever won
+     * the fight, which is worse than a pile of items in an awkward spot.</p>
+     */
+    private static void spill(ServerLevel level, Pending pending) {
+        if (pending.items().isEmpty()) {
+            return;
+        }
+        LOGGER.warn("Dropping {} stacks of boss loot at {} instead", pending.items().size(), pending.deathPos());
+        for (ItemStack stack : pending.items()) {
+            Block.popResource(level, pending.deathPos(), stack);
+        }
+    }
+
+    /**
      * Picks where the chest goes: the death spot when it is free, otherwise the closest free
      * block around it, preferring one that has something underneath.
      *
@@ -224,7 +248,8 @@ public final class BossChestScheduler {
         BlockPos origin = descendToSupport(level, deathPos);
         BlockPos best = null;
         double bestScore = Double.MAX_VALUE;
-        for (int dy = SEARCH_HEIGHT; dy >= -SEARCH_HEIGHT; dy--) {
+        // Bottom up, so two spots the same distance away settle for the lower one.
+        for (int dy = -SEARCH_HEIGHT; dy <= SEARCH_HEIGHT; dy++) {
             for (int dx = -SEARCH_RADIUS; dx <= SEARCH_RADIUS; dx++) {
                 for (int dz = -SEARCH_RADIUS; dz <= SEARCH_RADIUS; dz++) {
                     BlockPos pos = origin.offset(dx, dy, dz);
