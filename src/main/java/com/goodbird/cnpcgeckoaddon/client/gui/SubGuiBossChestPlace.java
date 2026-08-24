@@ -80,7 +80,9 @@ public final class SubGuiBossChestPlace extends GuiBasic implements ITextfieldLi
 
         GuiButtonNop here = getButton(HERE_BUTTON);
         if (here != null) {
-            here.setEnabled(editable);
+            // Only fixed mode has anywhere to put a position. The other modes hold a shift
+            // of a few blocks, and standing somewhere says nothing about what that should be.
+            here.setEnabled(fixed);
         }
     }
 
@@ -108,15 +110,11 @@ public final class SubGuiBossChestPlace extends GuiBasic implements ITextfieldLi
     /** Fills the fields with the block the editor is standing on. */
     private void takePlayerPosition() {
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null || data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_DEATH) {
+        if (player == null || data.getChestPlacement() != TeleportPathData.CHEST_PLACEMENT_FIXED) {
             return;
         }
         BlockPos pos = player.blockPosition();
-        if (data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_FIXED) {
-            data.setChestFixed(pos.getX(), pos.getY(), pos.getZ());
-        } else {
-            data.setChestOffset(pos.getX(), pos.getY(), pos.getZ());
-        }
+        data.setChestFixed(pos.getX(), pos.getY(), pos.getZ());
         refresh();
     }
 
