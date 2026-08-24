@@ -1,0 +1,18 @@
+GIMP Palette
+Name: Bone Boss Chest
+Columns: 7
+#
+ 25  22  21	outline
+ 43  35  32	deepest
+ 91  82  71	shadow
+128 114  93	base
+174 158 126	mid
+215 204 169	light
+238 231 199	highlight
+ 79  51  42	trim_dark
+122  75  54	trim
+168 111  75	trim_light
+ 63  55  49	accent_dark
+105  96  78	accent
+153 137 104	accent_light
+231 218 178	hot
