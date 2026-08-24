@@ -37,6 +37,8 @@ public class NetworkWrapper {
                 PacketSyncHookCord::decode, PacketSyncHookCord::handle);
         registerPacket(registrar, PacketSyncBossLink.TYPE, PacketSyncBossLink::encode,
                 PacketSyncBossLink::decode, PacketSyncBossLink::handle);
+        registerPacket(registrar, PacketRestoreBossTotems.TYPE, PacketRestoreBossTotems::encode,
+                PacketRestoreBossTotems::decode, PacketRestoreBossTotems::handle);
     }
 
     /**
@@ -64,6 +66,10 @@ public class NetworkWrapper {
 
     public static <MSG extends CustomPacketPayload> void send(ServerPlayer player, MSG msg) {
         PacketDistributor.sendToPlayer(player, msg);
+    }
+
+    public static <MSG extends CustomPacketPayload> void sendToServer(MSG msg) {
+        PacketDistributor.sendToServer(msg);
     }
 
 

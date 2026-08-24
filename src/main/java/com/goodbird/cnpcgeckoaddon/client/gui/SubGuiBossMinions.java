@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
@@ -11,10 +12,13 @@ public final class SubGuiBossMinions extends GuiBasic {
     private static final int ON_DEATH_BUTTON = 1;
     private static final int ON_RESET_BUTTON = 2;
     private static final int REMOVAL_BUTTON = 3;
+    private static final int TOTEMS_BUTTON = 4;
 
+    private final EntityNPCInterface npc;
     private final TeleportPathData data;
 
-    public SubGuiBossMinions(TeleportPathData data) {
+    public SubGuiBossMinions(EntityNPCInterface npc, TeleportPathData data) {
+        this.npc = npc;
         this.data = data;
         setBackground("menubg.png");
         imageWidth = 256;
@@ -41,6 +45,10 @@ public final class SubGuiBossMinions extends GuiBasic {
         addLabel(new GuiLabel(REMOVAL_BUTTON, "cnpcgeckoaddon.boss.minions_removal", guiLeft + 8, y + 6));
         addButton(new GuiButtonNop(this, REMOVAL_BUTTON, guiLeft + 112, y, 130, 20,
                 TeleportPathData.MINION_REMOVAL_LABELS, data.getMinionRemovalMode()));
+        y += 28;
+
+        addButton(new GuiButtonNop(this, TOTEMS_BUTTON, guiLeft + 8, y, 234, 20,
+                "cnpcgeckoaddon.boss.totem_settings"));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.minions_hint", guiLeft + 8, guiTop + 150, 0xA0A0A0));
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.minions_reset_hint", guiLeft + 8, guiTop + 162, 0xA0A0A0));
@@ -56,6 +64,8 @@ public final class SubGuiBossMinions extends GuiBasic {
             data.setClearMinionsOnReset(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == REMOVAL_BUTTON) {
             data.setMinionRemovalMode(button.getValue());
+        } else if (button.id == TOTEMS_BUTTON) {
+            setSubGui(new SubGuiBossTotems(npc, data));
         }
     }
 }
