@@ -1542,6 +1542,20 @@ public final class TeleportPathController {
         }
     }
 
+    /** Removes protection in the same death event, before another hit can reach the boss. */
+    public static void onTotemDeath(Entity deadTotem) {
+        if (!(deadTotem.level() instanceof ServerLevel level)) {
+            return;
+        }
+        for (TeleportPathController controller : List.copyOf(INSTANCES)) {
+            if (controller.npc.level() == level && BossTotemUtil.isTotemOf(deadTotem, controller.npc)) {
+                controller.markTotemDead(BossTotemUtil.slotId(deadTotem), level.getGameTime(),
+                        controller.settings());
+                return;
+            }
+        }
+    }
+
     /** Captured by the death event before the NPC can disappear without another tick. */
     public void onDeath() {
         stopBossBar();

@@ -26,8 +26,12 @@ public final class BossTotemUtil {
     }
 
     public static boolean isTotemOf(Entity entity, Entity boss) {
-        return entity != boss
-                && boss.getUUID().toString().equals(entity.getPersistentData().getString(TOTEM_OWNER_KEY))
+        return entity != boss && isTotem(entity)
+                && boss.getUUID().toString().equals(entity.getPersistentData().getString(TOTEM_OWNER_KEY));
+    }
+
+    public static boolean isTotem(Entity entity) {
+        return entity != null && !entity.getPersistentData().getString(TOTEM_OWNER_KEY).isEmpty()
                 && entity.getPersistentData().getInt(TOTEM_SLOT_KEY) > 0;
     }
 

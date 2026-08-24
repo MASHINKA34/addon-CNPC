@@ -45,6 +45,10 @@ public final class BossDeathEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.removePlayerFromEncounters(player);
         }
+        if (BossTotemUtil.isTotem(event.getEntity())) {
+            TeleportPathController.onTotemDeath(event.getEntity());
+            return;
+        }
         if (!(event.getEntity() instanceof EntityNPCInterface npc)
                 || !(npc.level() instanceof ServerLevel level)) {
             return;
@@ -81,6 +85,12 @@ public final class BossDeathEvents {
      */
     @SubscribeEvent
     public static void onBossIncomingDamage(final LivingIncomingDamageEvent event) {
+        if (BossTotemUtil.isTotem(event.getSource().getEntity())) {
+            // The clone still ticks, animates, takes damage and runs death scripts; only its
+            // accidental combat AI is prevented from hurting anything.
+            event.setCanceled(true);
+            return;
+        }
         if (!(event.getEntity() instanceof EntityNPCInterface npc)
                 || !(npc instanceof IBossController holder)) {
             return;
