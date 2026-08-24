@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ContainerBlockUtil;
+import com.goodbird.cnpcgeckoaddon.world.BossChestStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentMap;
@@ -202,6 +203,7 @@ public final class BossChestScheduler {
         items.addAll(rollLootTable(level, pending.lootTableId(), pos));
         List<ItemStack> leftovers = fill(container, items, level.getRandom());
         container.setChanged();
+        BossChestStore.get(level).register(level, pos, previous, placed, pending.lifetimeTicks());
 
         if (!leftovers.isEmpty()) {
             LOGGER.warn("Boss loot chest at {} had no room for {} stacks, dropping them next to it",
