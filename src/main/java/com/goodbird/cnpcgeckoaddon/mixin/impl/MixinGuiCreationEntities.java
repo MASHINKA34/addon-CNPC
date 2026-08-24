@@ -1,11 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
+import com.goodbird.cnpcgeckoaddon.client.ModelSelectionHelper;
 import com.goodbird.cnpcgeckoaddon.client.gui.GuiModelAnimation;
 import com.goodbird.cnpcgeckoaddon.client.gui.GuiStringSelection;
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiModelExtras;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
-import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
-import com.goodbird.cnpcgeckoaddon.utils.MobModelTextureResolver;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
@@ -40,24 +39,8 @@ public class MixinGuiCreationEntities extends GuiCreationScreenInterface {
             addLabel(new GuiLabel(212,"Model:", this.guiLeft + 124, this.guiTop + 26,0xffffff));
             this.addButton(new GuiButtonNop(this, 202, this.guiLeft + 160, this.guiTop + 20, 150, 20, customModel.modelResLoc.getPath(), (b) -> {
                 setSubGui(new GuiStringSelection(this, "Selecting geckolib model:", list, name -> {
-                    var modelData = ((IDataDisplay)npc.display).getCustomModelData();
-                    modelData.setModel(name);
                     ResourceLocation model = ResourceLocation.parse(name);
-                    ResourceLocation defaultTexture = MobModelTextureResolver.getDefaultTexture(model);
-                    if (defaultTexture != null) {
-                        npc.display.setSkinTexture(defaultTexture.toString());
-                    }
-                    String modelPath = model.getPath();
-                    if (modelPath.startsWith("geo/") && modelPath.endsWith(".geo.json")) {
-                        String animationPath = "animations/"
-                                + modelPath.substring("geo/".length(), modelPath.length() - ".geo.json".length())
-                                + ".animation.json";
-                        ResourceLocation animation = ResourceLocation.fromNamespaceAndPath(
-                                model.getNamespace(), animationPath);
-                        if (GeckoLibCache.getBakedAnimations().containsKey(animation)) {
-                            modelData.setAnimFile(animation.toString());
-                        }
-                    }
+                    ModelSelectionHelper.applyToNpc((EntityCustomNpc) npc, model);
                     getButton(202).setDisplayText(name);
                 }));
             }));
