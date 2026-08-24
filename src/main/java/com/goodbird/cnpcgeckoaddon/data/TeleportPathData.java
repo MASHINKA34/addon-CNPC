@@ -21,6 +21,17 @@ public final class TeleportPathData {
     public static final int MIN_RESET_TICKS = 20;
     public static final int MAX_RESET_TICKS = 12000;
 
+    public static final int AGGRO_ZONE_TARGET_NEAREST = 0;
+    public static final int AGGRO_ZONE_TARGET_RANDOM = 1;
+    public static final String[] AGGRO_ZONE_TARGET_LABELS = {
+            "cnpcgeckoaddon.boss.aggro_zone_nearest",
+            "cnpcgeckoaddon.boss.aggro_zone_random"
+    };
+    public static final int MIN_AGGRO_ZONE_RECHECK_TICKS = 1;
+    public static final int MAX_AGGRO_ZONE_RECHECK_TICKS = 200;
+    /** Matches the coordinate limit used by the world border and block positions. */
+    public static final int MAX_AGGRO_ZONE_COORDINATE = 30000000;
+
     public static final int MIN_RAGE_DELAY_TICKS = 100;
     public static final int MAX_RAGE_DELAY_TICKS = 72000;
     public static final int MIN_RAGE_MULTIPLIER_PERCENT = 100;
@@ -96,6 +107,16 @@ public final class TeleportPathData {
     private static final String TARGET_INTERVAL_KEY = "GeckoBossTargetInterval";
     private static final String TARGET_LOS_KEY = "GeckoBossTargetLineOfSight";
     private static final String TARGET_KEEP_KEY = "GeckoBossTargetKeepOutOfRange";
+    private static final String AGGRO_ZONE_ENABLED_KEY = "GeckoBossAggroZoneEnabled";
+    private static final String AGGRO_ZONE_X1_KEY = "GeckoBossAggroZoneX1";
+    private static final String AGGRO_ZONE_Y1_KEY = "GeckoBossAggroZoneY1";
+    private static final String AGGRO_ZONE_Z1_KEY = "GeckoBossAggroZoneZ1";
+    private static final String AGGRO_ZONE_X2_KEY = "GeckoBossAggroZoneX2";
+    private static final String AGGRO_ZONE_Y2_KEY = "GeckoBossAggroZoneY2";
+    private static final String AGGRO_ZONE_Z2_KEY = "GeckoBossAggroZoneZ2";
+    private static final String AGGRO_ZONE_INTERVAL_KEY = "GeckoBossAggroZoneInterval";
+    private static final String AGGRO_ZONE_TARGET_KEY = "GeckoBossAggroZoneTarget";
+    private static final String AGGRO_ZONE_KEEP_KEY = "GeckoBossAggroZoneKeepInside";
     private static final String MINIONS_DEATH_KEY = "GeckoBossMinionsClearOnDeath";
     private static final String MINIONS_RESET_KEY = "GeckoBossMinionsClearOnReset";
     private static final String MINIONS_REMOVAL_KEY = "GeckoBossMinionsRemovalMode";
@@ -149,6 +170,17 @@ public final class TeleportPathData {
     private int targetRecheckTicks = 20;
     private boolean targetRequiresLineOfSight;
     private boolean keepTargetOutOfRange;
+
+    private boolean aggroZoneEnabled;
+    private int aggroZoneX1;
+    private int aggroZoneY1;
+    private int aggroZoneZ1;
+    private int aggroZoneX2;
+    private int aggroZoneY2;
+    private int aggroZoneZ2;
+    private int aggroZoneRecheckTicks = 5;
+    private int aggroZoneTargetMode = AGGRO_ZONE_TARGET_NEAREST;
+    private boolean aggroZoneKeepInside;
 
     private int resetTicks = 100;
     private boolean resetHeal = true;
@@ -221,6 +253,16 @@ public final class TeleportPathData {
         tag.putInt(TARGET_INTERVAL_KEY, targetRecheckTicks);
         tag.putBoolean(TARGET_LOS_KEY, targetRequiresLineOfSight);
         tag.putBoolean(TARGET_KEEP_KEY, keepTargetOutOfRange);
+        tag.putBoolean(AGGRO_ZONE_ENABLED_KEY, aggroZoneEnabled);
+        tag.putInt(AGGRO_ZONE_X1_KEY, aggroZoneX1);
+        tag.putInt(AGGRO_ZONE_Y1_KEY, aggroZoneY1);
+        tag.putInt(AGGRO_ZONE_Z1_KEY, aggroZoneZ1);
+        tag.putInt(AGGRO_ZONE_X2_KEY, aggroZoneX2);
+        tag.putInt(AGGRO_ZONE_Y2_KEY, aggroZoneY2);
+        tag.putInt(AGGRO_ZONE_Z2_KEY, aggroZoneZ2);
+        tag.putInt(AGGRO_ZONE_INTERVAL_KEY, aggroZoneRecheckTicks);
+        tag.putInt(AGGRO_ZONE_TARGET_KEY, aggroZoneTargetMode);
+        tag.putBoolean(AGGRO_ZONE_KEEP_KEY, aggroZoneKeepInside);
         tag.putInt(RESET_TICKS_KEY, resetTicks);
         tag.putBoolean(RESET_HEAL_KEY, resetHeal);
         tag.putBoolean(RESET_RETURN_KEY, resetReturn);
@@ -278,6 +320,20 @@ public final class TeleportPathData {
                 ? Mth.clamp(tag.getInt(TARGET_INTERVAL_KEY), 1, 200) : 20;
         targetRequiresLineOfSight = tag.getBoolean(TARGET_LOS_KEY);
         keepTargetOutOfRange = tag.getBoolean(TARGET_KEEP_KEY);
+        aggroZoneEnabled = tag.getBoolean(AGGRO_ZONE_ENABLED_KEY);
+        aggroZoneX1 = coordinate(tag, AGGRO_ZONE_X1_KEY);
+        aggroZoneY1 = coordinate(tag, AGGRO_ZONE_Y1_KEY);
+        aggroZoneZ1 = coordinate(tag, AGGRO_ZONE_Z1_KEY);
+        aggroZoneX2 = coordinate(tag, AGGRO_ZONE_X2_KEY);
+        aggroZoneY2 = coordinate(tag, AGGRO_ZONE_Y2_KEY);
+        aggroZoneZ2 = coordinate(tag, AGGRO_ZONE_Z2_KEY);
+        aggroZoneRecheckTicks = tag.contains(AGGRO_ZONE_INTERVAL_KEY)
+                ? Mth.clamp(tag.getInt(AGGRO_ZONE_INTERVAL_KEY), MIN_AGGRO_ZONE_RECHECK_TICKS,
+                MAX_AGGRO_ZONE_RECHECK_TICKS) : 5;
+        aggroZoneTargetMode = tag.contains(AGGRO_ZONE_TARGET_KEY)
+                ? Mth.clamp(tag.getInt(AGGRO_ZONE_TARGET_KEY), AGGRO_ZONE_TARGET_NEAREST,
+                AGGRO_ZONE_TARGET_RANDOM) : AGGRO_ZONE_TARGET_NEAREST;
+        aggroZoneKeepInside = tag.getBoolean(AGGRO_ZONE_KEEP_KEY);
         resetTicks = tag.contains(RESET_TICKS_KEY)
                 ? Mth.clamp(tag.getInt(RESET_TICKS_KEY), MIN_RESET_TICKS, MAX_RESET_TICKS) : 100;
         // Coming back to a fight against a boss still standing at 10% health is nobody's
@@ -447,6 +503,36 @@ public final class TeleportPathData {
     public boolean isKeepTargetOutOfRange() { return keepTargetOutOfRange; }
     public void setKeepTargetOutOfRange(boolean value) { keepTargetOutOfRange = value; }
 
+    public boolean isAggroZoneEnabled() { return aggroZoneEnabled; }
+    public void setAggroZoneEnabled(boolean value) { aggroZoneEnabled = value; }
+    public int getAggroZoneX1() { return aggroZoneX1; }
+    public int getAggroZoneY1() { return aggroZoneY1; }
+    public int getAggroZoneZ1() { return aggroZoneZ1; }
+    public int getAggroZoneX2() { return aggroZoneX2; }
+    public int getAggroZoneY2() { return aggroZoneY2; }
+    public int getAggroZoneZ2() { return aggroZoneZ2; }
+    public void setAggroZoneCorner1(int x, int y, int z) {
+        aggroZoneX1 = aggroZoneCoordinate(x);
+        aggroZoneY1 = aggroZoneCoordinate(y);
+        aggroZoneZ1 = aggroZoneCoordinate(z);
+    }
+    public void setAggroZoneCorner2(int x, int y, int z) {
+        aggroZoneX2 = aggroZoneCoordinate(x);
+        aggroZoneY2 = aggroZoneCoordinate(y);
+        aggroZoneZ2 = aggroZoneCoordinate(z);
+    }
+    public int getAggroZoneRecheckTicks() { return aggroZoneRecheckTicks; }
+    public void setAggroZoneRecheckTicks(int value) {
+        aggroZoneRecheckTicks = Mth.clamp(value, MIN_AGGRO_ZONE_RECHECK_TICKS,
+                MAX_AGGRO_ZONE_RECHECK_TICKS);
+    }
+    public int getAggroZoneTargetMode() { return aggroZoneTargetMode; }
+    public void setAggroZoneTargetMode(int value) {
+        aggroZoneTargetMode = Mth.clamp(value, AGGRO_ZONE_TARGET_NEAREST, AGGRO_ZONE_TARGET_RANDOM);
+    }
+    public boolean isAggroZoneKeepInside() { return aggroZoneKeepInside; }
+    public void setAggroZoneKeepInside(boolean value) { aggroZoneKeepInside = value; }
+
     /** How long the boss has to be left alone before the encounter counts as over. */
     public int getResetTicks() { return resetTicks; }
     public void setResetTicks(int value) {
@@ -540,6 +626,10 @@ public final class TeleportPathData {
 
     private static int coordinate(CompoundTag tag, String key) {
         return tag.contains(key) ? Mth.clamp(tag.getInt(key), -MAX_CHEST_COORDINATE, MAX_CHEST_COORDINATE) : 0;
+    }
+
+    private static int aggroZoneCoordinate(int value) {
+        return Mth.clamp(value, -MAX_AGGRO_ZONE_COORDINATE, MAX_AGGRO_ZONE_COORDINATE);
     }
 
     /** Which of the four spots the chest is put down at. */
