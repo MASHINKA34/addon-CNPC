@@ -245,6 +245,9 @@ public final class TeleportPathController {
         active = true;
         lockedX = npc.getX();
         lockedZ = npc.getZ();
+        homeX = npc.getX();
+        homeY = npc.getY();
+        homeZ = npc.getZ();
         highestPhaseReached = data.resolvePhaseIndex(healthPercent());
         currentPhase = highestPhaseReached;
         outOfCombatSince = NOT_SCHEDULED;
@@ -267,9 +270,6 @@ public final class TeleportPathController {
         encounterRunning = true;
         encounterBeganAt = gameTime;
         encounterResetDone = false;
-        homeX = npc.getX();
-        homeY = npc.getY();
-        homeZ = npc.getZ();
         if (npc.getTarget() instanceof ServerPlayer player) {
             trackParticipant(player);
         }
@@ -399,7 +399,7 @@ public final class TeleportPathController {
      * @return null while no fight is running, because there is no arena to speak of then
      */
     public BlockPos getArenaHome() {
-        return encounterRunning ? BlockPos.containing(homeX, homeY, homeZ) : null;
+        return active ? BlockPos.containing(homeX, homeY, homeZ) : null;
     }
 
     /**
