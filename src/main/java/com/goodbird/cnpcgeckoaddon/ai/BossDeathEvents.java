@@ -65,6 +65,9 @@ public class BossDeathEvents {
         if (data.isExplosionEnabled()) {
             BossExplosionScheduler.schedule(level, npc, data);
         }
+        if (data.isChestEnabled()) {
+            BossChestScheduler.schedule(level, npc, data, event.getSource().getEntity());
+        }
     }
 
     /**
@@ -164,8 +167,14 @@ public class BossDeathEvents {
 
     @SubscribeEvent
     public static void onLevelTick(final LevelTickEvent.Post event) {
-        if (BossExplosionScheduler.hasPending() && event.getLevel() instanceof ServerLevel level) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        if (BossExplosionScheduler.hasPending()) {
             BossExplosionScheduler.tick(level);
+        }
+        if (BossChestScheduler.hasPending()) {
+            BossChestScheduler.tick(level);
         }
     }
 
@@ -173,6 +182,7 @@ public class BossDeathEvents {
     public static void onLevelUnload(final LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
             BossExplosionScheduler.clear(level);
+            BossChestScheduler.clear(level);
             TeleportPathController.shutdownLevel(level);
         }
     }
