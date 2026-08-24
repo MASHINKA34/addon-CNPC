@@ -54,8 +54,8 @@ src/main/resources/assets/*
 !README.md
 
 # --- Working prompts ---
-# Task briefs handed to the agents that implement a feature. They are scratch work for
-# whoever drives the session, not part of the mod, so only the index that explains how
-# the work is split gets published.
-prompts/*
-!prompts/00-README.md
+# Task briefs handed to the agents that implement a feature, plus the index that orders
+# them. Scratch work for whoever drives the session, not part of the mod. Ignoring the
+# directory itself rather than its contents: nothing inside an excluded directory can be
+# brought back by a later rule, so no README of ours can slip in through one.
+prompts/
