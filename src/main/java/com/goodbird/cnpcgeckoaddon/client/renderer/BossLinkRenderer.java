@@ -2,7 +2,7 @@ package com.goodbird.cnpcgeckoaddon.client.renderer;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
-import com.goodbird.cnpcgeckoaddon.network.HookCordClientBridge;
+import com.goodbird.cnpcgeckoaddon.network.BossLinkClientBridge;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -20,50 +20,54 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-/** Draws hook cords through the same filmstrip geometry used by persistent boss links. */
+/** Draws long-lived keyed boss links and expires stale server state locally. */
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID, value = Dist.CLIENT)
-public final class HookCordRenderer {
-    private static final List<Cord> CORDS = new ArrayList<>();
+public final class BossLinkRenderer {
+    private static final List<Link> LINKS = new ArrayList<>();
     private static long lastFallbackTick = Long.MIN_VALUE;
 
     static {
-        HookCordClientBridge.setHandler(HookCordRenderer::accept);
+        BossLinkClientBridge.setHandler(BossLinkRenderer::accept);
     }
 
-    private HookCordRenderer() {
+    private BossLinkRenderer() {
     }
 
-    private record Cord(int bossId, int victimId, HookCordStyles.Style style, long expiresAt) {
+    private record Link(byte kind, int sourceId, int targetId, int channel,
+                        HookCordStyles.Style style, long expiresAt, int widthPercent,
+                        int sagPercent, boolean drawHead) {
     }
 
-    public static void accept(int bossId, int victimId, String styleId, int durationTicks) {
-        CORDS.removeIf(cord -> cord.bossId == bossId && cord.victimId == victimId);
+    public static void accept(byte kind, int sourceId, int targetId, int channel,
+                              String styleId, int durationTicks, int widthPercent,
+                              int sagPercent, boolean drawHead) {
+        LINKS.removeIf(link -> link.kind == kind && link.sourceId == sourceId
+                && link.targetId == targetId && link.channel == channel);
         ClientLevel level = Minecraft.getInstance().level;
-        if (durationTicks <= 0 || level == null || !HookCordStyles.isTextured(styleId)) {
+        if (durationTicks <= 0 || level == null) {
             return;
         }
-        CORDS.add(new Cord(bossId, victimId, HookCordStyles.get(styleId),
-                level.getGameTime() + durationTicks));
+        LINKS.add(new Link(kind, sourceId, targetId, channel, HookCordStyles.get(styleId),
+                level.getGameTime() + durationTicks, widthPercent, sagPercent, drawHead));
     }
 
     @SubscribeEvent
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
-        CORDS.clear();
+        LINKS.clear();
         AnimatedLinkRenderUtil.clearWarnings();
     }
 
     @SubscribeEvent
     public static void render(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES || CORDS.isEmpty()) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES || LINKS.isEmpty()) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
         ClientLevel level = minecraft.level;
         if (level == null) {
-            CORDS.clear();
+            LINKS.clear();
             return;
         }
-
         long gameTime = level.getGameTime();
         boolean fallbackTick = gameTime != lastFallbackTick;
         lastFallbackTick = gameTime;
@@ -74,29 +78,29 @@ public final class HookCordRenderer {
         poseStack.pushPose();
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
 
-        Iterator<Cord> iterator = CORDS.iterator();
+        Iterator<Link> iterator = LINKS.iterator();
         while (iterator.hasNext()) {
-            Cord cord = iterator.next();
-            Entity boss = level.getEntity(cord.bossId);
-            Entity victim = level.getEntity(cord.victimId);
-            if (gameTime >= cord.expiresAt || boss == null || victim == null) {
+            Link link = iterator.next();
+            Entity source = level.getEntity(link.sourceId);
+            Entity target = level.getEntity(link.targetId);
+            if (gameTime >= link.expiresAt || source == null || target == null
+                    || source.isRemoved() || target.isRemoved()) {
                 iterator.remove();
                 continue;
             }
-            Vec3 from = boss.getEyePosition(partialTick).subtract(0.0D, 0.2D, 0.0D);
-            Vec3 to = victim.getPosition(partialTick).add(0.0D, victim.getBbHeight() * 0.5D, 0.0D);
+            Vec3 from = source.getEyePosition(partialTick).subtract(0.0D, 0.1D, 0.0D);
+            Vec3 to = target.getPosition(partialTick).add(0.0D, target.getBbHeight() * 0.6D, 0.0D);
             if (to.distanceToSqr(from) < 1.0E-6D) {
                 continue;
             }
-            if (!AnimatedLinkRenderUtil.hasTextures(minecraft, cord.style, true)) {
+            if (!AnimatedLinkRenderUtil.hasTextures(minecraft, link.style, link.drawHead)) {
                 if (fallbackTick) {
-                    AnimatedLinkRenderUtil.drawParticles(level, from, to, ParticleTypes.CRIT);
+                    AnimatedLinkRenderUtil.drawParticles(level, from, to, ParticleTypes.END_ROD);
                 }
                 continue;
             }
-            // These are the old renderer's exact effective settings.
-            AnimatedLinkRenderUtil.render(poseStack, buffers, level, cord.style, from, to,
-                    cameraPos, gameTime, 100, 100, true);
+            AnimatedLinkRenderUtil.render(poseStack, buffers, level, link.style, from, to,
+                    cameraPos, gameTime, link.widthPercent, link.sagPercent, link.drawHead);
         }
         poseStack.popPose();
     }

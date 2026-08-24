@@ -14,6 +14,7 @@ import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossBarStyle;
+import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossLink;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossTimer;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
 import net.minecraft.core.BlockPos;
@@ -75,6 +76,8 @@ public final class TeleportPathController {
     /** The client counts down on its own, so the server only has to correct it now and then. */
     private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
     private static final int TOTEM_RETRY_INTERVAL_TICKS = 20;
+    private static final int TOTEM_LINK_DURATION_TICKS = 200;
+    private static final int TOTEM_LINK_REFRESH_TICKS = 160;
     private static final ResourceLocation RAGE_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_rage");
     /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
@@ -162,6 +165,7 @@ public final class TeleportPathController {
     private static final class TotemRuntime {
         private UUID entityId;
         private long nextRespawnAt = NOT_SCHEDULED;
+        private long nextLinkSyncAt;
 
         private TotemRuntime(UUID entityId) {
             this.entityId = entityId;
@@ -459,6 +463,7 @@ public final class TeleportPathController {
             if (resetTotemHealthSlots.remove(slotId) && totem instanceof LivingEntity living) {
                 living.setHealth(living.getMaxHealth());
             }
+            syncTotemLink(data, entry, totem, runtime, gameTime, false);
             return;
         }
 
@@ -486,6 +491,7 @@ public final class TeleportPathController {
         }
         runtime.entityId = spawned.getUUID();
         runtime.nextRespawnAt = NOT_SCHEDULED;
+        syncTotemLink(data, entry, spawned, runtime, gameTime, true);
         deadTotemSlots.remove(slotId);
         resetTotemHealthSlots.remove(slotId);
         saveDeadTotemSlots();
@@ -571,6 +577,12 @@ public final class TeleportPathController {
     private void markTotemDead(int slotId, long gameTime, TeleportPathData data) {
         deadTotemSlots.add(slotId);
         TotemRuntime runtime = totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(null));
+        if (runtime.entityId != null && npc.level() instanceof ServerLevel level) {
+            Entity dead = level.getEntity(runtime.entityId);
+            if (dead != null) {
+                dropTotemLink(dead, slotId);
+            }
+        }
         runtime.entityId = null;
         runtime.nextRespawnAt = data.getTotemRespawnMode() == TeleportPathData.TOTEM_RESPAWN_DELAYED
                 ? gameTime + data.getTotemRespawnDelayTicks() : NOT_SCHEDULED;
@@ -587,6 +599,7 @@ public final class TeleportPathController {
             int slotId = BossTotemUtil.slotId(totem);
             if (!configured.contains(slotId) || !totemWaveActivated && data.getTotemActivationMode()
                     != TeleportPathData.TOTEM_ACTIVATION_ALWAYS) {
+                dropTotemLink(totem, slotId);
                 totem.discard();
                 totemRuntime.remove(slotId);
                 continue;
@@ -597,6 +610,7 @@ public final class TeleportPathController {
             TotemRuntime runtime = totemRuntime.get(slotId);
             if (runtime != null && runtime.entityId != null && !runtime.entityId.equals(totem.getUUID())) {
                 // A duplicate can only be stale data from an interrupted older reconcile.
+                dropTotemLink(totem, slotId);
                 totem.discard();
                 continue;
             }
@@ -613,6 +627,7 @@ public final class TeleportPathController {
         resetTotemHealthSlots.retainAll(enabledConfigured);
         for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
             if (!enabledConfigured.contains(BossTotemUtil.slotId(totem))) {
+                dropTotemLink(totem, BossTotemUtil.slotId(totem));
                 totem.discard();
             }
         }
@@ -636,13 +651,17 @@ public final class TeleportPathController {
         if (runtime != null && runtime.entityId != null) {
             Entity entity = level.getEntity(runtime.entityId);
             if (entity != null && BossTotemUtil.isTotemOf(entity, npc)) {
+                dropTotemLink(entity, slotId);
                 entity.discard();
             }
         }
     }
 
     private void removeConfiguredTotems(ServerLevel level) {
-        BossTotemUtil.removeLoaded(level, npc);
+        for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
+            dropTotemLink(totem, BossTotemUtil.slotId(totem));
+            totem.discard();
+        }
         totemRuntime.clear();
         resetTotemHealthSlots.clear();
     }
@@ -653,6 +672,37 @@ public final class TeleportPathController {
         totemWaveActivated = false;
         totemActivationDeadline = NOT_SCHEDULED;
         nextTotemStructuralReconcileAt = 0L;
+    }
+
+    private void syncTotemLink(TeleportPathData data, BossTotemEntry entry, Entity totem,
+                               TotemRuntime runtime, long gameTime, boolean force) {
+        if (!force && gameTime < runtime.nextLinkSyncAt) {
+            return;
+        }
+        runtime.nextLinkSyncAt = gameTime + TOTEM_LINK_REFRESH_TICKS;
+        PacketSyncBossLink packet = totemLinkPacket(data, entry, totem, TOTEM_LINK_DURATION_TICKS);
+        // Either endpoint can enter a player's tracking range first. Duplicate delivery is
+        // harmless because the client replaces the same keyed link.
+        NetworkWrapper.sendToTracking(npc, packet);
+        NetworkWrapper.sendToTracking(totem, packet);
+    }
+
+    private PacketSyncBossLink totemLinkPacket(TeleportPathData data, BossTotemEntry entry,
+                                               Entity totem, int durationTicks) {
+        String style = entry.getBeamStyleOverride().isEmpty()
+                ? data.getTotemBeamStyle() : entry.getBeamStyleOverride();
+        int width = entry.getBeamWidthPercentOverride() == 0
+                ? data.getTotemBeamWidthPercent() : entry.getBeamWidthPercentOverride();
+        return new PacketSyncBossLink(PacketSyncBossLink.KIND_PROTECTION_TOTEM,
+                totem.getId(), npc.getId(), entry.getSlotId(), style, durationTicks,
+                width, data.getTotemBeamSagPercent(), false);
+    }
+
+    private void dropTotemLink(Entity totem, int slotId) {
+        PacketSyncBossLink packet = new PacketSyncBossLink(PacketSyncBossLink.KIND_PROTECTION_TOTEM,
+                totem.getId(), npc.getId(), slotId, HookCordStyles.PARTICLES, 0, 100, 0, false);
+        NetworkWrapper.sendToTracking(npc, packet);
+        NetworkWrapper.sendToTracking(totem, packet);
     }
 
     private void updatePhase(ServerLevel level, long gameTime, TeleportPathData data) {
@@ -1464,6 +1514,34 @@ public final class TeleportPathController {
         return settings().getTotemProtectionMode();
     }
 
+    /** Gives a viewer an immediate snapshot when either endpoint starts being tracked. */
+    public void syncTotemLinksTo(ServerPlayer player) {
+        if (!totemWaveActivated || player.level() != npc.level()
+                || !(npc.level() instanceof ServerLevel level)) {
+            return;
+        }
+        TeleportPathData data = settings();
+        for (BossTotemEntry entry : data.getTotems().entries()) {
+            TotemRuntime runtime = totemRuntime.get(entry.getSlotId());
+            Entity totem = runtime == null || runtime.entityId == null
+                    ? null : level.getEntity(runtime.entityId);
+            if (entry.isEnabled() && !entry.getCloneName().isEmpty()
+                    && isUsableTotem(totem, entry.getSlotId())) {
+                NetworkWrapper.send(player, totemLinkPacket(data, entry, totem,
+                        TOTEM_LINK_DURATION_TICKS));
+            }
+        }
+    }
+
+    public static void syncTotemLinksForTracking(ServerPlayer player, Entity tracked) {
+        for (TeleportPathController controller : List.copyOf(INSTANCES)) {
+            if (controller.npc.level() == player.level()
+                    && (tracked == controller.npc || BossTotemUtil.isTotemOf(tracked, controller.npc))) {
+                controller.syncTotemLinksTo(player);
+            }
+        }
+    }
+
     /** Captured by the death event before the NPC can disappear without another tick. */
     public void onDeath() {
         stopBossBar();
@@ -1475,6 +1553,9 @@ public final class TeleportPathController {
     }
 
     private void removeTotemsOnBossDeath(ServerLevel level, TeleportPathData data) {
+        for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
+            dropTotemLink(totem, BossTotemUtil.slotId(totem));
+        }
         if (data.isTotemRemoveOnBossDeath()) {
             BossTotemUtil.removeLoaded(level, npc);
         }
@@ -1488,6 +1569,11 @@ public final class TeleportPathController {
         // taken off here rather than left for a tick that may never come.
         clearRage();
         clearEncounter();
+        if (npc.level() instanceof ServerLevel level) {
+            for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
+                dropTotemLink(totem, BossTotemUtil.slotId(totem));
+            }
+        }
         clearTotemRuntime();
         INSTANCES.remove(this);
     }

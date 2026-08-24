@@ -165,6 +165,13 @@ public final class BossDeathEvents {
         }
     }
 
+    @SubscribeEvent
+    public static void onPlayerStartsTracking(final PlayerEvent.StartTracking event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            TeleportPathController.syncTotemLinksForTracking(player, event.getTarget());
+        }
+    }
+
     /**
      * Where this boss stood when the fight began, for the chest placement that asks for it.
      *
