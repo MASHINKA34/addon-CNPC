@@ -84,6 +84,8 @@ public final class TeleportPathController {
     private final EntityNPCInterface npc;
     private final ServerBossEvent bossEvent;
     private final Set<UUID> bossBarParticipants = new HashSet<>();
+    /** Server-side encounter membership, independent of whether any boss bar is visible. */
+    private final Set<UUID> encounterParticipants = new HashSet<>();
     private String activeBossBarStyle = BossBarStyles.NONE;
     private boolean active;
     private int currentPhase = -1;
@@ -100,6 +102,8 @@ public final class TeleportPathController {
     private long nextBlockFeedbackAt;
     private long outOfCombatSince = NOT_SCHEDULED;
     private boolean encounterResetDone;
+    private boolean encounterRunning;
+    private long encounterBeganAt = NOT_SCHEDULED;
     /** Game time the fight started at, or NOT_SCHEDULED while no encounter is running. */
     private long encounterStartedAt = NOT_SCHEDULED;
     /** Once set, stays set until the encounter ends - a phase change does not calm the boss. */
@@ -171,6 +175,9 @@ public final class TeleportPathController {
             rememberCurrentPosition();
         }
         updateNearestPlayerTarget(level, data, gameTime);
+        if (hasCombatTarget()) {
+            beginEncounter(gameTime);
+        }
         tickHookPulls(level, gameTime);
         faceCombatTarget();
         // Runs before updatePhase so the phase it unlocks is switched to in this same tick,
@@ -236,9 +243,6 @@ public final class TeleportPathController {
         active = true;
         lockedX = npc.getX();
         lockedZ = npc.getZ();
-        homeX = npc.getX();
-        homeY = npc.getY();
-        homeZ = npc.getZ();
         highestPhaseReached = data.resolvePhaseIndex(healthPercent());
         currentPhase = highestPhaseReached;
         outOfCombatSince = NOT_SCHEDULED;
@@ -248,6 +252,41 @@ public final class TeleportPathController {
         // A boss that was left wounded starts the next fight straight in a later phase, so
         // the immune window has to be armed here too and not only on a phase change.
         enterPhase(gameTime, data.getPhase(currentPhase));
+    }
+
+    /**
+     * Opens the encounter exactly once, when the first real combat target appears.
+     * A short target loss deliberately leaves this latch and its original timestamp alone.
+     */
+    private void beginEncounter(long gameTime) {
+        if (encounterRunning) {
+            return;
+        }
+        encounterRunning = true;
+        encounterBeganAt = gameTime;
+        encounterResetDone = false;
+        homeX = npc.getX();
+        homeY = npc.getY();
+        homeZ = npc.getZ();
+        if (npc.getTarget() instanceof ServerPlayer player) {
+            trackParticipant(player);
+        }
+    }
+
+    /** Whether a target has started a fight which has not yet completed its reset. */
+    public boolean isEncounterRunning() {
+        return encounterRunning;
+    }
+
+    /** @return the first combat tick, or {@link #NOT_SCHEDULED} outside an encounter */
+    public long encounterBeganAt() {
+        return encounterBeganAt;
+    }
+
+    private void clearEncounter() {
+        encounterRunning = false;
+        encounterBeganAt = NOT_SCHEDULED;
+        encounterParticipants.clear();
     }
 
     private void updatePhase(ServerLevel level, long gameTime, TeleportPathData data) {
@@ -358,7 +397,7 @@ public final class TeleportPathController {
      * @return null while no fight is running, because there is no arena to speak of then
      */
     public BlockPos getArenaHome() {
-        return active ? BlockPos.containing(homeX, homeY, homeZ) : null;
+        return encounterRunning ? BlockPos.containing(homeX, homeY, homeZ) : null;
     }
 
     /**
@@ -421,6 +460,7 @@ public final class TeleportPathController {
 
         currentPhase = 0;
         highestPhaseReached = 0;
+        clearEncounter();
         clearInvulnerability();
         clearRage();
         cancelPendingAndSchedules();
@@ -798,12 +838,25 @@ public final class TeleportPathController {
                 && (player == npc.getTarget() || npc.canAttack(player) && !npc.isAlliedTo(player));
     }
 
-    public void trackBossBarPlayer(ServerPlayer player) {
+    public void trackParticipant(ServerPlayer player) {
         TeleportPathData data = settings();
-        if (player.level() == npc.level() && data.isEnabled()
-                && BossBarStyles.isEnabled(data.getBossBarStyle()) && isBossBarViewer(player)) {
+        if (player.level() != npc.level() || !data.isEnabled() || !isParticipant(player)) {
+            return;
+        }
+        encounterParticipants.add(player.getUUID());
+        if (BossBarStyles.isEnabled(data.getBossBarStyle())) {
             bossBarParticipants.add(player.getUUID());
         }
+    }
+
+    /** Kept for integrations compiled against the old bar-specific participant API. */
+    public void trackBossBarPlayer(ServerPlayer player) {
+        trackParticipant(player);
+    }
+
+    private boolean isParticipant(ServerPlayer player) {
+        return player.isAlive() && !player.isSpectator() && !player.isCreative() && !player.isRemoved()
+                && npc.canAttack(player) && !npc.isAlliedTo(player);
     }
 
     public void removeBossBarPlayer(ServerPlayer player) {
@@ -815,12 +868,25 @@ public final class TeleportPathController {
         NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
     }
 
+    public void removeParticipant(ServerPlayer player) {
+        encounterParticipants.remove(player.getUUID());
+        removeBossBarPlayer(player);
+    }
+
+    /** Captured by the death event before the NPC can disappear without another tick. */
+    public void onDeath() {
+        stopBossBar();
+        clearRage();
+        clearEncounter();
+    }
+
     public void shutdown() {
         stopBossBar();
         // The level is going away with the boss still enraged: the modifier is transient and
         // never reaches the save file, but the entity object outlives an unload, so it is
         // taken off here rather than left for a tick that may never come.
         clearRage();
+        clearEncounter();
         INSTANCES.remove(this);
     }
 
@@ -830,8 +896,12 @@ public final class TeleportPathController {
     }
 
     public static void removePlayerFromBossBars(ServerPlayer player) {
+        removePlayerFromEncounters(player);
+    }
+
+    public static void removePlayerFromEncounters(ServerPlayer player) {
         for (TeleportPathController controller : List.copyOf(INSTANCES)) {
-            controller.removeBossBarPlayer(player);
+            controller.removeParticipant(player);
         }
     }
 
@@ -1713,6 +1783,7 @@ public final class TeleportPathController {
         pingPongDirection = 1;
         nextAbilityPriority = 0;
         nextRetargetAt = NOT_SCHEDULED;
+        clearEncounter();
         reportedBrokenClone = "";
         reportedBrokenFluid = "";
     }

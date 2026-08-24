@@ -36,24 +36,26 @@ import noppes.npcs.entity.EntityNPCInterface;
  * hole; running the cleanup twice is harmless because the second pass finds nothing.</p>
  */
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
-public class BossDeathEvents {
+public final class BossDeathEvents {
+    private BossDeathEvents() {
+    }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBossDeath(final LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            TeleportPathController.removePlayerFromBossBars(player);
+            TeleportPathController.removePlayerFromEncounters(player);
         }
         if (!(event.getEntity() instanceof EntityNPCInterface npc)
                 || !(npc.level() instanceof ServerLevel level)) {
             return;
         }
+        BlockPos encounterHome = arenaHome(npc);
         if (npc instanceof IBossController holder) {
             TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
             if (controller != null) {
-                controller.stopBossBar();
-                // CustomNPCs is free to respawn this very entity, so the rage bonus has to
-                // come off here and not on a tick the NPC may never get.
-                controller.clearRage();
+                // Capture the arena first: clearing the runtime encounter intentionally
+                // makes getArenaHome() return null after death.
+                controller.onDeath();
             }
         }
         TeleportPathData data = ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData();
@@ -67,7 +69,7 @@ public class BossDeathEvents {
             BossExplosionScheduler.schedule(level, npc, data);
         }
         if (data.isChestEnabled()) {
-            BossChestScheduler.schedule(level, npc, data, event.getSource().getEntity(), arenaHome(npc));
+            BossChestScheduler.schedule(level, npc, data, event.getSource().getEntity(), encounterHome);
         }
     }
 
@@ -115,14 +117,14 @@ public class BossDeathEvents {
     @SubscribeEvent
     public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            TeleportPathController.removePlayerFromBossBars(player);
+            TeleportPathController.removePlayerFromEncounters(player);
         }
     }
 
     @SubscribeEvent
     public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            TeleportPathController.removePlayerFromBossBars(player);
+            TeleportPathController.removePlayerFromEncounters(player);
         }
     }
 
@@ -146,7 +148,7 @@ public class BossDeathEvents {
         if (npc instanceof IBossController holder) {
             TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
             if (controller != null) {
-                controller.trackBossBarPlayer(player);
+                controller.trackParticipant(player);
             }
         }
     }
