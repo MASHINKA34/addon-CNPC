@@ -701,8 +701,8 @@ public final class TeleportPathController {
 
     /**
      * Starts combat when an eligible player enters the configured block volume. The spatial
-     * entity query only visits loaded entity sections, so a distant absolute box never loads
-     * its chunks merely to discover that nobody is there.
+     * check walks the dedicated server player list rather than every entity or every section,
+     * so a distant or accidentally huge absolute box never loads chunks or scans empty space.
      */
     private void updateAggroZone(ServerLevel level, TeleportPathData data, long gameTime) {
         if (!data.isAggroZoneEnabled()) {
@@ -739,8 +739,14 @@ public final class TeleportPathController {
 
     private List<ServerPlayer> eligibleAggroZonePlayers(ServerLevel level, TeleportPathData data,
                                                          AABB zone) {
-        return level.getEntitiesOfClass(ServerPlayer.class, zone, player -> player.level() == level
-                && zone.contains(player.position()) && isTargetablePlayer(player, data));
+        List<ServerPlayer> candidates = new ArrayList<>();
+        for (ServerPlayer player : level.players()) {
+            if (player.level() == level && zone.contains(player.position())
+                    && isTargetablePlayer(player, data)) {
+                candidates.add(player);
+            }
+        }
+        return candidates;
     }
 
     /** Intersects Y with this dimension's real build height instead of an obsolete 0..255 range. */
