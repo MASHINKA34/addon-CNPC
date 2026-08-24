@@ -1,12 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
-import com.goodbird.cnpcgeckoaddon.client.ModelSelectionHelper;
 import com.goodbird.cnpcgeckoaddon.client.gui.GuiModelAnimation;
-import com.goodbird.cnpcgeckoaddon.client.gui.GuiStringSelection;
+import com.goodbird.cnpcgeckoaddon.client.gui.GuiModelSelection;
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiModelExtras;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import noppes.npcs.client.gui.model.GuiCreationEntities;
 import noppes.npcs.client.gui.model.GuiCreationScreenInterface;
@@ -17,9 +15,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import software.bernie.geckolib.cache.GeckoLibCache;
-
-import java.util.Vector;
 
 @Mixin(GuiCreationEntities.class)
 public class MixinGuiCreationEntities extends GuiCreationScreenInterface {
@@ -32,18 +27,11 @@ public class MixinGuiCreationEntities extends GuiCreationScreenInterface {
     public void init(CallbackInfo ci){
         if(npc instanceof EntityCustomNpc && ((EntityCustomNpc)npc).modelData.getEntity(npc) instanceof EntityCustomModel) {
             EntityCustomModel customModel = (EntityCustomModel) ((EntityCustomNpc)npc).modelData.getEntity(npc);
-            Vector<String> list = new Vector<>();
-            for(ResourceLocation resLoc : GeckoLibCache.getBakedModels().keySet()){
-                list.add(resLoc.toString());
-            }
             addLabel(new GuiLabel(212,"Model:", this.guiLeft + 124, this.guiTop + 26,0xffffff));
-            this.addButton(new GuiButtonNop(this, 202, this.guiLeft + 160, this.guiTop + 20, 150, 20, customModel.modelResLoc.getPath(), (b) -> {
-                setSubGui(new GuiStringSelection(this, "Selecting geckolib model:", list, name -> {
-                    ResourceLocation model = ResourceLocation.parse(name);
-                    ModelSelectionHelper.applyToNpc((EntityCustomNpc) npc, model);
-                    getButton(202).setDisplayText(name);
-                }));
-            }));
+            this.addButton(new GuiButtonNop(this, 202, this.guiLeft + 160, this.guiTop + 20,
+                    150, 20, customModel.modelResLoc.toString(), (b) -> setSubGui(
+                    new GuiModelSelection((EntityCustomNpc) npc,
+                            name -> getButton(202).setDisplayText(name)))));
             addLabel(new GuiLabel(213,"Model Animation:", this.guiLeft + 124, this.guiTop + 46,0xffffff));
             this.addButton(new GuiButtonNop(this,212,this.guiLeft + 210, this.guiTop + 40, 100, 20, "selectServer.edit",(b)->{
                 setSubGui(new GuiModelAnimation());

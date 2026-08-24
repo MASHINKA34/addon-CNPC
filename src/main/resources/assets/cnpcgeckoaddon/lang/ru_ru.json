@@ -206,5 +206,16 @@
   "cnpcgeckoaddon.boss.chest_style.sculk": "Скалковый",
   "cnpcgeckoaddon.boss.chest_style.gilded": "Золочёный",
   "cnpcgeckoaddon.boss.chest_style.bone": "Костяной",
+  "cnpcgeckoaddon.model_picker.title": "Выбор GeckoLib-модели",
+  "cnpcgeckoaddon.model_picker.search": "Поиск моделей...",
+  "cnpcgeckoaddon.model_picker.mod": "Мод",
+  "cnpcgeckoaddon.model_picker.all_mods": "Все моды",
+  "cnpcgeckoaddon.model_picker.preview": "Предпросмотр",
+  "cnpcgeckoaddon.model_picker.auto_fit": "Подогнать",
+  "cnpcgeckoaddon.model_picker.scale": "Масштаб: %s%%",
+  "cnpcgeckoaddon.model_picker.select": "Выбрать",
+  "cnpcgeckoaddon.model_picker.cancel": "Отмена",
+  "cnpcgeckoaddon.model_picker.count": "Моделей: %s / %s",
+  "cnpcgeckoaddon.model_picker.no_results": "Подходящих моделей нет",
   "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
 }
