@@ -91,6 +91,35 @@ public final class TeleportPathData {
             "cnpcgeckoaddon.boss.minions_removal_kill"
     };
 
+    public static final int TOTEM_PROTECTION_FULL_IMMUNITY = 0;
+    public static final int TOTEM_PROTECTION_LETHAL_GUARD = 1;
+    public static final int TOTEM_ACTIVATION_ALWAYS = 0;
+    public static final int TOTEM_ACTIVATION_ENCOUNTER_START = 1;
+    public static final int TOTEM_ACTIVATION_ENCOUNTER_TIMER = 2;
+    public static final int TOTEM_ACTIVATION_PHASE_ENTER = 3;
+    public static final int TOTEM_RESPAWN_NEVER = 0;
+    public static final int TOTEM_RESPAWN_NEXT_ENCOUNTER = 1;
+    public static final int TOTEM_RESPAWN_DELAYED = 2;
+    public static final int MIN_TOTEM_ACTIVATION_DELAY_TICKS = 0;
+    public static final int MIN_TOTEM_RESPAWN_DELAY_TICKS = 20;
+    public static final int MAX_TOTEM_DELAY_TICKS = 72000;
+
+    public static final String[] TOTEM_PROTECTION_LABELS = {
+            "cnpcgeckoaddon.boss.totem_protection_full",
+            "cnpcgeckoaddon.boss.totem_protection_lethal"
+    };
+    public static final String[] TOTEM_ACTIVATION_LABELS = {
+            "cnpcgeckoaddon.boss.totem_always",
+            "cnpcgeckoaddon.boss.totem_encounter",
+            "cnpcgeckoaddon.boss.totem_timer",
+            "cnpcgeckoaddon.boss.totem_phase"
+    };
+    public static final String[] TOTEM_RESPAWN_LABELS = {
+            "cnpcgeckoaddon.boss.totem_respawn_never",
+            "cnpcgeckoaddon.boss.totem_respawn_reset",
+            "cnpcgeckoaddon.boss.totem_respawn_delayed"
+    };
+
     private static final String ENABLED_KEY = "GeckoTeleportPathEnabled";
     private static final String COMBAT_ONLY_KEY = "GeckoTeleportPathCombatOnly";
     private static final String STATIONARY_KEY = "GeckoBossStationary";
@@ -150,6 +179,19 @@ public final class TeleportPathData {
     private static final String RAGE_MULTIPLIER_KEY = "GeckoBossRageMultiplier";
     private static final String RAGE_ANIMATION_KEY = "GeckoBossRageAnimation";
     private static final String RAGE_LOCK_KEY = "GeckoBossRageLock";
+    private static final String TOTEMS_ENABLED_KEY = "GeckoBossTotemsEnabled";
+    private static final String TOTEM_PROTECTION_KEY = "GeckoBossTotemProtection";
+    private static final String TOTEM_ACTIVATION_KEY = "GeckoBossTotemActivation";
+    private static final String TOTEM_PHASE_KEY = "GeckoBossTotemPhase";
+    private static final String TOTEM_DELAY_KEY = "GeckoBossTotemDelay";
+    private static final String TOTEM_RESPAWN_KEY = "GeckoBossTotemRespawn";
+    private static final String TOTEM_RESPAWN_DELAY_KEY = "GeckoBossTotemRespawnDelay";
+    private static final String TOTEM_RESET_HEALTH_KEY = "GeckoBossTotemResetHealth";
+    private static final String TOTEM_REMOVE_DEATH_KEY = "GeckoBossTotemRemoveOnDeath";
+    private static final String TOTEM_BEAM_STYLE_KEY = "GeckoBossTotemBeamStyle";
+    private static final String TOTEM_BEAM_WIDTH_KEY = "GeckoBossTotemBeamWidth";
+    private static final String TOTEM_BEAM_SAG_KEY = "GeckoBossTotemBeamSag";
+    private static final String TOTEMS_KEY = "GeckoBossTotems";
 
     private boolean enabled;
     private boolean combatOnly = true;
@@ -195,6 +237,20 @@ public final class TeleportPathData {
     private boolean clearMinionsOnDeath = true;
     private boolean clearMinionsOnReset = true;
     private int minionRemovalMode = MINION_REMOVAL_VANISH;
+
+    private boolean totemsEnabled;
+    private int totemProtectionMode = TOTEM_PROTECTION_FULL_IMMUNITY;
+    private int totemActivationMode = TOTEM_ACTIVATION_ALWAYS;
+    private int totemActivationPhase = 1;
+    private int totemActivationDelayTicks = 200;
+    private int totemRespawnMode = TOTEM_RESPAWN_NEXT_ENCOUNTER;
+    private int totemRespawnDelayTicks = 200;
+    private boolean totemResetHealth = true;
+    private boolean totemRemoveOnBossDeath = true;
+    private String totemBeamStyle = HookCordStyles.GHOST;
+    private int totemBeamWidthPercent = 100;
+    private int totemBeamSagPercent;
+    private final BossTotemList totems = new BossTotemList();
 
     private boolean explosionEnabled;
     private int explosionDelayTicks = 20;
@@ -274,6 +330,19 @@ public final class TeleportPathData {
         tag.putBoolean(MINIONS_DEATH_KEY, clearMinionsOnDeath);
         tag.putBoolean(MINIONS_RESET_KEY, clearMinionsOnReset);
         tag.putInt(MINIONS_REMOVAL_KEY, minionRemovalMode);
+        tag.putBoolean(TOTEMS_ENABLED_KEY, totemsEnabled);
+        tag.putInt(TOTEM_PROTECTION_KEY, totemProtectionMode);
+        tag.putInt(TOTEM_ACTIVATION_KEY, totemActivationMode);
+        tag.putInt(TOTEM_PHASE_KEY, totemActivationPhase);
+        tag.putInt(TOTEM_DELAY_KEY, totemActivationDelayTicks);
+        tag.putInt(TOTEM_RESPAWN_KEY, totemRespawnMode);
+        tag.putInt(TOTEM_RESPAWN_DELAY_KEY, totemRespawnDelayTicks);
+        tag.putBoolean(TOTEM_RESET_HEALTH_KEY, totemResetHealth);
+        tag.putBoolean(TOTEM_REMOVE_DEATH_KEY, totemRemoveOnBossDeath);
+        tag.putString(TOTEM_BEAM_STYLE_KEY, totemBeamStyle);
+        tag.putInt(TOTEM_BEAM_WIDTH_KEY, totemBeamWidthPercent);
+        tag.putInt(TOTEM_BEAM_SAG_KEY, totemBeamSagPercent);
+        tag.put(TOTEMS_KEY, totems.writeToNBT());
         tag.putBoolean(EXPLOSION_ENABLED_KEY, explosionEnabled);
         tag.putInt(EXPLOSION_DELAY_KEY, explosionDelayTicks);
         tag.putInt(EXPLOSION_POWER_KEY, explosionPower);
@@ -355,6 +424,26 @@ public final class TeleportPathData {
         minionRemovalMode = tag.contains(MINIONS_REMOVAL_KEY)
                 ? Mth.clamp(tag.getInt(MINIONS_REMOVAL_KEY), MINION_REMOVAL_VANISH, MINION_REMOVAL_KILL)
                 : MINION_REMOVAL_VANISH;
+
+        totemsEnabled = tag.getBoolean(TOTEMS_ENABLED_KEY);
+        setTotemProtectionMode(tag.contains(TOTEM_PROTECTION_KEY) ? tag.getInt(TOTEM_PROTECTION_KEY)
+                : TOTEM_PROTECTION_FULL_IMMUNITY);
+        setTotemActivationMode(tag.contains(TOTEM_ACTIVATION_KEY) ? tag.getInt(TOTEM_ACTIVATION_KEY)
+                : TOTEM_ACTIVATION_ALWAYS);
+        setTotemActivationPhase(tag.contains(TOTEM_PHASE_KEY) ? tag.getInt(TOTEM_PHASE_KEY) : 1);
+        setTotemActivationDelayTicks(tag.contains(TOTEM_DELAY_KEY) ? tag.getInt(TOTEM_DELAY_KEY) : 200);
+        setTotemRespawnMode(tag.contains(TOTEM_RESPAWN_KEY) ? tag.getInt(TOTEM_RESPAWN_KEY)
+                : TOTEM_RESPAWN_NEXT_ENCOUNTER);
+        setTotemRespawnDelayTicks(tag.contains(TOTEM_RESPAWN_DELAY_KEY)
+                ? tag.getInt(TOTEM_RESPAWN_DELAY_KEY) : 200);
+        totemResetHealth = !tag.contains(TOTEM_RESET_HEALTH_KEY) || tag.getBoolean(TOTEM_RESET_HEALTH_KEY);
+        totemRemoveOnBossDeath = !tag.contains(TOTEM_REMOVE_DEATH_KEY) || tag.getBoolean(TOTEM_REMOVE_DEATH_KEY);
+        setTotemBeamStyle(tag.contains(TOTEM_BEAM_STYLE_KEY)
+                ? tag.getString(TOTEM_BEAM_STYLE_KEY) : HookCordStyles.GHOST);
+        setTotemBeamWidthPercent(tag.contains(TOTEM_BEAM_WIDTH_KEY) ? tag.getInt(TOTEM_BEAM_WIDTH_KEY) : 100);
+        setTotemBeamSagPercent(tag.getInt(TOTEM_BEAM_SAG_KEY));
+        totems.readFromNBT(tag.contains(TOTEMS_KEY, Tag.TAG_LIST)
+                ? tag.getList(TOTEMS_KEY, Tag.TAG_COMPOUND) : new ListTag());
 
         explosionEnabled = tag.getBoolean(EXPLOSION_ENABLED_KEY);
         explosionDelayTicks = tag.contains(EXPLOSION_DELAY_KEY)
@@ -574,6 +663,47 @@ public final class TeleportPathData {
     public void setMinionRemovalMode(int value) {
         minionRemovalMode = Mth.clamp(value, MINION_REMOVAL_VANISH, MINION_REMOVAL_KILL);
     }
+
+    public boolean isTotemsEnabled() { return totemsEnabled; }
+    public void setTotemsEnabled(boolean value) { totemsEnabled = value; }
+    public int getTotemProtectionMode() { return totemProtectionMode; }
+    public void setTotemProtectionMode(int value) {
+        totemProtectionMode = Mth.clamp(value, TOTEM_PROTECTION_FULL_IMMUNITY,
+                TOTEM_PROTECTION_LETHAL_GUARD);
+    }
+    public int getTotemActivationMode() { return totemActivationMode; }
+    public void setTotemActivationMode(int value) {
+        totemActivationMode = Mth.clamp(value, TOTEM_ACTIVATION_ALWAYS, TOTEM_ACTIVATION_PHASE_ENTER);
+    }
+    public int getTotemActivationPhase() { return totemActivationPhase; }
+    public void setTotemActivationPhase(int value) {
+        totemActivationPhase = Mth.clamp(value, MIN_PHASES, MAX_PHASES);
+    }
+    public int getTotemActivationDelayTicks() { return totemActivationDelayTicks; }
+    public void setTotemActivationDelayTicks(int value) {
+        totemActivationDelayTicks = Mth.clamp(value, MIN_TOTEM_ACTIVATION_DELAY_TICKS,
+                MAX_TOTEM_DELAY_TICKS);
+    }
+    public int getTotemRespawnMode() { return totemRespawnMode; }
+    public void setTotemRespawnMode(int value) {
+        totemRespawnMode = Mth.clamp(value, TOTEM_RESPAWN_NEVER, TOTEM_RESPAWN_DELAYED);
+    }
+    public int getTotemRespawnDelayTicks() { return totemRespawnDelayTicks; }
+    public void setTotemRespawnDelayTicks(int value) {
+        totemRespawnDelayTicks = Mth.clamp(value, MIN_TOTEM_RESPAWN_DELAY_TICKS,
+                MAX_TOTEM_DELAY_TICKS);
+    }
+    public boolean isTotemResetHealth() { return totemResetHealth; }
+    public void setTotemResetHealth(boolean value) { totemResetHealth = value; }
+    public boolean isTotemRemoveOnBossDeath() { return totemRemoveOnBossDeath; }
+    public void setTotemRemoveOnBossDeath(boolean value) { totemRemoveOnBossDeath = value; }
+    public String getTotemBeamStyle() { return totemBeamStyle; }
+    public void setTotemBeamStyle(String value) { totemBeamStyle = HookCordStyles.normalize(value); }
+    public int getTotemBeamWidthPercent() { return totemBeamWidthPercent; }
+    public void setTotemBeamWidthPercent(int value) { totemBeamWidthPercent = Mth.clamp(value, 25, 400); }
+    public int getTotemBeamSagPercent() { return totemBeamSagPercent; }
+    public void setTotemBeamSagPercent(int value) { totemBeamSagPercent = Mth.clamp(value, 0, 200); }
+    public BossTotemList getTotems() { return totems; }
 
     /** Whether the boss detonates once it dies. */
     public boolean isExplosionEnabled() { return explosionEnabled; }
