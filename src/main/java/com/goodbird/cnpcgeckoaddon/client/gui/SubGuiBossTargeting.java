@@ -15,6 +15,7 @@ public final class SubGuiBossTargeting extends GuiBasic implements ITextfieldLis
     private static final int KEEP_TARGET_BUTTON = 3;
     private static final int RADIUS_FIELD = 4;
     private static final int INTERVAL_FIELD = 5;
+    private static final int AGGRO_ZONE_BUTTON = 6;
 
     private final TeleportPathData data;
 
@@ -22,7 +23,7 @@ public final class SubGuiBossTargeting extends GuiBasic implements ITextfieldLis
         this.data = data;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 216;
+        imageHeight = 242;
         closeOnEsc = true;
     }
 
@@ -44,8 +45,10 @@ public final class SubGuiBossTargeting extends GuiBasic implements ITextfieldLis
         y += 26;
         addYesNo(KEEP_TARGET_BUTTON, "cnpcgeckoaddon.boss.target_keep", y, data.isKeepTargetOutOfRange());
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.target_hint", guiLeft + 8, guiTop + 165, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
+        addButton(new GuiButtonNop(this, AGGRO_ZONE_BUTTON, guiLeft + 8, guiTop + 158, 234, 20,
+                "cnpcgeckoaddon.boss.aggro_zone_settings"));
+        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.target_hint", guiLeft + 8, guiTop + 188, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 216, 60, 20,
                 "gui.done", button -> close()));
     }
 
@@ -71,6 +74,9 @@ public final class SubGuiBossTargeting extends GuiBasic implements ITextfieldLis
             data.setTargetRequiresLineOfSight(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == KEEP_TARGET_BUTTON) {
             data.setKeepTargetOutOfRange(((GuiButtonYesNo) button).getBoolean());
+        } else if (button.id == AGGRO_ZONE_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossAggroZone(data));
         }
     }
 
