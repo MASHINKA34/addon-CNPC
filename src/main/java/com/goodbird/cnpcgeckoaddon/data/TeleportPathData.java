@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
+import com.goodbird.cnpcgeckoaddon.utils.ContainerBlockUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -24,6 +25,13 @@ public final class TeleportPathData {
     public static final int MAX_RAGE_DELAY_TICKS = 72000;
     public static final int MIN_RAGE_MULTIPLIER_PERCENT = 100;
     public static final int MAX_RAGE_MULTIPLIER_PERCENT = 1000;
+
+    public static final int MIN_CHEST_DELAY_TICKS = 0;
+    public static final int MAX_CHEST_DELAY_TICKS = 1200;
+    /** Five seconds is the least that gives anyone a chance to walk over and open it. */
+    public static final int MIN_CHEST_LIFETIME_TICKS = 100;
+    /** Six real hours, which is as good as forever for a single fight. */
+    public static final int MAX_CHEST_LIFETIME_TICKS = 432000;
 
     /** Minions are silently discarded, the way a despawning mob disappears. */
     public static final int MINION_REMOVAL_VANISH = 0;
@@ -75,6 +83,14 @@ public final class TeleportPathData {
     private static final String EXPLOSION_POWER_KEY = "GeckoBossExplosionPower";
     private static final String EXPLOSION_MODE_KEY = "GeckoBossExplosionMode";
     private static final String EXPLOSION_FIRE_KEY = "GeckoBossExplosionFire";
+    private static final String CHEST_ENABLED_KEY = "GeckoBossChestEnabled";
+    private static final String CHEST_BLOCK_KEY = "GeckoBossChestBlock";
+    private static final String CHEST_DELAY_KEY = "GeckoBossChestDelay";
+    private static final String CHEST_LIFETIME_KEY = "GeckoBossChestLifetime";
+    private static final String CHEST_NAME_KEY = "GeckoBossChestName";
+    private static final String CHEST_NPC_DROPS_KEY = "GeckoBossChestNpcDrops";
+    private static final String CHEST_LOOT_TABLE_KEY = "GeckoBossChestLootTable";
+    private static final String CHEST_LOOT_KEY = "GeckoBossChestLoot";
     private static final String BOSS_BAR_STYLE_KEY = "GeckoBossBarStyle";
     private static final String RESET_TICKS_KEY = "GeckoBossResetTicks";
     private static final String RESET_HEAL_KEY = "GeckoBossResetHeal";
@@ -124,6 +140,16 @@ public final class TeleportPathData {
     private int explosionPower = 4;
     private int explosionMode = EXPLOSION_MODE_DAMAGE;
     private boolean explosionFire;
+
+    private boolean chestEnabled;
+    private String chestBlock = ContainerBlockUtil.DEFAULT_ID;
+    private int chestDelayTicks;
+    private int chestLifetimeTicks = 6000;
+    private String chestName = "";
+    private boolean chestUseNpcDrops;
+    private String chestLootTable = "";
+    private final BossLootList chestLoot = new BossLootList();
+
     private String bossBarStyle = BossBarStyles.NONE;
 
     public TeleportPathData() {
@@ -174,6 +200,14 @@ public final class TeleportPathData {
         tag.putInt(EXPLOSION_POWER_KEY, explosionPower);
         tag.putInt(EXPLOSION_MODE_KEY, explosionMode);
         tag.putBoolean(EXPLOSION_FIRE_KEY, explosionFire);
+        tag.putBoolean(CHEST_ENABLED_KEY, chestEnabled);
+        tag.putString(CHEST_BLOCK_KEY, chestBlock);
+        tag.putInt(CHEST_DELAY_KEY, chestDelayTicks);
+        tag.putInt(CHEST_LIFETIME_KEY, chestLifetimeTicks);
+        tag.putString(CHEST_NAME_KEY, chestName);
+        tag.putBoolean(CHEST_NPC_DROPS_KEY, chestUseNpcDrops);
+        tag.putString(CHEST_LOOT_TABLE_KEY, chestLootTable);
+        tag.put(CHEST_LOOT_KEY, chestLoot.writeToNBT());
         tag.putString(BOSS_BAR_STYLE_KEY, bossBarStyle);
         return tag;
     }
@@ -230,6 +264,20 @@ public final class TeleportPathData {
                 ? Mth.clamp(tag.getInt(EXPLOSION_MODE_KEY), EXPLOSION_MODE_EFFECT, EXPLOSION_MODE_BLOCKS_ALWAYS)
                 : EXPLOSION_MODE_DAMAGE;
         explosionFire = tag.getBoolean(EXPLOSION_FIRE_KEY);
+
+        chestEnabled = tag.getBoolean(CHEST_ENABLED_KEY);
+        chestBlock = tag.contains(CHEST_BLOCK_KEY)
+                ? tag.getString(CHEST_BLOCK_KEY).trim() : ContainerBlockUtil.DEFAULT_ID;
+        chestDelayTicks = tag.contains(CHEST_DELAY_KEY)
+                ? Mth.clamp(tag.getInt(CHEST_DELAY_KEY), MIN_CHEST_DELAY_TICKS, MAX_CHEST_DELAY_TICKS) : 0;
+        chestLifetimeTicks = tag.contains(CHEST_LIFETIME_KEY)
+                ? Mth.clamp(tag.getInt(CHEST_LIFETIME_KEY), MIN_CHEST_LIFETIME_TICKS, MAX_CHEST_LIFETIME_TICKS)
+                : 6000;
+        chestName = tag.getString(CHEST_NAME_KEY).trim();
+        chestUseNpcDrops = tag.getBoolean(CHEST_NPC_DROPS_KEY);
+        chestLootTable = tag.getString(CHEST_LOOT_TABLE_KEY).trim();
+        chestLoot.readFromNBT(tag, CHEST_LOOT_KEY);
+
         bossBarStyle = BossBarStyles.normalize(tag.getString(BOSS_BAR_STYLE_KEY));
     }
 
@@ -401,6 +449,35 @@ public final class TeleportPathData {
     }
     public boolean isExplosionFire() { return explosionFire; }
     public void setExplosionFire(boolean value) { explosionFire = value; }
+
+    /** Whether a loot chest is left behind where the boss died. */
+    public boolean isChestEnabled() { return chestEnabled; }
+    public void setChestEnabled(boolean value) { chestEnabled = value; }
+    /** Id of the block the chest is made of; anything that holds items will do. */
+    public String getChestBlock() { return chestBlock; }
+    public void setChestBlock(String value) {
+        chestBlock = value == null || value.trim().isEmpty() ? ContainerBlockUtil.DEFAULT_ID : value.trim();
+    }
+    /** Ticks between the death and the chest, so the death animation can play out first. */
+    public int getChestDelayTicks() { return chestDelayTicks; }
+    public void setChestDelayTicks(int value) {
+        chestDelayTicks = Mth.clamp(value, MIN_CHEST_DELAY_TICKS, MAX_CHEST_DELAY_TICKS);
+    }
+    /** How long the chest stands there before it and everything in it is deleted. */
+    public int getChestLifetimeTicks() { return chestLifetimeTicks; }
+    public void setChestLifetimeTicks(int value) {
+        chestLifetimeTicks = Mth.clamp(value, MIN_CHEST_LIFETIME_TICKS, MAX_CHEST_LIFETIME_TICKS);
+    }
+    /** Title the chest shows when opened; empty means the boss' own name. */
+    public String getChestName() { return chestName; }
+    public void setChestName(String value) { chestName = value == null ? "" : value.trim(); }
+    /** Whether the drops from the npc's own Inventory tab go into the chest instead of the ground. */
+    public boolean isChestUseNpcDrops() { return chestUseNpcDrops; }
+    public void setChestUseNpcDrops(boolean value) { chestUseNpcDrops = value; }
+    /** Vanilla loot table rolled into the chest on top of everything else; empty means none. */
+    public String getChestLootTable() { return chestLootTable; }
+    public void setChestLootTable(String value) { chestLootTable = value == null ? "" : value.trim(); }
+    public BossLootList getChestLoot() { return chestLoot; }
     public String getBossBarStyle() { return bossBarStyle; }
     public void setBossBarStyle(String value) { bossBarStyle = BossBarStyles.normalize(value); }
 
