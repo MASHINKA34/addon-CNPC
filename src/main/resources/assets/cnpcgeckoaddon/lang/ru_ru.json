@@ -189,5 +189,22 @@
   "cnpcgeckoaddon.boss.chest_remove": "Очистить слот",
   "cnpcgeckoaddon.boss.chest_clear": "Очистить всё",
   "cnpcgeckoaddon.boss.chest_empty": "пусто",
-  "cnpcgeckoaddon.boss.chest_hint": "По истечении времени содержимое удаляется вместе с сундуком."
+  "cnpcgeckoaddon.boss.chest_hint": "По истечении времени содержимое удаляется вместе с сундуком.",
+  "cnpcgeckoaddon.boss.chest_placement": "Где появляется",
+  "cnpcgeckoaddon.boss.chest_placement_death": "Где умер босс",
+  "cnpcgeckoaddon.boss.chest_placement_offset": "Место смерти + смещение",
+  "cnpcgeckoaddon.boss.chest_placement_arena": "Точка арены + смещение",
+  "cnpcgeckoaddon.boss.chest_placement_fixed": "Фиксированные координаты",
+  "cnpcgeckoaddon.boss.chest_offset": "Смещение X / Y / Z",
+  "cnpcgeckoaddon.boss.chest_coords": "Координаты X / Y / Z",
+  "cnpcgeckoaddon.boss.chest_here": "Взять мои координаты",
+  "cnpcgeckoaddon.boss.chest_style": "Вид сундука",
+  "cnpcgeckoaddon.boss.chest_style.vanilla": "Обычный блок",
+  "cnpcgeckoaddon.boss.chest_style.moss_cave": "Моховой",
+  "cnpcgeckoaddon.boss.chest_style.infernal": "Адский",
+  "cnpcgeckoaddon.boss.chest_style.ghost": "Призрачный",
+  "cnpcgeckoaddon.boss.chest_style.sculk": "Скалковый",
+  "cnpcgeckoaddon.boss.chest_style.gilded": "Золочёный",
+  "cnpcgeckoaddon.boss.chest_style.bone": "Костяной",
+  "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
 }

@@ -189,5 +189,22 @@
   "cnpcgeckoaddon.boss.chest_remove": "Clear this slot",
   "cnpcgeckoaddon.boss.chest_clear": "Clear all",
   "cnpcgeckoaddon.boss.chest_empty": "empty",
-  "cnpcgeckoaddon.boss.chest_hint": "Contents are deleted with the chest when the time runs out."
+  "cnpcgeckoaddon.boss.chest_hint": "Contents are deleted with the chest when the time runs out.",
+  "cnpcgeckoaddon.boss.chest_placement": "Where it appears",
+  "cnpcgeckoaddon.boss.chest_placement_death": "Where the boss died",
+  "cnpcgeckoaddon.boss.chest_placement_offset": "Death spot + offset",
+  "cnpcgeckoaddon.boss.chest_placement_arena": "Arena spot + offset",
+  "cnpcgeckoaddon.boss.chest_placement_fixed": "Fixed coordinates",
+  "cnpcgeckoaddon.boss.chest_offset": "Offset X / Y / Z",
+  "cnpcgeckoaddon.boss.chest_coords": "Coordinates X / Y / Z",
+  "cnpcgeckoaddon.boss.chest_here": "Use my position",
+  "cnpcgeckoaddon.boss.chest_style": "Chest skin",
+  "cnpcgeckoaddon.boss.chest_style.vanilla": "Plain block",
+  "cnpcgeckoaddon.boss.chest_style.moss_cave": "Mossy",
+  "cnpcgeckoaddon.boss.chest_style.infernal": "Infernal",
+  "cnpcgeckoaddon.boss.chest_style.ghost": "Spectral",
+  "cnpcgeckoaddon.boss.chest_style.sculk": "Sculk",
+  "cnpcgeckoaddon.boss.chest_style.gilded": "Gilded",
+  "cnpcgeckoaddon.boss.chest_style.bone": "Bone",
+  "block.cnpcgeckoaddon.boss_chest": "Boss chest"
 }

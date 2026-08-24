@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.data.BossChestStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.ContainerBlockUtil;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
@@ -8,6 +9,8 @@ import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
+
+import java.util.List;
 
 /** Leaves a chest of loot behind when the boss dies. */
 public final class SubGuiBossChest extends GuiBasic implements ITextfieldListener {
@@ -19,6 +22,8 @@ public final class SubGuiBossChest extends GuiBasic implements ITextfieldListene
     private static final int NPC_DROPS_BUTTON = 6;
     private static final int LOOT_TABLE_FIELD = 7;
     private static final int LOOT_LIST_BUTTON = 8;
+    private static final int STYLE_BUTTON = 9;
+    private static final int PLACE_BUTTON = 10;
 
     private final TeleportPathData data;
 
@@ -34,42 +39,71 @@ public final class SubGuiBossChest extends GuiBasic implements ITextfieldListene
     public void init() {
         super.init();
         addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.chest_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
-        int y = guiTop + 26;
+        // Rows are packed two pixels tighter than elsewhere: eight of them plus the two
+        // buttons is all a 256 tall background has room for.
+        int y = guiTop + 22;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.chest_enabled", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, data.isChestEnabled()));
-        y += 24;
+        y += 22;
 
         addLabel(new GuiLabel(BLOCK_FIELD, "cnpcgeckoaddon.boss.chest_block", guiLeft + 8, y + 6));
         addTextField(new GuiTextFieldNop(BLOCK_FIELD, this, guiLeft + 98, y, 96, 20, data.getChestBlock()));
         addButton(new GuiButtonNop(this, BLOCK_FIELD, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
-        y += 24;
+        y += 22;
+
+        addLabel(new GuiLabel(STYLE_BUTTON, "cnpcgeckoaddon.boss.chest_style", guiLeft + 8, y + 6));
+        addButton(new GuiButtonNop(this, STYLE_BUTTON, guiLeft + 100, y, 142, 20,
+                styleLabels(), styleIndex(data.getChestStyle())));
+        y += 22;
 
         addNumberField(DELAY_FIELD, "cnpcgeckoaddon.boss.chest_delay", y, data.getChestDelayTicks(),
                 TeleportPathData.MIN_CHEST_DELAY_TICKS, TeleportPathData.MAX_CHEST_DELAY_TICKS, 0);
-        y += 24;
+        y += 22;
         addNumberField(LIFETIME_FIELD, "cnpcgeckoaddon.boss.chest_lifetime", y, data.getChestLifetimeTicks(),
                 TeleportPathData.MIN_CHEST_LIFETIME_TICKS, TeleportPathData.MAX_CHEST_LIFETIME_TICKS, 6000);
-        y += 24;
+        y += 22;
 
         addLabel(new GuiLabel(NAME_FIELD, "cnpcgeckoaddon.boss.chest_name", guiLeft + 8, y + 6));
         addTextField(new GuiTextFieldNop(NAME_FIELD, this, guiLeft + 108, y, 134, 20, data.getChestName()));
-        y += 24;
+        y += 22;
 
         addLabel(new GuiLabel(NPC_DROPS_BUTTON, "cnpcgeckoaddon.boss.chest_npc_drops", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, NPC_DROPS_BUTTON, guiLeft + 155, y, 87, 20, data.isChestUseNpcDrops()));
-        y += 24;
+        y += 22;
 
         addLabel(new GuiLabel(LOOT_TABLE_FIELD, "cnpcgeckoaddon.boss.chest_loot_table", guiLeft + 8, y + 6));
         addTextField(new GuiTextFieldNop(LOOT_TABLE_FIELD, this, guiLeft + 108, y, 134, 20, data.getChestLootTable()));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 198, 0xA0A0A0));
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.chest_hint", guiLeft + 8, guiTop + 210, 0xA0A0A0));
-
-        addButton(new GuiButtonNop(this, LOOT_LIST_BUTTON, guiLeft + 8, guiTop + 230, 168, 20,
+        addButton(new GuiButtonNop(this, LOOT_LIST_BUTTON, guiLeft + 8, guiTop + 198, 114, 20,
                 "cnpcgeckoaddon.boss.chest_loot_list"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
+        addButton(new GuiButtonNop(this, PLACE_BUTTON, guiLeft + 128, guiTop + 198, 114, 20,
+                "cnpcgeckoaddon.boss.chest_placement"));
+
+        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.chest_hint", guiLeft + 8, guiTop + 222, 0xA0A0A0));
+        // Short enough to sit beside Done instead of under it.
+        addLabel(new GuiLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 240, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, 66, guiLeft + 186, guiTop + 234, 56, 20,
                 "gui.done", button -> close()));
+    }
+
+    private static String[] styleLabels() {
+        List<BossChestStyles.Style> styles = BossChestStyles.values();
+        String[] labels = new String[styles.size()];
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = styles.get(i).translationKey();
+        }
+        return labels;
+    }
+
+    private static int styleIndex(String id) {
+        List<BossChestStyles.Style> styles = BossChestStyles.values();
+        for (int i = 0; i < styles.size(); i++) {
+            if (styles.get(i).id().equals(id)) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
@@ -92,9 +126,14 @@ public final class SubGuiBossChest extends GuiBasic implements ITextfieldListene
                 data.setChestBlock(name);
                 getTextField(BLOCK_FIELD).setValue(name);
             }));
+        } else if (button.id == STYLE_BUTTON) {
+            data.setChestStyle(BossChestStyles.values().get(button.getValue()).id());
         } else if (button.id == LOOT_LIST_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossChestLoot(data.getChestLoot()));
+        } else if (button.id == PLACE_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossChestPlace(data));
         }
     }
 
