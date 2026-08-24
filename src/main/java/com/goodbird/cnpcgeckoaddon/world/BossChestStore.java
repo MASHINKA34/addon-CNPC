@@ -1,7 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.world;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
@@ -69,6 +71,10 @@ public class BossChestStore extends SavedData {
 
     private static BossChestStore load(CompoundTag tag, HolderLookup.Provider registries) {
         BossChestStore store = new BossChestStore();
+        // Block states are stored by name rather than by their numeric id: these entries
+        // are meant to outlive a restart, and the numbering shifts the moment the modpack
+        // gains or loses a mod - which would restore the wrong block entirely.
+        HolderGetter<Block> blocks = registries.lookupOrThrow(Registries.BLOCK);
         ListTag list = tag.getList(ENTRIES_KEY, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             CompoundTag entry = list.getCompound(i);
@@ -77,8 +83,8 @@ public class BossChestStore extends SavedData {
                 continue;
             }
             store.entries.add(new Entry(pos,
-                    Block.stateById(entry.getInt(STATE_KEY)),
-                    Block.stateById(entry.getInt(PLACED_KEY)),
+                    NbtUtils.readBlockState(blocks, entry.getCompound(STATE_KEY)),
+                    NbtUtils.readBlockState(blocks, entry.getCompound(PLACED_KEY)),
                     entry.getLong(EXPIRES_KEY)));
         }
         return store;
@@ -90,8 +96,8 @@ public class BossChestStore extends SavedData {
         for (Entry entry : entries) {
             CompoundTag saved = new CompoundTag();
             saved.put(POS_KEY, NbtUtils.writeBlockPos(entry.pos()));
-            saved.putInt(STATE_KEY, Block.getId(entry.original()));
-            saved.putInt(PLACED_KEY, Block.getId(entry.placed()));
+            saved.put(STATE_KEY, NbtUtils.writeBlockState(entry.original()));
+            saved.put(PLACED_KEY, NbtUtils.writeBlockState(entry.placed()));
             saved.putLong(EXPIRES_KEY, entry.expiresAt());
             list.add(saved);
         }
@@ -155,7 +161,9 @@ public class BossChestStore extends SavedData {
         BlockState current = level.getBlockState(entry.pos());
         // Somebody mined it, or the block is not ours any more. Dropping the entry is the
         // whole response: putting the old state back would destroy what they built there.
-        if (!current.is(entry.placed().getBlock())) {
+        // An air placed state means the block came from a mod that is gone now, and matching
+        // it against the air standing there would clear whatever moved in since.
+        if (entry.placed().isAir() || !current.is(entry.placed().getBlock())) {
             return;
         }
         if (level.getBlockEntity(entry.pos()) instanceof Container container) {
