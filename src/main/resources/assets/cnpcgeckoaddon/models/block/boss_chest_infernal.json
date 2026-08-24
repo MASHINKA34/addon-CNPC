@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "cnpcgeckoaddon:block/boss_chest_infernal"
+  }
+}

@@ -119,6 +119,7 @@ public final class TeleportPathData {
     private static final String CHEST_FIXED_X_KEY = "GeckoBossChestFixedX";
     private static final String CHEST_FIXED_Y_KEY = "GeckoBossChestFixedY";
     private static final String CHEST_FIXED_Z_KEY = "GeckoBossChestFixedZ";
+    private static final String CHEST_STYLE_KEY = "GeckoBossChestStyle";
     private static final String BOSS_BAR_STYLE_KEY = "GeckoBossBarStyle";
     private static final String RESET_TICKS_KEY = "GeckoBossResetTicks";
     private static final String RESET_HEAL_KEY = "GeckoBossResetHeal";
@@ -184,6 +185,7 @@ public final class TeleportPathData {
     private int chestFixedX;
     private int chestFixedY;
     private int chestFixedZ;
+    private String chestStyle = BossChestStyles.VANILLA;
 
     private String bossBarStyle = BossBarStyles.NONE;
 
@@ -250,6 +252,7 @@ public final class TeleportPathData {
         tag.putInt(CHEST_FIXED_X_KEY, chestFixedX);
         tag.putInt(CHEST_FIXED_Y_KEY, chestFixedY);
         tag.putInt(CHEST_FIXED_Z_KEY, chestFixedZ);
+        tag.putString(CHEST_STYLE_KEY, chestStyle);
         tag.putString(BOSS_BAR_STYLE_KEY, bossBarStyle);
         return tag;
     }
@@ -328,6 +331,7 @@ public final class TeleportPathData {
         chestFixedX = coordinate(tag, CHEST_FIXED_X_KEY);
         chestFixedY = coordinate(tag, CHEST_FIXED_Y_KEY);
         chestFixedZ = coordinate(tag, CHEST_FIXED_Z_KEY);
+        chestStyle = BossChestStyles.normalize(tag.getString(CHEST_STYLE_KEY));
 
         bossBarStyle = BossBarStyles.normalize(tag.getString(BOSS_BAR_STYLE_KEY));
     }
@@ -561,6 +565,9 @@ public final class TeleportPathData {
         chestFixedY = Mth.clamp(y, -MAX_CHEST_COORDINATE, MAX_CHEST_COORDINATE);
         chestFixedZ = Mth.clamp(z, -MAX_CHEST_COORDINATE, MAX_CHEST_COORDINATE);
     }
+    /** Which skin the chest wears; vanilla means the plain block from {@link #getChestBlock()}. */
+    public String getChestStyle() { return chestStyle; }
+    public void setChestStyle(String value) { chestStyle = BossChestStyles.normalize(value); }
     public String getBossBarStyle() { return bossBarStyle; }
     public void setBossBarStyle(String value) { bossBarStyle = BossBarStyles.normalize(value); }
 

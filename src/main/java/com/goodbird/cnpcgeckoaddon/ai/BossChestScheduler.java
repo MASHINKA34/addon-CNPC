@@ -1,6 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.block.BossChestBlock;
+import com.goodbird.cnpcgeckoaddon.data.BossChestStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.registry.BlockRegistry;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ContainerBlockUtil;
 import com.goodbird.cnpcgeckoaddon.world.BossChestStore;
@@ -76,7 +79,7 @@ public final class BossChestScheduler {
      * @param exact    place on {@code origin} and nowhere else, replacing whatever stands there
      */
     private record Pending(int bossId, ResourceKey<Level> dimension, BlockPos deathPos, BlockPos origin,
-                           boolean exact, Direction facing, long spawnAt, String blockId,
+                           boolean exact, Direction facing, long spawnAt, String blockId, String styleId,
                            String lootTableId, Component name, int lifetimeTicks, List<ItemStack> items) {
     }
 
@@ -113,7 +116,7 @@ public final class BossChestScheduler {
                 resolveOrigin(boss, data, arenaHome),
                 data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_FIXED,
                 chestFacing(boss, killer), level.getGameTime() + delay, data.getChestBlock(),
-                data.getChestLootTable(), name, data.getChestLifetimeTicks(),
+                data.getChestStyle(), data.getChestLootTable(), name, data.getChestLifetimeTicks(),
                 new ArrayList<>());
 
         StagedDrops staged = STAGED_DROPS.remove(boss.getId());
@@ -326,8 +329,20 @@ public final class BossChestScheduler {
                 && level.getBlockState(below).isFaceSturdy(level, below, Direction.UP);
     }
 
-    /** The block this chest is built out of. */
+    /**
+     * The block this chest is built out of: the addon's own chest wearing the configured
+     * skin, or the plain block from the settings when no skin was picked.
+     *
+     * <p>Whether the skin has any artwork behind it is not asked here. Resources only exist
+     * on the client, so the block goes down either way and the renderer falls back to the
+     * vanilla chest look if the texture never shipped.</p>
+     */
     private static BlockState chestState(Pending pending) {
+        BossChestStyles.Skin skin = BossChestStyles.skinOf(pending.styleId());
+        if (skin != null && BlockRegistry.bossChest != null) {
+            return BlockRegistry.bossChest.defaultBlockState().setValue(BossChestBlock.STYLE, skin);
+        }
+
         Block block = ContainerBlockUtil.resolve(pending.blockId());
         if (block == null) {
             if (!pending.blockId().equals(reportedBrokenBlock)) {

@@ -1,0 +1,52 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "style": "moss_cave"
+      },
+      "apply": {
+        "model": "cnpcgeckoaddon:block/boss_chest_moss_cave"
+      }
+    },
+    {
+      "when": {
+        "style": "infernal"
+      },
+      "apply": {
+        "model": "cnpcgeckoaddon:block/boss_chest_infernal"
+      }
+    },
+    {
+      "when": {
+        "style": "ghost"
+      },
+      "apply": {
+        "model": "cnpcgeckoaddon:block/boss_chest_ghost"
+      }
+    },
+    {
+      "when": {
+        "style": "sculk"
+      },
+      "apply": {
+        "model": "cnpcgeckoaddon:block/boss_chest_sculk"
+      }
+    },
+    {
+      "when": {
+        "style": "gilded"
+      },
+      "apply": {
+        "model": "cnpcgeckoaddon:block/boss_chest_gilded"
+      }
+    },
+    {
+      "when": {
+        "style": "bone"
+      },
+      "apply": {
+        "model": "cnpcgeckoaddon:block/boss_chest_bone"
+      }
+    }
+  ]
+}
