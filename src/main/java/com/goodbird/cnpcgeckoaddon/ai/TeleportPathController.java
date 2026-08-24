@@ -352,6 +352,16 @@ public final class TeleportPathController {
     }
 
     /**
+     * Where the boss stood when this fight started - the same spot {@code reset_return}
+     * sends it back to.
+     *
+     * @return null while no fight is running, because there is no arena to speak of then
+     */
+    public BlockPos getArenaHome() {
+        return active ? BlockPos.containing(homeX, homeY, homeZ) : null;
+    }
+
+    /**
      * Shield clang and a puff of sparks for a hit that bounced off an immune boss.
      *
      * <p>Self-throttling: a boss ringed by players takes several hits per tick, and one

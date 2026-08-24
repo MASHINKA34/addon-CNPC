@@ -7,6 +7,7 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
@@ -66,7 +67,7 @@ public class BossDeathEvents {
             BossExplosionScheduler.schedule(level, npc, data);
         }
         if (data.isChestEnabled()) {
-            BossChestScheduler.schedule(level, npc, data, event.getSource().getEntity());
+            BossChestScheduler.schedule(level, npc, data, event.getSource().getEntity(), arenaHome(npc));
         }
     }
 
@@ -123,6 +124,22 @@ public class BossDeathEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.removePlayerFromBossBars(player);
         }
+    }
+
+    /**
+     * Where this boss stood when the fight began, for the chest placement that asks for it.
+     *
+     * @return null when the npc never ticked as a boss or was not in a fight, which sends
+     *         the chest back to the spot the boss died on
+     */
+    private static BlockPos arenaHome(EntityNPCInterface npc) {
+        if (npc instanceof IBossController holder) {
+            TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+            if (controller != null) {
+                return controller.getArenaHome();
+            }
+        }
+        return null;
     }
 
     private static void trackParticipant(EntityNPCInterface npc, ServerPlayer player) {

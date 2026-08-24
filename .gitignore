@@ -47,6 +47,12 @@ src/main/resources/assets/*
 # Maven repository, and build.gradle resolves them from lib/ via a flatDir repository,
 # so a clone without them cannot compile. See lib/README.md.
 
+# --- Markdown ---
+# Notes, briefs and scratch write-ups are working material, not part of the mod. Only
+# the README of a directory explains something a clone needs, so only those are kept.
+*.md
+!README.md
+
 # --- Working prompts ---
 # Task briefs handed to the agents that implement a feature. They are scratch work for
 # whoever drives the session, not part of the mod, so only the index that explains how

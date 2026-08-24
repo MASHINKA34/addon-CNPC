@@ -54,6 +54,27 @@ public final class TeleportPathData {
             "cnpcgeckoaddon.boss.explosion_mode_blocks_always"
     };
 
+    /** The chest lands where the boss fell - what it has always done. */
+    public static final int CHEST_PLACEMENT_DEATH = 0;
+    /** Where the boss fell, shifted by the configured offset. */
+    public static final int CHEST_PLACEMENT_DEATH_OFFSET = 1;
+    /** Where the boss stood when the fight started, shifted by the configured offset. */
+    public static final int CHEST_PLACEMENT_ARENA = 2;
+    /** One spot in the world, whatever happened during the fight. */
+    public static final int CHEST_PLACEMENT_FIXED = 3;
+
+    public static final String[] CHEST_PLACEMENT_LABELS = {
+            "cnpcgeckoaddon.boss.chest_placement_death",
+            "cnpcgeckoaddon.boss.chest_placement_offset",
+            "cnpcgeckoaddon.boss.chest_placement_arena",
+            "cnpcgeckoaddon.boss.chest_placement_fixed"
+    };
+
+    public static final int MIN_CHEST_OFFSET = -64;
+    public static final int MAX_CHEST_OFFSET = 64;
+    /** The world border's own limit: anything past it cannot hold a block anyway. */
+    public static final int MAX_CHEST_COORDINATE = 30000000;
+
     public static final String[] MINION_REMOVAL_LABELS = {
             "cnpcgeckoaddon.boss.minions_removal_vanish",
             "cnpcgeckoaddon.boss.minions_removal_kill"
@@ -91,6 +112,13 @@ public final class TeleportPathData {
     private static final String CHEST_NPC_DROPS_KEY = "GeckoBossChestNpcDrops";
     private static final String CHEST_LOOT_TABLE_KEY = "GeckoBossChestLootTable";
     private static final String CHEST_LOOT_KEY = "GeckoBossChestLoot";
+    private static final String CHEST_PLACEMENT_KEY = "GeckoBossChestPlacement";
+    private static final String CHEST_OFFSET_X_KEY = "GeckoBossChestOffsetX";
+    private static final String CHEST_OFFSET_Y_KEY = "GeckoBossChestOffsetY";
+    private static final String CHEST_OFFSET_Z_KEY = "GeckoBossChestOffsetZ";
+    private static final String CHEST_FIXED_X_KEY = "GeckoBossChestFixedX";
+    private static final String CHEST_FIXED_Y_KEY = "GeckoBossChestFixedY";
+    private static final String CHEST_FIXED_Z_KEY = "GeckoBossChestFixedZ";
     private static final String BOSS_BAR_STYLE_KEY = "GeckoBossBarStyle";
     private static final String RESET_TICKS_KEY = "GeckoBossResetTicks";
     private static final String RESET_HEAL_KEY = "GeckoBossResetHeal";
@@ -149,6 +177,13 @@ public final class TeleportPathData {
     private boolean chestUseNpcDrops;
     private String chestLootTable = "";
     private final BossLootList chestLoot = new BossLootList();
+    private int chestPlacement = CHEST_PLACEMENT_DEATH;
+    private int chestOffsetX;
+    private int chestOffsetY;
+    private int chestOffsetZ;
+    private int chestFixedX;
+    private int chestFixedY;
+    private int chestFixedZ;
 
     private String bossBarStyle = BossBarStyles.NONE;
 
@@ -208,6 +243,13 @@ public final class TeleportPathData {
         tag.putBoolean(CHEST_NPC_DROPS_KEY, chestUseNpcDrops);
         tag.putString(CHEST_LOOT_TABLE_KEY, chestLootTable);
         tag.put(CHEST_LOOT_KEY, chestLoot.writeToNBT());
+        tag.putInt(CHEST_PLACEMENT_KEY, chestPlacement);
+        tag.putInt(CHEST_OFFSET_X_KEY, chestOffsetX);
+        tag.putInt(CHEST_OFFSET_Y_KEY, chestOffsetY);
+        tag.putInt(CHEST_OFFSET_Z_KEY, chestOffsetZ);
+        tag.putInt(CHEST_FIXED_X_KEY, chestFixedX);
+        tag.putInt(CHEST_FIXED_Y_KEY, chestFixedY);
+        tag.putInt(CHEST_FIXED_Z_KEY, chestFixedZ);
         tag.putString(BOSS_BAR_STYLE_KEY, bossBarStyle);
         return tag;
     }
@@ -277,6 +319,15 @@ public final class TeleportPathData {
         chestUseNpcDrops = tag.getBoolean(CHEST_NPC_DROPS_KEY);
         chestLootTable = tag.getString(CHEST_LOOT_TABLE_KEY).trim();
         chestLoot.readFromNBT(tag, CHEST_LOOT_KEY);
+        chestPlacement = tag.contains(CHEST_PLACEMENT_KEY)
+                ? Mth.clamp(tag.getInt(CHEST_PLACEMENT_KEY), CHEST_PLACEMENT_DEATH, CHEST_PLACEMENT_FIXED)
+                : CHEST_PLACEMENT_DEATH;
+        chestOffsetX = offset(tag, CHEST_OFFSET_X_KEY);
+        chestOffsetY = offset(tag, CHEST_OFFSET_Y_KEY);
+        chestOffsetZ = offset(tag, CHEST_OFFSET_Z_KEY);
+        chestFixedX = coordinate(tag, CHEST_FIXED_X_KEY);
+        chestFixedY = coordinate(tag, CHEST_FIXED_Y_KEY);
+        chestFixedZ = coordinate(tag, CHEST_FIXED_Z_KEY);
 
         bossBarStyle = BossBarStyles.normalize(tag.getString(BOSS_BAR_STYLE_KEY));
     }
@@ -478,6 +529,38 @@ public final class TeleportPathData {
     public String getChestLootTable() { return chestLootTable; }
     public void setChestLootTable(String value) { chestLootTable = value == null ? "" : value.trim(); }
     public BossLootList getChestLoot() { return chestLoot; }
+
+    private static int offset(CompoundTag tag, String key) {
+        return tag.contains(key) ? Mth.clamp(tag.getInt(key), MIN_CHEST_OFFSET, MAX_CHEST_OFFSET) : 0;
+    }
+
+    private static int coordinate(CompoundTag tag, String key) {
+        return tag.contains(key) ? Mth.clamp(tag.getInt(key), -MAX_CHEST_COORDINATE, MAX_CHEST_COORDINATE) : 0;
+    }
+
+    /** Which of the four spots the chest is put down at. */
+    public int getChestPlacement() { return chestPlacement; }
+    public void setChestPlacement(int value) {
+        chestPlacement = Mth.clamp(value, CHEST_PLACEMENT_DEATH, CHEST_PLACEMENT_FIXED);
+    }
+    /** Shift applied to the death or arena spot, in blocks. */
+    public int getChestOffsetX() { return chestOffsetX; }
+    public int getChestOffsetY() { return chestOffsetY; }
+    public int getChestOffsetZ() { return chestOffsetZ; }
+    public void setChestOffset(int x, int y, int z) {
+        chestOffsetX = Mth.clamp(x, MIN_CHEST_OFFSET, MAX_CHEST_OFFSET);
+        chestOffsetY = Mth.clamp(y, MIN_CHEST_OFFSET, MAX_CHEST_OFFSET);
+        chestOffsetZ = Mth.clamp(z, MIN_CHEST_OFFSET, MAX_CHEST_OFFSET);
+    }
+    /** The one spot the chest appears at in fixed mode, in the dimension the boss died in. */
+    public int getChestFixedX() { return chestFixedX; }
+    public int getChestFixedY() { return chestFixedY; }
+    public int getChestFixedZ() { return chestFixedZ; }
+    public void setChestFixed(int x, int y, int z) {
+        chestFixedX = Mth.clamp(x, -MAX_CHEST_COORDINATE, MAX_CHEST_COORDINATE);
+        chestFixedY = Mth.clamp(y, -MAX_CHEST_COORDINATE, MAX_CHEST_COORDINATE);
+        chestFixedZ = Mth.clamp(z, -MAX_CHEST_COORDINATE, MAX_CHEST_COORDINATE);
+    }
     public String getBossBarStyle() { return bossBarStyle; }
     public void setBossBarStyle(String value) { bossBarStyle = BossBarStyles.normalize(value); }
 

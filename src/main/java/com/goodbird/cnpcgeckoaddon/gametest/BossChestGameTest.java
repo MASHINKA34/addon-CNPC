@@ -140,7 +140,7 @@ public class BossChestGameTest {
      */
     private static void schedule(GameTestHelper helper, BlockPos relative, TeleportPathData data) {
         Entity boss = helper.spawn(EntityType.ARMOR_STAND, relative);
-        BossChestScheduler.schedule(helper.getLevel(), boss, data, null);
+        BossChestScheduler.schedule(helper.getLevel(), boss, data, null, null);
         boss.discard();
     }
 

@@ -70,9 +70,14 @@ public final class BossChestScheduler {
     /** How long drops wait for a chest to claim them before they are thrown away. */
     private static final int STAGED_DROPS_TIMEOUT = 100;
 
-    private record Pending(int bossId, ResourceKey<Level> dimension, BlockPos deathPos, Direction facing,
-                           long spawnAt, String blockId, String lootTableId, Component name,
-                           int lifetimeTicks, List<ItemStack> items) {
+    /**
+     * @param deathPos where the boss actually fell - kept apart from {@code origin} because
+     *                 loot that cannot be put in a chest is dropped where it was earned
+     * @param exact    place on {@code origin} and nowhere else, replacing whatever stands there
+     */
+    private record Pending(int bossId, ResourceKey<Level> dimension, BlockPos deathPos, BlockPos origin,
+                           boolean exact, Direction facing, long spawnAt, String blockId,
+                           String lootTableId, Component name, int lifetimeTicks, List<ItemStack> items) {
     }
 
     private record StagedDrops(long stagedAt, List<ItemStack> items) {
@@ -93,7 +98,8 @@ public final class BossChestScheduler {
     private BossChestScheduler() {
     }
 
-    public static void schedule(ServerLevel level, Entity boss, TeleportPathData data, Entity killer) {
+    public static void schedule(ServerLevel level, Entity boss, TeleportPathData data, Entity killer,
+                                BlockPos arenaHome) {
         long delay = data.getChestDelayTicks();
         if (data.isExplosionEnabled()) {
             // A boss that blows up on top of its own chest takes the loot with it, so the
@@ -104,8 +110,11 @@ public final class BossChestScheduler {
         Component name = data.getChestName().isEmpty()
                 ? boss.getDisplayName() : Component.literal(data.getChestName());
         Pending pending = new Pending(boss.getId(), level.dimension(), boss.blockPosition(),
+                resolveOrigin(boss, data, arenaHome),
+                data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_FIXED,
                 chestFacing(boss, killer), level.getGameTime() + delay, data.getChestBlock(),
-                data.getChestLootTable(), name, data.getChestLifetimeTicks(), new ArrayList<>());
+                data.getChestLootTable(), name, data.getChestLifetimeTicks(),
+                new ArrayList<>());
 
         StagedDrops staged = STAGED_DROPS.remove(boss.getId());
         if (staged != null) {
@@ -115,6 +124,30 @@ public final class BossChestScheduler {
         // still warm cannot change what it just dropped.
         pending.items().addAll(data.getChestLoot().rollAll(level.getRandom()));
         PENDING.add(pending);
+    }
+
+    /**
+     * Works out which spot this boss' chest belongs to.
+     *
+     * <p>The dimension is always the one the boss died in - a chest that could appear in
+     * another world would be a way to lose loot behind a portal, and none of the four modes
+     * is worth that.</p>
+     */
+    private static BlockPos resolveOrigin(Entity boss, TeleportPathData data, BlockPos arenaHome) {
+        BlockPos death = boss.blockPosition();
+        return switch (data.getChestPlacement()) {
+            case TeleportPathData.CHEST_PLACEMENT_DEATH_OFFSET -> offset(death, data);
+            // No controller, or a boss that died without ever engaging: there is no arena
+            // to speak of, so the death spot is the only honest answer.
+            case TeleportPathData.CHEST_PLACEMENT_ARENA -> arenaHome == null ? death : offset(arenaHome, data);
+            case TeleportPathData.CHEST_PLACEMENT_FIXED ->
+                    new BlockPos(data.getChestFixedX(), data.getChestFixedY(), data.getChestFixedZ());
+            default -> death;
+        };
+    }
+
+    private static BlockPos offset(BlockPos base, TeleportPathData data) {
+        return base.offset(data.getChestOffsetX(), data.getChestOffsetY(), data.getChestOffsetZ());
     }
 
     /**
@@ -166,28 +199,19 @@ public final class BossChestScheduler {
     }
 
     private static void place(ServerLevel level, Pending pending) {
-        BlockPos pos = findPlacement(level, pending.deathPos());
-        if (pos == null) {
-            LOGGER.warn("No room for a boss loot chest near {}: nothing around there can be replaced",
-                    pending.deathPos());
+        // Fixed coordinates are taken at their word: whoever typed them in wants the chest
+        // there and not two blocks to the side, and the store puts the covered block back
+        // when the time is up anyway.
+        BlockPos pos = pending.exact() ? pending.origin() : findPlacement(level, pending.origin());
+        if (pos == null || !level.isInWorldBounds(pos) || !level.getWorldBorder().isWithinBounds(pos)) {
+            LOGGER.warn("No room for a boss loot chest at {}: nothing there can hold a block",
+                    pending.exact() ? pending.origin() : pending.deathPos());
             spill(level, pending);
             return;
         }
 
-        Block block = ContainerBlockUtil.resolve(pending.blockId());
-        if (block == null) {
-            if (!pending.blockId().equals(reportedBrokenBlock)) {
-                reportedBrokenBlock = pending.blockId();
-                LOGGER.warn("Boss loot chest block {} is not a container, using {} instead",
-                        pending.blockId(), ContainerBlockUtil.DEFAULT_ID);
-            }
-            block = Blocks.CHEST;
-        } else {
-            reportedBrokenBlock = "";
-        }
-
         BlockState previous = level.getBlockState(pos);
-        BlockState placed = orient(level, block.defaultBlockState(), pos, pending.facing());
+        BlockState placed = orient(level, chestState(pending), pos, pending.facing());
         if (!level.setBlock(pos, placed, Block.UPDATE_ALL)) {
             spill(level, pending);
             return;
@@ -300,6 +324,21 @@ public final class BossChestScheduler {
         BlockPos below = pos.below();
         return level.isInWorldBounds(below)
                 && level.getBlockState(below).isFaceSturdy(level, below, Direction.UP);
+    }
+
+    /** The block this chest is built out of. */
+    private static BlockState chestState(Pending pending) {
+        Block block = ContainerBlockUtil.resolve(pending.blockId());
+        if (block == null) {
+            if (!pending.blockId().equals(reportedBrokenBlock)) {
+                reportedBrokenBlock = pending.blockId();
+                LOGGER.warn("Boss loot chest block {} is not a container, using {} instead",
+                        pending.blockId(), ContainerBlockUtil.DEFAULT_ID);
+            }
+            return Blocks.CHEST.defaultBlockState();
+        }
+        reportedBrokenBlock = "";
+        return block.defaultBlockState();
     }
 
     private static BlockState orient(ServerLevel level, BlockState state, BlockPos pos, Direction facing) {
