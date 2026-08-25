@@ -113,6 +113,7 @@ public final class TeleportPathController {
     /** Earliest game time the next blocked-hit clang may play at. */
     private long nextBlockFeedbackAt;
     private long outOfCombatSince = NOT_SCHEDULED;
+    private long outsideHomeLeashSince = NOT_SCHEDULED;
     private boolean encounterResetDone;
     private boolean encounterRunning;
     private long encounterBeganAt = NOT_SCHEDULED;
@@ -211,15 +212,19 @@ public final class TeleportPathController {
         if (!active) {
             activate(level, gameTime, data);
         }
-        if (data.isStationary()) {
-            keepStationary();
-        } else {
-            rememberCurrentPosition();
-        }
         updateAggroZone(level, data, gameTime);
         updateNearestPlayerTarget(level, data, gameTime);
         if (hasCombatTarget()) {
             beginEncounter(gameTime, data);
+        }
+        // A leash reset owns the rest of this tick, including already-due abilities.
+        if (tickHomeLeash(level, gameTime, data)) {
+            return;
+        }
+        if (data.isStationary()) {
+            keepStationary();
+        } else {
+            rememberCurrentPosition();
         }
         tickHookPulls(level, gameTime);
         faceCombatTarget();
@@ -290,6 +295,7 @@ public final class TeleportPathController {
         homeX = npc.getX();
         homeY = npc.getY();
         homeZ = npc.getZ();
+        outsideHomeLeashSince = NOT_SCHEDULED;
         highestPhaseReached = data.resolvePhaseIndex(healthPercent());
         currentPhase = highestPhaseReached;
         outOfCombatSince = NOT_SCHEDULED;
@@ -341,7 +347,58 @@ public final class TeleportPathController {
     private void clearEncounter() {
         encounterRunning = false;
         encounterBeganAt = NOT_SCHEDULED;
+        outsideHomeLeashSince = NOT_SCHEDULED;
         encounterParticipants.clear();
+    }
+
+    /** @return true when crossing the leash ended the encounter this tick */
+    private boolean tickHomeLeash(ServerLevel level, long gameTime, TeleportPathData data) {
+        if (!data.isHomeLeashEnabled() || !encounterRunning || !active || !npc.isAlive()) {
+            outsideHomeLeashSince = NOT_SCHEDULED;
+            return false;
+        }
+
+        double radius = data.getHomeLeashRadius();
+        if (homeLeashDistanceSquared(data.isHomeLeashVertical()) <= radius * radius) {
+            outsideHomeLeashSince = NOT_SCHEDULED;
+            return false;
+        }
+        if (outsideHomeLeashSince == NOT_SCHEDULED) {
+            outsideHomeLeashSince = gameTime;
+        }
+        if (gameTime - outsideHomeLeashSince < data.getHomeLeashGraceTicks()) {
+            return false;
+        }
+
+        endEncounter(level, data);
+        return true;
+    }
+
+    private double homeLeashDistanceSquared(boolean includeVertical) {
+        double dx = npc.getX() - homeX;
+        double dz = npc.getZ() - homeZ;
+        if (!includeVertical) {
+            return dx * dx + dz * dz;
+        }
+        double dy = npc.getY() - homeY;
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    public String homeLeashStatus(long gameTime, TeleportPathData data) {
+        if (!data.isHomeLeashEnabled()) {
+            return "Home leash: off";
+        }
+        double distance = Math.sqrt(homeLeashDistanceSquared(data.isHomeLeashVertical()));
+        String prefix = String.format(java.util.Locale.ROOT, "Home leash: %.1f / %d blocks, ",
+                distance, data.getHomeLeashRadius());
+        if (distance <= data.getHomeLeashRadius()) {
+            return prefix + "inside";
+        }
+        long elapsed = outsideHomeLeashSince == NOT_SCHEDULED
+                ? 0L : Math.max(0L, gameTime - outsideHomeLeashSince);
+        long remaining = Math.max(0L, data.getHomeLeashGraceTicks() - elapsed);
+        return prefix + "resets in " + remaining + " ticks";
     }
 
     private void initializeTotems(ServerLevel level, long gameTime, TeleportPathData data) {
