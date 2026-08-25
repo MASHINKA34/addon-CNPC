@@ -83,8 +83,6 @@ public final class TeleportPathController {
     private static final int TOTEM_LINK_REFRESH_TICKS = 160;
     private static final ResourceLocation RAGE_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_rage");
-    private static final ResourceLocation PARTY_HEALTH_MODIFIER_ID =
-            ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_party_health");
     /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
     private static final List<Holder<Attribute>> RAGE_ATTRIBUTES =
             List.of(Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE);
@@ -1739,16 +1737,17 @@ public final class TeleportPathController {
         float oldHealth = npc.getHealth();
         if (!healthScalingApplied) {
             // A controller can be rebuilt around a still-loaded entity, so discard only our id.
-            instance.removeModifier(PARTY_HEALTH_MODIFIER_ID);
+            instance.removeModifier(BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID);
             baseMaxHealth = finiteHealth(npc.getMaxHealth(), 1.0D);
             healthScalingApplied = true;
         } else {
-            instance.removeModifier(PARTY_HEALTH_MODIFIER_ID);
+            instance.removeModifier(BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID);
         }
 
         double bonus = healthScalingBonus(instance, data);
         if (bonus > 0.0D) {
-            instance.addTransientModifier(new AttributeModifier(PARTY_HEALTH_MODIFIER_ID, bonus,
+            instance.addTransientModifier(new AttributeModifier(
+                    BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID, bonus,
                     AttributeModifier.Operation.ADD_VALUE));
         }
         lastHealthScalingConfiguration = configuration;
@@ -1787,7 +1786,7 @@ public final class TeleportPathController {
             lastHealthScalingConfiguration = Long.MIN_VALUE;
             return;
         }
-        boolean hadModifier = instance.hasModifier(PARTY_HEALTH_MODIFIER_ID);
+        boolean hadModifier = instance.hasModifier(BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID);
         if (!healthScalingApplied && !hadModifier) {
             if (resetHeal && npc.isAlive()) {
                 npc.setHealth(npc.getMaxHealth());
@@ -1797,7 +1796,7 @@ public final class TeleportPathController {
 
         float oldMax = npc.getMaxHealth();
         float oldHealth = npc.getHealth();
-        instance.removeModifier(PARTY_HEALTH_MODIFIER_ID);
+        instance.removeModifier(BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID);
         float newMax = npc.getMaxHealth();
         if (npc.isAlive()) {
             if (resetHeal) {

@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.ai.BossHealthScalingUtil;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -134,7 +135,7 @@ public final class SubGuiBossHealthScaling extends GuiBasic implements ITextfiel
             interval.enabled = data.getHealthScalingUpdateMode() == TeleportPathData.HEALTH_SCALING_DYNAMIC;
         }
 
-        double base = Math.max(1.0D, npc.getMaxHealth());
+        double base = BossHealthScalingUtil.getMaxHealthWithoutPartyScaling(npc);
         setPreview(BASE_PREVIEW_LABEL, Component.translatable(
                 "cnpcgeckoaddon.boss.health_scaling_base", formatHealth(base)));
         setPlayerPreview(ONE_PREVIEW_LABEL, 1, base);
