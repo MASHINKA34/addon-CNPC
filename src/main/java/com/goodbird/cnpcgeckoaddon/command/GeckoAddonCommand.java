@@ -73,9 +73,13 @@ public class GeckoAddonCommand {
                         + ", respawn=" + respawn;
                 String captureLine = controller == null ? "Capture: ready"
                         : controller.captureStatus(level.getGameTime());
+                String leashLine = controller == null
+                        ? (data.isHomeLeashEnabled() ? "Home leash: awaiting controller" : "Home leash: off")
+                        : controller.homeLeashStatus(level.getGameTime(), data);
                 source.sendSuccess(() -> Component.literal(bossLine), false);
                 source.sendSuccess(() -> Component.literal(totemLine), false);
                 source.sendSuccess(() -> Component.literal(captureLine), false);
+                source.sendSuccess(() -> Component.literal(leashLine), false);
             }
         }
         if (found == 0) {
