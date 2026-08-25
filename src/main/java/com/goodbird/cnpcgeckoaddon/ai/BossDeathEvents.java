@@ -43,6 +43,7 @@ public final class BossDeathEvents {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBossDeath(final LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            BossCaptureManager.releasePlayer(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
         if (BossTotemUtil.isTotem(event.getEntity())) {
@@ -164,6 +165,7 @@ public final class BossDeathEvents {
     @SubscribeEvent
     public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            BossCaptureManager.releasePlayer(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
     }
@@ -171,6 +173,7 @@ public final class BossDeathEvents {
     @SubscribeEvent
     public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            BossCaptureManager.releasePlayer(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
     }
@@ -249,6 +252,7 @@ public final class BossDeathEvents {
         if (BossChestScheduler.hasPending()) {
             BossChestScheduler.tick(level);
         }
+        BossCaptureManager.tick(level);
     }
 
     @SubscribeEvent
@@ -256,6 +260,7 @@ public final class BossDeathEvents {
         if (event.getLevel() instanceof ServerLevel level) {
             BossExplosionScheduler.clear(level);
             BossChestScheduler.clear(level);
+            BossCaptureManager.clearLevel(level);
             TeleportPathController.shutdownLevel(level);
         }
     }

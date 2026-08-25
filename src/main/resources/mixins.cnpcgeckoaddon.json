@@ -19,6 +19,7 @@
     "MixinFlowingFluid",
     "MixinModelData",
     "MixinNpcWrapper",
+    "MixinServerGamePacketListenerImpl",
     "MixinWrapperNpcApi",
     "TileScriptedMixin"
   ],

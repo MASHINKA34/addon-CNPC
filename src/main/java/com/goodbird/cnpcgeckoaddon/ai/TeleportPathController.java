@@ -1564,6 +1564,7 @@ public final class TeleportPathController {
         stopBossBar();
         clearRage();
         clearEncounter();
+        BossCaptureManager.releaseByBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             removeTotemsOnBossDeath(level, settings());
         }
@@ -1586,6 +1587,7 @@ public final class TeleportPathController {
         // taken off here rather than left for a tick that may never come.
         clearRage();
         clearEncounter();
+        BossCaptureManager.releaseByBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
                 dropTotemLink(totem, BossTotemUtil.slotId(totem));
@@ -1909,7 +1911,8 @@ public final class TeleportPathController {
 
     private boolean tryStartCapture(ServerLevel level, TeleportPathData data,
                                     BossPhaseData phase, long gameTime) {
-        if (!phase.isCaptureEnabled() || gameTime < nextCaptureAt) return false;
+        if (!phase.isCaptureEnabled() || gameTime < nextCaptureAt
+                || BossCaptureManager.hasCaptureForBoss(npc.getUUID())) return false;
         ServerPlayer target = selectCaptureTarget(level, phase);
         if (target == null) {
             nextCaptureAt = gameTime + 10;
@@ -1958,7 +1961,8 @@ public final class TeleportPathController {
     private boolean isValidCaptureTarget(ServerPlayer player, BossPhaseData phase) {
         if (player == null || player.level() != npc.level() || !player.isAlive()
                 || player.isRemoved() || player.isCreative() || player.isSpectator()
-                || !npc.canAttack(player) || npc.isAlliedTo(player)) {
+                || !npc.canAttack(player) || npc.isAlliedTo(player)
+                || BossCaptureManager.isCaptured(player.getUUID())) {
             return false;
         }
         double distanceSquared = npc.distanceToSqr(player);
@@ -1970,9 +1974,12 @@ public final class TeleportPathController {
         return !npc.ais.directLOS || npc.canNpcSee(player);
     }
 
-    private void performCapture(ServerLevel level, BossPhaseData phase) {
+    private void performCapture(ServerLevel level, BossPhaseData phase, long gameTime) {
         LivingEntity pending = pendingTarget(level);
         if (!(pending instanceof ServerPlayer player) || !isValidCaptureTarget(player, phase)) {
+            return;
+        }
+        if (!BossCaptureManager.start(npc, player, phase, gameTime)) {
             return;
         }
         int receiver = phase.getCaptureEffectTarget();
@@ -2197,7 +2204,7 @@ public final class TeleportPathController {
         } else if (pendingAction == PendingAction.HOOK) {
             performHook(level, phase, gameTime);
         } else if (pendingAction == PendingAction.CAPTURE) {
-            performCapture(level, phase);
+            performCapture(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -2577,6 +2584,7 @@ public final class TeleportPathController {
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
         clearHookPulls();
+        BossCaptureManager.releaseByBoss(npc);
         busyUntil = 0L;
         cancelPendingAndSchedules();
         lastPathIndex = -1;

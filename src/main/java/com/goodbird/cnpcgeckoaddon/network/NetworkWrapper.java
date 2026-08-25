@@ -37,6 +37,8 @@ public class NetworkWrapper {
                 PacketSyncHookCord::decode, PacketSyncHookCord::handle);
         registerPacket(registrar, PacketSyncBossLink.TYPE, PacketSyncBossLink::encode,
                 PacketSyncBossLink::decode, PacketSyncBossLink::handle);
+        registerPacket(registrar, PacketSyncBossCaptureState.TYPE, PacketSyncBossCaptureState::encode,
+                PacketSyncBossCaptureState::decode, PacketSyncBossCaptureState::handle);
         registerPacket(registrar, PacketRestoreBossTotems.TYPE, PacketRestoreBossTotems::encode,
                 PacketRestoreBossTotems::decode, PacketRestoreBossTotems::handle);
     }
