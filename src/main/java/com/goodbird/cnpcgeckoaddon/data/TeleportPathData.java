@@ -36,6 +36,22 @@ public final class TeleportPathData {
     /** Matches the coordinate limit used by the world border and block positions. */
     public static final int MAX_AGGRO_ZONE_COORDINATE = 30000000;
 
+    public static final int HEALTH_SCALING_PERCENT = 0;
+    public static final int HEALTH_SCALING_FLAT = 1;
+    public static final int HEALTH_SCALING_PERCENT_AND_FLAT = 2;
+    public static final int HEALTH_SCALING_LOCK_AT_START = 0;
+    public static final int HEALTH_SCALING_DYNAMIC = 1;
+    public static final int HEALTH_SCALING_KEEP_PERCENT = 0;
+    public static final int HEALTH_SCALING_KEEP_CURRENT = 1;
+    public static final int MIN_HEALTH_PER_PLAYER_PERCENT = 0;
+    public static final int MAX_HEALTH_PER_PLAYER_PERCENT = 1000;
+    public static final int MIN_HEALTH_PER_PLAYER_FLAT = 0;
+    public static final int MAX_HEALTH_PER_PLAYER_FLAT = 1000000;
+    public static final int MIN_HEALTH_SCALING_PLAYER_CAP = 1;
+    public static final int MAX_HEALTH_SCALING_PLAYER_CAP = 128;
+    public static final int MIN_HEALTH_SCALING_RECHECK_TICKS = 1;
+    public static final int MAX_HEALTH_SCALING_RECHECK_TICKS = 200;
+
     public static final int MIN_RAGE_DELAY_TICKS = 100;
     public static final int MAX_RAGE_DELAY_TICKS = 72000;
     public static final int MIN_RAGE_MULTIPLIER_PERCENT = 100;
@@ -150,6 +166,14 @@ public final class TeleportPathData {
     private static final String AGGRO_ZONE_INTERVAL_KEY = "GeckoBossAggroZoneInterval";
     private static final String AGGRO_ZONE_TARGET_KEY = "GeckoBossAggroZoneTarget";
     private static final String AGGRO_ZONE_KEEP_KEY = "GeckoBossAggroZoneKeepInside";
+    private static final String HEALTH_SCALING_ENABLED_KEY = "GeckoBossHealthScalingEnabled";
+    private static final String HEALTH_SCALING_MODE_KEY = "GeckoBossHealthScalingMode";
+    private static final String HEALTH_PER_PLAYER_PERCENT_KEY = "GeckoBossHealthPerPlayerPercent";
+    private static final String HEALTH_PER_PLAYER_FLAT_KEY = "GeckoBossHealthPerPlayerFlat";
+    private static final String HEALTH_SCALING_UPDATE_KEY = "GeckoBossHealthScalingUpdate";
+    private static final String HEALTH_SCALING_ADJUSTMENT_KEY = "GeckoBossHealthScalingAdjustment";
+    private static final String HEALTH_SCALING_PLAYER_CAP_KEY = "GeckoBossHealthScalingPlayerCap";
+    private static final String HEALTH_SCALING_INTERVAL_KEY = "GeckoBossHealthScalingInterval";
     private static final String MINIONS_DEATH_KEY = "GeckoBossMinionsClearOnDeath";
     private static final String MINIONS_RESET_KEY = "GeckoBossMinionsClearOnReset";
     private static final String MINIONS_REMOVAL_KEY = "GeckoBossMinionsRemovalMode";
@@ -231,6 +255,15 @@ public final class TeleportPathData {
     private int aggroZoneRecheckTicks = 5;
     private int aggroZoneTargetMode = AGGRO_ZONE_TARGET_NEAREST;
     private boolean aggroZoneKeepInside;
+
+    private boolean healthScalingEnabled;
+    private int healthScalingMode = HEALTH_SCALING_PERCENT;
+    private int healthPerPlayerPercent = 50;
+    private int healthPerPlayerFlat = 20;
+    private int healthScalingUpdateMode = HEALTH_SCALING_LOCK_AT_START;
+    private int healthScalingAdjustment = HEALTH_SCALING_KEEP_PERCENT;
+    private int healthScalingPlayerCap = 8;
+    private int healthScalingRecheckTicks = 20;
 
     private int resetTicks = 100;
     private boolean resetHeal = true;
@@ -331,6 +364,14 @@ public final class TeleportPathData {
         tag.putInt(AGGRO_ZONE_INTERVAL_KEY, aggroZoneRecheckTicks);
         tag.putInt(AGGRO_ZONE_TARGET_KEY, aggroZoneTargetMode);
         tag.putBoolean(AGGRO_ZONE_KEEP_KEY, aggroZoneKeepInside);
+        tag.putBoolean(HEALTH_SCALING_ENABLED_KEY, healthScalingEnabled);
+        tag.putInt(HEALTH_SCALING_MODE_KEY, healthScalingMode);
+        tag.putInt(HEALTH_PER_PLAYER_PERCENT_KEY, healthPerPlayerPercent);
+        tag.putInt(HEALTH_PER_PLAYER_FLAT_KEY, healthPerPlayerFlat);
+        tag.putInt(HEALTH_SCALING_UPDATE_KEY, healthScalingUpdateMode);
+        tag.putInt(HEALTH_SCALING_ADJUSTMENT_KEY, healthScalingAdjustment);
+        tag.putInt(HEALTH_SCALING_PLAYER_CAP_KEY, healthScalingPlayerCap);
+        tag.putInt(HEALTH_SCALING_INTERVAL_KEY, healthScalingRecheckTicks);
         tag.putInt(RESET_TICKS_KEY, resetTicks);
         tag.putBoolean(RESET_HEAL_KEY, resetHeal);
         tag.putBoolean(RESET_RETURN_KEY, resetReturn);
@@ -419,6 +460,28 @@ public final class TeleportPathData {
                 ? Mth.clamp(tag.getInt(AGGRO_ZONE_TARGET_KEY), AGGRO_ZONE_TARGET_NEAREST,
                 AGGRO_ZONE_TARGET_RANDOM) : AGGRO_ZONE_TARGET_NEAREST;
         aggroZoneKeepInside = tag.getBoolean(AGGRO_ZONE_KEEP_KEY);
+        healthScalingEnabled = tag.getBoolean(HEALTH_SCALING_ENABLED_KEY);
+        healthScalingMode = tag.contains(HEALTH_SCALING_MODE_KEY)
+                ? Mth.clamp(tag.getInt(HEALTH_SCALING_MODE_KEY), HEALTH_SCALING_PERCENT,
+                HEALTH_SCALING_PERCENT_AND_FLAT) : HEALTH_SCALING_PERCENT;
+        healthPerPlayerPercent = tag.contains(HEALTH_PER_PLAYER_PERCENT_KEY)
+                ? Mth.clamp(tag.getInt(HEALTH_PER_PLAYER_PERCENT_KEY), MIN_HEALTH_PER_PLAYER_PERCENT,
+                MAX_HEALTH_PER_PLAYER_PERCENT) : 50;
+        healthPerPlayerFlat = tag.contains(HEALTH_PER_PLAYER_FLAT_KEY)
+                ? Mth.clamp(tag.getInt(HEALTH_PER_PLAYER_FLAT_KEY), MIN_HEALTH_PER_PLAYER_FLAT,
+                MAX_HEALTH_PER_PLAYER_FLAT) : 20;
+        healthScalingUpdateMode = tag.contains(HEALTH_SCALING_UPDATE_KEY)
+                ? Mth.clamp(tag.getInt(HEALTH_SCALING_UPDATE_KEY), HEALTH_SCALING_LOCK_AT_START,
+                HEALTH_SCALING_DYNAMIC) : HEALTH_SCALING_LOCK_AT_START;
+        healthScalingAdjustment = tag.contains(HEALTH_SCALING_ADJUSTMENT_KEY)
+                ? Mth.clamp(tag.getInt(HEALTH_SCALING_ADJUSTMENT_KEY), HEALTH_SCALING_KEEP_PERCENT,
+                HEALTH_SCALING_KEEP_CURRENT) : HEALTH_SCALING_KEEP_PERCENT;
+        healthScalingPlayerCap = tag.contains(HEALTH_SCALING_PLAYER_CAP_KEY)
+                ? Mth.clamp(tag.getInt(HEALTH_SCALING_PLAYER_CAP_KEY), MIN_HEALTH_SCALING_PLAYER_CAP,
+                MAX_HEALTH_SCALING_PLAYER_CAP) : 8;
+        healthScalingRecheckTicks = tag.contains(HEALTH_SCALING_INTERVAL_KEY)
+                ? Mth.clamp(tag.getInt(HEALTH_SCALING_INTERVAL_KEY), MIN_HEALTH_SCALING_RECHECK_TICKS,
+                MAX_HEALTH_SCALING_RECHECK_TICKS) : 20;
         resetTicks = tag.contains(RESET_TICKS_KEY)
                 ? Mth.clamp(tag.getInt(RESET_TICKS_KEY), MIN_RESET_TICKS, MAX_RESET_TICKS) : 100;
         // Coming back to a fight against a boss still standing at 10% health is nobody's
@@ -645,6 +708,42 @@ public final class TeleportPathData {
     }
     public boolean isAggroZoneKeepInside() { return aggroZoneKeepInside; }
     public void setAggroZoneKeepInside(boolean value) { aggroZoneKeepInside = value; }
+
+    public boolean isHealthScalingEnabled() { return healthScalingEnabled; }
+    public void setHealthScalingEnabled(boolean value) { healthScalingEnabled = value; }
+    public int getHealthScalingMode() { return healthScalingMode; }
+    public void setHealthScalingMode(int value) {
+        healthScalingMode = Mth.clamp(value, HEALTH_SCALING_PERCENT, HEALTH_SCALING_PERCENT_AND_FLAT);
+    }
+    public int getHealthPerPlayerPercent() { return healthPerPlayerPercent; }
+    public void setHealthPerPlayerPercent(int value) {
+        healthPerPlayerPercent = Mth.clamp(value, MIN_HEALTH_PER_PLAYER_PERCENT,
+                MAX_HEALTH_PER_PLAYER_PERCENT);
+    }
+    public int getHealthPerPlayerFlat() { return healthPerPlayerFlat; }
+    public void setHealthPerPlayerFlat(int value) {
+        healthPerPlayerFlat = Mth.clamp(value, MIN_HEALTH_PER_PLAYER_FLAT, MAX_HEALTH_PER_PLAYER_FLAT);
+    }
+    public int getHealthScalingUpdateMode() { return healthScalingUpdateMode; }
+    public void setHealthScalingUpdateMode(int value) {
+        healthScalingUpdateMode = Mth.clamp(value, HEALTH_SCALING_LOCK_AT_START,
+                HEALTH_SCALING_DYNAMIC);
+    }
+    public int getHealthScalingAdjustment() { return healthScalingAdjustment; }
+    public void setHealthScalingAdjustment(int value) {
+        healthScalingAdjustment = Mth.clamp(value, HEALTH_SCALING_KEEP_PERCENT,
+                HEALTH_SCALING_KEEP_CURRENT);
+    }
+    public int getHealthScalingPlayerCap() { return healthScalingPlayerCap; }
+    public void setHealthScalingPlayerCap(int value) {
+        healthScalingPlayerCap = Mth.clamp(value, MIN_HEALTH_SCALING_PLAYER_CAP,
+                MAX_HEALTH_SCALING_PLAYER_CAP);
+    }
+    public int getHealthScalingRecheckTicks() { return healthScalingRecheckTicks; }
+    public void setHealthScalingRecheckTicks(int value) {
+        healthScalingRecheckTicks = Mth.clamp(value, MIN_HEALTH_SCALING_RECHECK_TICKS,
+                MAX_HEALTH_SCALING_RECHECK_TICKS);
+    }
 
     /** How long the boss has to be left alone before the encounter counts as over. */
     public int getResetTicks() { return resetTicks; }
