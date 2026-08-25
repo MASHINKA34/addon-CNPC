@@ -117,6 +117,10 @@ public final class TeleportPathController {
     private boolean encounterResetDone;
     private boolean encounterRunning;
     private long encounterBeganAt = NOT_SCHEDULED;
+    private int scaledPlayerCount = 1;
+    private int lockedPlayerCount;
+    private long nextHealthScalingCheckAt = NOT_SCHEDULED;
+    private int lastHealthScalingUpdateMode = -1;
     /** Game time the fight started at, or NOT_SCHEDULED while no encounter is running. */
     private long encounterStartedAt = NOT_SCHEDULED;
     /** Once set, stays set until the encounter ends - a phase change does not calm the boss. */
@@ -215,8 +219,9 @@ public final class TeleportPathController {
         updateAggroZone(level, data, gameTime);
         updateNearestPlayerTarget(level, data, gameTime);
         if (hasCombatTarget()) {
-            beginEncounter(gameTime, data);
+            beginEncounter(level, gameTime, data);
         }
+        tickHealthScalingPlayerCount(level, gameTime, data);
         // A leash reset owns the rest of this tick, including already-due abilities.
         if (tickHomeLeash(level, gameTime, data)) {
             return;
@@ -312,7 +317,7 @@ public final class TeleportPathController {
      * Opens the encounter exactly once, when the first real combat target appears.
      * A short target loss deliberately leaves this latch and its original timestamp alone.
      */
-    private void beginEncounter(long gameTime, TeleportPathData data) {
+    private void beginEncounter(ServerLevel level, long gameTime, TeleportPathData data) {
         if (encounterRunning) {
             return;
         }
@@ -322,6 +327,13 @@ public final class TeleportPathController {
         if (npc.getTarget() instanceof ServerPlayer player) {
             trackParticipant(player);
         }
+        registerInitialPartyCandidates(level, data);
+        lockedPlayerCount = countEligibleHealthScalingPlayers(level, data, false);
+        scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
+        lastHealthScalingUpdateMode = data.getHealthScalingUpdateMode();
+        nextHealthScalingCheckAt = data.getHealthScalingUpdateMode()
+                == TeleportPathData.HEALTH_SCALING_DYNAMIC
+                ? gameTime + data.getHealthScalingRecheckTicks() : NOT_SCHEDULED;
         if (!data.isTotemsEnabled()) {
             return;
         }
@@ -349,6 +361,10 @@ public final class TeleportPathController {
         encounterBeganAt = NOT_SCHEDULED;
         outsideHomeLeashSince = NOT_SCHEDULED;
         encounterParticipants.clear();
+        scaledPlayerCount = 1;
+        lockedPlayerCount = 0;
+        nextHealthScalingCheckAt = NOT_SCHEDULED;
+        lastHealthScalingUpdateMode = -1;
     }
 
     /** @return true when crossing the leash ended the encounter this tick */
@@ -1527,6 +1543,101 @@ public final class TeleportPathController {
                 && npc.canAttack(player) && !npc.isAlliedTo(player);
     }
 
+    /** Adds the whole nearby group before a lock-at-start encounter takes its snapshot. */
+    private void registerInitialPartyCandidates(ServerLevel level, TeleportPathData data) {
+        double radius = data.getTargetSearchRadius();
+        double radiusSquared = radius * radius;
+        AABB zone = data.isAggroZoneEnabled() ? aggroZoneBounds(level, data) : null;
+        for (ServerPlayer player : level.players()) {
+            if (player.level() == level && isParticipant(player)
+                    && (npc.distanceToSqr(player) <= radiusSquared
+                    || zone != null && zone.contains(player.position()))) {
+                encounterParticipants.add(player.getUUID());
+            }
+        }
+    }
+
+    private void tickHealthScalingPlayerCount(ServerLevel level, long gameTime,
+                                               TeleportPathData data) {
+        if (!encounterRunning) {
+            return;
+        }
+        if (!data.isHealthScalingEnabled()) {
+            scaledPlayerCount = 1;
+            lockedPlayerCount = 0;
+            nextHealthScalingCheckAt = NOT_SCHEDULED;
+            lastHealthScalingUpdateMode = -1;
+            return;
+        }
+
+        int updateMode = data.getHealthScalingUpdateMode();
+        if (updateMode != lastHealthScalingUpdateMode) {
+            if (updateMode == TeleportPathData.HEALTH_SCALING_LOCK_AT_START) {
+                registerInitialPartyCandidates(level, data);
+                lockedPlayerCount = countEligibleHealthScalingPlayers(level, data, false);
+                scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
+                nextHealthScalingCheckAt = NOT_SCHEDULED;
+            } else {
+                scaledPlayerCount = cappedHealthScalingPlayerCount(
+                        countEligibleHealthScalingPlayers(level, data, true), data);
+                nextHealthScalingCheckAt = gameTime + data.getHealthScalingRecheckTicks();
+            }
+            lastHealthScalingUpdateMode = updateMode;
+            return;
+        }
+
+        if (updateMode == TeleportPathData.HEALTH_SCALING_LOCK_AT_START) {
+            scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
+            return;
+        }
+        if (nextHealthScalingCheckAt != NOT_SCHEDULED && gameTime < nextHealthScalingCheckAt) {
+            return;
+        }
+        scaledPlayerCount = cappedHealthScalingPlayerCount(
+                countEligibleHealthScalingPlayers(level, data, true), data);
+        nextHealthScalingCheckAt = gameTime + data.getHealthScalingRecheckTicks();
+    }
+
+    private int countEligibleHealthScalingPlayers(ServerLevel level, TeleportPathData data,
+                                                   boolean dynamic) {
+        Set<ServerPlayer> candidates = new HashSet<>();
+        if (npc.getTarget() instanceof ServerPlayer target) {
+            candidates.add(target);
+        }
+        for (UUID playerId : encounterParticipants) {
+            Player player = level.getPlayerByUUID(playerId);
+            if (player instanceof ServerPlayer serverPlayer) {
+                candidates.add(serverPlayer);
+            }
+        }
+
+        ServerPlayer currentTarget = npc.getTarget() instanceof ServerPlayer target ? target : null;
+        double dynamicRadius = data.getTargetSearchRadius() * 1.5D;
+        double dynamicRadiusSquared = dynamicRadius * dynamicRadius;
+        AABB zone = dynamic && data.isAggroZoneEnabled() ? aggroZoneBounds(level, data) : null;
+        int count = 0;
+        for (ServerPlayer player : candidates) {
+            if (player.level() != level || !isParticipant(player)) {
+                continue;
+            }
+            if (dynamic && player != currentTarget
+                    && npc.distanceToSqr(player) > dynamicRadiusSquared
+                    && (zone == null || !zone.contains(player.position()))) {
+                continue;
+            }
+            count++;
+        }
+        return Math.max(1, count);
+    }
+
+    private static int cappedHealthScalingPlayerCount(int count, TeleportPathData data) {
+        return Mth.clamp(count, 1, data.getHealthScalingPlayerCap());
+    }
+
+    public int scaledPlayerCount() {
+        return scaledPlayerCount;
+    }
+
     public void removeBossBarPlayer(ServerPlayer player) {
         bossBarParticipants.remove(player.getUUID());
         if (!bossEvent.getPlayers().contains(player)) {
@@ -1537,7 +1648,8 @@ public final class TeleportPathController {
     }
 
     public void removeParticipant(ServerPlayer player) {
-        encounterParticipants.remove(player.getUUID());
+        // Keep encounter history so a dynamic participant is counted again after returning.
+        nextHealthScalingCheckAt = 0L;
         removeBossBarPlayer(player);
     }
 
