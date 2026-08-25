@@ -5,6 +5,25 @@ import net.minecraft.util.Mth;
 
 /** Ability and animation settings for one health phase of a stationary boss. */
 public final class BossPhaseData {
+    public static final int MINION_SPAWN_RANDOM_RADIUS = 0;
+    public static final int MINION_SPAWN_CONFIGURED_ONLY = 1;
+    public static final int MINION_SPAWN_POINTS_THEN_RANDOM = 2;
+    public static final int MINION_ORDER_LIST = 0;
+    public static final int MINION_ORDER_ROUND_ROBIN = 1;
+    public static final int MINION_ORDER_RANDOM = 2;
+
+    public static final String[] MINION_SPAWN_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.minion_spawn_random",
+            "cnpcgeckoaddon.boss.minion_spawn_points",
+            "cnpcgeckoaddon.boss.minion_spawn_fallback"
+    };
+
+    public static final String[] MINION_SPAWN_ORDER_LABELS = {
+            "cnpcgeckoaddon.boss.minion_spawn_list_order",
+            "cnpcgeckoaddon.boss.minion_spawn_round_robin",
+            "cnpcgeckoaddon.boss.minion_spawn_random_order"
+    };
+
     /** Each victim is dragged toward the boss. */
     public static final int HOOK_MODE_PULL = 0;
     /** Every victim is reeled in to one common point and held there for the whole pull. */
@@ -56,6 +75,11 @@ public final class BossPhaseData {
     private int minionCount = 3;
     private int minionRadius = 4;
     private int maxAliveMinions = 6;
+    private int minionSpawnMode = MINION_SPAWN_RANDOM_RADIUS;
+    private int minionSpawnOrder = MINION_ORDER_LIST;
+    private int minionPointSearchRadius;
+    private boolean minionReuseOccupiedPoints;
+    private final BossMinionSpawnList minionSpawnPoints = new BossMinionSpawnList();
 
     private boolean areaAttackEnabled;
     private String areaAttackAnimation = "";
@@ -159,6 +183,11 @@ public final class BossPhaseData {
         tag.putInt("MinionCount", minionCount);
         tag.putInt("MinionRadius", minionRadius);
         tag.putInt("MaxAliveMinions", maxAliveMinions);
+        tag.putInt("MinionSpawnMode", minionSpawnMode);
+        tag.putInt("MinionSpawnOrder", minionSpawnOrder);
+        tag.putInt("MinionPointSearchRadius", minionPointSearchRadius);
+        tag.putBoolean("MinionReuseOccupiedPoints", minionReuseOccupiedPoints);
+        tag.put("MinionSpawnPoints", minionSpawnPoints.writeToNBT());
         tag.putBoolean("AreaAttackEnabled", areaAttackEnabled);
         tag.putString("AreaAttackAnimation", areaAttackAnimation);
         tag.putInt("AreaAttackActionDelayTicks", areaAttackActionDelayTicks);
@@ -255,6 +284,13 @@ public final class BossPhaseData {
         minionCount = value(tag, "MinionCount", 3, 1, 32);
         minionRadius = value(tag, "MinionRadius", 4, 1, 32);
         maxAliveMinions = value(tag, "MaxAliveMinions", 6, 1, 128);
+        minionSpawnMode = value(tag, "MinionSpawnMode", MINION_SPAWN_RANDOM_RADIUS,
+                MINION_SPAWN_RANDOM_RADIUS, MINION_SPAWN_POINTS_THEN_RANDOM);
+        minionSpawnOrder = value(tag, "MinionSpawnOrder", MINION_ORDER_LIST,
+                MINION_ORDER_LIST, MINION_ORDER_RANDOM);
+        minionPointSearchRadius = value(tag, "MinionPointSearchRadius", 0, 0, 4);
+        minionReuseOccupiedPoints = tag.getBoolean("MinionReuseOccupiedPoints");
+        minionSpawnPoints.readFromNBT(tag, "MinionSpawnPoints");
         areaAttackEnabled = tag.getBoolean("AreaAttackEnabled");
         areaAttackAnimation = clean(tag.getString("AreaAttackAnimation"));
         areaAttackActionDelayTicks = value(tag, "AreaAttackActionDelayTicks", 12, 0, 1200);
@@ -393,7 +429,29 @@ public final class BossPhaseData {
     public void setMinionRadius(int value) { minionRadius = Mth.clamp(value, 1, 32); }
     public int getMaxAliveMinions() { return maxAliveMinions; }
     public void setMaxAliveMinions(int value) { maxAliveMinions = Mth.clamp(value, 1, 128); }
-    public boolean canSummon() { return summonEnabled && !minionCloneName.isEmpty(); }
+    public int getMinionSpawnMode() { return minionSpawnMode; }
+    public void setMinionSpawnMode(int value) {
+        minionSpawnMode = Mth.clamp(value, MINION_SPAWN_RANDOM_RADIUS, MINION_SPAWN_POINTS_THEN_RANDOM);
+    }
+    public int getMinionSpawnOrder() { return minionSpawnOrder; }
+    public void setMinionSpawnOrder(int value) {
+        minionSpawnOrder = Mth.clamp(value, MINION_ORDER_LIST, MINION_ORDER_RANDOM);
+    }
+    public int getMinionPointSearchRadius() { return minionPointSearchRadius; }
+    public void setMinionPointSearchRadius(int value) { minionPointSearchRadius = Mth.clamp(value, 0, 4); }
+    public boolean isMinionReuseOccupiedPoints() { return minionReuseOccupiedPoints; }
+    public void setMinionReuseOccupiedPoints(boolean value) { minionReuseOccupiedPoints = value; }
+    public BossMinionSpawnList getMinionSpawnPoints() { return minionSpawnPoints; }
+    public boolean canSummon() {
+        if (!summonEnabled) {
+            return false;
+        }
+        if (minionSpawnMode == MINION_SPAWN_RANDOM_RADIUS) {
+            return !minionCloneName.isEmpty();
+        }
+        return minionSpawnPoints.hasUsableClone(minionCloneName)
+                || (minionSpawnMode == MINION_SPAWN_POINTS_THEN_RANDOM && !minionCloneName.isEmpty());
+    }
 
     public boolean isAreaAttackEnabled() { return areaAttackEnabled; }
     public void setAreaAttackEnabled(boolean value) { areaAttackEnabled = value; }
