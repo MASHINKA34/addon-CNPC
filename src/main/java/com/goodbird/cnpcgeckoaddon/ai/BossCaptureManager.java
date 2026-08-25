@@ -37,6 +37,7 @@ public final class BossCaptureManager {
         private final UUID bossId;
         private final int bossEntityId;
         private final ResourceKey<Level> levelKey;
+        private final int originPhaseIndex;
         private final Vec3 anchor;
         private final long startedAt;
         private final long endsAt;
@@ -52,13 +53,14 @@ public final class BossCaptureManager {
         private final int beamSagPercent;
 
         private CaptureRuntime(EntityNPCInterface boss, ServerPlayer player, BossPhaseData phase,
-                               long gameTime, double targetY, int liftTicks) {
+                               int phaseIndex, long gameTime, double targetY, int liftTicks) {
             this.playerId = player.getUUID();
             this.playerEntityId = player.getId();
             this.playerName = player.getGameProfile().getName();
             this.bossId = boss.getUUID();
             this.bossEntityId = boss.getId();
             this.levelKey = player.level().dimension();
+            this.originPhaseIndex = phaseIndex;
             this.anchor = player.position();
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.getCaptureDurationTicks();
@@ -77,7 +79,7 @@ public final class BossCaptureManager {
 
     /** Atomically claims both the player and boss, preventing overlapping captures. */
     public static boolean start(EntityNPCInterface boss, ServerPlayer player,
-                                BossPhaseData phase, long gameTime) {
+                                BossPhaseData phase, int phaseIndex, long gameTime) {
         if (BY_PLAYER.containsKey(player.getUUID()) || BY_BOSS.containsKey(boss.getUUID())
                 || player.level() != boss.level() || !(player.level() instanceof ServerLevel level)
                 || !level.noCollision(player, player.getBoundingBox())) {
@@ -86,7 +88,7 @@ public final class BossCaptureManager {
         int liftTicks = Math.min(phase.getCaptureLiftTicks(), phase.getCaptureDurationTicks());
         double height = phase.getCaptureMode() == BossPhaseData.CAPTURE_MODE_LIFT
                 ? safeLiftHeight(level, player, player.getBoundingBox(), phase.getCaptureLiftHeight()) : 0.0D;
-        CaptureRuntime capture = new CaptureRuntime(boss, player, phase, gameTime,
+        CaptureRuntime capture = new CaptureRuntime(boss, player, phase, phaseIndex, gameTime,
                 player.getY() + height, liftTicks);
         BY_PLAYER.put(capture.playerId, capture);
         BY_BOSS.put(capture.bossId, capture);
@@ -213,8 +215,7 @@ public final class BossCaptureManager {
             return false;
         }
         TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
-        BossPhaseData phase = controller == null ? null : controller.activePhase();
-        return phase != null && phase.isCaptureEnabled();
+        return controller != null && controller.isCaptureEnabledForPhase(capture.originPhaseIndex);
     }
 
     private static boolean hold(ServerPlayer player, CaptureRuntime capture, long gameTime) {

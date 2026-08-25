@@ -298,6 +298,16 @@ public final class TeleportPathController {
         return data.isEnabled() ? data.getPhase(currentPhase) : null;
     }
 
+    /** Keeps an active capture tied to the phase configuration that started it. */
+    boolean isCaptureEnabledForPhase(int phaseIndex) {
+        if (!active || !encounterRunning) {
+            return false;
+        }
+        TeleportPathData data = settings();
+        return data.isEnabled() && phaseIndex >= 0 && phaseIndex < data.getPhaseCount()
+                && data.getPhase(phaseIndex).isCaptureEnabled();
+    }
+
     private TeleportPathData settings() {
         return ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData();
     }
@@ -2334,7 +2344,7 @@ public final class TeleportPathController {
         if (!(pending instanceof ServerPlayer player) || !isValidCaptureTarget(player, phase)) {
             return;
         }
-        if (!BossCaptureManager.start(npc, player, phase, gameTime)) {
+        if (!BossCaptureManager.start(npc, player, phase, currentPhase, gameTime)) {
             return;
         }
         int receiver = phase.getCaptureEffectTarget();
