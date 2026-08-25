@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossCaptureState;
+import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossLink;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -46,6 +47,9 @@ public final class BossCaptureManager {
         private final float lockedPitch;
         private final boolean allowLook;
         private final int beamChannel;
+        private final String beamStyle;
+        private final int beamWidthPercent;
+        private final int beamSagPercent;
 
         private CaptureRuntime(EntityNPCInterface boss, ServerPlayer player, BossPhaseData phase,
                                long gameTime, double targetY, int liftTicks) {
@@ -65,6 +69,9 @@ public final class BossCaptureManager {
             this.lockedPitch = player.getXRot();
             this.allowLook = phase.isCaptureAllowLook();
             this.beamChannel = 0;
+            this.beamStyle = phase.getCaptureBeamStyle();
+            this.beamWidthPercent = phase.getCaptureBeamWidthPercent();
+            this.beamSagPercent = phase.getCaptureBeamSagPercent();
         }
     }
 
@@ -89,6 +96,7 @@ public final class BossCaptureManager {
             return false;
         }
         syncState(player, capture, true);
+        syncLink(boss, player, capture, phase.getCaptureDurationTicks());
         return true;
     }
 
@@ -108,6 +116,27 @@ public final class BossCaptureManager {
     public static long remainingTicks(UUID bossId, long gameTime) {
         CaptureRuntime capture = BY_BOSS.get(bossId);
         return capture == null ? 0L : Math.max(0L, capture.endsAt - gameTime);
+    }
+
+    /** Gives a late observer the same remaining beam lifetime as current viewers. */
+    public static void syncLinkForTracking(ServerPlayer viewer, Entity tracked) {
+        if (!(viewer.level() instanceof ServerLevel level)) {
+            return;
+        }
+        long gameTime = level.getGameTime();
+        for (CaptureRuntime capture : BY_PLAYER.values()) {
+            if (!capture.levelKey.equals(level.dimension())
+                    || tracked.getId() != capture.bossEntityId
+                    && tracked.getId() != capture.playerEntityId) {
+                continue;
+            }
+            Entity boss = level.getEntity(capture.bossId);
+            Entity victim = level.getEntity(capture.playerId);
+            int remaining = (int) Math.max(0L, capture.endsAt - gameTime);
+            if (boss != null && victim != null && remaining > 0) {
+                NetworkWrapper.send(viewer, linkPacket(capture, remaining));
+            }
+        }
     }
 
     /** Drops client movement while still accepting look packets when the phase allows it. */
@@ -288,6 +317,20 @@ public final class BossCaptureManager {
             player.hurtMarked = true;
             syncState(player, capture, false);
         }
+        if (level != null) {
+            Entity boss = level.getEntity(capture.bossId);
+            Entity victim = level.getEntity(capture.playerId);
+            PacketSyncBossLink packet = linkPacket(capture, 0);
+            if (boss != null) {
+                NetworkWrapper.sendToTracking(boss, packet);
+            }
+            if (victim != null) {
+                NetworkWrapper.sendToTracking(victim, packet);
+            }
+            if (player != null) {
+                NetworkWrapper.send(player, packet);
+            }
+        }
     }
 
     private static void syncState(ServerPlayer player, CaptureRuntime capture, boolean active) {
@@ -295,5 +338,19 @@ public final class BossCaptureManager {
                 capture.anchor.y, capture.anchor.z, capture.startedAt, capture.endsAt,
                 capture.liftEndsAt, capture.targetY, capture.lockedYaw, capture.lockedPitch,
                 capture.allowLook));
+    }
+
+    private static void syncLink(EntityNPCInterface boss, ServerPlayer player,
+                                 CaptureRuntime capture, int durationTicks) {
+        PacketSyncBossLink packet = linkPacket(capture, durationTicks);
+        NetworkWrapper.sendToTracking(boss, packet);
+        NetworkWrapper.sendToTracking(player, packet);
+        NetworkWrapper.send(player, packet);
+    }
+
+    private static PacketSyncBossLink linkPacket(CaptureRuntime capture, int durationTicks) {
+        return new PacketSyncBossLink(PacketSyncBossLink.KIND_CAPTURE, capture.bossEntityId,
+                capture.playerEntityId, capture.beamChannel, capture.beamStyle, durationTicks,
+                capture.beamWidthPercent, capture.beamSagPercent, false);
     }
 }

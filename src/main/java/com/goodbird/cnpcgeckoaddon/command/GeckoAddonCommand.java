@@ -71,8 +71,11 @@ public class GeckoAddonCommand {
                 String totemLine = "Totems: " + alive + "/" + configured + ", protection="
                         + protection + (protectedNow ? " (active)" : " (inactive)")
                         + ", respawn=" + respawn;
+                String captureLine = controller == null ? "Capture: ready"
+                        : controller.captureStatus(level.getGameTime());
                 source.sendSuccess(() -> Component.literal(bossLine), false);
                 source.sendSuccess(() -> Component.literal(totemLine), false);
+                source.sendSuccess(() -> Component.literal(captureLine), false);
             }
         }
         if (found == 0) {

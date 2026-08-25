@@ -182,6 +182,7 @@ public final class BossDeathEvents {
     public static void onPlayerStartsTracking(final PlayerEvent.StartTracking event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.syncTotemLinksForTracking(player, event.getTarget());
+            BossCaptureManager.syncLinkForTracking(player, event.getTarget());
         }
     }
 

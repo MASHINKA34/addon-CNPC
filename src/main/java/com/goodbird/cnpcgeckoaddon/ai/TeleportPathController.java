@@ -1517,6 +1517,19 @@ public final class TeleportPathController {
         return settings().getTotemProtectionMode();
     }
 
+    public String captureStatus(long gameTime) {
+        String victim = BossCaptureManager.capturedPlayerName(npc.getUUID());
+        if (victim != null) {
+            return "Capture: holding " + victim;
+        }
+        BossPhaseData phase = activePhase();
+        if (phase == null || !phase.isCaptureEnabled()) {
+            return "Capture: disabled";
+        }
+        long remaining = nextCaptureAt == NOT_SCHEDULED ? 0L : nextCaptureAt - gameTime;
+        return remaining > 0L ? "Capture: cooldown " + remaining : "Capture: ready";
+    }
+
     /** Gives a viewer an immediate snapshot when either endpoint starts being tracked. */
     public void syncTotemLinksTo(ServerPlayer player) {
         if (!totemWaveActivated || player.level() != npc.level()
