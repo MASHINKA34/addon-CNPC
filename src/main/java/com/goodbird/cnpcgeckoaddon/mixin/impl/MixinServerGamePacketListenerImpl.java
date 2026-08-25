@@ -16,7 +16,11 @@ public abstract class MixinServerGamePacketListenerImpl {
     @Shadow
     public ServerPlayer player;
 
-    @Inject(method = "handleMovePlayer", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "handleMovePlayer", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/network/protocol/PacketUtils;ensureRunningOnSameThread("
+                    + "Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketListener;"
+                    + "Lnet/minecraft/server/level/ServerLevel;)V", shift = At.Shift.AFTER),
+            cancellable = true)
     private void cnpcgeckoaddon$lockCapturedPlayer(ServerboundMovePlayerPacket packet,
                                                    CallbackInfo ci) {
         if (BossCaptureManager.handleMovePacket(player, packet)) {
