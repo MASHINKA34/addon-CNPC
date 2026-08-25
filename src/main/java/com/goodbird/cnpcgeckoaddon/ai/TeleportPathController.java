@@ -926,6 +926,7 @@ public final class TeleportPathController {
         clearRage();
         cancelPendingAndSchedules();
         clearHookPulls();
+        BossCaptureManager.releaseByBoss(npc);
         busyUntil = 0L;
 
         if (data.isClearMinionsOnReset()) {
