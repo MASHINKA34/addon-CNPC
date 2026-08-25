@@ -19,6 +19,7 @@ public final class SubGuiBossSummon extends GuiBasic implements ITextfieldListen
     private static final int MAX_ALIVE_FIELD = 7;
     private static final int ACTION_DELAY_FIELD = 8;
     private static final int COOLDOWN_FIELD = 9;
+    private static final int SPAWN_POINTS_BUTTON = 10;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -66,6 +67,8 @@ public final class SubGuiBossSummon extends GuiBasic implements ITextfieldListen
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.getSummonCooldownTicks(), 20, 12000, 400);
 
+        addButton(new GuiButtonNop(this, SPAWN_POINTS_BUTTON, guiLeft + 8, guiTop + 230, 168, 20,
+                "cnpcgeckoaddon.boss.minion_spawn_settings"));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
                 "gui.done", button -> close()));
     }
@@ -95,6 +98,9 @@ public final class SubGuiBossSummon extends GuiBasic implements ITextfieldListen
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase::setSummonActionDelayTicks);
             }));
+        } else if (button.id == SPAWN_POINTS_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossMinionSpawnSettings(npc, phase, phaseIndex));
         }
     }
 
