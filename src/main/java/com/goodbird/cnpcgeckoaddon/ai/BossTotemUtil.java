@@ -21,6 +21,8 @@ public final class BossTotemUtil {
         // A clone can itself have been saved from a summoned NPC. Totems must never enter
         // the minion caps or invulnerable-phase cleanup even when that stale marker exists.
         totem.getPersistentData().remove(BossMinionUtil.MINION_OWNER_KEY);
+        totem.getPersistentData().remove(BossMinionUtil.MINION_PHASE_KEY);
+        totem.getPersistentData().remove(BossMinionUtil.MINION_SLOT_KEY);
         totem.getPersistentData().putString(TOTEM_OWNER_KEY, boss.getUUID().toString());
         totem.getPersistentData().putInt(TOTEM_SLOT_KEY, Math.max(1, slotId));
     }

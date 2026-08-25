@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
@@ -18,6 +19,7 @@ import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossLink;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossTimer;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
@@ -52,6 +54,7 @@ import software.bernie.geckolib.animation.RawAnimation;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -153,7 +156,10 @@ public final class TeleportPathController {
     private int nextAbilityPriority;
     private long nextRetargetAt = NOT_SCHEDULED;
     private long nextAggroZoneAt = NOT_SCHEDULED;
-    private String reportedBrokenClone = "";
+    private final Set<String> reportedBrokenMinionClones = new HashSet<>();
+    private final Set<String> reportedBlockedMinionPoints = new HashSet<>();
+    /** Phase index -> the last point that successfully spawned in round-robin order. */
+    private final Map<Integer, Integer> minionRoundRobinCursor = new HashMap<>();
     private String reportedBrokenFluid = "";
     private final Map<Integer, TotemRuntime> totemRuntime = new HashMap<>();
     private final Set<Integer> deadTotemSlots = new HashSet<>();
@@ -923,6 +929,7 @@ public final class TeleportPathController {
         highestPhaseReached = 0;
         clearEncounter();
         clearInvulnerability();
+        minionRoundRobinCursor.clear();
         clearRage();
         cancelPendingAndSchedules();
         clearHookPulls();
@@ -2342,30 +2349,247 @@ public final class TeleportPathController {
     private void summonMinions(ServerLevel level, BossPhaseData phase) {
         int available = phase.getMaxAliveMinions() - BossMinionUtil.countAlive(level, npc);
         int amount = Math.min(phase.getMinionCount(), Math.max(available, 0));
-        if (amount <= 0 || phase.getMinionCloneName().isEmpty()) return;
+        if (amount <= 0) return;
 
-        String cloneKey = phase.getMinionCloneTab() + ":" + phase.getMinionCloneName();
-        for (int i = 0; i < amount; i++) {
+        int spawned = 0;
+        if (phase.getMinionSpawnMode() != BossPhaseData.MINION_SPAWN_RANDOM_RADIUS) {
+            spawned = spawnConfiguredMinions(level, phase, amount);
+        }
+
+        boolean useRandom = phase.getMinionSpawnMode() == BossPhaseData.MINION_SPAWN_RANDOM_RADIUS
+                || phase.getMinionSpawnMode() == BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM;
+        if (!useRandom || phase.getMinionCloneName().isEmpty()) {
+            return;
+        }
+        for (int i = spawned; i < amount; i++) {
             Vec3 position = findMinionPosition(level, phase.getMinionRadius());
             if (position == null) continue;
-            try {
-                IEntity<?> wrapper = NpcAPI.Instance().getClones().spawn(position.x, position.y, position.z,
-                        phase.getMinionCloneTab(), phase.getMinionCloneName(), NpcAPI.Instance().getIWorld(level));
-                if (wrapper == null || wrapper.getMCEntity() == null) continue;
-                Entity minion = wrapper.getMCEntity();
-                BossMinionUtil.markAsMinion(minion, npc);
-                if (minion instanceof Mob mob && hasCombatTarget() && mob.canAttack(npc.getTarget())) {
-                    mob.setTarget(npc.getTarget());
-                }
-                reportedBrokenClone = "";
-            } catch (Throwable error) {
-                if (!cloneKey.equals(reportedBrokenClone)) {
-                    reportedBrokenClone = cloneKey;
-                    LOGGER.warn("Cannot summon CustomNPC clone {} for boss {}: {}", cloneKey,
-                            npc.getName().getString(), error.getMessage());
-                }
-                return;
+            spawnMinionClone(level, phase, phase.getMinionCloneName(), phase.getMinionCloneTab(),
+                    position, Float.NaN, currentPhase, -1);
+        }
+    }
+
+    private int spawnConfiguredMinions(ServerLevel level, BossPhaseData phase, int desired) {
+        List<BossMinionSpawnPoint> points = orderedMinionSpawnPoints(level, phase);
+        int spawned = 0;
+        for (BossMinionSpawnPoint point : points) {
+            if (spawned >= desired) {
+                break;
             }
+            Vec3 anchor = minionPointAnchor(point);
+            Vec3 position = findConfiguredMinionPosition(level, anchor,
+                    phase.getMinionPointSearchRadius(), currentPhase, point.getPointId());
+            if (position == null) {
+                continue;
+            }
+            String cloneName = point.getCloneNameOverride().isEmpty()
+                    ? phase.getMinionCloneName() : point.getCloneNameOverride();
+            int cloneTab = point.getCloneTabOverride() == 0
+                    ? phase.getMinionCloneTab() : point.getCloneTabOverride();
+            Entity minion = spawnMinionClone(level, phase, cloneName, cloneTab, position,
+                    point.getYaw(), currentPhase, point.getPointId());
+            if (minion != null) {
+                spawned++;
+                if (phase.getMinionSpawnOrder() == BossPhaseData.MINION_ORDER_ROUND_ROBIN) {
+                    minionRoundRobinCursor.put(currentPhase, point.getPointId());
+                }
+            }
+        }
+        return spawned;
+    }
+
+    private List<BossMinionSpawnPoint> orderedMinionSpawnPoints(ServerLevel level, BossPhaseData phase) {
+        List<BossMinionSpawnPoint> candidates = new ArrayList<>();
+        for (BossMinionSpawnPoint point : phase.getMinionSpawnPoints().entries()) {
+            if (!point.isEnabled()) {
+                continue;
+            }
+            String cloneName = point.getCloneNameOverride().isEmpty()
+                    ? phase.getMinionCloneName() : point.getCloneNameOverride();
+            if (cloneName.isEmpty()) {
+                continue;
+            }
+            if (!phase.isMinionReuseOccupiedPoints()
+                    && BossMinionUtil.isSlotOccupied(level, npc, currentPhase, point.getPointId())) {
+                warnBlockedMinionPoint(currentPhase, point.getPointId(),
+                        "slot already has a living minion");
+                continue;
+            }
+            candidates.add(point);
+        }
+
+        if (phase.getMinionSpawnOrder() == BossPhaseData.MINION_ORDER_RANDOM) {
+            return weightedRandomMinionPoints(candidates);
+        }
+        if (phase.getMinionSpawnOrder() != BossPhaseData.MINION_ORDER_ROUND_ROBIN
+                || candidates.size() < 2) {
+            return candidates;
+        }
+
+        Integer lastPointId = minionRoundRobinCursor.get(currentPhase);
+        if (lastPointId == null) {
+            return candidates;
+        }
+        List<BossMinionSpawnPoint> configured = phase.getMinionSpawnPoints().entries();
+        int lastIndex = -1;
+        for (int i = 0; i < configured.size(); i++) {
+            if (configured.get(i).getPointId() == lastPointId) {
+                lastIndex = i;
+                break;
+            }
+        }
+        if (lastIndex < 0) {
+            return candidates;
+        }
+        Set<Integer> candidateIds = new HashSet<>();
+        for (BossMinionSpawnPoint point : candidates) {
+            candidateIds.add(point.getPointId());
+        }
+        List<BossMinionSpawnPoint> rotated = new ArrayList<>(candidates.size());
+        for (int offset = 1; offset <= configured.size(); offset++) {
+            BossMinionSpawnPoint point = configured.get((lastIndex + offset) % configured.size());
+            if (candidateIds.contains(point.getPointId())) {
+                rotated.add(point);
+            }
+        }
+        return rotated;
+    }
+
+    private List<BossMinionSpawnPoint> weightedRandomMinionPoints(List<BossMinionSpawnPoint> candidates) {
+        List<BossMinionSpawnPoint> remaining = new ArrayList<>(candidates);
+        List<BossMinionSpawnPoint> ordered = new ArrayList<>(candidates.size());
+        while (!remaining.isEmpty()) {
+            int totalWeight = 0;
+            for (BossMinionSpawnPoint point : remaining) {
+                totalWeight += point.getWeight();
+            }
+            int roll = npc.getRandom().nextInt(totalWeight);
+            int selected = 0;
+            for (int i = 0; i < remaining.size(); i++) {
+                roll -= remaining.get(i).getWeight();
+                if (roll < 0) {
+                    selected = i;
+                    break;
+                }
+            }
+            ordered.add(remaining.remove(selected));
+        }
+        return ordered;
+    }
+
+    private Vec3 minionPointAnchor(BossMinionSpawnPoint point) {
+        if (point.getCoordinateMode() == BossMinionSpawnPoint.COORDINATE_FIXED) {
+            return new Vec3(point.getX() + 0.5D, point.getY(), point.getZ() + 0.5D);
+        }
+        return new Vec3(homeX + point.getX(), homeY + point.getY(), homeZ + point.getZ());
+    }
+
+    private Vec3 findConfiguredMinionPosition(ServerLevel level, Vec3 anchor, int radius,
+                                               int phaseIndex, int pointId) {
+        BlockPos anchorBlock = BlockPos.containing(anchor);
+        if (!level.hasChunkAt(anchorBlock)) {
+            warnBlockedMinionPoint(phaseIndex, pointId, "anchor chunk is not loaded");
+            return null;
+        }
+
+        List<int[]> offsets = new ArrayList<>();
+        for (int x = -radius; x <= radius; x++) {
+            for (int z = -radius; z <= radius; z++) {
+                if (x * x + z * z <= radius * radius) {
+                    offsets.add(new int[] {x, z});
+                }
+            }
+        }
+        offsets.sort(Comparator.<int[]>comparingInt(offset -> offset[0] * offset[0] + offset[1] * offset[1])
+                .thenComparingInt(offset -> offset[0]).thenComparingInt(offset -> offset[1]));
+
+        boolean foundLoaded = false;
+        boolean foundInsideWorld = false;
+        boolean foundUnoccupied = false;
+        for (int[] offset : offsets) {
+            Vec3 candidate = anchor.add(offset[0], 0.0D, offset[1]);
+            BlockPos feet = BlockPos.containing(candidate);
+            if (!level.hasChunkAt(feet)) {
+                continue;
+            }
+            foundLoaded = true;
+            if (!level.getWorldBorder().isWithinBounds(feet)
+                    || candidate.y < level.getMinBuildHeight()
+                    || candidate.y + 1.8D >= level.getMaxBuildHeight()) {
+                continue;
+            }
+            foundInsideWorld = true;
+            AABB box = minionSpawnBox(candidate);
+            if (!level.noCollision(box)
+                    || !level.getEntities((Entity) null, box,
+                    entity -> entity.isAlive() && !entity.isSpectator()).isEmpty()) {
+                continue;
+            }
+            foundUnoccupied = true;
+            BlockPos support = feet.below();
+            if (!level.getBlockState(support).isFaceSturdy(level, support, Direction.UP)) {
+                continue;
+            }
+            return candidate;
+        }
+
+        String reason = !foundLoaded ? "search chunks are not loaded"
+                : !foundInsideWorld ? "outside the world border or build height"
+                : !foundUnoccupied ? "spawn box is occupied" : "no solid support";
+        warnBlockedMinionPoint(phaseIndex, pointId, reason);
+        return null;
+    }
+
+    private static AABB minionSpawnBox(Vec3 position) {
+        return new AABB(position.x - 0.35D, position.y, position.z - 0.35D,
+                position.x + 0.35D, position.y + 1.8D, position.z + 0.35D);
+    }
+
+    private Entity spawnMinionClone(ServerLevel level, BossPhaseData phase,
+                                    String cloneName, int cloneTab, Vec3 position,
+                                    float yaw, int phaseIndex, int slotIndex) {
+        if (cloneName == null || cloneName.isBlank()) {
+            return null;
+        }
+        String cloneKey = cloneTab + ":" + cloneName;
+        try {
+            IEntity<?> wrapper = NpcAPI.Instance().getClones().spawn(position.x, position.y, position.z,
+                    cloneTab, cloneName, NpcAPI.Instance().getIWorld(level));
+            if (wrapper == null || wrapper.getMCEntity() == null) {
+                warnBrokenMinionClone(cloneKey, "clone returned no entity");
+                return null;
+            }
+            Entity minion = wrapper.getMCEntity();
+            BossMinionUtil.markAsMinion(minion, npc, phaseIndex, slotIndex);
+            if (Float.isFinite(yaw)) {
+                minion.setYRot(yaw);
+                if (minion instanceof Mob mob) {
+                    mob.setYHeadRot(yaw);
+                    mob.yBodyRot = yaw;
+                }
+            }
+            if (minion instanceof Mob mob && hasCombatTarget() && mob.canAttack(npc.getTarget())) {
+                mob.setTarget(npc.getTarget());
+            }
+            return minion;
+        } catch (Throwable error) {
+            warnBrokenMinionClone(cloneKey, error.getMessage());
+            return null;
+        }
+    }
+
+    private void warnBrokenMinionClone(String cloneKey, String reason) {
+        if (reportedBrokenMinionClones.add(cloneKey)) {
+            LOGGER.warn("Cannot summon CustomNPC clone {} for boss {}: {}", cloneKey,
+                    npc.getName().getString(), reason);
+        }
+    }
+
+    private void warnBlockedMinionPoint(int phaseIndex, int pointId, String reason) {
+        String key = phaseIndex + ":" + pointId + ":" + reason;
+        if (reportedBlockedMinionPoints.add(key)) {
+            LOGGER.warn("Cannot place minion point {} in boss {} phase {}: {}", pointId,
+                    npc.getName().getString(), phaseIndex + 1, reason);
         }
     }
 
@@ -2594,6 +2818,7 @@ public final class TeleportPathController {
         highestPhaseReached = 0;
         currentPhase = -1;
         clearInvulnerability();
+        minionRoundRobinCursor.clear();
         clearRage();
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
@@ -2609,7 +2834,8 @@ public final class TeleportPathController {
         nextAggroZoneAt = NOT_SCHEDULED;
         clearEncounter();
         clearTotemRuntime();
-        reportedBrokenClone = "";
+        reportedBrokenMinionClones.clear();
+        reportedBlockedMinionPoints.clear();
         reportedBrokenFluid = "";
     }
 }

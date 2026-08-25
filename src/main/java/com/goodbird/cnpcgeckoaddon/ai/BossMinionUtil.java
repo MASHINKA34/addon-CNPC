@@ -13,12 +13,27 @@ import java.util.List;
 public final class BossMinionUtil {
     /** Written into the minion's persistent data so it survives save/load and chunk unloads. */
     public static final String MINION_OWNER_KEY = "CNPCGeckoBossOwner";
+    public static final String MINION_PHASE_KEY = "CNPCGeckoBossMinionPhase";
+    public static final String MINION_SLOT_KEY = "CNPCGeckoBossMinionSlot";
 
     private BossMinionUtil() {
     }
 
     public static void markAsMinion(Entity minion, Entity boss) {
+        // A clone saved from a totem must become an ordinary minion for caps and cleanup.
+        minion.getPersistentData().remove(BossTotemUtil.TOTEM_OWNER_KEY);
+        minion.getPersistentData().remove(BossTotemUtil.TOTEM_SLOT_KEY);
         minion.getPersistentData().putString(MINION_OWNER_KEY, boss.getUUID().toString());
+        minion.getPersistentData().remove(MINION_PHASE_KEY);
+        minion.getPersistentData().remove(MINION_SLOT_KEY);
+    }
+
+    public static void markAsMinion(Entity minion, Entity boss, int phaseIndex, int pointId) {
+        markAsMinion(minion, boss);
+        if (phaseIndex >= 0 && pointId > 0) {
+            minion.getPersistentData().putInt(MINION_PHASE_KEY, phaseIndex);
+            minion.getPersistentData().putInt(MINION_SLOT_KEY, pointId);
+        }
     }
 
     public static boolean isMinionOf(Entity entity, Entity boss) {
@@ -34,6 +49,18 @@ public final class BossMinionUtil {
             }
         }
         return count;
+    }
+
+    /** Searches loaded entities only, so checking a slot never loads its chunk. */
+    public static boolean isSlotOccupied(ServerLevel level, Entity boss, int phaseIndex, int pointId) {
+        for (Entity entity : level.getAllEntities()) {
+            if (entity.isAlive() && isMinionOf(entity, boss)
+                    && entity.getPersistentData().getInt(MINION_PHASE_KEY) == phaseIndex
+                    && entity.getPersistentData().getInt(MINION_SLOT_KEY) == pointId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
