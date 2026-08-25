@@ -15,6 +15,12 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.hook_mode_cinch"
     };
 
+    public static final int CAPTURE_MODE_HOLD = 0;
+    public static final int CAPTURE_MODE_LIFT = 1;
+    public static final int CAPTURE_EFFECT_PLAYER = 0;
+    public static final int CAPTURE_EFFECT_BOSS = 1;
+    public static final int CAPTURE_EFFECT_BOTH = 2;
+
     /** The immune phase runs for its full duration and nothing else ends it. */
     public static final int INVULNERABLE_END_TIMER = 0;
     /** The immune phase lasts until every minion it summoned is dead. */
@@ -105,6 +111,23 @@ public final class BossPhaseData {
     private int hookMode = HOOK_MODE_PULL;
     private String hookCordStyle = HookCordStyles.PARTICLES;
 
+    private boolean captureEnabled;
+    private String captureAnimation = "";
+    private int captureActionDelayTicks = 10;
+    private int captureCooldownTicks = 200;
+    private int captureTargetMode = BossTargetMode.RANDOM;
+    private int captureMinRange;
+    private int captureMaxRange = 16;
+    private int captureMode = CAPTURE_MODE_HOLD;
+    private int captureDurationTicks = 60;
+    private int captureLiftHeight = 5;
+    private int captureLiftTicks = 40;
+    private int captureEffectTarget = CAPTURE_EFFECT_PLAYER;
+    private String captureBeamStyle = HookCordStyles.GHOST;
+    private int captureBeamWidthPercent = 100;
+    private int captureBeamSagPercent;
+    private boolean captureAllowLook = true;
+
     private boolean invulnerableEnabled;
     private int invulnerableEndMode = INVULNERABLE_END_TIMER_OR_MINIONS;
     private int invulnerableDurationTicks = 200;
@@ -116,6 +139,7 @@ public final class BossPhaseData {
     private final BossEffectSet meleeAttackEffects = new BossEffectSet();
     private final BossEffectSet fluidSpitEffects = new BossEffectSet();
     private final BossEffectSet hookEffects = new BossEffectSet();
+    private final BossEffectSet captureEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -183,6 +207,22 @@ public final class BossPhaseData {
         tag.putInt("HookMaxRange", hookMaxRange);
         tag.putInt("HookMode", hookMode);
         tag.putString("HookCordStyle", hookCordStyle);
+        tag.putBoolean("CaptureEnabled", captureEnabled);
+        tag.putString("CaptureAnimation", captureAnimation);
+        tag.putInt("CaptureActionDelayTicks", captureActionDelayTicks);
+        tag.putInt("CaptureCooldownTicks", captureCooldownTicks);
+        tag.putInt("CaptureTargetMode", captureTargetMode);
+        tag.putInt("CaptureMinRange", captureMinRange);
+        tag.putInt("CaptureMaxRange", captureMaxRange);
+        tag.putInt("CaptureMode", captureMode);
+        tag.putInt("CaptureDurationTicks", captureDurationTicks);
+        tag.putInt("CaptureLiftHeight", captureLiftHeight);
+        tag.putInt("CaptureLiftTicks", captureLiftTicks);
+        tag.putInt("CaptureEffectTarget", captureEffectTarget);
+        tag.putString("CaptureBeamStyle", captureBeamStyle);
+        tag.putInt("CaptureBeamWidthPercent", captureBeamWidthPercent);
+        tag.putInt("CaptureBeamSagPercent", captureBeamSagPercent);
+        tag.putBoolean("CaptureAllowLook", captureAllowLook);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
         tag.putInt("InvulnerableDurationTicks", invulnerableDurationTicks);
@@ -193,6 +233,7 @@ public final class BossPhaseData {
         tag.put("MeleeAttackEffects", meleeAttackEffects.writeToNBT());
         tag.put("FluidSpitEffects", fluidSpitEffects.writeToNBT());
         tag.put("HookEffects", hookEffects.writeToNBT());
+        tag.put("CaptureEffects", captureEffects.writeToNBT());
         return tag;
     }
 
@@ -273,6 +314,27 @@ public final class BossPhaseData {
         // An absent key reads as an empty string, which normalizes back to the plain sparks.
         hookCordStyle = HookCordStyles.normalize(tag.getString("HookCordStyle"));
 
+        captureEnabled = tag.getBoolean("CaptureEnabled");
+        captureAnimation = clean(tag.getString("CaptureAnimation"));
+        captureActionDelayTicks = value(tag, "CaptureActionDelayTicks", 10, 0, 1200);
+        captureCooldownTicks = value(tag, "CaptureCooldownTicks", 200, 20, 12000);
+        captureTargetMode = value(tag, "CaptureTargetMode",
+                BossTargetMode.RANDOM, BossTargetMode.MAIN, BossTargetMode.RANDOM);
+        setCaptureRange(
+                value(tag, "CaptureMinRange", 0, 0, 64),
+                value(tag, "CaptureMaxRange", 16, 1, 128));
+        captureMode = value(tag, "CaptureMode", CAPTURE_MODE_HOLD, CAPTURE_MODE_HOLD, CAPTURE_MODE_LIFT);
+        captureDurationTicks = value(tag, "CaptureDurationTicks", 60, 1, 1200);
+        captureLiftHeight = value(tag, "CaptureLiftHeight", 5, 0, 64);
+        captureLiftTicks = value(tag, "CaptureLiftTicks", 40, 1, 1200);
+        captureEffectTarget = value(tag, "CaptureEffectTarget", CAPTURE_EFFECT_PLAYER,
+                CAPTURE_EFFECT_PLAYER, CAPTURE_EFFECT_BOTH);
+        captureBeamStyle = tag.contains("CaptureBeamStyle")
+                ? HookCordStyles.normalize(tag.getString("CaptureBeamStyle")) : HookCordStyles.GHOST;
+        captureBeamWidthPercent = value(tag, "CaptureBeamWidthPercent", 100, 25, 400);
+        captureBeamSagPercent = value(tag, "CaptureBeamSagPercent", 0, 0, 200);
+        captureAllowLook = !tag.contains("CaptureAllowLook") || tag.getBoolean("CaptureAllowLook");
+
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
         invulnerableEndMode = value(tag, "InvulnerableEndMode", INVULNERABLE_END_TIMER_OR_MINIONS,
                 INVULNERABLE_END_TIMER, INVULNERABLE_END_TIMER_AND_MINIONS);
@@ -286,6 +348,7 @@ public final class BossPhaseData {
         meleeAttackEffects.readFromNBT(tag, "MeleeAttackEffects");
         fluidSpitEffects.readFromNBT(tag, "FluidSpitEffects");
         hookEffects.readFromNBT(tag, "HookEffects");
+        captureEffects.readFromNBT(tag, "CaptureEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -472,6 +535,45 @@ public final class BossPhaseData {
     public String getHookCordStyle() { return hookCordStyle; }
     public void setHookCordStyle(String value) { hookCordStyle = HookCordStyles.normalize(value); }
 
+    public boolean isCaptureEnabled() { return captureEnabled; }
+    public void setCaptureEnabled(boolean value) { captureEnabled = value; }
+    public String getCaptureAnimation() { return captureAnimation; }
+    public void setCaptureAnimation(String value) { captureAnimation = clean(value); }
+    public int getCaptureActionDelayTicks() { return captureActionDelayTicks; }
+    public void setCaptureActionDelayTicks(int value) { captureActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getCaptureCooldownTicks() { return captureCooldownTicks; }
+    public void setCaptureCooldownTicks(int value) { captureCooldownTicks = Mth.clamp(value, 20, 12000); }
+    public int getCaptureTargetMode() { return captureTargetMode; }
+    public void setCaptureTargetMode(int value) { captureTargetMode = BossTargetMode.clamp(value); }
+    public int getCaptureMinRange() { return captureMinRange; }
+    public int getCaptureMaxRange() { return captureMaxRange; }
+    public void setCaptureRange(int min, int max) {
+        min = Mth.clamp(min, 0, 64);
+        max = Mth.clamp(max, 1, 128);
+        captureMinRange = Math.min(min, max);
+        captureMaxRange = Math.max(min, max);
+    }
+    public int getCaptureMode() { return captureMode; }
+    public void setCaptureMode(int value) { captureMode = Mth.clamp(value, CAPTURE_MODE_HOLD, CAPTURE_MODE_LIFT); }
+    public int getCaptureDurationTicks() { return captureDurationTicks; }
+    public void setCaptureDurationTicks(int value) { captureDurationTicks = Mth.clamp(value, 1, 1200); }
+    public int getCaptureLiftHeight() { return captureLiftHeight; }
+    public void setCaptureLiftHeight(int value) { captureLiftHeight = Mth.clamp(value, 0, 64); }
+    public int getCaptureLiftTicks() { return captureLiftTicks; }
+    public void setCaptureLiftTicks(int value) { captureLiftTicks = Mth.clamp(value, 1, 1200); }
+    public int getCaptureEffectTarget() { return captureEffectTarget; }
+    public void setCaptureEffectTarget(int value) {
+        captureEffectTarget = Mth.clamp(value, CAPTURE_EFFECT_PLAYER, CAPTURE_EFFECT_BOTH);
+    }
+    public String getCaptureBeamStyle() { return captureBeamStyle; }
+    public void setCaptureBeamStyle(String value) { captureBeamStyle = HookCordStyles.normalize(value); }
+    public int getCaptureBeamWidthPercent() { return captureBeamWidthPercent; }
+    public void setCaptureBeamWidthPercent(int value) { captureBeamWidthPercent = Mth.clamp(value, 25, 400); }
+    public int getCaptureBeamSagPercent() { return captureBeamSagPercent; }
+    public void setCaptureBeamSagPercent(int value) { captureBeamSagPercent = Mth.clamp(value, 0, 200); }
+    public boolean isCaptureAllowLook() { return captureAllowLook; }
+    public void setCaptureAllowLook(boolean value) { captureAllowLook = value; }
+
     /** While this phase runs the boss takes no damage and only its summon ability fires. */
     public boolean isInvulnerableEnabled() { return invulnerableEnabled; }
     public void setInvulnerableEnabled(boolean value) { invulnerableEnabled = value; }
@@ -510,6 +612,7 @@ public final class BossPhaseData {
     public BossEffectSet getMeleeAttackEffects() { return meleeAttackEffects; }
     public BossEffectSet getFluidSpitEffects() { return fluidSpitEffects; }
     public BossEffectSet getHookEffects() { return hookEffects; }
+    public BossEffectSet getCaptureEffects() { return captureEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();
