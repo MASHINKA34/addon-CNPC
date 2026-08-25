@@ -70,7 +70,7 @@ public final class TeleportPathController {
     private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 6;
+    private static final int ABILITY_COUNT = 7;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /** The client counts down on its own, so the server only has to correct it now and then. */
@@ -86,7 +86,9 @@ public final class TeleportPathController {
     private static final Set<TeleportPathController> INSTANCES =
             Collections.newSetFromMap(new WeakHashMap<>());
 
-    private enum PendingAction { NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK }
+    private enum PendingAction {
+        NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE
+    }
 
     private final EntityNPCInterface npc;
     private final ServerBossEvent bossEvent;
@@ -131,6 +133,7 @@ public final class TeleportPathController {
     private long nextMeleeAttackAt = NOT_SCHEDULED;
     private long nextFluidSpitAt = NOT_SCHEDULED;
     private long nextHookAt = NOT_SCHEDULED;
+    private long nextCaptureAt = NOT_SCHEDULED;
 
     /** Victims beyond the first, captured when a multi-target ability starts winding up. */
     private final List<Integer> pendingExtraTargets = new ArrayList<>();
@@ -1725,6 +1728,13 @@ public final class TeleportPathController {
         } else {
             nextHookAt = NOT_SCHEDULED;
         }
+        if (phase.isCaptureEnabled()) {
+            if (nextCaptureAt == NOT_SCHEDULED) {
+                nextCaptureAt = gameTime + rageDown(phase.getCaptureCooldownTicks());
+            }
+        } else {
+            nextCaptureAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -1750,6 +1760,7 @@ public final class TeleportPathController {
                 case 2 -> tryStartMeleeAttack(level, data, phase, gameTime);
                 case 3 -> tryStartFluidSpit(level, data, phase, gameTime);
                 case 4 -> tryStartHook(level, data, phase, gameTime);
+                case 5 -> tryStartCapture(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -1894,6 +1905,90 @@ public final class TeleportPathController {
         if (distanceSquared < min * min || distanceSquared > max * max) return false;
         // A chain that reaches through a wall looks broken, so honour the NPC line-of-sight flag.
         return !npc.ais.directLOS || npc.canNpcSee(target);
+    }
+
+    private boolean tryStartCapture(ServerLevel level, TeleportPathData data,
+                                    BossPhaseData phase, long gameTime) {
+        if (!phase.isCaptureEnabled() || gameTime < nextCaptureAt) return false;
+        ServerPlayer target = selectCaptureTarget(level, phase);
+        if (target == null) {
+            nextCaptureAt = gameTime + 10;
+            return false;
+        }
+        beginAction(PendingAction.CAPTURE, phase.getCaptureAnimation(),
+                phase.getCaptureActionDelayTicks(), gameTime, target, data, phase);
+        // Windup and hold timing stay aligned with the animation; rage only shortens cooldown.
+        nextCaptureAt = gameTime + phase.getCaptureActionDelayTicks()
+                + rageDown(phase.getCaptureCooldownTicks());
+        return true;
+    }
+
+    private ServerPlayer selectCaptureTarget(ServerLevel level, BossPhaseData phase) {
+        List<ServerPlayer> candidates = new ArrayList<>();
+        for (ServerPlayer player : level.players()) {
+            if (isValidCaptureTarget(player, phase)) {
+                candidates.add(player);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        if (phase.getCaptureTargetMode() == BossTargetMode.MAIN
+                && npc.getTarget() instanceof ServerPlayer main && candidates.contains(main)) {
+            return main;
+        }
+        if (phase.getCaptureTargetMode() == BossTargetMode.RANDOM
+                || phase.getCaptureTargetMode() == BossTargetMode.MAIN) {
+            return candidates.get(npc.getRandom().nextInt(candidates.size()));
+        }
+        boolean farthest = phase.getCaptureTargetMode() == BossTargetMode.FARTHEST;
+        ServerPlayer best = candidates.getFirst();
+        double bestDistance = npc.distanceToSqr(best);
+        for (int i = 1; i < candidates.size(); i++) {
+            ServerPlayer candidate = candidates.get(i);
+            double distance = npc.distanceToSqr(candidate);
+            if (farthest ? distance > bestDistance : distance < bestDistance) {
+                best = candidate;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    private boolean isValidCaptureTarget(ServerPlayer player, BossPhaseData phase) {
+        if (player == null || player.level() != npc.level() || !player.isAlive()
+                || player.isRemoved() || player.isCreative() || player.isSpectator()
+                || !npc.canAttack(player) || npc.isAlliedTo(player)) {
+            return false;
+        }
+        double distanceSquared = npc.distanceToSqr(player);
+        double min = phase.getCaptureMinRange();
+        double max = phase.getCaptureMaxRange();
+        if (distanceSquared < min * min || distanceSquared > max * max) {
+            return false;
+        }
+        return !npc.ais.directLOS || npc.canNpcSee(player);
+    }
+
+    private void performCapture(ServerLevel level, BossPhaseData phase) {
+        LivingEntity pending = pendingTarget(level);
+        if (!(pending instanceof ServerPlayer player) || !isValidCaptureTarget(player, phase)) {
+            return;
+        }
+        int receiver = phase.getCaptureEffectTarget();
+        if (receiver == BossPhaseData.CAPTURE_EFFECT_PLAYER
+                || receiver == BossPhaseData.CAPTURE_EFFECT_BOTH) {
+            phase.getCaptureEffects().applyAll(player, npc);
+        }
+        if (receiver == BossPhaseData.CAPTURE_EFFECT_BOSS
+                || receiver == BossPhaseData.CAPTURE_EFFECT_BOTH) {
+            phase.getCaptureEffects().applyAll(npc, npc);
+        }
+        trackParticipant(player);
+        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 0.8F, 1.4F);
+        level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + player.getBbHeight() * 0.5D,
+                player.getZ(), 12, 0.25D, 0.5D, 0.25D, 0.02D);
     }
 
     private void performHook(ServerLevel level, BossPhaseData phase, long gameTime) {
@@ -2101,6 +2196,8 @@ public final class TeleportPathController {
             performFluidSpit(level, phase);
         } else if (pendingAction == PendingAction.HOOK) {
             performHook(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.CAPTURE) {
+            performCapture(level, phase);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -2466,6 +2563,7 @@ public final class TeleportPathController {
         nextMeleeAttackAt = NOT_SCHEDULED;
         nextFluidSpitAt = NOT_SCHEDULED;
         nextHookAt = NOT_SCHEDULED;
+        nextCaptureAt = NOT_SCHEDULED;
     }
 
     private void reset() {
