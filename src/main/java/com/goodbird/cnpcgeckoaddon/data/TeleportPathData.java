@@ -20,6 +20,10 @@ public final class TeleportPathData {
 
     public static final int MIN_RESET_TICKS = 20;
     public static final int MAX_RESET_TICKS = 12000;
+    public static final int MIN_HOME_LEASH_RADIUS = 1;
+    public static final int MAX_HOME_LEASH_RADIUS = 512;
+    public static final int MIN_HOME_LEASH_GRACE_TICKS = 0;
+    public static final int MAX_HOME_LEASH_GRACE_TICKS = 1200;
 
     public static final int AGGRO_ZONE_TARGET_NEAREST = 0;
     public static final int AGGRO_ZONE_TARGET_RANDOM = 1;
@@ -174,6 +178,10 @@ public final class TeleportPathData {
     private static final String RESET_TICKS_KEY = "GeckoBossResetTicks";
     private static final String RESET_HEAL_KEY = "GeckoBossResetHeal";
     private static final String RESET_RETURN_KEY = "GeckoBossResetReturn";
+    private static final String HOME_LEASH_ENABLED_KEY = "GeckoBossHomeLeashEnabled";
+    private static final String HOME_LEASH_RADIUS_KEY = "GeckoBossHomeLeashRadius";
+    private static final String HOME_LEASH_VERTICAL_KEY = "GeckoBossHomeLeashVertical";
+    private static final String HOME_LEASH_GRACE_KEY = "GeckoBossHomeLeashGrace";
     private static final String RAGE_ENABLED_KEY = "GeckoBossRageEnabled";
     private static final String RAGE_DELAY_KEY = "GeckoBossRageDelay";
     private static final String RAGE_MULTIPLIER_KEY = "GeckoBossRageMultiplier";
@@ -227,6 +235,10 @@ public final class TeleportPathData {
     private int resetTicks = 100;
     private boolean resetHeal = true;
     private boolean resetReturn;
+    private boolean homeLeashEnabled;
+    private int homeLeashRadius = 32;
+    private boolean homeLeashVertical;
+    private int homeLeashGraceTicks;
 
     private boolean rageEnabled;
     private int rageDelayTicks = 3600;
@@ -322,6 +334,10 @@ public final class TeleportPathData {
         tag.putInt(RESET_TICKS_KEY, resetTicks);
         tag.putBoolean(RESET_HEAL_KEY, resetHeal);
         tag.putBoolean(RESET_RETURN_KEY, resetReturn);
+        tag.putBoolean(HOME_LEASH_ENABLED_KEY, homeLeashEnabled);
+        tag.putInt(HOME_LEASH_RADIUS_KEY, homeLeashRadius);
+        tag.putBoolean(HOME_LEASH_VERTICAL_KEY, homeLeashVertical);
+        tag.putInt(HOME_LEASH_GRACE_KEY, homeLeashGraceTicks);
         tag.putBoolean(RAGE_ENABLED_KEY, rageEnabled);
         tag.putInt(RAGE_DELAY_KEY, rageDelayTicks);
         tag.putInt(RAGE_MULTIPLIER_KEY, rageMultiplierPercent);
@@ -409,6 +425,14 @@ public final class TeleportPathData {
         // idea of a second attempt, so bosses saved before this option existed get it on.
         resetHeal = !tag.contains(RESET_HEAL_KEY) || tag.getBoolean(RESET_HEAL_KEY);
         resetReturn = tag.getBoolean(RESET_RETURN_KEY);
+        homeLeashEnabled = tag.getBoolean(HOME_LEASH_ENABLED_KEY);
+        homeLeashRadius = tag.contains(HOME_LEASH_RADIUS_KEY)
+                ? Mth.clamp(tag.getInt(HOME_LEASH_RADIUS_KEY), MIN_HOME_LEASH_RADIUS,
+                MAX_HOME_LEASH_RADIUS) : 32;
+        homeLeashVertical = tag.getBoolean(HOME_LEASH_VERTICAL_KEY);
+        homeLeashGraceTicks = tag.contains(HOME_LEASH_GRACE_KEY)
+                ? Mth.clamp(tag.getInt(HOME_LEASH_GRACE_KEY), MIN_HOME_LEASH_GRACE_TICKS,
+                MAX_HOME_LEASH_GRACE_TICKS) : 0;
         rageEnabled = tag.getBoolean(RAGE_ENABLED_KEY);
         rageDelayTicks = tag.contains(RAGE_DELAY_KEY)
                 ? Mth.clamp(tag.getInt(RAGE_DELAY_KEY), MIN_RAGE_DELAY_TICKS, MAX_RAGE_DELAY_TICKS) : 3600;
@@ -633,6 +657,19 @@ public final class TeleportPathData {
     /** Whether the reset also sends the boss back to where it stood when it activated. */
     public boolean isResetReturn() { return resetReturn; }
     public void setResetReturn(boolean value) { resetReturn = value; }
+    public boolean isHomeLeashEnabled() { return homeLeashEnabled; }
+    public void setHomeLeashEnabled(boolean value) { homeLeashEnabled = value; }
+    public int getHomeLeashRadius() { return homeLeashRadius; }
+    public void setHomeLeashRadius(int value) {
+        homeLeashRadius = Mth.clamp(value, MIN_HOME_LEASH_RADIUS, MAX_HOME_LEASH_RADIUS);
+    }
+    public boolean isHomeLeashVertical() { return homeLeashVertical; }
+    public void setHomeLeashVertical(boolean value) { homeLeashVertical = value; }
+    public int getHomeLeashGraceTicks() { return homeLeashGraceTicks; }
+    public void setHomeLeashGraceTicks(int value) {
+        homeLeashGraceTicks = Mth.clamp(value, MIN_HOME_LEASH_GRACE_TICKS,
+                MAX_HOME_LEASH_GRACE_TICKS);
+    }
 
     /** Whether the boss doubles its stats once the encounter has dragged on long enough. */
     public boolean isRageEnabled() { return rageEnabled; }
