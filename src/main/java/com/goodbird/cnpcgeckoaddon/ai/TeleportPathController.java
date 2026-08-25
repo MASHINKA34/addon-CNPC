@@ -1660,6 +1660,40 @@ public final class TeleportPathController {
         return scaledPlayerCount;
     }
 
+    /** Read-only party-health snapshot for /cnpcgecko boss. */
+    public String partyHealthStatus(TeleportPathData data) {
+        double baseline = healthScalingApplied ? baseMaxHealth : npc.getMaxHealth();
+        if (!data.isHealthScalingEnabled()) {
+            return "Party health: off, base " + formatHealth(baseline)
+                    + ", scaled " + formatHealth(npc.getMaxHealth());
+        }
+        int players = Math.max(1, scaledPlayerCount);
+        String update = data.getHealthScalingUpdateMode()
+                == TeleportPathData.HEALTH_SCALING_LOCK_AT_START ? "locked" : "dynamic";
+        String adjustment = data.getHealthScalingAdjustment()
+                == TeleportPathData.HEALTH_SCALING_KEEP_CURRENT ? "keep current" : "keep percent";
+        String mode = switch (data.getHealthScalingMode()) {
+            case TeleportPathData.HEALTH_SCALING_FLAT -> "+"
+                    + data.getHealthPerPlayerFlat() + " HP/player";
+            case TeleportPathData.HEALTH_SCALING_PERCENT_AND_FLAT -> "+"
+                    + data.getHealthPerPlayerPercent() + "% +"
+                    + data.getHealthPerPlayerFlat() + " HP/player";
+            default -> "+" + data.getHealthPerPlayerPercent() + "%/player";
+        };
+        return "Party health: " + players + " players " + update + " ("
+                + Math.max(0, players - 1) + " extra), cap " + data.getHealthScalingPlayerCap()
+                + ", base " + formatHealth(baseline) + ", scaled "
+                + formatHealth(npc.getMaxHealth()) + ", mode " + mode + ", adjust " + adjustment;
+    }
+
+    private static String formatHealth(double value) {
+        if (Math.rint(value) == value) {
+            return Long.toString((long) value);
+        }
+        return String.format(java.util.Locale.ROOT, "%.2f", value)
+                .replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
     private void tickHealthScaling(TeleportPathData data) {
         if (!encounterRunning || !data.isHealthScalingEnabled()) {
             clearHealthScaling(data, false);
@@ -1712,16 +1746,7 @@ public final class TeleportPathController {
     }
 
     private double healthScalingBonus(AttributeInstance instance, TeleportPathData data) {
-        int extraPlayers = Math.max(0, scaledPlayerCount - 1);
-        double percentBonus = baseMaxHealth * extraPlayers
-                * data.getHealthPerPlayerPercent() / 100.0D;
-        double flatBonus = (double) extraPlayers * data.getHealthPerPlayerFlat();
-        double rawBonus = switch (data.getHealthScalingMode()) {
-            case TeleportPathData.HEALTH_SCALING_FLAT -> flatBonus;
-            case TeleportPathData.HEALTH_SCALING_PERCENT_AND_FLAT -> percentBonus + flatBonus;
-            default -> percentBonus;
-        };
-        double desiredMax = finiteHealth(baseMaxHealth + rawBonus, Double.MAX_VALUE);
+        double desiredMax = data.calculateScaledMaxHealth(baseMaxHealth, scaledPlayerCount);
         double sanitizedMax = instance.getAttribute().value().sanitizeValue(desiredMax);
         return Math.max(0.0D, sanitizedMax - baseMaxHealth);
     }

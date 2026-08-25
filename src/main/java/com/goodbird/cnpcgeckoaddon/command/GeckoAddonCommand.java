@@ -76,10 +76,15 @@ public class GeckoAddonCommand {
                 String leashLine = controller == null
                         ? (data.isHomeLeashEnabled() ? "Home leash: awaiting controller" : "Home leash: off")
                         : controller.homeLeashStatus(level.getGameTime(), data);
+                String partyHealthLine = controller == null
+                        ? (data.isHealthScalingEnabled()
+                        ? "Party health: awaiting controller" : "Party health: off")
+                        : controller.partyHealthStatus(data);
                 source.sendSuccess(() -> Component.literal(bossLine), false);
                 source.sendSuccess(() -> Component.literal(totemLine), false);
                 source.sendSuccess(() -> Component.literal(captureLine), false);
                 source.sendSuccess(() -> Component.literal(leashLine), false);
+                source.sendSuccess(() -> Component.literal(partyHealthLine), false);
             }
         }
         if (found == 0) {

@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
@@ -16,14 +17,17 @@ public final class SubGuiBossTargeting extends GuiBasic implements ITextfieldLis
     private static final int RADIUS_FIELD = 4;
     private static final int INTERVAL_FIELD = 5;
     private static final int AGGRO_ZONE_BUTTON = 6;
+    private static final int HEALTH_SCALING_BUTTON = 7;
 
+    private final EntityNPCInterface npc;
     private final TeleportPathData data;
 
-    public SubGuiBossTargeting(TeleportPathData data) {
+    public SubGuiBossTargeting(EntityNPCInterface npc, TeleportPathData data) {
+        this.npc = npc;
         this.data = data;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 242;
+        imageHeight = 256;
         closeOnEsc = true;
     }
 
@@ -47,8 +51,10 @@ public final class SubGuiBossTargeting extends GuiBasic implements ITextfieldLis
 
         addButton(new GuiButtonNop(this, AGGRO_ZONE_BUTTON, guiLeft + 8, guiTop + 158, 234, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_settings"));
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.target_hint", guiLeft + 8, guiTop + 188, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 216, 60, 20,
+        addButton(new GuiButtonNop(this, HEALTH_SCALING_BUTTON, guiLeft + 8, guiTop + 182, 234, 20,
+                "cnpcgeckoaddon.boss.health_scaling_settings"));
+        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.target_hint", guiLeft + 8, guiTop + 208, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
                 "gui.done", button -> close()));
     }
 
@@ -77,6 +83,9 @@ public final class SubGuiBossTargeting extends GuiBasic implements ITextfieldLis
         } else if (button.id == AGGRO_ZONE_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossAggroZone(data));
+        } else if (button.id == HEALTH_SCALING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossHealthScaling(npc, data));
         }
     }
 

@@ -114,7 +114,7 @@ public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldList
             setSubGui(new SubGuiBossPhaseList(npc, data));
         } else if (button.id == 22) {
             applyFields();
-            setSubGui(new SubGuiBossTargeting(data));
+            setSubGui(new SubGuiBossTargeting(npc, data));
         } else if (button.id == 23) {
             applyFields();
             setSubGui(new SubGuiBossMinions(npc, data));

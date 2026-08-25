@@ -5,6 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,19 @@ public final class TeleportPathData {
     public static final int MAX_HEALTH_SCALING_PLAYER_CAP = 128;
     public static final int MIN_HEALTH_SCALING_RECHECK_TICKS = 1;
     public static final int MAX_HEALTH_SCALING_RECHECK_TICKS = 200;
+    public static final String[] HEALTH_SCALING_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.health_scaling_percent",
+            "cnpcgeckoaddon.boss.health_scaling_flat",
+            "cnpcgeckoaddon.boss.health_scaling_both"
+    };
+    public static final String[] HEALTH_SCALING_UPDATE_LABELS = {
+            "cnpcgeckoaddon.boss.health_scaling_locked",
+            "cnpcgeckoaddon.boss.health_scaling_dynamic"
+    };
+    public static final String[] HEALTH_SCALING_ADJUSTMENT_LABELS = {
+            "cnpcgeckoaddon.boss.health_scaling_keep_pct",
+            "cnpcgeckoaddon.boss.health_scaling_keep_hp"
+    };
 
     public static final int MIN_RAGE_DELAY_TICKS = 100;
     public static final int MAX_RAGE_DELAY_TICKS = 72000;
@@ -743,6 +757,24 @@ public final class TeleportPathData {
     public void setHealthScalingRecheckTicks(int value) {
         healthScalingRecheckTicks = Mth.clamp(value, MIN_HEALTH_SCALING_RECHECK_TICKS,
                 MAX_HEALTH_SCALING_RECHECK_TICKS);
+    }
+
+    /** Shared by runtime and GUI so the preview cannot drift from the encounter formula. */
+    public double calculateScaledMaxHealth(double baseMaxHealth, int countedPlayers) {
+        double base = Double.isFinite(baseMaxHealth) ? Math.max(1.0D, baseMaxHealth) : 1.0D;
+        int players = Mth.clamp(countedPlayers, 1, healthScalingPlayerCap);
+        int extraPlayers = players - 1;
+        double percentBonus = base * extraPlayers * healthPerPlayerPercent / 100.0D;
+        double flatBonus = (double) extraPlayers * healthPerPlayerFlat;
+        double scaled = switch (healthScalingMode) {
+            case HEALTH_SCALING_FLAT -> base + flatBonus;
+            case HEALTH_SCALING_PERCENT_AND_FLAT -> base + percentBonus + flatBonus;
+            default -> base + percentBonus;
+        };
+        if (!Double.isFinite(scaled)) {
+            scaled = Double.MAX_VALUE;
+        }
+        return Attributes.MAX_HEALTH.value().sanitizeValue(Math.max(1.0D, scaled));
     }
 
     /** How long the boss has to be left alone before the encounter counts as over. */
