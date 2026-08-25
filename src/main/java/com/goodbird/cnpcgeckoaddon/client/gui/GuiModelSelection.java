@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
@@ -52,6 +53,8 @@ public class GuiModelSelection extends GuiNPCInterface {
     private static final float START_YAW = 30.0F;
     private static final ResourceLocation NO_OP_ANIMATION = ResourceLocation.fromNamespaceAndPath(
             "cnpcgeckoaddon", "animations/none.animation.json");
+    private static final ResourceLocation FALLBACK_MODEL = ResourceLocation.fromNamespaceAndPath(
+            "cnpcgeckoaddon", "geo/modelnotfound.geo.json");
     private static final ResourceLocation DEFAULT_NPC_TEXTURE = ResourceLocation.fromNamespaceAndPath(
             "customnpcs", "textures/entity/humanmale/steve.png");
 
@@ -69,7 +72,8 @@ public class GuiModelSelection extends GuiNPCInterface {
 
     private ModelList modelList;
     private EntityCustomModel previewEntity;
-    private ResourceLocation previewModel;
+    private ResourceLocation previewRequestedModel;
+    private ResourceLocation previewRenderedModel;
     private GeckoModelBounds.Bounds previewBounds;
     private String selectedModel;
     private String searchText = "";
@@ -78,11 +82,14 @@ public class GuiModelSelection extends GuiNPCInterface {
     private int leftWidth;
     private int rightX;
     private int rightWidth;
+    private int countY;
+    private int listTop;
     private int previewTop;
     private int previewBottom;
     private float scalePercent = 100.0F;
     private float previewYaw = START_YAW;
     private boolean draggingPreview;
+    private boolean previewFallbackActive;
     private boolean previewRenderFailed;
 
     public GuiModelSelection(EntityCustomNpc npc, Consumer<String> selectionAction) {
@@ -132,10 +139,12 @@ public class GuiModelSelection extends GuiNPCInterface {
         });
         addTextField(search);
 
-        addButton(new GuiButtonNop(this, BUTTON_NAMESPACE, leftX, searchTop + 23,
+        int namespaceTop = searchTop + 23;
+        addButton(new GuiButtonNop(this, BUTTON_NAMESPACE, leftX, namespaceTop,
                 leftWidth, 20, namespaceButtonText()));
 
-        int listTop = searchTop + 47;
+        this.countY = namespaceTop + 24;
+        this.listTop = countY + font.lineHeight + 3;
         int listBottom = Math.max(listTop + 36, height - 36);
         this.modelList = new ModelList(Minecraft.getInstance(), leftX, listTop,
                 leftWidth, listBottom - listTop);
@@ -200,6 +209,7 @@ public class GuiModelSelection extends GuiNPCInterface {
         modelList.setModels(visibleModels);
         if (previousSelection != null && visibleModels.contains(previousSelection)) {
             modelList.select(previousSelection);
+            modelHighlighted(previousSelection);
         } else if (!visibleModels.isEmpty()) {
             modelList.select(visibleModels.getFirst());
             modelHighlighted(visibleModels.getFirst());
@@ -214,7 +224,7 @@ public class GuiModelSelection extends GuiNPCInterface {
     private void modelHighlighted(String model) {
         selectedModel = model;
         ResourceLocation location = ResourceLocation.tryParse(model);
-        if (location != null && !location.equals(previewModel)) {
+        if (location != null && !location.equals(previewRequestedModel)) {
             updatePreview(location);
         }
         GuiButtonNop selectButton = getButton(BUTTON_SELECT);
@@ -277,18 +287,19 @@ public class GuiModelSelection extends GuiNPCInterface {
         graphics.drawString(font,
                 Component.translatable("cnpcgeckoaddon.model_picker.count",
                         visibleModels.size(), allModels.size()),
-                leftX + 3, 66, 0xB0B0B0, false);
+                leftX + 3, countY, 0xB0B0B0, false);
         graphics.drawCenteredString(font,
                 Component.translatable("cnpcgeckoaddon.model_picker.preview"),
                 rightX + rightWidth / 2, 31, 0xFFFFFF);
         graphics.drawCenteredString(font,
                 Component.translatable("cnpcgeckoaddon.model_picker.scale", Math.round(scalePercent)),
                 rightX + rightWidth / 2, previewBottom - font.lineHeight - 3, 0xD0D0D0);
+        renderPreviewStatus(graphics);
 
         if (visibleModels.isEmpty()) {
             graphics.drawCenteredString(font,
                     Component.translatable("cnpcgeckoaddon.model_picker.no_results"),
-                    leftX + leftWidth / 2, 92, 0xA0A0A0);
+                    leftX + leftWidth / 2, listTop + 18, 0xA0A0A0);
         }
         renderSelectedModel(graphics, mouseX, mouseY);
         renderListTooltip(graphics, mouseX, mouseY);
@@ -303,31 +314,54 @@ public class GuiModelSelection extends GuiNPCInterface {
     }
 
     private void updatePreview(ResourceLocation model) {
+        previewRequestedModel = model;
+        previewFallbackActive = false;
+        previewRenderFailed = false;
         ensurePreviewEntity();
         if (previewEntity == null) {
+            previewRenderedModel = null;
+            previewRenderFailed = true;
             return;
         }
 
         ModelSelectionHelper.ModelResources resources = ModelSelectionHelper.resolve(model);
-        ResourceLocation npcTexture = AnimationFileUtil.parse(targetNpc.display.getSkinTexture());
-        if (npcTexture == null && targetNpc.modelData.getEntity(targetNpc) instanceof EntityCustomModel currentModel) {
-            npcTexture = currentModel.textureResLoc;
-        }
+        ResourceLocation npcTexture = currentNpcTexture();
 
         previewEntity.modelResLoc = model;
         previewEntity.textureResLoc = resources.defaultTexture() != null
-                ? resources.defaultTexture()
-                : npcTexture == null ? DEFAULT_NPC_TEXTURE : npcTexture;
+                ? resources.defaultTexture() : npcTexture;
         previewEntity.animResLoc = resources.animation() == null ? NO_OP_ANIMATION : resources.animation();
         previewEntity.idleAnim = compatibleIdleAnimation(resources.animation());
 
-        previewModel = model;
-        previewBounds = boundsCache.computeIfAbsent(model, location -> {
+        previewRenderedModel = model;
+        previewBounds = boundsFor(model);
+        scalePercent = 100.0F;
+    }
+
+    private ResourceLocation currentNpcTexture() {
+        ResourceLocation npcTexture = AnimationFileUtil.parse(targetNpc.display.getSkinTexture());
+        if (npcTexture == null
+                && targetNpc.modelData.getEntity(targetNpc) instanceof EntityCustomModel currentModel) {
+            npcTexture = currentModel.textureResLoc;
+        }
+        return npcTexture == null ? DEFAULT_NPC_TEXTURE : npcTexture;
+    }
+
+    private GeckoModelBounds.Bounds boundsFor(ResourceLocation model) {
+        return boundsCache.computeIfAbsent(model, location -> {
             BakedGeoModel bakedModel = GeckoLibCache.getBakedModels().get(location);
             return GeckoModelBounds.calculateModelBounds(bakedModel);
         }).orElse(null);
-        scalePercent = 100.0F;
-        previewRenderFailed = false;
+    }
+
+    private void activatePreviewFallback() {
+        previewFallbackActive = true;
+        previewEntity.modelResLoc = FALLBACK_MODEL;
+        previewEntity.textureResLoc = currentNpcTexture();
+        previewEntity.animResLoc = NO_OP_ANIMATION;
+        previewEntity.idleAnim = "";
+        previewRenderedModel = FALLBACK_MODEL;
+        previewBounds = boundsFor(FALLBACK_MODEL);
     }
 
     private String compatibleIdleAnimation(ResourceLocation animationFile) {
@@ -340,7 +374,7 @@ public class GuiModelSelection extends GuiNPCInterface {
     }
 
     private void renderPreview(GuiGraphics graphics) {
-        if (previewEntity == null || previewModel == null || previewRenderFailed) {
+        if (previewEntity == null || previewRenderedModel == null || previewRenderFailed) {
             return;
         }
 
@@ -374,6 +408,7 @@ public class GuiModelSelection extends GuiNPCInterface {
         graphics.enableScissor(contentLeft, contentTop, contentRight, contentBottom);
         Lighting.setupForEntityInInventory();
         dispatcher.setRenderShadow(false);
+        boolean renderFailed = false;
         try {
             RenderSystem.runAsFancy(() -> dispatcher.render(
                     previewEntity,
@@ -387,16 +422,46 @@ public class GuiModelSelection extends GuiNPCInterface {
                     15728880));
         } catch (RuntimeException ignored) {
             // Broken third-party geometry should not make the editor unusable.
-            previewRenderFailed = true;
+            renderFailed = true;
         } finally {
             try {
                 graphics.flush();
             } catch (RuntimeException ignored) {
-                previewRenderFailed = true;
+                renderFailed = true;
             }
             dispatcher.setRenderShadow(true);
             Lighting.setupFor3DItems();
             graphics.disableScissor();
+        }
+        if (renderFailed) {
+            if (previewFallbackActive) {
+                previewRenderFailed = true;
+            } else {
+                // Switch only after the failed frame has restored global render state.
+                activatePreviewFallback();
+            }
+        }
+    }
+
+    private void renderPreviewStatus(GuiGraphics graphics) {
+        Component status = previewRenderFailed
+                ? Component.translatable("cnpcgeckoaddon.model_picker.preview_unavailable")
+                : previewFallbackActive
+                ? Component.translatable("cnpcgeckoaddon.model_picker.preview_fallback") : null;
+        if (status == null) {
+            return;
+        }
+        List<FormattedCharSequence> lines = font.split(status, Math.max(20, rightWidth - 12));
+        int textY = previewRenderFailed
+                ? previewTop + (previewBottom - previewTop - lines.size() * font.lineHeight) / 2
+                : previewBottom - font.lineHeight - 7 - lines.size() * font.lineHeight;
+        int backgroundTop = textY - 2;
+        int backgroundBottom = textY + lines.size() * font.lineHeight + 2;
+        graphics.fill(rightX + 3, backgroundTop, rightX + rightWidth - 3,
+                backgroundBottom, 0xB0000000);
+        for (FormattedCharSequence line : lines) {
+            graphics.drawCenteredString(font, line, rightX + rightWidth / 2, textY, 0xFFE0A0);
+            textY += font.lineHeight;
         }
     }
 

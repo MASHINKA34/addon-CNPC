@@ -352,5 +352,7 @@
   "cnpcgeckoaddon.model_picker.cancel": "Отмена",
   "cnpcgeckoaddon.model_picker.count": "Моделей: %s / %s",
   "cnpcgeckoaddon.model_picker.no_results": "Подходящих моделей нет",
+  "cnpcgeckoaddon.model_picker.preview_fallback": "Ошибка предпросмотра; показана резервная модель.",
+  "cnpcgeckoaddon.model_picker.preview_unavailable": "Предпросмотр недоступен",
   "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
 }

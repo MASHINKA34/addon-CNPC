@@ -352,5 +352,7 @@
   "cnpcgeckoaddon.model_picker.cancel": "Cancel",
   "cnpcgeckoaddon.model_picker.count": "%s / %s models",
   "cnpcgeckoaddon.model_picker.no_results": "No matching models",
+  "cnpcgeckoaddon.model_picker.preview_fallback": "Model preview failed; showing fallback.",
+  "cnpcgeckoaddon.model_picker.preview_unavailable": "Preview unavailable",
   "block.cnpcgeckoaddon.boss_chest": "Boss chest"
 }
