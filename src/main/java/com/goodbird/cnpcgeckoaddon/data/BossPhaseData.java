@@ -88,6 +88,9 @@ public final class BossPhaseData {
     private int areaAttackDamage = 8;
     private int areaAttackRadius = 5;
     private int areaAttackKnockback = 1;
+    private String areaAttackVfx = AreaVfxStyles.NONE;
+    private int areaAttackVfxDurationTicks = 20;
+    private boolean areaAttackBlockWave;
 
     private boolean rangedAttackEnabled;
     private String rangedAttackAnimation = "";
@@ -195,6 +198,9 @@ public final class BossPhaseData {
         tag.putInt("AreaAttackDamage", areaAttackDamage);
         tag.putInt("AreaAttackRadius", areaAttackRadius);
         tag.putInt("AreaAttackKnockback", areaAttackKnockback);
+        tag.putString("AreaAttackVfx", areaAttackVfx);
+        tag.putInt("AreaAttackVfxDuration", areaAttackVfxDurationTicks);
+        tag.putBoolean("AreaAttackBlockWave", areaAttackBlockWave);
         tag.putBoolean("RangedAttackEnabled", rangedAttackEnabled);
         tag.putString("RangedAttackAnimation", rangedAttackAnimation);
         tag.putInt("RangedAttackActionDelayTicks", rangedAttackActionDelayTicks);
@@ -298,6 +304,9 @@ public final class BossPhaseData {
         areaAttackDamage = value(tag, "AreaAttackDamage", 8, 1, 1000);
         areaAttackRadius = value(tag, "AreaAttackRadius", 5, 1, 32);
         areaAttackKnockback = value(tag, "AreaAttackKnockback", 1, 0, 10);
+        areaAttackVfx = AreaVfxStyles.normalize(tag.getString("AreaAttackVfx"));
+        areaAttackVfxDurationTicks = value(tag, "AreaAttackVfxDuration", 20, 5, 100);
+        areaAttackBlockWave = tag.getBoolean("AreaAttackBlockWave");
         rangedAttackEnabled = tag.getBoolean("RangedAttackEnabled");
         rangedAttackAnimation = clean(tag.getString("RangedAttackAnimation"));
         rangedAttackActionDelayTicks = value(tag, "RangedAttackActionDelayTicks", 12, 0, 1200);
@@ -467,6 +476,12 @@ public final class BossPhaseData {
     public void setAreaAttackRadius(int value) { areaAttackRadius = Mth.clamp(value, 1, 32); }
     public int getAreaAttackKnockback() { return areaAttackKnockback; }
     public void setAreaAttackKnockback(int value) { areaAttackKnockback = Mth.clamp(value, 0, 10); }
+    public String getAreaAttackVfx() { return areaAttackVfx; }
+    public void setAreaAttackVfx(String value) { areaAttackVfx = AreaVfxStyles.normalize(value); }
+    public int getAreaAttackVfxDurationTicks() { return areaAttackVfxDurationTicks; }
+    public void setAreaAttackVfxDurationTicks(int value) { areaAttackVfxDurationTicks = Mth.clamp(value, 5, 100); }
+    public boolean isAreaAttackBlockWave() { return areaAttackBlockWave; }
+    public void setAreaAttackBlockWave(boolean value) { areaAttackBlockWave = value; }
 
     public boolean isRangedAttackEnabled() { return rangedAttackEnabled; }
     public void setRangedAttackEnabled(boolean value) { rangedAttackEnabled = value; }
