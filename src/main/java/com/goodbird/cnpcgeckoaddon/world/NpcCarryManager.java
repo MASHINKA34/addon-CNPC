@@ -1,13 +1,17 @@
 package com.goodbird.cnpcgeckoaddon.world;
 
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
+import com.goodbird.cnpcgeckoaddon.data.NpcCarryData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,11 +35,15 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Server side state of the {@code /cnpcgecko carry} builder tool.
+ * Server side state of every carry: the {@code /cnpcgecko carry} builder tool, and the npcs
+ * marked carryable that any player may pick up without it.
  *
  * <p>A carried npc never leaves the world. It is moved in front of its carrier every tick
  * instead of being serialised into a pocket, because an npc that only exists as a tag is one
  * failed write away from losing its dialogs, inventory and every setting on it.</p>
+ *
+ * <p>Both paths run the same carry. They differ only in what it is allowed to do to the npc
+ * and to its carrier, and that is decided once, at pickup.</p>
  *
  * <p>Nothing here is written to NBT: after a restart nobody is carrying anything.</p>
  */
@@ -71,8 +79,10 @@ public final class NpcCarryManager {
         private final boolean hadNoAi;
         private final boolean wasInvulnerable;
         private final boolean hadNoGravity;
+        private final boolean invulnerableWhileHeld;
+        private final boolean updatesHome;
 
-        private CarryRuntime(ServerPlayer player, EntityNPCInterface npc) {
+        private CarryRuntime(ServerPlayer player, EntityNPCInterface npc, boolean builderTool) {
             this.playerId = player.getUUID();
             this.npcId = npc.getUUID();
             this.levelKey = npc.level().dimension();
@@ -83,6 +93,21 @@ public final class NpcCarryManager {
             this.hadNoAi = npc.isNoAi();
             this.wasInvulnerable = npc.isInvulnerable();
             this.hadNoGravity = npc.isNoGravity();
+            // Read once, here: the editor can change these mid carry, and a carry has to end
+            // under the rules it started under. The builder tool answers to none of them.
+            NpcCarryData settings = settings(npc);
+            this.invulnerableWhileHeld = builderTool || settings.isInvulnerable();
+            this.updatesHome = builderTool || settings.isUpdatesHome();
+        }
+
+        /**
+         * Where the npc should call home once it is put down at {@code point}.
+         *
+         * @return null to leave its home where it is, which is what keeps a player from
+         *         rehoming a dungeon npc by carrying it across the room
+         */
+        private BlockPos homeFor(Vec3 point) {
+            return updatesHome ? BlockPos.containing(point) : null;
         }
     }
 
@@ -104,6 +129,38 @@ public final class NpcCarryManager {
         return CARRY_MODE.contains(player.getUUID());
     }
 
+    /**
+     * Whether this npc lets any player carry it, and whether this click is how it asked.
+     *
+     * <p>Sneaking is asked for by default so an ordinary right click still reaches the npc's
+     * own interaction: a carried npc is allowed to have dialogs like any other.</p>
+     */
+    public static boolean canPlayerCarry(ServerPlayer player, EntityNPCInterface npc) {
+        NpcCarryData settings = settings(npc);
+        if (!settings.isCarryable()) {
+            return false;
+        }
+        if (settings.isRequireSneak() && !player.isShiftKeyDown()) {
+            return false;
+        }
+        return holdsRequiredItem(player, settings);
+    }
+
+    private static boolean holdsRequiredItem(ServerPlayer player, NpcCarryData settings) {
+        if (settings.getRequiredItem().isEmpty()) {
+            return true;
+        }
+        // Parsed rather than compared as text, so a hand-typed "torch" matches the same item
+        // the registry knows as "minecraft:torch".
+        ResourceLocation required = ResourceLocation.tryParse(settings.getRequiredItem());
+        return required != null
+                && required.equals(BuiltInRegistries.ITEM.getKey(player.getMainHandItem().getItem()));
+    }
+
+    private static NpcCarryData settings(EntityNPCInterface npc) {
+        return ((INpcCarryData) npc.ais).cnpcgeckoaddon$getNpcCarryData();
+    }
+
     public static boolean isCarrying(ServerPlayer player) {
         return BY_PLAYER.containsKey(player.getUUID());
     }
@@ -116,9 +173,11 @@ public final class NpcCarryManager {
     /**
      * Takes an npc into the carrier's hands.
      *
+     * @param builderTool true for {@code /cnpcgecko carry}, which may pick up any npc and
+     *                    answers to none of that npc's own carry settings
      * @return true when the click was consumed and the npc's own interaction must not run
      */
-    public static boolean pickUp(ServerPlayer player, EntityNPCInterface npc) {
+    public static boolean pickUp(ServerPlayer player, EntityNPCInterface npc, boolean builderTool) {
         if (!(player.level() instanceof ServerLevel level) || npc.level() != level
                 || npc.isRemoved() || !npc.isAlive()) {
             return false;
@@ -134,14 +193,18 @@ public final class NpcCarryManager {
             player.displayClientMessage(Component.translatable("cnpcgeckoaddon.carry.busy"), true);
             return true;
         }
-        CarryRuntime carry = new CarryRuntime(player, npc);
+        CarryRuntime carry = new CarryRuntime(player, npc, builderTool);
         BY_PLAYER.put(carry.playerId, carry);
         BY_NPC.put(carry.npcId, carry);
         // Borrowed for the trip and handed back on placement: a carried npc neither thinks
         // nor fights, and does not sink out of the carrier's hands under its own weight.
         npc.setNoAi(true);
-        npc.setInvulnerable(true);
         npc.setNoGravity(true);
+        if (carry.invulnerableWhileHeld) {
+            // Only when it was asked for. A dungeon npc that players carry into a fight is
+            // meant to be shootable out of their hands - that is the fight, not a bug.
+            npc.setInvulnerable(true);
+        }
         hold(player, npc);
         player.displayClientMessage(
                 Component.translatable("cnpcgeckoaddon.carry.picked", npc.getName()), true);
@@ -172,7 +235,7 @@ public final class NpcCarryManager {
         // Shift puts the npc down the way it was standing, for rebuilding a room full of
         // statues without lining every one of them up again.
         float yaw = player.isShiftKeyDown() ? carry.pickupYaw : player.getYRot();
-        settle(npc, carry, placement.point(), yaw, 0.0F, BlockPos.containing(placement.point()));
+        settle(npc, carry, placement.point(), yaw, 0.0F, carry.homeFor(placement.point()));
         forget(carry);
         player.displayClientMessage(
                 Component.translatable("cnpcgeckoaddon.carry.placed", npc.getName()), true);
@@ -375,7 +438,7 @@ public final class NpcCarryManager {
         Vec3 atCarrier = player != null && player.level() == level && !player.isRemoved()
                 ? player.position() : null;
         if (atCarrier != null && fits(level, npc, atCarrier)) {
-            settle(npc, carry, atCarrier, npc.getYRot(), 0.0F, BlockPos.containing(atCarrier));
+            settle(npc, carry, atCarrier, npc.getYRot(), 0.0F, carry.homeFor(atCarrier));
             message(player, "cnpcgeckoaddon.carry.placed", npc);
         } else {
             settleAtPickup(npc, carry);
@@ -399,26 +462,32 @@ public final class NpcCarryManager {
      *
      * @param home what CustomNPCs is told to treat as the npc's start position. This is what
      *             makes a placed npc stay placed: it is both the point a reset walks back to
-     *             and the point a respawn resurrects on
+     *             and the point a respawn resurrects on. Null leaves its home untouched, and
+     *             the npc walks back to where it belongs on its own
      */
     private static void settle(EntityNPCInterface npc, CarryRuntime carry,
                                Vec3 point, float yaw, float pitch, BlockPos home) {
         npc.moveTo(point.x, point.y, point.z, yaw, pitch);
         npc.setYHeadRot(yaw);
         npc.setYBodyRot(yaw);
-        npc.ais.setStartPos(home);
+        if (home != null) {
+            npc.ais.setStartPos(home);
+            relocateArena(npc);
+        }
         restoreFlags(npc, carry);
         npc.getNavigation().stop();
         npc.setDeltaMovement(Vec3.ZERO);
         npc.fallDistance = 0.0F;
         npc.hasImpulse = true;
-        relocateArena(npc);
         npc.updateClient();
     }
 
     /**
      * A boss also remembers the arena it woke up in, which start position knows nothing about.
      * Without this it teleports back to the old room the first time its leash or a reset fires.
+     *
+     * <p>Only ever called when the npc's home moved with it, so a boss put down without being
+     * rehomed still treats the room it came from as its arena.</p>
      */
     private static void relocateArena(EntityNPCInterface npc) {
         if (npc instanceof IBossController holder) {

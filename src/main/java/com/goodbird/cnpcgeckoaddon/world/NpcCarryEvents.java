@@ -25,18 +25,36 @@ public final class NpcCarryEvents {
     }
 
     /**
-     * Takes the npc into the builder's hands instead of opening it.
+     * Takes the npc into the carrier's hands instead of opening it.
      *
      * <p>Cancelling is the point: an untouched click runs CustomNPCs' own interaction, which
-     * for an op is the whole npc editor.</p>
+     * for an op is the whole npc editor and for a player is the npc's dialog. That dialog is
+     * why a carryable npc asks for a sneak click by default - the plain one still belongs to
+     * the npc.</p>
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onEntityInteract(final PlayerInteractEvent.EntityInteract event) {
-        if (!isCarryClick(event)) {
+        if (!isServerMainHand(event)) {
             return;
         }
         ServerPlayer player = (ServerPlayer) event.getEntity();
-        if (event.getTarget() instanceof EntityNPCInterface npc && NpcCarryManager.pickUp(player, npc)) {
+        if (NpcCarryManager.isCarrying(player)) {
+            // Hands are full, so this click puts the npc down whatever it landed on: a held
+            // npc has no hitbox, and the crosshair reaches straight through it.
+            if (NpcCarryManager.placeFromAim(player)) {
+                event.setCancellationResult(InteractionResult.SUCCESS);
+                event.setCanceled(true);
+            }
+            return;
+        }
+        if (!(event.getTarget() instanceof EntityNPCInterface npc)) {
+            return;
+        }
+        boolean builderTool = NpcCarryManager.isCarryMode(player);
+        if (!builderTool && !NpcCarryManager.canPlayerCarry(player, npc)) {
+            return;
+        }
+        if (NpcCarryManager.pickUp(player, npc, builderTool)) {
             event.setCancellationResult(InteractionResult.SUCCESS);
             event.setCanceled(true);
         }
@@ -116,15 +134,14 @@ public final class NpcCarryEvents {
         NpcCarryManager.shutdown(event.getServer());
     }
 
-    /** Only the server knows who is in carry mode, and only the main hand may act on it. */
-    private static boolean isCarryClick(PlayerInteractEvent event) {
+    /** Only the server knows who is carrying what, and only the main hand may act on it. */
+    private static boolean isServerMainHand(PlayerInteractEvent event) {
         return !event.getLevel().isClientSide
                 && event.getHand() == InteractionHand.MAIN_HAND
-                && event.getEntity() instanceof ServerPlayer player
-                && NpcCarryManager.isCarryMode(player);
+                && event.getEntity() instanceof ServerPlayer;
     }
 
     private static boolean isPlaceClick(PlayerInteractEvent event) {
-        return isCarryClick(event) && NpcCarryManager.isCarrying((ServerPlayer) event.getEntity());
+        return isServerMainHand(event) && NpcCarryManager.isCarrying((ServerPlayer) event.getEntity());
     }
 }
