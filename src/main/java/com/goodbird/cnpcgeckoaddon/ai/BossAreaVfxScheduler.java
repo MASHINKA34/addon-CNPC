@@ -96,13 +96,21 @@ public final class BossAreaVfxScheduler {
 
     /** Starts a wave for an area attack that has just landed. */
     public static void schedule(ServerLevel level, Vec3 center, BossPhaseData phase) {
-        String style = AreaVfxStyles.normalize(phase.getAreaAttackVfx());
-        boolean blockWave = phase.isAreaAttackBlockWave();
+        schedule(level, center, phase.getAreaAttackVfx(), phase.getAreaAttackRadius(),
+                phase.getAreaAttackVfxDurationTicks(), phase.isAreaAttackBlockWave());
+    }
+
+    /**
+     * Starts a wave from a spot given outright, for an ability that lands somewhere other
+     * than where the boss is standing - a leap slam goes off wherever the boss came down.
+     */
+    public static void schedule(ServerLevel level, Vec3 center, String style, double radius,
+                                int duration, boolean blockWave) {
+        style = AreaVfxStyles.normalize(style);
         if (!AreaVfxStyles.isVisible(style) && !blockWave) {
             return;
         }
-        WAVES.add(new Wave(level.dimension(), center, phase.getAreaAttackRadius(), style,
-                phase.getAreaAttackVfxDurationTicks(), blockWave));
+        WAVES.add(new Wave(level.dimension(), center, radius, style, duration, blockWave));
         // One shout at the front of the wave. Repeating it every tick would drown the fight.
         playStyleSound(level, center, style);
     }

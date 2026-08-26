@@ -21,6 +21,7 @@ import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
@@ -73,9 +74,44 @@ public final class TeleportPathController {
     private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 7;
+    private static final int ABILITY_COUNT = 8;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
+    /**
+     * The leap is a plain ballistic push, so its speed has to be worked out against the
+     * numbers vanilla actually moves a living entity by: every airborne tick the position
+     * advances by the current speed, then gravity is taken off the vertical one and both
+     * are scaled by their drag. Solving that discretely is what makes a leap land on its
+     * mark instead of a good block short of it.
+     */
+    private static final double LEAP_GRAVITY = 0.08D;
+    private static final double LEAP_VERTICAL_DRAG = 0.98D;
+    /**
+     * Trim on the horizontal speed, tunable in one place.
+     *
+     * <p>The flight length is counted in whole ticks while the boss touches down partway
+     * through one, and it loses a sliver of speed to every corner it clips on the way, so
+     * the arc lands a few percent short of its mark. Measured against a tick-for-tick
+     * replay of the movement above: without it a leap is up to 4% short, with it the error
+     * is inside 3% either way, which the smallest slam radius swallows.</p>
+     */
+    private static final double LEAP_REACH_CORRECTION = 1.03D;
+    /** Enough to clear the 64 block height ceiling; only the solver's search uses it. */
+    private static final double LEAP_MAX_RISE_SPEED = 5.0D;
+    /**
+     * A badly set up arena must not fling the boss across the world. Far above anything a
+     * sane jump asks for: even a hundred block leap only needs about 1.3 blocks a tick.
+     */
+    private static final double LEAP_MAX_HORIZONTAL_SPEED = 4.0D;
+    /** Ticks the boss gets to leave the floor before a leap counts as never started. */
+    private static final int LEAP_LAUNCH_GRACE_TICKS = 5;
+    /** Rough spacing between the landing marker's particles, in blocks. */
+    private static final double LEAP_MARKER_SPACING = 0.7D;
+    private static final int LEAP_MARKER_INTERVAL_TICKS = 4;
+    /** How long the landing wave runs for; the leap has no length setting of its own. */
+    private static final int LEAP_VFX_DURATION_TICKS = 20;
+    /** Kept clear of the leash edge so a landing cannot start the reset countdown. */
+    private static final double LEAP_LEASH_MARGIN = 1.5D;
     /** The client counts down on its own, so the server only has to correct it now and then. */
     private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
     private static final int TOTEM_RETRY_INTERVAL_TICKS = 20;
@@ -90,7 +126,8 @@ public final class TeleportPathController {
             Collections.newSetFromMap(new WeakHashMap<>());
 
     private enum PendingAction {
-        NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE
+        NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
+        LEAP
     }
 
     private final EntityNPCInterface npc;
@@ -149,6 +186,21 @@ public final class TeleportPathController {
     private long nextFluidSpitAt = NOT_SCHEDULED;
     private long nextHookAt = NOT_SCHEDULED;
     private long nextCaptureAt = NOT_SCHEDULED;
+    private long nextLeapAt = NOT_SCHEDULED;
+
+    /** Where the leap being wound up or flown right now is meant to come down. */
+    private Vec3 leapDestination;
+    /** Phase the leap started in: the slam belongs to the settings that launched it. */
+    private int leapPhaseIndex = -1;
+    private boolean leapAirborne;
+    /** The boss really left the floor, which is what makes a later onGround() a landing. */
+    private boolean leapLeftGround;
+    private long leapLaunchedAt = NOT_SCHEDULED;
+    /** Game time the airborne safety net gives up at. */
+    private long leapAirTimeoutAt = NOT_SCHEDULED;
+    /** Horizontal speed the flight holds, re-applied every tick it stays in the air. */
+    private double leapDriveX;
+    private double leapDriveZ;
 
     /** Victims beyond the first, captured when a multi-target ability starts winding up. */
     private final List<Integer> pendingExtraTargets = new ArrayList<>();
@@ -234,9 +286,11 @@ public final class TeleportPathController {
         if (tickHomeLeash(level, gameTime, data)) {
             return;
         }
-        if (data.isStationary()) {
+        if (data.isStationary() && !leapAirborne) {
             keepStationary();
         } else {
+            // A leap owns the boss' position while it is in the air - the pin would drag it
+            // straight back to the take-off spot - so it follows the flight to the landing.
             rememberCurrentPosition();
         }
         tickHookPulls(level, gameTime);
@@ -250,6 +304,9 @@ public final class TeleportPathController {
         updateBossBar(level, data);
         syncBossTimer(gameTime, data);
         BossPhaseData phase = data.getPhase(currentPhase);
+        // Above the combat-only return and the busy gate on purpose: a leap already in the
+        // air has to come down and land even if the boss loses its target mid flight.
+        tickLeap(level, data, gameTime);
 
         if (data.isCombatOnly() && !hasCombatTarget()) {
             cancelPendingAndSchedules();
@@ -1031,6 +1088,9 @@ public final class TeleportPathController {
         clearRage();
         cancelPendingAndSchedules();
         clearHookPulls();
+        // Before the return below: clearing the leap re-pins the boss where it stands, and
+        // the return then moves that pin home rather than the other way round.
+        clearLeap();
         BossCaptureManager.releaseByBoss(npc);
         busyUntil = 0L;
 
@@ -2109,6 +2169,13 @@ public final class TeleportPathController {
         } else {
             nextCaptureAt = NOT_SCHEDULED;
         }
+        if (phase.isLeapEnabled()) {
+            if (nextLeapAt == NOT_SCHEDULED) {
+                nextLeapAt = gameTime + rageDown(phase.getLeapCooldownTicks());
+            }
+        } else {
+            nextLeapAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2135,6 +2202,7 @@ public final class TeleportPathController {
                 case 3 -> tryStartFluidSpit(level, data, phase, gameTime);
                 case 4 -> tryStartHook(level, data, phase, gameTime);
                 case 5 -> tryStartCapture(level, data, phase, gameTime);
+                case 6 -> tryStartLeap(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -2529,6 +2597,371 @@ public final class TeleportPathController {
         }
     }
 
+    private boolean tryStartLeap(ServerLevel level, TeleportPathData data,
+                                 BossPhaseData phase, long gameTime) {
+        if (!phase.isLeapEnabled() || gameTime < nextLeapAt || leapAirborne) return false;
+        if (!npc.onGround()) {
+            // Nothing to push off from. Knocked into the air or standing in a boat, the
+            // boss simply tries again in half a second.
+            nextLeapAt = gameTime + 10;
+            return false;
+        }
+        LivingEntity target = null;
+        if (phase.getLeapMode() == BossPhaseData.LEAP_MODE_TARGET) {
+            target = selectAbilityTarget(level, phase.getLeapTargetMode(),
+                    candidate -> isValidLeapTarget(candidate, phase));
+            if (target == null) {
+                nextLeapAt = gameTime + 10;
+                return false;
+            }
+        }
+        Vec3 destination = resolveLeapDestination(data, phase, target);
+        if (destination == null) {
+            nextLeapAt = gameTime + 20;
+            return false;
+        }
+        leapDestination = destination;
+        leapPhaseIndex = currentPhase;
+        beginAction(PendingAction.LEAP, phase.getLeapAnimation(),
+                phase.getLeapActionDelayTicks(), gameTime, target, data, phase);
+        // Only the cooldown is scaled - the windup is measured against the leap animation.
+        nextLeapAt = gameTime + phase.getLeapActionDelayTicks() + rageDown(phase.getLeapCooldownTicks());
+        return true;
+    }
+
+    /**
+     * Line of sight is deliberately not required: clearing a wall someone is hiding behind
+     * is the whole point of a jump, and a hook's rule would take that away.
+     */
+    private boolean isValidLeapTarget(LivingEntity target, BossPhaseData phase) {
+        if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
+        double distanceSquared = npc.distanceToSqr(target);
+        double min = phase.getLeapMinRange();
+        double max = phase.getLeapMaxRange();
+        return distanceSquared >= min * min && distanceSquared <= max * max;
+    }
+
+    /** Where this leap is aimed, already pulled back inside the home leash. */
+    private Vec3 resolveLeapDestination(TeleportPathData data, BossPhaseData phase, LivingEntity target) {
+        Vec3 destination = switch (phase.getLeapMode()) {
+            case BossPhaseData.LEAP_MODE_TARGET -> target == null ? null : target.position();
+            case BossPhaseData.LEAP_MODE_FIXED -> new Vec3(phase.getLeapFixedX() + 0.5D,
+                    phase.getLeapFixedY(), phase.getLeapFixedZ() + 0.5D);
+            case BossPhaseData.LEAP_MODE_ARENA_OFFSET -> new Vec3(homeX + phase.getLeapOffsetX(),
+                    homeY + phase.getLeapOffsetY(), homeZ + phase.getLeapOffsetZ());
+            // Straight up: the boss comes back down onto the spot it left.
+            default -> npc.position();
+        };
+        return destination == null ? null : clampToHomeLeash(data, destination);
+    }
+
+    /**
+     * A landing outside the leash would end the encounter on the boss' own terms, so the
+     * destination is pulled back to just inside the edge before anything is pushed off.
+     */
+    private Vec3 clampToHomeLeash(TeleportPathData data, Vec3 destination) {
+        if (!data.isHomeLeashEnabled()) {
+            return destination;
+        }
+        boolean vertical = data.isHomeLeashVertical();
+        double limit = Math.max(0.0D, data.getHomeLeashRadius() - LEAP_LEASH_MARGIN);
+        double dx = destination.x - homeX;
+        double dz = destination.z - homeZ;
+        double dy = vertical ? destination.y - homeY : 0.0D;
+        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (distance <= limit || distance < 1.0E-4D) {
+            return destination;
+        }
+        double scale = limit / distance;
+        return new Vec3(homeX + dx * scale,
+                vertical ? homeY + dy * scale : destination.y,
+                homeZ + dz * scale);
+    }
+
+    /** The push itself, at the end of the windup. */
+    private void performLeap(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
+        LivingEntity target = pendingTarget(level);
+        // The victim may have died or run out of range during the windup. The boss still
+        // jumps: the marker already promised that spot, and pulling out looks like a bug.
+        Vec3 destination = resolveLeapDestination(data, phase,
+                isValidLeapTarget(target, phase) ? target : null);
+        if (destination == null) {
+            destination = leapDestination;
+        }
+        if (destination == null) {
+            clearLeap();
+            return;
+        }
+
+        // An arc that peaks below where it is meant to come down never gets there, so a
+        // destination above the boss raises the jump. The ceiling still has the final say.
+        int wanted = Mth.clamp((int) Math.ceil(destination.y - npc.getY()) + 1,
+                phase.getLeapHeight(), BossPhaseData.MAX_LEAP_HEIGHT);
+        int height = availableLeapHeight(level, wanted);
+        if (height < 1) {
+            // Nowhere to jump to - a boss walled in under a slab would only bump its head
+            // and stick. The cooldown has already been spent, so it will try again later.
+            clearLeap();
+            return;
+        }
+
+        double rise = leapSpeedForHeight(height);
+        double drop = Math.max(0.0D, npc.getY() + height - destination.y);
+        int flightTicks = Math.max(1, (int) Math.ceil(leapRiseTicks(rise)) + (int) Math.ceil(leapFallTicks(drop)));
+        double dx = destination.x - npc.getX();
+        double dz = destination.z - npc.getZ();
+        double reach = Math.sqrt(dx * dx + dz * dz);
+        double speed = reach < 1.0E-4D ? 0.0D : Math.min(LEAP_MAX_HORIZONTAL_SPEED,
+                reach * LEAP_REACH_CORRECTION / flightTicks);
+        leapDriveX = reach < 1.0E-4D ? 0.0D : dx / reach * speed;
+        leapDriveZ = reach < 1.0E-4D ? 0.0D : dz / reach * speed;
+
+        npc.getNavigation().stop();
+        npc.fallDistance = 0.0F;
+        npc.setDeltaMovement(leapDriveX, rise, leapDriveZ);
+        // Mobs are position-synced, but handing the client the velocity too keeps the arc
+        // smooth instead of letting it interpolate a straight line between updates.
+        npc.hurtMarked = true;
+
+        leapDestination = destination;
+        leapAirborne = true;
+        leapLeftGround = false;
+        leapLaunchedAt = gameTime;
+        leapAirTimeoutAt = gameTime + phase.getLeapMaxAirTicks();
+        busyUntil = Math.max(busyUntil, gameTime + 1);
+
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.RAVAGER_ROAR,
+                SoundSource.HOSTILE, 1.5F, 1.2F);
+        level.sendParticles(ParticleTypes.CLOUD, npc.getX(), npc.getY() + 0.1D, npc.getZ(), 20,
+                npc.getBbWidth() * 0.5D, 0.05D, npc.getBbWidth() * 0.5D, 0.05D);
+    }
+
+    /**
+     * How far up there is actually room to jump.
+     *
+     * <p>Counts upward and stops at the first blocked block rather than looking for the
+     * highest clear one: an opening above a low ceiling is not somewhere the boss can get
+     * to, and aiming for it would just be a head-first bump.</p>
+     */
+    private int availableLeapHeight(ServerLevel level, int desired) {
+        int clear = 0;
+        for (int height = 1; height <= desired; height++) {
+            if (!level.noCollision(npc, npc.getBoundingBox().move(0.0D, height, 0.0D))) {
+                break;
+            }
+            clear = height;
+        }
+        return clear;
+    }
+
+    /** Ticks the climb from an upward push of {@code speed} takes to reach its peak. */
+    private static double leapRiseTicks(double speed) {
+        double terminal = leapTerminalSpeed();
+        return Math.log(terminal / (speed + terminal)) / Math.log(LEAP_VERTICAL_DRAG);
+    }
+
+    /** How high that climb gets. */
+    private static double leapPeakHeight(double speed) {
+        return speed / (1.0D - LEAP_VERTICAL_DRAG) - leapTerminalSpeed() * leapRiseTicks(speed);
+    }
+
+    /** Ticks a fall from a standstill takes to cover {@code drop} blocks. */
+    private static double leapFallTicks(double drop) {
+        double terminal = leapTerminalSpeed();
+        double low = 0.0D;
+        double high = 400.0D;
+        for (int step = 0; step < 24; step++) {
+            double mid = (low + high) * 0.5D;
+            double fallen = terminal * (mid - (1.0D - Math.pow(LEAP_VERTICAL_DRAG, mid)) / (1.0D - LEAP_VERTICAL_DRAG));
+            if (fallen < drop) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        return (low + high) * 0.5D;
+    }
+
+    /**
+     * The push that gets the boss {@code height} blocks up.
+     *
+     * <p>Searched rather than solved: with the drag in it {@link #leapPeakHeight} has no
+     * neat inverse, and a couple of dozen halvings once per leap costs nothing.</p>
+     */
+    private static double leapSpeedForHeight(double height) {
+        double low = 0.0D;
+        double high = LEAP_MAX_RISE_SPEED;
+        for (int step = 0; step < 24; step++) {
+            double mid = (low + high) * 0.5D;
+            if (leapPeakHeight(mid) < height) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        return (low + high) * 0.5D;
+    }
+
+    /** The speed a falling entity settles at, which is what the drag is measured against. */
+    private static double leapTerminalSpeed() {
+        return LEAP_GRAVITY * LEAP_VERTICAL_DRAG / (1.0D - LEAP_VERTICAL_DRAG);
+    }
+
+    /**
+     * Carries a leap through its windup and its flight.
+     *
+     * <p>Runs every tick, above everything that could return early: the boss is a thrown
+     * object until it touches down, and the landing has to be caught wherever that is.</p>
+     */
+    private void tickLeap(ServerLevel level, TeleportPathData data, long gameTime) {
+        if (leapAirborne) {
+            // Nothing may steer the boss mid air, and its own arc must not hurt it.
+            npc.getNavigation().stop();
+            npc.fallDistance = 0.0F;
+            // Holds every other ability off until the boss is back on the floor.
+            busyUntil = Math.max(busyUntil, gameTime + 1);
+            holdLeapCourse();
+
+            if (!npc.onGround()) {
+                leapLeftGround = true;
+            } else if (leapLeftGround) {
+                landLeap(level, data, gameTime);
+                return;
+            } else if (gameTime - leapLaunchedAt >= LEAP_LAUNCH_GRACE_TICKS) {
+                // Never got off the ground - held down, or shoulder-deep in a slab.
+                clearLeap();
+                return;
+            }
+            if (gameTime >= leapAirTimeoutAt) {
+                // A jump into a pit or into deep water never lands. The slam is dropped
+                // rather than fired off somewhere nobody was standing.
+                clearLeap();
+                return;
+            }
+        }
+        drawLeapTelegraph(level, data, gameTime);
+    }
+
+    /**
+     * Keeps the flight on the line it was aimed along.
+     *
+     * <p>Vanilla shaves nearly a tenth off an airborne entity's horizontal speed every
+     * tick, which is fine for a shove and useless for an aimed jump: the boss would cover
+     * most of the ground in the first few ticks and then crawl the rest, landing a third of
+     * the way short. Re-applying the speed instead makes the distance exactly speed times
+     * flight time, which is what the arc was solved for. A wall still stops the boss - once
+     * it is up against something, pushing harder would only scrape it along the surface.</p>
+     */
+    private void holdLeapCourse() {
+        if (npc.horizontalCollision || (leapDriveX == 0.0D && leapDriveZ == 0.0D)) {
+            return;
+        }
+        npc.setDeltaMovement(leapDriveX, npc.getDeltaMovement().y, leapDriveZ);
+    }
+
+    /** Touchdown: the boss stops dead, plays its landing animation and slams. */
+    private void landLeap(ServerLevel level, TeleportPathData data, long gameTime) {
+        BossPhaseData phase = leapPhase(data);
+        Vec3 impact = npc.position();
+        // Re-pins the stationary boss on the spot it came down on, before anything else.
+        clearLeap();
+        busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
+        if (phase == null) {
+            return;
+        }
+        playAnimation(phase.getLeapLandAnimation());
+        performLeapImpact(level, phase, impact);
+    }
+
+    private void performLeapImpact(ServerLevel level, BossPhaseData phase, Vec3 impact) {
+        // Started before the hits so the wave leaves at the same moment the damage lands.
+        BossAreaVfxScheduler.schedule(level, impact, phase.getLeapVfx(), phase.getLeapImpactRadius(),
+                LEAP_VFX_DURATION_TICKS, phase.isLeapBlockWave());
+        int damage = rageUp(phase.getLeapImpactDamage());
+        for (LivingEntity target : getTargetsAround(level, impact, phase.getLeapImpactRadius())) {
+            boolean damaged = damage > 0 && target.hurt(level.damageSources().mobAttack(npc), damage);
+            phase.getLeapEffects().applyAll(target, npc);
+            if (damaged && phase.getLeapImpactKnockback() > 0) {
+                target.knockback(rageUp(phase.getLeapImpactKnockback()),
+                        impact.x - target.getX(), impact.z - target.getZ());
+            }
+        }
+        playLeapImpactFeedback(level, impact);
+    }
+
+    private void playLeapImpactFeedback(ServerLevel level, Vec3 impact) {
+        level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.ANVIL_LAND,
+                SoundSource.HOSTILE, 2.0F, 0.5F);
+        level.sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y + 0.2D, impact.z,
+                1, 0.0D, 0.0D, 0.0D, 0.0D);
+        BlockPos below = BlockPos.containing(impact.x, impact.y - 0.2D, impact.z);
+        BlockState floor = level.getBlockState(below);
+        if (!floor.isAir()) {
+            // The floor it landed on, kicked up around its feet.
+            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, floor),
+                    impact.x, impact.y + 0.1D, impact.z, 30, 0.6D, 0.1D, 0.6D, 0.15D);
+        }
+    }
+
+    /**
+     * Paints the ring the slam is going to cover.
+     *
+     * <p>A jump this heavy landing without warning reads as an unfair death rather than as
+     * a mechanic, so the mark is up for the whole windup and the whole flight. During the
+     * windup it is still following the plan, which is what lets a target walk out of it.</p>
+     */
+    private void drawLeapTelegraph(ServerLevel level, TeleportPathData data, long gameTime) {
+        boolean windup = pendingAction == PendingAction.LEAP;
+        if (leapDestination == null || (!leapAirborne && !windup)) {
+            return;
+        }
+        BossPhaseData phase = leapPhase(data);
+        if (phase == null || !phase.isLeapTelegraph() || gameTime % LEAP_MARKER_INTERVAL_TICKS != 0L) {
+            return;
+        }
+        if (windup) {
+            Vec3 refreshed = resolveLeapDestination(data, phase, pendingTarget(level));
+            if (refreshed != null) {
+                leapDestination = refreshed;
+            }
+        }
+        double radius = phase.getLeapImpactRadius();
+        int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / LEAP_MARKER_SPACING), 8, 48);
+        for (int i = 0; i < points; i++) {
+            double angle = i * Mth.TWO_PI / points;
+            level.sendParticles(ParticleTypes.SMALL_FLAME,
+                    leapDestination.x + Math.cos(angle) * radius,
+                    leapDestination.y + 0.15D,
+                    leapDestination.z + Math.sin(angle) * radius,
+                    1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    /** The phase a leap belongs to, so a phase change mid air cannot rewrite its slam. */
+    private BossPhaseData leapPhase(TeleportPathData data) {
+        return leapPhaseIndex >= 0 && leapPhaseIndex < data.getPhaseCount()
+                ? data.getPhase(leapPhaseIndex) : null;
+    }
+
+    /** Drops a leap wherever it got to and hands the boss back to the stationary pin. */
+    private void clearLeap() {
+        if (leapAirborne) {
+            npc.setDeltaMovement(Vec3.ZERO);
+            npc.fallDistance = 0.0F;
+            // The pin was let go for the flight, so it has to be moved to wherever this ended.
+            lockedX = npc.getX();
+            lockedZ = npc.getZ();
+        }
+        leapAirborne = false;
+        leapLeftGround = false;
+        leapDriveX = 0.0D;
+        leapDriveZ = 0.0D;
+        leapDestination = null;
+        leapPhaseIndex = -1;
+        leapLaunchedAt = NOT_SCHEDULED;
+        leapAirTimeoutAt = NOT_SCHEDULED;
+    }
+
     private boolean tryStartSummon(ServerLevel level, TeleportPathData data,
                                    BossPhaseData phase, long gameTime) {
         if (!phase.canSummon() || gameTime < nextSummonAt) return false;
@@ -2577,6 +3010,8 @@ public final class TeleportPathController {
             performHook(level, phase, gameTime);
         } else if (pendingAction == PendingAction.CAPTURE) {
             performCapture(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.LEAP) {
+            performLeap(level, data, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -2966,10 +3401,23 @@ public final class TeleportPathController {
     }
 
     private List<LivingEntity> getAreaTargets(ServerLevel level, BossPhaseData phase) {
-        double radius = phase.getAreaAttackRadius();
+        return getTargetsAround(level, npc.position(), phase.getAreaAttackRadius());
+    }
+
+    /**
+     * Everyone an area hit centred on {@code centre} is allowed to catch.
+     *
+     * <p>Split out of {@link #getAreaTargets} so the leap slam, which lands wherever the
+     * boss came down rather than where it stands now, cannot end up with its own idea of
+     * who counts as an enemy.</p>
+     */
+    private List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius) {
         double radiusSquared = radius * radius;
-        return level.getEntitiesOfClass(LivingEntity.class, npc.getBoundingBox().inflate(radius), target ->
-                target != npc && target.isAlive() && npc.distanceToSqr(target) <= radiusSquared
+        // A whole block of slack on the box: it only pre-filters, and an entity standing
+        // exactly on the rim should still be handed to the distance test below.
+        AABB box = new AABB(centre, centre).inflate(radius + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= radiusSquared
                         && isAreaTarget(target));
     }
 
@@ -3164,6 +3612,13 @@ public final class TeleportPathController {
         nextFluidSpitAt = NOT_SCHEDULED;
         nextHookAt = NOT_SCHEDULED;
         nextCaptureAt = NOT_SCHEDULED;
+        nextLeapAt = NOT_SCHEDULED;
+        // A leap still in the air is physics and keeps going; only a plan that has not been
+        // pushed off yet dies with the windup that was just thrown away.
+        if (!leapAirborne) {
+            leapDestination = null;
+            leapPhaseIndex = -1;
+        }
     }
 
     private void reset() {
@@ -3179,6 +3634,7 @@ public final class TeleportPathController {
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
         clearHookPulls();
+        clearLeap();
         BossCaptureManager.releaseByBoss(npc);
         busyUntil = 0L;
         cancelPendingAndSchedules();
