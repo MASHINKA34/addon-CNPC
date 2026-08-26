@@ -253,6 +253,9 @@ public final class BossDeathEvents {
         if (BossChestScheduler.hasPending()) {
             BossChestScheduler.tick(level);
         }
+        if (BossAreaVfxScheduler.hasPending()) {
+            BossAreaVfxScheduler.tick(level);
+        }
         BossCaptureManager.tick(level);
     }
 
@@ -261,6 +264,7 @@ public final class BossDeathEvents {
         if (event.getLevel() instanceof ServerLevel level) {
             BossExplosionScheduler.clear(level);
             BossChestScheduler.clear(level);
+            BossAreaVfxScheduler.clear(level);
             BossCaptureManager.clearLevel(level);
             TeleportPathController.shutdownLevel(level);
         }

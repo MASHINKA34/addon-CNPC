@@ -2979,6 +2979,9 @@ public final class TeleportPathController {
     }
 
     private void performAreaAttack(ServerLevel level, BossPhaseData phase) {
+        // Purely for show, and started before the hits so the wave leaves at the same moment
+        // the damage lands rather than a tick behind it.
+        BossAreaVfxScheduler.schedule(level, npc.position(), phase);
         for (LivingEntity target : getAreaTargets(level, phase)) {
             boolean damaged = target.hurt(level.damageSources().mobAttack(npc),
                     rageUp(phase.getAreaAttackDamage()));

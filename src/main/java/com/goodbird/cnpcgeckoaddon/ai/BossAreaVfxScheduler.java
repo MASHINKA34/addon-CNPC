@@ -1,0 +1,258 @@
+package com.goodbird.cnpcgeckoaddon.ai;
+
+import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SculkChargeParticleOptions;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+/**
+ * Draws the wave an area attack throws out around the boss.
+ *
+ * <p>The attack itself lands in a single tick, so the wave cannot be driven from it: it is
+ * snapshotted here and expanded from the level tick instead, the same way
+ * {@link BossExplosionScheduler} handles a delayed blast. Every boss owns its own entry, so
+ * two of them fighting side by side keep their own style, radius and timing.</p>
+ *
+ * <p>Everything below is cosmetic: nothing here touches a block or an entity.</p>
+ *
+ * <p>Nothing is persisted. A wave lives for a second or two, and a server that shuts down
+ * inside that window should not resume a light show on the next start.</p>
+ */
+public final class BossAreaVfxScheduler {
+
+    /** Roughly one emit per this many blocks around the ring. */
+    private static final double EMIT_SPACING = 0.6D;
+    private static final int MIN_RING_POINTS = 4;
+    /** Ceiling on the emits per tick, so a wide ring costs no more than a narrow one. */
+    private static final int MAX_RING_POINTS = 64;
+    /** Beyond this the wave is invisible anyway, so it plays out without costing anything. */
+    private static final double AUDIENCE_RANGE = 64.0D;
+    /** How far below the boss the ring will look for a floor to run along. */
+    private static final int FLOOR_SEARCH_DEPTH = 4;
+
+    /** One boss's wave, mid-expansion. */
+    private static final class Wave {
+        private final ResourceKey<Level> dimension;
+        private final Vec3 center;
+        private final double radius;
+        private final String style;
+        private final int duration;
+        private int tick;
+
+        private Wave(ResourceKey<Level> dimension, Vec3 center, double radius, String style,
+                     int duration) {
+            this.dimension = dimension;
+            this.center = center;
+            this.radius = radius;
+            this.style = style;
+            this.duration = duration;
+        }
+    }
+
+    private static final List<Wave> WAVES = new ArrayList<>();
+
+    private BossAreaVfxScheduler() {
+    }
+
+    /** Starts a wave for an area attack that has just landed. */
+    public static void schedule(ServerLevel level, Vec3 center, BossPhaseData phase) {
+        String style = AreaVfxStyles.normalize(phase.getAreaAttackVfx());
+        if (!AreaVfxStyles.isVisible(style)) {
+            return;
+        }
+        WAVES.add(new Wave(level.dimension(), center, phase.getAreaAttackRadius(), style,
+                phase.getAreaAttackVfxDurationTicks()));
+        // One shout at the front of the wave. Repeating it every tick would drown the fight.
+        playStyleSound(level, center, style);
+    }
+
+    public static boolean hasPending() {
+        return !WAVES.isEmpty();
+    }
+
+    public static void tick(ServerLevel level) {
+        if (WAVES.isEmpty()) {
+            return;
+        }
+        Iterator<Wave> iterator = WAVES.iterator();
+        while (iterator.hasNext()) {
+            Wave wave = iterator.next();
+            if (!wave.dimension.equals(level.dimension())) {
+                continue;
+            }
+            if (++wave.tick > wave.duration) {
+                iterator.remove();
+                continue;
+            }
+            // With nobody around the wave still runs its clock down, so a player walking in
+            // halfway through catches the rest of it rather than a ring frozen in time.
+            if (level.getNearestPlayer(wave.center.x, wave.center.y, wave.center.z,
+                    AUDIENCE_RANGE, false) != null) {
+                emitRing(level, wave);
+            }
+        }
+    }
+
+    /** Drops anything still waiting in a level that is going away. */
+    public static void clear(ServerLevel level) {
+        WAVES.removeIf(wave -> wave.dimension.equals(level.dimension()));
+    }
+
+    private static void emitRing(ServerLevel level, Wave wave) {
+        double progress = (double) wave.tick / wave.duration;
+        double radius = wave.radius * progress;
+        int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / EMIT_SPACING),
+                MIN_RING_POINTS, MAX_RING_POINTS);
+        boolean hurricane = AreaVfxStyles.HURRICANE.equals(wave.style);
+        // The hurricane's spiral is the same ring walk: it turns a little further and climbs
+        // a little higher every tick, which is all a rising vortex ever was.
+        double spin = hurricane ? wave.tick * 0.4D : 0.0D;
+        double lift = hurricane ? progress * 2.0D : 0.0D;
+
+        RandomSource random = level.getRandom();
+        for (int i = 0; i < points; i++) {
+            double angle = spin + i * Mth.TWO_PI / points;
+            double x = wave.center.x + Math.cos(angle) * radius;
+            double z = wave.center.z + Math.sin(angle) * radius;
+            BlockPos floor = findFloor(level, x, wave.center.y, z);
+            if (floor == null) {
+                continue;
+            }
+            double y = floor.getY() + 1.0D + lift;
+            emit(level, wave.style, x, y, z, i, random);
+        }
+    }
+
+    /**
+     * The block the wave runs along at one point of the ring, or null when the floor is more
+     * than {@link #FLOOR_SEARCH_DEPTH} below the boss - a wave hanging in mid air over a
+     * balcony edge looks worse than one that simply skips the gap.
+     */
+    private static BlockPos findFloor(ServerLevel level, double x, double y, double z) {
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(Mth.floor(x), Mth.floor(y), Mth.floor(z));
+        for (int depth = 0; depth <= FLOOR_SEARCH_DEPTH; depth++) {
+            if (!level.isLoaded(pos)) {
+                return null;
+            }
+            BlockState state = level.getBlockState(pos);
+            if (!state.isAir() && !state.getCollisionShape(level, pos).isEmpty()) {
+                return pos.immutable();
+            }
+            pos.move(Direction.DOWN);
+        }
+        return null;
+    }
+
+    /**
+     * Paints one point of the ring.
+     *
+     * <p>Only the leading particle goes out on every point: the rest thin out to every other
+     * point and to the odd flourish, which keeps a sixteen-block ring inside a packet budget
+     * a boss fight can afford.</p>
+     */
+    private static void emit(ServerLevel level, String style, double x, double y, double z,
+                             int index, RandomSource random) {
+        boolean second = (index & 1) == 0;
+        boolean accent = random.nextInt(4) == 0;
+        switch (style) {
+            case AreaVfxStyles.VINES -> {
+                level.sendParticles(ParticleTypes.COMPOSTER, x, y + 0.1D, z, 2, 0.05D, 0.3D, 0.05D, 0.02D);
+                if (second) {
+                    level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y + 0.4D, z, 1, 0.1D, 0.3D, 0.1D, 0.0D);
+                }
+                if (accent) {
+                    level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.OAK_LEAVES.defaultBlockState()),
+                            x, y + 0.6D, z, 2, 0.15D, 0.2D, 0.15D, 0.05D);
+                    level.sendParticles(ParticleTypes.SPORE_BLOSSOM_AIR, x, y + 0.9D, z, 1, 0.2D, 0.3D, 0.2D, 0.0D);
+                }
+            }
+            case AreaVfxStyles.STONE -> {
+                level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()),
+                        x, y + 0.2D, z, 3, 0.15D, 0.1D, 0.15D, 0.15D);
+                if (second) {
+                    level.sendParticles(ParticleTypes.CRIT, x, y + 0.3D, z, 2, 0.1D, 0.2D, 0.1D, 0.1D);
+                }
+                if (accent) {
+                    level.sendParticles(ParticleTypes.POOF, x, y + 0.4D, z, 1, 0.2D, 0.1D, 0.2D, 0.02D);
+                }
+            }
+            case AreaVfxStyles.HURRICANE -> {
+                level.sendParticles(ParticleTypes.CLOUD, x, y + 0.3D, z, 1, 0.1D, 0.2D, 0.1D, 0.02D);
+                if (second) {
+                    level.sendParticles(ParticleTypes.POOF, x, y + 0.6D, z, 1, 0.15D, 0.25D, 0.15D, 0.03D);
+                }
+                if (accent) {
+                    level.sendParticles(ParticleTypes.SWEEP_ATTACK, x, y + 1.0D, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                }
+            }
+            case AreaVfxStyles.FIRE -> {
+                level.sendParticles(ParticleTypes.FLAME, x, y + 0.2D, z, 2, 0.1D, 0.1D, 0.1D, 0.01D);
+                if (second) {
+                    level.sendParticles(ParticleTypes.SMALL_FLAME, x, y + 0.4D, z, 2, 0.15D, 0.2D, 0.15D, 0.01D);
+                }
+                if (accent) {
+                    level.sendParticles(ParticleTypes.LAVA, x, y + 0.3D, z, 1, 0.1D, 0.0D, 0.1D, 0.0D);
+                    level.sendParticles(ParticleTypes.LARGE_SMOKE, x, y + 0.8D, z, 1, 0.2D, 0.2D, 0.2D, 0.01D);
+                }
+            }
+            case AreaVfxStyles.GHOST -> {
+                level.sendParticles(ParticleTypes.SOUL, x, y + 0.2D, z, 1, 0.1D, 0.1D, 0.1D, 0.03D);
+                if (second) {
+                    level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, x, y + 0.5D, z, 1, 0.1D, 0.2D, 0.1D, 0.01D);
+                }
+                if (accent) {
+                    level.sendParticles(ParticleTypes.WHITE_ASH, x, y + 0.9D, z, 3, 0.3D, 0.3D, 0.3D, 0.0D);
+                }
+            }
+            case AreaVfxStyles.SCULK_WAVE -> {
+                level.sendParticles(ParticleTypes.SCULK_SOUL, x, y + 0.2D, z, 1, 0.1D, 0.1D, 0.1D, 0.02D);
+                if (second) {
+                    level.sendParticles(ParticleTypes.SCULK_CHARGE_POP, x, y + 0.4D, z, 2, 0.15D, 0.15D, 0.15D, 0.0D);
+                }
+                if (accent) {
+                    level.sendParticles(new SculkChargeParticleOptions(random.nextFloat() * Mth.TWO_PI),
+                            x, y + 0.6D, z, 1, 0.1D, 0.2D, 0.1D, 0.0D);
+                }
+            }
+            default -> {
+                // AreaVfxStyles.NONE never reaches this far.
+            }
+        }
+    }
+
+    private static void playStyleSound(ServerLevel level, Vec3 center, String style) {
+        switch (style) {
+            case AreaVfxStyles.VINES -> playSound(level, center, SoundEvents.AZALEA_LEAVES_BREAK, 2.5F, 0.7F);
+            case AreaVfxStyles.STONE -> playSound(level, center, SoundEvents.STONE_BREAK, 4.0F, 0.5F);
+            case AreaVfxStyles.HURRICANE -> playSound(level, center, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), 3.0F, 0.8F);
+            case AreaVfxStyles.FIRE -> playSound(level, center, SoundEvents.FIRECHARGE_USE, 3.0F, 0.7F);
+            case AreaVfxStyles.GHOST -> playSound(level, center, SoundEvents.SOUL_ESCAPE.value(), 3.0F, 0.6F);
+            case AreaVfxStyles.SCULK_WAVE -> playSound(level, center, SoundEvents.SCULK_SHRIEKER_SHRIEK, 2.5F, 0.9F);
+            default -> {
+                // Styleless waves stay quiet.
+            }
+        }
+    }
+
+    private static void playSound(ServerLevel level, Vec3 center, SoundEvent sound, float volume, float pitch) {
+        level.playSound(null, center.x, center.y, center.z, sound, SoundSource.HOSTILE, volume, pitch);
+    }
+}
