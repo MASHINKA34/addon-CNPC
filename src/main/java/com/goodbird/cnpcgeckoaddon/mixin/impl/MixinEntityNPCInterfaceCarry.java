@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.level.Level;
@@ -8,6 +9,7 @@ import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -37,5 +39,17 @@ public abstract class MixinEntityNPCInterfaceCarry extends PathfinderMob {
         if (NpcCarryManager.isCarried(this)) {
             cir.setReturnValue(false);
         }
+    }
+
+    /**
+     * Saves a held npc with the flags it had before it was picked up.
+     *
+     * <p>An autosave or a chunk unload lands in the middle of carries, and the flags a carry
+     * borrows are all persisted ones. This is the tail of the whole save, so the values
+     * written higher up by Entity and Mob are the ones being corrected here.</p>
+     */
+    @Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
+    private void cnpcgeckoaddon$saveCarriedNpcAsItWas(CompoundTag tag, CallbackInfo ci) {
+        NpcCarryManager.restoreSavedFlags(this, tag);
     }
 }

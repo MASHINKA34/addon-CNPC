@@ -8,7 +8,12 @@ import net.minecraft.world.InteractionResult;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.level.LevelEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import noppes.npcs.entity.EntityNPCInterface;
 
@@ -65,6 +70,50 @@ public final class NpcCarryEvents {
         if (event.getLevel() instanceof ServerLevel level) {
             NpcCarryManager.tick(level);
         }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            NpcCarryManager.onPlayerGone(player);
+        }
+    }
+
+    /** The npc stays in the dimension it was picked up in, so the carry ends with it. */
+    @SubscribeEvent
+    public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            NpcCarryManager.release(player);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onDeath(final LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            NpcCarryManager.release(player);
+        } else if (!event.getEntity().level().isClientSide) {
+            NpcCarryManager.releaseNpc(event.getEntity());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityLeaveLevel(final EntityLeaveLevelEvent event) {
+        if (!event.getLevel().isClientSide) {
+            NpcCarryManager.releaseNpc(event.getEntity());
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLevelUnload(final LevelEvent.Unload event) {
+        if (event.getLevel() instanceof ServerLevel level) {
+            NpcCarryManager.clearLevel(level);
+        }
+    }
+
+    /** Runs before the world is saved, which is the only chance to land a carry cleanly. */
+    @SubscribeEvent
+    public static void onServerStopping(final ServerStoppingEvent event) {
+        NpcCarryManager.shutdown(event.getServer());
     }
 
     /** Only the server knows who is in carry mode, and only the main hand may act on it. */

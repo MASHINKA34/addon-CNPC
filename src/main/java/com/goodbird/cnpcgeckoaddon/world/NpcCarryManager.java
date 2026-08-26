@@ -5,8 +5,10 @@ import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -123,8 +125,10 @@ public final class NpcCarryManager {
         }
         if (BY_PLAYER.containsKey(player.getUUID())) {
             // One npc per pair of hands. A held npc covers the crosshair, so this is also
-            // the click a builder aims at the floor to put one down.
-            return placeFromAim(player);
+            // the click a builder aims at the floor to put one down - and either way it
+            // belongs to the tool, never to the npc that was clicked.
+            placeFromAim(player);
+            return true;
         }
         if (BY_NPC.containsKey(npc.getUUID())) {
             player.displayClientMessage(Component.translatable("cnpcgeckoaddon.carry.busy"), true);
@@ -175,7 +179,7 @@ public final class NpcCarryManager {
         return true;
     }
 
-    /** Puts down whatever this player is holding, back where it was picked up. */
+    /** Ends this player's carry: the mode going off, a death, a logout, a new dimension. */
     public static void release(ServerPlayer player) {
         CarryRuntime carry = BY_PLAYER.get(player.getUUID());
         if (carry == null) {
@@ -183,13 +187,60 @@ public final class NpcCarryManager {
         }
         ServerLevel level = player.getServer() == null
                 ? null : player.getServer().getLevel(carry.levelKey);
-        Entity held = level == null ? null : level.getEntity(carry.npcId);
-        if (held instanceof EntityNPCInterface npc && !npc.isRemoved() && npc.isAlive()) {
-            settleAtPickup(npc, carry);
-            player.displayClientMessage(
-                    Component.translatable("cnpcgeckoaddon.carry.returned", npc.getName()), true);
+        end(level, carry, player);
+    }
+
+    /** A logout also drops carry mode, so a returning builder is not still holding a tool. */
+    public static void onPlayerGone(ServerPlayer player) {
+        release(player);
+        CARRY_MODE.remove(player.getUUID());
+    }
+
+    /** The npc is gone - dead, deleted or unloaded - so the carry has nothing left to end. */
+    public static void releaseNpc(Entity npc) {
+        if (BY_NPC.isEmpty()) {
+            return;
         }
-        forget(carry);
+        CarryRuntime carry = BY_NPC.get(npc.getUUID());
+        if (carry != null) {
+            forget(carry);
+        }
+    }
+
+    public static void clearLevel(ServerLevel level) {
+        for (CarryRuntime carry : BY_PLAYER.values().toArray(CarryRuntime[]::new)) {
+            if (carry.levelKey.equals(level.dimension())) {
+                end(level, carry, carrier(level, carry));
+            }
+        }
+    }
+
+    /** Every carry has to land before the world is written out. */
+    public static void shutdown(MinecraftServer server) {
+        for (ServerLevel level : server.getAllLevels()) {
+            clearLevel(level);
+        }
+        CARRY_MODE.clear();
+    }
+
+    /**
+     * Writes the borrowed flags back to what the npc had before it was picked up.
+     *
+     * <p>An autosave or a chunk unload can catch an npc mid carry, and that snapshot is what
+     * a crash restores from. Left alone it would bring the npc back as an immortal statue
+     * with its ai switched off, which is exactly the state nobody can debug afterwards.</p>
+     */
+    public static void restoreSavedFlags(Entity npc, CompoundTag tag) {
+        if (BY_NPC.isEmpty()) {
+            return;
+        }
+        CarryRuntime carry = BY_NPC.get(npc.getUUID());
+        if (carry == null) {
+            return;
+        }
+        tag.putBoolean("NoAI", carry.hadNoAi);
+        tag.putBoolean("Invulnerable", carry.wasInvulnerable);
+        tag.putBoolean("NoGravity", carry.hadNoGravity);
     }
 
     public static void tick(ServerLevel level) {
@@ -207,11 +258,9 @@ public final class NpcCarryManager {
                 forget(carry);
                 continue;
             }
-            ServerPlayer player = level.getPlayerByUUID(carry.playerId) instanceof ServerPlayer found
-                    ? found : null;
+            ServerPlayer player = carrier(level, carry);
             if (player == null || player.isRemoved() || !player.isAlive()) {
-                settleAtPickup(npc, carry);
-                forget(carry);
+                abort(level, carry, npc, player);
                 continue;
             }
             hold(player, npc);
@@ -228,7 +277,11 @@ public final class NpcCarryManager {
         npc.moveTo(anchor.x, anchor.y, anchor.z, yaw, 0.0F);
         npc.setYHeadRot(yaw);
         npc.setYBodyRot(yaw);
-        npc.setTarget(null);
+        if (npc.getTarget() != null) {
+            // Guarded because CustomNPCs runs the npc's target-lost scripts on every call,
+            // and a carry would otherwise fire them twenty times a second.
+            npc.setTarget(null);
+        }
         npc.getNavigation().stop();
         npc.setDeltaMovement(Vec3.ZERO);
         npc.fallDistance = 0.0F;
@@ -290,6 +343,46 @@ public final class NpcCarryManager {
                     placement.point().y + 0.05D,
                     placement.point().z + Math.sin(angle) * radius,
                     1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    private static ServerPlayer carrier(ServerLevel level, CarryRuntime carry) {
+        return level.getPlayerByUUID(carry.playerId) instanceof ServerPlayer found ? found : null;
+    }
+
+    private static void end(ServerLevel level, CarryRuntime carry, ServerPlayer player) {
+        Entity held = level == null ? null : level.getEntity(carry.npcId);
+        if (held instanceof EntityNPCInterface npc && !npc.isRemoved() && npc.isAlive()) {
+            abort(level, carry, npc, player);
+        } else {
+            forget(carry);
+        }
+    }
+
+    /**
+     * Ends a carry that cannot go on, and never at the npc's expense.
+     *
+     * <p>It is put down where the carrier is standing. When that spot cannot hold it, or the
+     * carrier is not there to stand anywhere, it goes back to the exact place it was picked
+     * up from with the start position it had before anyone touched it.</p>
+     */
+    private static void abort(ServerLevel level, CarryRuntime carry,
+                              EntityNPCInterface npc, ServerPlayer player) {
+        Vec3 atCarrier = player != null && player.level() == level && !player.isRemoved()
+                ? player.position() : null;
+        if (atCarrier != null && fits(level, npc, atCarrier)) {
+            settle(npc, carry, atCarrier, npc.getYRot(), 0.0F, BlockPos.containing(atCarrier));
+            message(player, "cnpcgeckoaddon.carry.placed", npc);
+        } else {
+            settleAtPickup(npc, carry);
+            message(player, "cnpcgeckoaddon.carry.returned", npc);
+        }
+        forget(carry);
+    }
+
+    private static void message(ServerPlayer player, String key, EntityNPCInterface npc) {
+        if (player != null) {
+            player.displayClientMessage(Component.translatable(key, npc.getName()), true);
         }
     }
 
