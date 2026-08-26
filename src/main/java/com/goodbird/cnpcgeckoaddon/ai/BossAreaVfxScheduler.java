@@ -322,6 +322,10 @@ public final class BossAreaVfxScheduler {
      * the copy would advertise. So is anything unbreakable, which is how bedrock and barriers
      * stay where a map maker put them, and anything that is not a full solid cube, which
      * covers liquids, plants and carpets.</p>
+     *
+     * <p>The block also needs somewhere to go. Where the ring runs into a wall the floor it
+     * finds is the wall's own bottom block, and a copy of that would only rattle against the
+     * course above it for the rest of its life.</p>
      */
     private static boolean canLaunch(ServerLevel level, BlockPos pos, BlockState state) {
         if (state.isAir() || state.hasBlockEntity() || !state.getFluidState().isEmpty()) {
@@ -330,7 +334,11 @@ public final class BossAreaVfxScheduler {
         if (state.getDestroySpeed(level, pos) < 0.0F) {
             return false;
         }
-        return state.isSolidRender(level, pos);
+        if (!state.isSolidRender(level, pos)) {
+            return false;
+        }
+        BlockPos above = pos.above();
+        return level.isLoaded(above) && level.getBlockState(above).getCollisionShape(level, above).isEmpty();
     }
 
     private static void tickLaunched(ServerLevel level) {
