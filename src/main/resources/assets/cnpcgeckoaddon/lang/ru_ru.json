@@ -385,5 +385,12 @@
   "cnpcgeckoaddon.model_picker.no_results": "Подходящих моделей нет",
   "cnpcgeckoaddon.model_picker.preview_fallback": "Ошибка предпросмотра; показана резервная модель.",
   "cnpcgeckoaddon.model_picker.preview_unavailable": "Предпросмотр недоступен",
+  "cnpcgeckoaddon.carry.on": "Режим переноски включён: правый клик по НПС, чтобы взять",
+  "cnpcgeckoaddon.carry.off": "Режим переноски выключен",
+  "cnpcgeckoaddon.carry.picked": "Несёшь %s",
+  "cnpcgeckoaddon.carry.placed": "Поставлен %s",
+  "cnpcgeckoaddon.carry.blocked": "Здесь не помещается",
+  "cnpcgeckoaddon.carry.busy": "Этого НПС уже несут",
+  "cnpcgeckoaddon.carry.returned": "%s возвращён на место, откуда его взяли",
   "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
 }

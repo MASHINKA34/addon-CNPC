@@ -385,5 +385,12 @@
   "cnpcgeckoaddon.model_picker.no_results": "No matching models",
   "cnpcgeckoaddon.model_picker.preview_fallback": "Model preview failed; showing fallback.",
   "cnpcgeckoaddon.model_picker.preview_unavailable": "Preview unavailable",
+  "cnpcgeckoaddon.carry.on": "Carry mode on: right-click an npc to pick it up",
+  "cnpcgeckoaddon.carry.off": "Carry mode off",
+  "cnpcgeckoaddon.carry.picked": "Carrying %s",
+  "cnpcgeckoaddon.carry.placed": "Placed %s",
+  "cnpcgeckoaddon.carry.blocked": "No room there",
+  "cnpcgeckoaddon.carry.busy": "Someone is already carrying that npc",
+  "cnpcgeckoaddon.carry.returned": "Returned %s to where it was picked up",
   "block.cnpcgeckoaddon.boss_chest": "Boss chest"
 }
