@@ -14,6 +14,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -31,7 +32,9 @@ import java.util.List;
  * {@link BossExplosionScheduler} handles a delayed blast. Every boss owns its own entry, so
  * two of them fighting side by side keep their own style, radius and timing.</p>
  *
- * <p>Everything below is cosmetic: nothing here touches a block or an entity.</p>
+ * <p>Everything below is cosmetic. Nothing here damages an entity, and the block wave lifts
+ * copies of the floor rather than the floor itself - the arena comes out of a fight exactly
+ * as it went in.</p>
  *
  * <p>Nothing is persisted. A wave lives for a second or two, and a server that shuts down
  * inside that window should not resume a light show on the next start.</p>
@@ -48,6 +51,11 @@ public final class BossAreaVfxScheduler {
     /** How far below the boss the ring will look for a floor to run along. */
     private static final int FLOOR_SEARCH_DEPTH = 4;
 
+    private static final int MAX_BLOCKS_PER_WAVE = 48;
+    private static final int MAX_BLOCKS_PER_TICK = 12;
+    /** A lifted block that never lands - launched over a pit - is dropped after this. */
+    private static final int BLOCK_LIFETIME_TICKS = 40;
+
     /** One boss's wave, mid-expansion. */
     private static final class Wave {
         private final ResourceKey<Level> dimension;
@@ -55,19 +63,26 @@ public final class BossAreaVfxScheduler {
         private final double radius;
         private final String style;
         private final int duration;
+        private final boolean blockWave;
         private int tick;
+        private int blocksLaunched;
 
         private Wave(ResourceKey<Level> dimension, Vec3 center, double radius, String style,
-                     int duration) {
+                     int duration, boolean blockWave) {
             this.dimension = dimension;
             this.center = center;
             this.radius = radius;
             this.style = style;
             this.duration = duration;
+            this.blockWave = blockWave;
         }
     }
 
+    private record Launched(ResourceKey<Level> dimension, FallingBlockEntity entity, long expireAt) {
+    }
+
     private static final List<Wave> WAVES = new ArrayList<>();
+    private static final List<Launched> LAUNCHED = new ArrayList<>();
 
     private BossAreaVfxScheduler() {
     }
@@ -75,20 +90,22 @@ public final class BossAreaVfxScheduler {
     /** Starts a wave for an area attack that has just landed. */
     public static void schedule(ServerLevel level, Vec3 center, BossPhaseData phase) {
         String style = AreaVfxStyles.normalize(phase.getAreaAttackVfx());
-        if (!AreaVfxStyles.isVisible(style)) {
+        boolean blockWave = phase.isAreaAttackBlockWave();
+        if (!AreaVfxStyles.isVisible(style) && !blockWave) {
             return;
         }
         WAVES.add(new Wave(level.dimension(), center, phase.getAreaAttackRadius(), style,
-                phase.getAreaAttackVfxDurationTicks()));
+                phase.getAreaAttackVfxDurationTicks(), blockWave));
         // One shout at the front of the wave. Repeating it every tick would drown the fight.
         playStyleSound(level, center, style);
     }
 
     public static boolean hasPending() {
-        return !WAVES.isEmpty();
+        return !WAVES.isEmpty() || !LAUNCHED.isEmpty();
     }
 
     public static void tick(ServerLevel level) {
+        tickLaunched(level);
         if (WAVES.isEmpty()) {
             return;
         }
@@ -114,6 +131,7 @@ public final class BossAreaVfxScheduler {
     /** Drops anything still waiting in a level that is going away. */
     public static void clear(ServerLevel level) {
         WAVES.removeIf(wave -> wave.dimension.equals(level.dimension()));
+        LAUNCHED.removeIf(launched -> launched.dimension().equals(level.dimension()));
     }
 
     private static void emitRing(ServerLevel level, Wave wave) {
@@ -126,8 +144,12 @@ public final class BossAreaVfxScheduler {
         // a little higher every tick, which is all a rising vortex ever was.
         double spin = hurricane ? wave.tick * 0.4D : 0.0D;
         double lift = hurricane ? progress * 2.0D : 0.0D;
+        // Spread the lifted blocks evenly around the ring instead of clumping the tick's
+        // whole allowance onto one side of it.
+        int blockStride = Math.max(1, points / MAX_BLOCKS_PER_TICK);
 
         RandomSource random = level.getRandom();
+        int blocksThisTick = 0;
         for (int i = 0; i < points; i++) {
             double angle = spin + i * Mth.TWO_PI / points;
             double x = wave.center.x + Math.cos(angle) * radius;
@@ -138,6 +160,14 @@ public final class BossAreaVfxScheduler {
             }
             double y = floor.getY() + 1.0D + lift;
             emit(level, wave.style, x, y, z, i, random);
+
+            if (wave.blockWave && i % blockStride == 0
+                    && blocksThisTick < MAX_BLOCKS_PER_TICK
+                    && wave.blocksLaunched < MAX_BLOCKS_PER_WAVE
+                    && launchBlock(level, floor, wave.center, random)) {
+                blocksThisTick++;
+                wave.blocksLaunched++;
+            }
         }
     }
 
@@ -233,7 +263,7 @@ public final class BossAreaVfxScheduler {
                 }
             }
             default -> {
-                // AreaVfxStyles.NONE never reaches this far.
+                // AreaVfxStyles.NONE, and anything the block wave alone was scheduled for.
             }
         }
     }
@@ -254,5 +284,72 @@ public final class BossAreaVfxScheduler {
 
     private static void playSound(ServerLevel level, Vec3 center, SoundEvent sound, float volume, float pitch) {
         level.playSound(null, center.x, center.y, center.z, sound, SoundSource.HOSTILE, volume, pitch);
+    }
+
+    /**
+     * Throws a copy of one floor block into the air.
+     *
+     * <p>The world is never written to: the entity is built straight from the state the floor
+     * already has, so the real block never leaves and no neighbour ever hears about it. The
+     * copy drops nothing, hurts nobody and refuses to settle when it lands.</p>
+     */
+    private static boolean launchBlock(ServerLevel level, BlockPos pos, Vec3 center, RandomSource random) {
+        BlockState state = level.getBlockState(pos);
+        if (!canLaunch(level, pos, state)) {
+            return false;
+        }
+        FallingBlockEntity block = new FallingBlockEntity(level,
+                pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, state);
+        block.dropItem = false;
+        // Also what stops it from becoming a real block again wherever it comes down.
+        block.disableDrop();
+
+        double dx = pos.getX() + 0.5D - center.x;
+        double dz = pos.getZ() + 0.5D - center.z;
+        double distance = Math.sqrt(dx * dx + dz * dz);
+        double outward = distance > 1.0E-4D ? (0.05D + random.nextDouble() * 0.1D) / distance : 0.0D;
+        block.setDeltaMovement(dx * outward, 0.35D + random.nextDouble() * 0.25D, dz * outward);
+
+        level.addFreshEntity(block);
+        LAUNCHED.add(new Launched(level.dimension(), block, level.getGameTime() + BLOCK_LIFETIME_TICKS));
+        return true;
+    }
+
+    /**
+     * Whether a floor block may be copied into the air.
+     *
+     * <p>Block entities are out - a chest, a spawner or the boss's own chest carry contents
+     * the copy would advertise. So is anything unbreakable, which is how bedrock and barriers
+     * stay where a map maker put them, and anything that is not a full solid cube, which
+     * covers liquids, plants and carpets.</p>
+     */
+    private static boolean canLaunch(ServerLevel level, BlockPos pos, BlockState state) {
+        if (state.isAir() || state.hasBlockEntity() || !state.getFluidState().isEmpty()) {
+            return false;
+        }
+        if (state.getDestroySpeed(level, pos) < 0.0F) {
+            return false;
+        }
+        return state.isSolidRender(level, pos);
+    }
+
+    private static void tickLaunched(ServerLevel level) {
+        if (LAUNCHED.isEmpty()) {
+            return;
+        }
+        long gameTime = level.getGameTime();
+        Iterator<Launched> iterator = LAUNCHED.iterator();
+        while (iterator.hasNext()) {
+            Launched launched = iterator.next();
+            if (!launched.dimension().equals(level.dimension())) {
+                continue;
+            }
+            if (launched.entity().isRemoved()) {
+                iterator.remove();
+            } else if (gameTime >= launched.expireAt()) {
+                launched.entity().discard();
+                iterator.remove();
+            }
+        }
     }
 }
