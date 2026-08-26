@@ -161,7 +161,7 @@ public final class NpcCarryManager {
         }
         Entity held = level.getEntity(carry.npcId);
         if (!(held instanceof EntityNPCInterface npc) || npc.isRemoved() || !npc.isAlive()) {
-            forget(carry);
+            forget(carry, held);
             return false;
         }
         Placement placement = aimedPlacement(level, player, npc);
@@ -196,14 +196,14 @@ public final class NpcCarryManager {
         CARRY_MODE.remove(player.getUUID());
     }
 
-    /** The npc is gone - dead, deleted or unloaded - so the carry has nothing left to end. */
+    /** The npc is gone - dead, deleted or unloaded - so there is nowhere left to carry it. */
     public static void releaseNpc(Entity npc) {
         if (BY_NPC.isEmpty()) {
             return;
         }
         CarryRuntime carry = BY_NPC.get(npc.getUUID());
         if (carry != null) {
-            forget(carry);
+            forget(carry, npc);
         }
     }
 
@@ -254,8 +254,7 @@ public final class NpcCarryManager {
             }
             Entity held = level.getEntity(carry.npcId);
             if (!(held instanceof EntityNPCInterface npc) || npc.isRemoved() || !npc.isAlive()) {
-                // Nothing left to put down, so there is nothing to repair either.
-                forget(carry);
+                forget(carry, held);
                 continue;
             }
             ServerPlayer player = carrier(level, carry);
@@ -360,7 +359,7 @@ public final class NpcCarryManager {
         if (held instanceof EntityNPCInterface npc && !npc.isRemoved() && npc.isAlive()) {
             abort(level, carry, npc, player);
         } else {
-            forget(carry);
+            forget(carry, held);
         }
     }
 
@@ -408,9 +407,7 @@ public final class NpcCarryManager {
         npc.setYHeadRot(yaw);
         npc.setYBodyRot(yaw);
         npc.ais.setStartPos(home);
-        npc.setNoAi(carry.hadNoAi);
-        npc.setInvulnerable(carry.wasInvulnerable);
-        npc.setNoGravity(carry.hadNoGravity);
+        restoreFlags(npc, carry);
         npc.getNavigation().stop();
         npc.setDeltaMovement(Vec3.ZERO);
         npc.fallDistance = 0.0F;
@@ -430,6 +427,25 @@ public final class NpcCarryManager {
                 controller.onRelocated();
             }
         }
+    }
+
+    private static void restoreFlags(EntityNPCInterface npc, CarryRuntime carry) {
+        npc.setNoAi(carry.hadNoAi);
+        npc.setInvulnerable(carry.wasInvulnerable);
+        npc.setNoGravity(carry.hadNoGravity);
+    }
+
+    /**
+     * Drops a carry that has nothing left to put down, handing the flags back on the way out.
+     *
+     * <p>A dead npc gets them too: CustomNPCs revives it on its own spawn cycle, and it would
+     * come back an immortal statue if the flags stayed on it.</p>
+     */
+    private static void forget(CarryRuntime carry, Entity held) {
+        if (held instanceof EntityNPCInterface npc) {
+            restoreFlags(npc, carry);
+        }
+        forget(carry);
     }
 
     private static void forget(CarryRuntime carry) {
