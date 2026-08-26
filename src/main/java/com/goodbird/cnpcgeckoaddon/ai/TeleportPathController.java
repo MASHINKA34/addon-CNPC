@@ -719,9 +719,6 @@ public final class TeleportPathController {
                 totem.discard();
                 continue;
             }
-            // Totems saved before the boss started suppressing this lose their own respawn
-            // here, so an older world stops resurrecting them behind the boss' back.
-            BossCloneRespawnGuard.suppressSelfRespawn(totem);
             totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(totem.getUUID()))
                     .entityId = totem.getUUID();
         }

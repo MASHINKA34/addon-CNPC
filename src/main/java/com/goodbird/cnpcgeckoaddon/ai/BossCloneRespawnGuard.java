@@ -52,7 +52,7 @@ public final class BossCloneRespawnGuard {
     private BossCloneRespawnGuard() {
     }
 
-    /** Takes a clone's own resurrection away, for the spawn path and for adopted survivors. */
+    /** Takes a clone's own resurrection away, on the spawn path and on the way back in from a save. */
     public static void suppressSelfRespawn(Entity clone) {
         if (!(clone instanceof EntityNPCInterface npc)) {
             return;

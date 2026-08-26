@@ -17,6 +17,7 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
@@ -165,6 +166,23 @@ public final class BossDeathEvents {
         } else if (event.getEntity() instanceof ServerPlayer player
                 && event.getSource().getEntity() instanceof EntityNPCInterface npc) {
             trackParticipant(npc, player);
+        }
+    }
+
+    /**
+     * Takes the self-respawn off every boss clone that enters a level, saved ones included.
+     *
+     * <p>This also fires as a clone is spawned, before the boss has marked it, which is why
+     * the spawn paths suppress it themselves; what only this can reach is a totem or a minion
+     * that was saved by a world built before the boss started claiming that decision.</p>
+     */
+    @SubscribeEvent
+    public static void onEntityJoinLevel(final EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide || !(event.getEntity() instanceof EntityNPCInterface npc)) {
+            return;
+        }
+        if (BossTotemUtil.isTotem(npc) || BossMinionUtil.isMinion(npc)) {
+            BossCloneRespawnGuard.suppressSelfRespawn(npc);
         }
     }
 
