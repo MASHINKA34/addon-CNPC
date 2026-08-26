@@ -9,7 +9,7 @@ import sys
 import zipfile
 import zlib
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,165 +44,286 @@ FRAME_DURATION_MS = 100
 TRANSPARENT = (0, 0, 0, 0)
 VANILLA_ENTRY = "assets/minecraft/textures/entity/chest/normal.png"
 STYLE_IDS = ("moss_cave", "infernal", "ghost", "sculk", "gilded", "bone")
+LAYER_NAMES = ("palette_recolor", "style_accents")
+WOOD_STEPS = 14
+METAL_STEPS = 6
+MAX_ACCENT_FRACTION = 0.10
+
+RGB = tuple[int, int, int]
+RGBA = tuple[int, int, int, int]
+Point = tuple[int, int]
+AccentPath = tuple[int, tuple[Point, ...]]
+
+
+def gradient(anchors: tuple[RGB, ...], steps: int) -> tuple[RGB, ...]:
+    if len(anchors) < 2 or steps < 2:
+        raise ValueError("a palette ramp needs at least two anchors and two steps")
+    result: list[RGB] = []
+    for index in range(steps):
+        position = index * (len(anchors) - 1) / (steps - 1)
+        left = min(int(position), len(anchors) - 2)
+        amount = position - left
+        result.append(
+            tuple(
+                round(anchors[left][channel] * (1.0 - amount) + anchors[left + 1][channel] * amount)
+                for channel in range(3)
+            )
+        )
+    if len(set(result)) != steps:
+        raise ValueError("palette ramp contains duplicate colors")
+    return tuple(result)
 
 
 @dataclass(frozen=True)
 class Style:
     title: str
-    palette: dict[str, tuple[int, int, int, int]]
-    glow: bool = False
+    wood: tuple[RGB, ...]
+    metal: tuple[RGB, ...]
+    accents: tuple[RGB, RGB, RGB]
+
+    @property
+    def colors(self) -> tuple[RGB, ...]:
+        return (*self.wood, *self.metal, *self.accents)
 
 
-def opaque(red: int, green: int, blue: int) -> tuple[int, int, int, int]:
-    return red, green, blue, 255
+def make_style(
+    title: str,
+    wood_anchors: tuple[RGB, ...],
+    metal: tuple[RGB, ...],
+    accents: tuple[RGB, RGB, RGB],
+) -> Style:
+    if len(metal) != METAL_STEPS:
+        raise ValueError(f"{title}: metal ramp must contain {METAL_STEPS} colors")
+    style = Style(title, gradient(wood_anchors, WOOD_STEPS), metal, accents)
+    if len(set(style.colors)) != len(style.colors):
+        raise ValueError(f"{title}: palette colors must be unique")
+    return style
 
 
+# The first four palettes use the characteristic color families from the matching
+# boss-bar source art. The wider value ranges are intentional: the vanilla texture's
+# board and latch contrast must survive at game-view distance.
 STYLES = {
-    "moss_cave": Style(
+    "moss_cave": make_style(
         "Moss Cave Boss Chest",
-        {
-            "outline": opaque(12, 24, 21),
-            "deepest": opaque(19, 34, 29),
-            "shadow": opaque(39, 43, 32),
-            "base": opaque(55, 61, 39),
-            "mid": opaque(76, 82, 48),
-            "light": opaque(104, 106, 58),
-            "highlight": opaque(152, 152, 94),
-            "trim_dark": opaque(43, 52, 55),
-            "trim": opaque(56, 70, 70),
-            "trim_light": opaque(84, 104, 105),
-            "accent_dark": opaque(22, 36, 32),
-            "accent": opaque(3, 101, 50),
-            "accent_light": opaque(10, 136, 67),
-            "hot": opaque(105, 134, 133),
-        },
+        ((7, 16, 14), (34, 51, 38), (84, 101, 61), (172, 177, 125)),
+        (
+            (52, 66, 71),
+            (69, 85, 91),
+            (90, 108, 114),
+            (116, 136, 141),
+            (153, 173, 176),
+            (205, 218, 217),
+        ),
+        ((18, 70, 39), (3, 121, 56), (30, 174, 86)),
     ),
-    "infernal": Style(
+    "infernal": make_style(
         "Infernal Boss Chest",
-        {
-            "outline": opaque(0, 0, 0),
-            "deepest": opaque(9, 9, 9),
-            "shadow": opaque(13, 13, 13),
-            "base": opaque(21, 21, 21),
-            "mid": opaque(23, 23, 23),
-            "light": opaque(24, 25, 24),
-            "highlight": opaque(42, 43, 44),
-            "trim_dark": opaque(20, 23, 31),
-            "trim": opaque(35, 40, 51),
-            "trim_light": opaque(60, 63, 72),
-            "accent_dark": opaque(101, 25, 20),
-            "accent": opaque(174, 42, 26),
-            "accent_light": opaque(237, 85, 27),
-            "hot": opaque(255, 166, 57),
-        },
-        glow=True,
+        ((1, 2, 3), (16, 15, 15), (43, 38, 36), (126, 101, 84)),
+        (
+            (48, 53, 62),
+            (65, 71, 81),
+            (84, 91, 101),
+            (110, 117, 127),
+            (151, 157, 166),
+            (207, 211, 216),
+        ),
+        ((111, 23, 16), (218, 55, 20), (255, 157, 46)),
     ),
-    "ghost": Style(
+    "ghost": make_style(
         "Ghost Dungeon Boss Chest",
-        {
-            "outline": opaque(19, 22, 34),
-            "deepest": opaque(44, 67, 76),
-            "shadow": opaque(76, 153, 174),
-            "base": opaque(104, 184, 201),
-            "mid": opaque(148, 217, 228),
-            "light": opaque(207, 244, 245),
-            "highlight": opaque(245, 255, 250),
-            "trim_dark": opaque(54, 116, 137),
-            "trim": opaque(66, 142, 165),
-            "trim_light": opaque(148, 217, 228),
-            "accent_dark": opaque(45, 100, 121),
-            "accent": opaque(104, 184, 201),
-            "accent_light": opaque(207, 244, 245),
-            "hot": opaque(245, 255, 250),
-        },
-        glow=True,
+        ((20, 29, 40), (68, 102, 116), (153, 199, 209), (238, 249, 247)),
+        (
+            (115, 151, 166),
+            (137, 172, 185),
+            (160, 195, 205),
+            (186, 217, 224),
+            (216, 239, 242),
+            (247, 255, 255),
+        ),
+        ((54, 124, 151), (132, 218, 232), (241, 255, 252)),
     ),
-    "sculk": Style(
+    "sculk": make_style(
         "Sculk Boss Chest",
-        {
-            "outline": opaque(2, 5, 9),
-            "deepest": opaque(4, 9, 16),
-            "shadow": opaque(13, 20, 28),
-            "base": opaque(24, 35, 44),
-            "mid": opaque(39, 54, 64),
-            "light": opaque(67, 91, 99),
-            "highlight": opaque(118, 126, 128),
-            "trim_dark": opaque(3, 22, 29),
-            "trim": opaque(5, 58, 74),
-            "trim_light": opaque(6, 79, 96),
-            "accent_dark": opaque(7, 31, 48),
-            "accent": opaque(8, 133, 145),
-            "accent_light": opaque(20, 211, 222),
-            "hot": opaque(118, 246, 238),
-        },
-        glow=True,
+        ((2, 5, 9), (9, 25, 34), (29, 54, 62), (109, 133, 136)),
+        (
+            (53, 77, 87),
+            (69, 95, 106),
+            (90, 120, 130),
+            (119, 151, 159),
+            (159, 187, 191),
+            (213, 231, 230),
+        ),
+        ((5, 77, 91), (8, 145, 155), (55, 228, 226)),
     ),
-    "gilded": Style(
+    "gilded": make_style(
         "Gilded Treasury Boss Chest",
-        {
-            "outline": opaque(18, 12, 10),
-            "deepest": opaque(32, 19, 15),
-            "shadow": opaque(49, 28, 20),
-            "base": opaque(70, 39, 25),
-            "mid": opaque(94, 52, 29),
-            "light": opaque(128, 74, 38),
-            "highlight": opaque(167, 103, 52),
-            "trim_dark": opaque(101, 64, 14),
-            "trim": opaque(151, 101, 26),
-            "trim_light": opaque(218, 165, 42),
-            "accent_dark": opaque(126, 82, 18),
-            "accent": opaque(218, 165, 42),
-            "accent_light": opaque(255, 220, 91),
-            "hot": opaque(255, 241, 166),
-        },
+        ((13, 8, 7), (38, 22, 15), (86, 48, 25), (164, 105, 52)),
+        (
+            (78, 48, 10),
+            (111, 72, 15),
+            (149, 101, 23),
+            (190, 137, 32),
+            (229, 180, 55),
+            (255, 229, 125),
+        ),
+        ((124, 80, 18), (218, 164, 42), (255, 241, 166)),
     ),
-    "bone": Style(
+    "bone": make_style(
         "Bone Boss Chest",
-        {
-            "outline": opaque(25, 22, 21),
-            "deepest": opaque(43, 35, 32),
-            "shadow": opaque(91, 82, 71),
-            "base": opaque(128, 114, 93),
-            "mid": opaque(174, 158, 126),
-            "light": opaque(215, 204, 169),
-            "highlight": opaque(238, 231, 199),
-            "trim_dark": opaque(79, 51, 42),
-            "trim": opaque(122, 75, 54),
-            "trim_light": opaque(168, 111, 75),
-            "accent_dark": opaque(63, 55, 49),
-            "accent": opaque(105, 96, 78),
-            "accent_light": opaque(153, 137, 104),
-            "hot": opaque(231, 218, 178),
-        },
+        ((24, 21, 20), (72, 62, 52), (150, 133, 105), (236, 229, 195)),
+        (
+            (101, 112, 116),
+            (124, 137, 141),
+            (149, 162, 166),
+            (177, 190, 192),
+            (207, 218, 218),
+            (238, 244, 242),
+        ),
+        ((58, 48, 42), (104, 86, 65), (198, 177, 132)),
     ),
 }
 
 
-FACES = {
-    "lid_top": (14, 0, 14, 14),
-    "lid_bottom": (28, 0, 14, 14),
-    "lid_left": (0, 14, 14, 5),
-    "lid_front": (14, 14, 14, 5),
-    "lid_right": (28, 14, 14, 5),
-    "lid_back": (42, 14, 14, 5),
-    "body_top": (14, 19, 14, 14),
-    "body_bottom": (28, 19, 14, 14),
-    "body_left": (0, 33, 14, 10),
-    "body_front": (14, 33, 14, 10),
-    "body_right": (28, 33, 14, 10),
-    "body_back": (42, 33, 14, 10),
+# Paths are deliberately sparse and are filtered through the protected vanilla-edge
+# mask before use. Accent index 0/1/2 selects dark/main/light from Style.accents.
+ACCENT_PATHS: dict[str, tuple[AccentPath, ...]] = {
+    "moss_cave": (
+        (1, ((15, 34), (16, 34), (16, 35), (17, 35), (17, 36))),
+        (2, ((15, 34), (16, 34))),
+        (1, ((23, 39), (24, 39), (24, 40), (25, 40), (25, 41))),
+        (0, ((23, 40), (24, 40))),
+        (1, ((2, 34), (3, 34), (3, 35), (4, 35), (4, 36))),
+        (1, ((43, 15), (44, 15), (44, 16), (45, 16), (45, 17))),
+        (2, ((44, 15),)),
+        (1, ((15, 1), (16, 1), (16, 2), (17, 2), (17, 3))),
+        (0, ((25, 7), (25, 8), (24, 9), (24, 10))),
+        (1, ((31, 20), (32, 20), (32, 21), (33, 21), (33, 22))),
+        (1, ((48, 34), (49, 34), (49, 35), (50, 35), (50, 36))),
+    ),
+    "infernal": (
+        (0, ((17, 34), (18, 35), (18, 36), (19, 37), (19, 38), (20, 39), (20, 41))),
+        (1, ((18, 35), (19, 36), (19, 37), (20, 38))),
+        (2, ((19, 37),)),
+        (0, ((30, 15), (31, 15), (32, 16), (33, 16), (34, 17))),
+        (1, ((31, 15), (32, 16), (33, 16))),
+        (0, ((45, 35), (46, 36), (46, 37), (47, 38), (47, 40))),
+        (1, ((46, 36), (46, 37), (47, 38))),
+        (0, ((18, 3), (19, 4), (19, 5), (20, 6), (20, 8), (21, 9))),
+        (1, ((19, 4), (20, 5), (20, 6))),
+        (0, ((3, 15), (4, 16), (5, 16), (6, 17))),
+    ),
+    "ghost": (
+        (1, ((17, 3),)),
+        (2, ((24, 3),)),
+        (1, ((20, 4),)),
+        (0, ((23, 10),)),
+        (1, ((24, 23),)),
+        (2, ((24, 25),)),
+        (0, ((17, 37),)),
+        (1, ((15, 15), (16, 15), (17, 15), (18, 16))),
+        (2, ((15, 15), (16, 15))),
+        (1, ((24, 34), (25, 34), (26, 35), (26, 36))),
+        (2, ((25, 34),)),
+        (1, ((1, 34), (2, 34), (3, 35), (3, 36))),
+        (1, ((42, 15), (43, 15), (44, 15), (45, 16))),
+        (2, ((43, 15),)),
+        (1, ((14, 1), (15, 1), (16, 1), (17, 2))),
+        (1, ((38, 20), (39, 20), (40, 21), (40, 22))),
+        (2, ((39, 20),)),
+        (0, ((19, 40), (20, 40), (21, 39), (22, 39))),
+        (0, ((47, 40), (48, 40), (49, 39), (50, 39))),
+    ),
+    "sculk": (
+        (0, ((17, 3),)),
+        (1, ((18, 3),)),
+        (2, ((19, 3),)),
+        (1, ((23, 5),)),
+        (0, ((24, 10),)),
+        (1, ((24, 23),)),
+        (0, ((2, 34), (3, 34), (3, 35), (4, 35))),
+        (1, ((4, 35), (5, 36), (6, 36), (7, 37), (8, 37), (9, 38))),
+        (2, ((8, 37),)),
+        (0, ((19, 40), (20, 39), (21, 39))),
+        (1, ((21, 39), (22, 38), (23, 38), (24, 37), (25, 37))),
+        (2, ((24, 37),)),
+        (1, ((34, 15), (35, 15), (36, 16), (37, 16), (38, 17))),
+        (2, ((37, 16),)),
+        (1, ((48, 35), (49, 36), (50, 36), (51, 37), (52, 37), (53, 38))),
+        (1, ((16, 4), (17, 4), (18, 5), (19, 5), (20, 6), (21, 6))),
+    ),
+    "gilded": (
+        (0, ((17, 3),)),
+        (1, ((18, 3),)),
+        (2, ((24, 3),)),
+        (1, ((17, 9),)),
+        (0, ((24, 10),)),
+        (2, ((24, 23),)),
+        (0, ((15, 34), (16, 34), (15, 35))),
+        (1, ((16, 34), (17, 34), (16, 35))),
+        (2, ((16, 34),)),
+        (0, ((25, 34), (26, 34), (26, 35))),
+        (1, ((24, 34), (25, 34), (25, 35))),
+        (2, ((25, 34),)),
+        (0, ((1, 34), (2, 34), (1, 35))),
+        (1, ((2, 34), (3, 34), (2, 35))),
+        (0, ((43, 34), (44, 34), (43, 35))),
+        (1, ((44, 34), (45, 34), (44, 35))),
+        (0, ((15, 15), (16, 15), (15, 16))),
+        (1, ((16, 15), (17, 15), (16, 16))),
+        (0, ((25, 15), (26, 15), (26, 16))),
+        (1, ((24, 15), (25, 15), (25, 16))),
+    ),
+    "bone": (
+        (0, ((17, 3),)),
+        (0, ((21, 3),)),
+        (1, ((24, 3),)),
+        (0, ((18, 7),)),
+        (2, ((24, 10),)),
+        (1, ((24, 25),)),
+        (0, ((17, 34), (17, 35), (17, 36), (17, 37), (17, 38), (17, 39), (17, 40), (17, 41))),
+        (1, ((18, 35), (18, 36), (18, 37))),
+        (0, ((23, 34), (23, 35), (23, 36), (23, 37), (23, 38), (23, 39), (23, 40), (23, 41))),
+        (2, ((24, 35), (24, 36))),
+        (0, ((3, 34), (3, 35), (3, 36), (3, 37), (3, 38), (3, 39), (3, 40), (3, 41))),
+        (0, ((31, 34), (31, 35), (31, 36), (31, 37), (31, 38), (31, 39), (31, 40), (31, 41))),
+        (0, ((45, 34), (45, 35), (45, 36), (45, 37), (45, 38), (45, 39), (45, 40), (45, 41))),
+        (0, ((51, 34), (51, 35), (51, 36), (51, 37), (51, 38), (51, 39), (51, 40), (51, 41))),
+        (1, ((17, 15), (17, 16), (17, 17))),
+        (1, ((23, 15), (23, 16), (23, 17))),
+    ),
 }
+
+
+def flat_pixels(image: Image.Image):
+    if hasattr(image, "get_flattened_data"):
+        return image.get_flattened_data()
+    return image.getdata()
+
+
+def rgba(color: RGB) -> RGBA:
+    return color[0], color[1], color[2], 255
+
+
+def luminance(color: tuple[int, ...]) -> float:
+    return 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]
+
+
+def is_metal_source(color: RGBA) -> bool:
+    return color[3] == 255 and color[0] == color[1] == color[2] and color[0] >= 96
 
 
 def candidate_vanilla_jars() -> list[Path]:
-    candidates = sorted((ROOT / "build" / "moddev" / "artifacts").glob("*minecraft-resources-aka-client-extra.jar"))
+    candidates = sorted(
+        (ROOT / "build" / "moddev" / "artifacts").glob("*minecraft-resources-aka-client-extra.jar")
+    )
     profile = Path(os.environ.get("USERPROFILE", ""))
     if profile:
         candidates.extend(
-            [
+            (
                 profile / ".gradle" / "caches" / "neoformruntime" / "artifacts" / "minecraft_1.21.1_client.jar",
                 profile / ".gradle" / "caches" / "fabric-loom" / "1.21.1" / "minecraft-client.jar",
-            ]
+            )
         )
     return candidates
 
@@ -210,6 +331,7 @@ def candidate_vanilla_jars() -> list[Path]:
 def load_vanilla_template(explicit_path: Path | None) -> tuple[Image.Image, str]:
     if explicit_path:
         image = Image.open(explicit_path).convert("RGBA")
+        image.load()
         source = str(explicit_path)
     else:
         image = None
@@ -234,7 +356,7 @@ def load_vanilla_template(explicit_path: Path | None) -> tuple[Image.Image, str]
         raise ValueError(f"Vanilla template must be 64x64, got {image.size}")
     alpha_values = set(flat_pixels(image.getchannel("A")))
     if not alpha_values <= {0, 255} or 255 not in alpha_values:
-        raise ValueError("Vanilla template must use a binary alpha mask")
+        raise ValueError("Vanilla template must use a non-empty binary alpha mask")
     return image, source
 
 
@@ -242,360 +364,131 @@ def new_layer() -> Image.Image:
     return Image.new("RGBA", CANVAS_SIZE, TRANSPARENT)
 
 
-def flat_pixels(image: Image.Image):
-    if hasattr(image, "get_flattened_data"):
-        return image.get_flattened_data()
-    return image.getdata()
+def build_palette_mapping(vanilla: Image.Image, style: Style) -> dict[RGBA, RGBA]:
+    source_colors = {pixel for pixel in flat_pixels(vanilla) if pixel[3]}
+    metal_source = sorted((color for color in source_colors if is_metal_source(color)), key=luminance)
+    wood_source = sorted(
+        (color for color in source_colors if not is_metal_source(color)),
+        key=lambda color: (luminance(color), color),
+    )
+    if len(metal_source) != METAL_STEPS:
+        raise ValueError(
+            f"Expected {METAL_STEPS} vanilla metal shades, found {len(metal_source)}; "
+            "is this Minecraft 1.21.1 normal.png?"
+        )
+
+    def assign(source: list[RGBA], target: tuple[RGB, ...]) -> dict[RGBA, RGBA]:
+        if not source:
+            return {}
+        return {
+            color: rgba(target[round(index * (len(target) - 1) / max(1, len(source) - 1))])
+            for index, color in enumerate(source)
+        }
+
+    mapping = assign(wood_source, style.wood)
+    mapping.update(assign(metal_source, style.metal))
+    if set(mapping) != source_colors:
+        raise AssertionError("palette map does not cover every opaque vanilla color")
+    return mapping
 
 
-def set_pixel(
-    image: Image.Image,
-    mask: Image.Image,
-    x: int,
-    y: int,
-    color: tuple[int, int, int, int],
-) -> None:
-    if 0 <= x < 64 and 0 <= y < 64 and mask.getpixel((x, y)):
-        image.putpixel((x, y), color)
+def remap_image(vanilla: Image.Image, mapping: dict[RGBA, RGBA]) -> Image.Image:
+    result = new_layer()
+    source = vanilla.load()
+    target = result.load()
+    for y in range(CANVAS_SIZE[1]):
+        for x in range(CANVAS_SIZE[0]):
+            color = source[x, y]
+            if color[3]:
+                target[x, y] = mapping[color]
+    return result
 
 
-def fill_box(
-    image: Image.Image,
-    mask: Image.Image,
-    box: tuple[int, int, int, int],
-    color: tuple[int, int, int, int],
-) -> None:
-    x0, y0, width, height = box
-    for y in range(y0, y0 + height):
-        for x in range(x0, x0 + width):
-            set_pixel(image, mask, x, y, color)
-
-
-def paint_points(
-    image: Image.Image,
-    mask: Image.Image,
-    points: tuple[tuple[int, int], ...] | list[tuple[int, int]],
-    color: tuple[int, int, int, int],
-) -> None:
-    for x, y in points:
-        set_pixel(image, mask, x, y, color)
-
-
-def paint_path(
-    image: Image.Image,
-    mask: Image.Image,
-    points: tuple[tuple[int, int], ...] | list[tuple[int, int]],
-    color: tuple[int, int, int, int],
-) -> None:
-    segment = Image.new("RGBA", CANVAS_SIZE, TRANSPARENT)
-    ImageDraw.Draw(segment).line(points, fill=color, width=1)
-    for x, y, pixel in pixel_positions(segment):
-        set_pixel(image, mask, x, y, pixel)
-
-
-def pixel_positions(image: Image.Image):
-    alpha = image.getchannel("A")
-    box = alpha.getbbox()
-    if box is None:
-        return
-    for y in range(box[1], box[3]):
-        for x in range(box[0], box[2]):
-            pixel = image.getpixel((x, y))
-            if pixel[3]:
-                yield x, y, pixel
-
-
-def shade_chest(
-    layers: dict[str, Image.Image],
-    mask: Image.Image,
-    palette: dict[str, tuple[int, int, int, int]],
-) -> None:
-    shading = layers["shading"]
-    for name, box in FACES.items():
-        if name.endswith("top"):
-            face_color = palette["mid"]
-        elif name.endswith("bottom"):
-            face_color = palette["shadow"]
-        elif name.startswith("lid"):
-            face_color = palette["mid"]
-        else:
-            face_color = palette["base"]
-        fill_box(shading, mask, box, face_color)
-
-        x0, y0, width, height = box
-        for x in range(x0, x0 + width):
-            set_pixel(shading, mask, x, y0, palette["outline"])
-            set_pixel(shading, mask, x, y0 + height - 1, palette["deepest"])
-        for y in range(y0, y0 + height):
-            set_pixel(shading, mask, x0, y, palette["outline"])
-            set_pixel(shading, mask, x0 + width - 1, y, palette["outline"])
-
-        if height >= 10:
-            split_y = y0 + height // 2
-            for x in range(x0 + 1, x0 + width - 1):
-                set_pixel(shading, mask, x, split_y, palette["shadow"])
-            for x in range(x0 + 2, x0 + width - 2, 4):
-                set_pixel(shading, mask, x, y0 + 2, palette["light"])
-                set_pixel(shading, mask, x + 1, y0 + 2, palette["light"])
-        elif height == 5:
-            for x in range(x0 + 2, x0 + width - 2, 5):
-                set_pixel(shading, mask, x, y0 + 1, palette["light"])
-                set_pixel(shading, mask, x + 1, y0 + 1, palette["light"])
-        else:
-            for local_y in (4, 9):
-                for x in range(x0 + 1, x0 + width - 1):
-                    set_pixel(shading, mask, x, y0 + local_y, palette["shadow"])
-            for y in range(y0 + 2, y0 + height - 2, 4):
-                for x in range(x0 + 2, x0 + width - 2, 5):
-                    set_pixel(shading, mask, x, y, palette["light"])
-                    set_pixel(shading, mask, x + 1, y, palette["light"])
-
-    # The latch uses the exact vanilla cube mask in the upper-left corner.
-    for y in range(0, 5):
-        for x in range(0, 6):
-            if not mask.getpixel((x, y)):
+def protected_mask(vanilla: Image.Image) -> Image.Image:
+    alpha = vanilla.getchannel("A")
+    edge = Image.new("L", CANVAS_SIZE, 0)
+    edge_pixels = edge.load()
+    source = vanilla.load()
+    for y in range(CANVAS_SIZE[1]):
+        for x in range(CANVAS_SIZE[0]):
+            if not alpha.getpixel((x, y)):
                 continue
-            edge = x in (0, 5) or y in (0, 4)
-            shading.putpixel((x, y), palette["trim_dark"] if edge else palette["trim"])
-    paint_points(shading, mask, ((2, 1), (2, 2), (3, 1)), palette["trim_light"])
+            for nx, ny in ((x + 1, y), (x, y + 1)):
+                if nx >= CANVAS_SIZE[0] or ny >= CANVAS_SIZE[1] or not alpha.getpixel((nx, ny)):
+                    continue
+                if abs(luminance(source[x, y]) - luminance(source[nx, ny])) > 8:
+                    edge_pixels[x, y] = 255
+                    edge_pixels[nx, ny] = 255
+
+    metal = Image.new("L", CANVAS_SIZE, 0)
+    metal_pixels = metal.load()
+    for y in range(CANVAS_SIZE[1]):
+        for x in range(CANVAS_SIZE[0]):
+            if is_metal_source(source[x, y]):
+                metal_pixels[x, y] = 255
+    latch_guard = metal.filter(ImageFilter.MaxFilter(3))
+
+    protected = Image.new("L", CANVAS_SIZE, 0)
+    protected_pixels = protected.load()
+    for y in range(CANVAS_SIZE[1]):
+        for x in range(CANVAS_SIZE[0]):
+            if edge.getpixel((x, y)) or latch_guard.getpixel((x, y)):
+                protected_pixels[x, y] = 255
+    return protected
 
 
-def add_trim(
-    layer: Image.Image,
-    mask: Image.Image,
-    palette: dict[str, tuple[int, int, int, int]],
-    width: int = 1,
-) -> None:
-    for y0, height in ((14, 5), (33, 10)):
-        for left_edge, right_edge in ((13, 14), (27, 28), (41, 42), (55, 0)):
-            for offset in range(width):
-                for y in range(y0, y0 + height):
-                    set_pixel(layer, mask, (left_edge - offset) % 56, y, palette["trim_dark"])
-                    set_pixel(layer, mask, (right_edge + offset) % 56, y, palette["trim_dark"])
-            for y in range(y0 + 1, y0 + height - 1):
-                set_pixel(layer, mask, (left_edge - width) % 56, y, palette["trim"])
-                set_pixel(layer, mask, (right_edge + width) % 56, y, palette["trim"])
-        for x in range(0, 56):
-            if x % 14 in (2, 11):
-                set_pixel(layer, mask, x, y0 + 1, palette["trim_light"])
+def render_accents(style_id: str, vanilla: Image.Image, protected: Image.Image) -> Image.Image:
+    result = new_layer()
+    source_alpha = vanilla.getchannel("A")
+    style = STYLES[style_id]
+    for accent_index, path in ACCENT_PATHS[style_id]:
+        candidate = Image.new("L", CANVAS_SIZE, 0)
+        draw = ImageDraw.Draw(candidate)
+        if len(path) == 1:
+            draw.point(path[0], fill=255)
+        else:
+            draw.line(path, fill=255, width=1)
+        for y in range(CANVAS_SIZE[1]):
+            for x in range(CANVAS_SIZE[0]):
+                if (
+                    candidate.getpixel((x, y))
+                    and source_alpha.getpixel((x, y))
+                    and not protected.getpixel((x, y))
+                ):
+                    result.putpixel((x, y), rgba(style.accents[accent_index]))
+    return result
 
 
-def style_details(
-    style_id: str,
-    layers: dict[str, Image.Image],
-    mask: Image.Image,
-    palette: dict[str, tuple[int, int, int, int]],
-) -> None:
-    details = layers["details"]
-    glow = layers.get("glow")
-
-    if style_id == "moss_cave":
-        add_trim(details, mask, palette)
-        for cluster in (
-            ((3, 15), (4, 15), (4, 16), (5, 16), (5, 17)),
-            ((18, 14), (19, 14), (19, 15), (20, 15), (20, 16), (21, 16)),
-            ((37, 17), (38, 17), (39, 16), (40, 16)),
-            ((45, 34), (46, 34), (46, 35), (47, 35), (48, 36)),
-            ((15, 39), (16, 39), (17, 40), (18, 40), (18, 41)),
-        ):
-            paint_points(details, mask, cluster, palette["accent"])
-        paint_points(details, mask, ((4, 15), (19, 14), (46, 34), (17, 39)), palette["accent_light"])
-        paint_path(details, mask, ((24, 34), (24, 35), (23, 36), (23, 38), (22, 39), (22, 41)), palette["accent_dark"])
-        paint_points(details, mask, ((22, 37), (23, 40), (32, 16), (51, 38)), palette["hot"])
-
-    elif style_id == "infernal":
-        add_trim(details, mask, palette)
-        if glow is None:
-            raise AssertionError("infernal requires glow layer")
-        for path in (
-            ((17, 35), (18, 35), (18, 36), (19, 37), (19, 39), (20, 40)),
-            ((31, 15), (32, 15), (33, 16), (34, 16), (35, 17)),
-            ((46, 36), (45, 37), (45, 38), (44, 39), (44, 41)),
-            ((18, 4), (19, 5), (19, 7), (20, 8), (20, 10)),
-        ):
-            paint_path(glow, mask, path, palette["accent"])
-        paint_points(glow, mask, ((19, 37), (19, 38), (33, 16), (45, 38), (19, 6)), palette["accent_light"])
-        paint_points(glow, mask, ((19, 38), (45, 39)), palette["hot"])
-        paint_points(details, mask, ((6, 16), (7, 16), (25, 41), (39, 35), (52, 17)), palette["deepest"])
-
-    elif style_id == "ghost":
-        add_trim(details, mask, palette)
-        if glow is None:
-            raise AssertionError("ghost requires glow layer")
-        for path in (
-            ((2, 17), (3, 16), (4, 16), (5, 15), (7, 15)),
-            ((16, 40), (17, 39), (19, 39), (20, 38), (22, 38)),
-            ((31, 36), (33, 36), (34, 35), (36, 35), (37, 34)),
-            ((45, 17), (47, 17), (48, 16), (50, 16), (51, 15)),
-        ):
-            paint_path(glow, mask, path, palette["accent_light"])
-        paint_points(glow, mask, ((7, 15), (22, 38), (37, 34), (51, 15), (2, 2), (3, 2)), palette["hot"])
-        paint_points(details, mask, ((17, 34), (24, 37), (30, 40), (43, 35), (52, 40)), palette["accent_dark"])
-
-    elif style_id == "sculk":
-        add_trim(details, mask, palette)
-        if glow is None:
-            raise AssertionError("sculk requires glow layer")
-        for cluster in (
-            ((3, 34), (4, 34), (3, 35), (4, 35), (5, 36)),
-            ((20, 39), (21, 38), (21, 39), (22, 39), (22, 40)),
-            ((34, 15), (35, 15), (35, 16), (36, 16), (37, 17)),
-            ((48, 36), (49, 36), (49, 37), (50, 37), (50, 38)),
-        ):
-            paint_points(details, mask, cluster, palette["trim"])
-        for path in (
-            ((4, 35), (6, 36), (7, 37), (9, 37), (10, 38)),
-            ((21, 39), (23, 39), (24, 38), (26, 38)),
-            ((35, 16), (37, 16), (38, 15), (40, 15)),
-            ((49, 37), (51, 38), (53, 38), (54, 39)),
-            ((16, 5), (18, 5), (19, 6), (21, 6), (22, 7)),
-        ):
-            paint_path(glow, mask, path, palette["accent"])
-        paint_points(glow, mask, ((9, 37), (25, 38), (39, 15), (53, 38), (21, 6)), palette["accent_light"])
-        paint_points(glow, mask, ((25, 38), (39, 15)), palette["hot"])
-
-    elif style_id == "gilded":
-        add_trim(details, mask, palette, width=2)
-        # Gold corner plates and a centered treasury band.
-        for x0, y0, width, height in FACES.values():
-            if height < 5:
-                continue
-            corners = (
-                (x0 + 1, y0 + 1), (x0 + 2, y0 + 1), (x0 + 1, y0 + 2),
-                (x0 + width - 2, y0 + 1), (x0 + width - 3, y0 + 1), (x0 + width - 2, y0 + 2),
-            )
-            paint_points(details, mask, corners, palette["accent"])
-        for y in range(34, 42):
-            set_pixel(details, mask, 20, y, palette["trim"])
-            set_pixel(details, mask, 21, y, palette["trim_light"])
-        paint_points(details, mask, ((2, 1), (3, 1), (2, 2), (21, 35), (21, 40)), palette["hot"])
-
-    elif style_id == "bone":
-        # Bone plates are split by dark joints; sinew stitches cross selected seams.
-        for x in (6, 20, 34, 48):
-            for y in range(34, 43):
-                set_pixel(details, mask, x, y, palette["accent_dark"])
-        for x in range(1, 55):
-            if x % 14 not in (0, 13):
-                set_pixel(details, mask, x, 38, palette["deepest"])
-        stitches = ((5, 37), (7, 39), (19, 37), (21, 39), (33, 37), (35, 39), (47, 37), (49, 39))
-        paint_points(details, mask, stitches, palette["trim"])
-        paint_points(details, mask, ((6, 37), (20, 37), (34, 37), (48, 37)), palette["trim_light"])
-        paint_points(details, mask, ((3, 16), (10, 17), (24, 16), (39, 17), (51, 16), (18, 35), (44, 40)), palette["accent"])
-        paint_points(details, mask, ((4, 16), (25, 16), (45, 40)), palette["hot"])
-    else:
-        raise ValueError(style_id)
+def composite_layers(layers: dict[str, Image.Image]) -> Image.Image:
+    result = new_layer()
+    for name in LAYER_NAMES:
+        result = Image.alpha_composite(result, layers[name])
+    return result
 
 
 def render_chest(style_id: str, vanilla: Image.Image) -> tuple[dict[str, Image.Image], Image.Image]:
-    style = STYLES[style_id]
-    mask = vanilla.getchannel("A")
-    layer_names = ["base", "shading", "details"] + (["glow"] if style.glow else [])
-    layers = {name: new_layer() for name in layer_names}
-    base = layers["base"]
-    for y in range(64):
-        for x in range(64):
-            if mask.getpixel((x, y)):
-                base.putpixel((x, y), style.palette["base"])
-    shade_chest(layers, mask, style.palette)
-    style_details(style_id, layers, mask, style.palette)
-
-    composite = Image.new("RGBA", CANVAS_SIZE, TRANSPARENT)
-    for name in layer_names:
-        composite = Image.alpha_composite(composite, layers[name])
-    composite.putalpha(mask)
+    mapping = build_palette_mapping(vanilla, STYLES[style_id])
+    layers = {
+        "palette_recolor": remap_image(vanilla, mapping),
+        "style_accents": render_accents(style_id, vanilla, protected_mask(vanilla)),
+    }
+    composite = composite_layers(layers)
+    composite.putalpha(vanilla.getchannel("A"))
     return layers, composite
 
 
-def tile_set(
-    layer: Image.Image,
-    x: int,
-    y: int,
-    color: tuple[int, int, int, int],
-) -> None:
-    if 0 <= x < 16 and 0 <= y < 16:
-        layer.putpixel((x, y), color)
-
-
-def render_particle(style_id: str) -> tuple[dict[str, Image.Image], Image.Image]:
-    style = STYLES[style_id]
-    palette = style.palette
-    layer_names = ["base", "shading", "details"] + (["glow"] if style.glow else [])
-    layers = {name: new_layer() for name in layer_names}
-    for y in range(16):
-        for x in range(16):
-            layers["base"].putpixel((x, y), palette["base"])
-            variation = (x * 19 + y * 31 + len(style_id) * 7) % 17
-            if variation in (0, 1):
-                layers["shading"].putpixel((x, y), palette["shadow"])
-            elif variation == 2:
-                layers["shading"].putpixel((x, y), palette["light"])
-
-    details = layers["details"]
-    glow = layers.get("glow")
-    if style_id == "moss_cave":
-        for x in range(16):
-            tile_set(details, x, 7, palette["trim_dark"])
-        paint = ((1, 1), (2, 1), (2, 2), (3, 2), (8, 8), (9, 8), (9, 9), (10, 9), (14, 4))
-        for x, y in paint:
-            tile_set(details, x, y, palette["accent"])
-        tile_set(details, 2, 1, palette["accent_light"])
-        tile_set(details, 12, 12, palette["hot"])
-    elif style_id == "infernal":
-        for y in range(16):
-            if y % 5 == 0:
-                for x in range(16):
-                    tile_set(details, x, y, palette["deepest"])
-        if glow is None:
-            raise AssertionError
-        for x, y in ((2, 0), (3, 1), (3, 2), (4, 3), (9, 7), (10, 8), (10, 9), (11, 10), (6, 13), (7, 14), (7, 15)):
-            tile_set(glow, x, y, palette["accent"])
-        for x, y in ((3, 2), (10, 9), (7, 14)):
-            tile_set(glow, x, y, palette["hot"])
-    elif style_id == "ghost":
-        for x in range(16):
-            tile_set(details, x, 5, palette["trim_dark"])
-            tile_set(details, x, 11, palette["trim"])
-        if glow is None:
-            raise AssertionError
-        for x, y in ((1, 4), (2, 3), (3, 3), (4, 2), (8, 10), (9, 9), (10, 9), (11, 8), (12, 8)):
-            tile_set(glow, x, y, palette["accent_light"])
-        tile_set(glow, 12, 8, palette["hot"])
-    elif style_id == "sculk":
-        for x, y in ((1, 1), (2, 1), (2, 2), (3, 2), (9, 9), (10, 9), (10, 10), (11, 10)):
-            tile_set(details, x, y, palette["trim"])
-        if glow is None:
-            raise AssertionError
-        for x, y in ((3, 2), (4, 3), (5, 3), (6, 4), (10, 10), (11, 11), (12, 11), (13, 12)):
-            tile_set(glow, x, y, palette["accent"])
-        tile_set(glow, 6, 4, palette["accent_light"])
-        tile_set(glow, 13, 12, palette["hot"])
-    elif style_id == "gilded":
-        for y in (0, 7, 15):
-            for x in range(16):
-                tile_set(details, x, y, palette["trim_dark"])
-        for x in (0, 7, 15):
-            for y in range(16):
-                tile_set(details, x, y, palette["trim"])
-        for x, y in ((1, 1), (6, 1), (8, 1), (14, 1), (1, 8), (14, 8)):
-            tile_set(details, x, y, palette["accent_light"])
-        tile_set(details, 1, 1, palette["hot"])
-    elif style_id == "bone":
-        for x in range(16):
-            tile_set(details, x, 7, palette["deepest"])
-        for y in range(16):
-            tile_set(details, 5, y, palette["accent_dark"])
-            tile_set(details, 12, y, palette["accent_dark"])
-        for x, y in ((4, 3), (6, 4), (11, 10), (13, 11), (4, 13), (6, 14)):
-            tile_set(details, x, y, palette["trim"])
-        for x, y in ((2, 2), (9, 4), (14, 13)):
-            tile_set(details, x, y, palette["hot"])
-
-    composite = Image.new("RGBA", CANVAS_SIZE, TRANSPARENT)
-    for name in layer_names:
-        composite = Image.alpha_composite(composite, layers[name])
-    particle = composite.crop((0, 0, 16, 16))
-    return layers, particle
+def render_particle_layers(chest_layers: dict[str, Image.Image]) -> tuple[dict[str, Image.Image], Image.Image]:
+    result: dict[str, Image.Image] = {}
+    material_box = (14, 19, 28, 33)
+    for name in LAYER_NAMES:
+        tile = chest_layers[name].crop(material_box).resize(PARTICLE_SIZE, Image.Resampling.NEAREST)
+        layer = new_layer()
+        layer.alpha_composite(tile, (0, 0))
+        result[name] = layer
+    particle = composite_layers(result).crop((0, 0, *PARTICLE_SIZE))
+    if 0 in set(flat_pixels(particle.getchannel("A"))):
+        raise AssertionError("selected vanilla material crop is not fully opaque")
+    return result, particle
 
 
 def save_png(image: Image.Image, path: Path) -> None:
@@ -605,9 +498,16 @@ def save_png(image: Image.Image, path: Path) -> None:
 
 def write_gpl(style_id: str) -> None:
     style = STYLES[style_id]
-    lines = ["GIMP Palette", f"Name: {style.title}", "Columns: 7", "#"]
-    for role, color in style.palette.items():
-        lines.append(f"{color[0]:3d} {color[1]:3d} {color[2]:3d}\t{role}")
+    names = (
+        *(f"wood_{index:02d}" for index in range(WOOD_STEPS)),
+        *(f"metal_{index:02d}" for index in range(METAL_STEPS)),
+        "accent_dark",
+        "accent",
+        "accent_light",
+    )
+    lines = ["GIMP Palette", f"Name: {style.title}", "Columns: 8", "#"]
+    for name, color in zip(names, style.colors):
+        lines.append(f"{color[0]:3d} {color[1]:3d} {color[2]:3d}\t{name}")
     path = ART_DIR / f"{style_id}.gpl"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
@@ -622,11 +522,10 @@ def aseprite_chunk(chunk_type: int, payload: bytes) -> bytes:
     return struct.pack("<IH", 6 + len(payload), chunk_type) + payload
 
 
-def aseprite_layer_chunk(name: str, visible: bool) -> bytes:
-    flags = 3 if visible else 2
+def aseprite_layer_chunk(name: str) -> bytes:
     payload = struct.pack(
         "<6HB3s",
-        flags,
+        3,
         0,
         0,
         CANVAS_SIZE[0],
@@ -655,24 +554,18 @@ def aseprite_cel_chunk(layer_index: int, image: Image.Image) -> bytes:
 
 
 def encode_aseprite(
-    vanilla: Image.Image,
     chest_layers: dict[str, Image.Image],
     particle_layers: dict[str, Image.Image],
 ) -> bytes:
-    visible_names = list(chest_layers)
-    layer_names = ["vanilla_guide", *visible_names]
-    frame_images = [
-        [vanilla, *(chest_layers[name] for name in visible_names)],
-        [new_layer(), *(particle_layers[name] for name in visible_names)],
-    ]
+    frame_images = (
+        tuple(chest_layers[name] for name in LAYER_NAMES),
+        tuple(particle_layers[name] for name in LAYER_NAMES),
+    )
     frames: list[bytes] = []
     for frame_index in range(FRAME_COUNT):
         chunks: list[bytes] = []
         if frame_index == 0:
-            chunks.extend(
-                aseprite_layer_chunk(name, visible=name != "vanilla_guide")
-                for name in layer_names
-            )
+            chunks.extend(aseprite_layer_chunk(name) for name in LAYER_NAMES)
         chunks.extend(
             aseprite_cel_chunk(layer_index, image)
             for layer_index, image in enumerate(frame_images[frame_index])
@@ -716,7 +609,7 @@ def encode_aseprite(
     return header + payload
 
 
-def decode_aseprite(data: bytes) -> tuple[list[str], list[int], list[list[Image.Image]]]:
+def decode_aseprite(data: bytes) -> tuple[list[str], list[list[Image.Image]]]:
     file_size, magic, frame_count, width, height, depth = struct.unpack_from("<I5H", data, 0)
     if file_size != len(data) or magic != 0xA5E0:
         raise AssertionError("invalid Aseprite file header")
@@ -725,7 +618,6 @@ def decode_aseprite(data: bytes) -> tuple[list[str], list[int], list[list[Image.
 
     offset = 128
     names: list[str] = []
-    flags: list[int] = []
     frames: list[list[Image.Image]] = []
     for frame_index in range(frame_count):
         frame_start = offset
@@ -739,10 +631,8 @@ def decode_aseprite(data: bytes) -> tuple[list[str], list[int], list[list[Image.
             chunk_size, chunk_type = struct.unpack_from("<IH", data, offset)
             payload = offset + 6
             if chunk_type == 0x2004:
-                layer_flags = struct.unpack_from("<H", data, payload)[0]
                 name_length = struct.unpack_from("<H", data, payload + 16)[0]
                 name_start = payload + 18
-                flags.append(layer_flags)
                 names.append(data[name_start:name_start + name_length].decode("utf-8"))
             elif chunk_type == 0x2005:
                 layer_index = struct.unpack_from("<H", data, payload)[0]
@@ -755,20 +645,20 @@ def decode_aseprite(data: bytes) -> tuple[list[str], list[int], list[list[Image.
             offset += chunk_size
         if offset != frame_start + frame_size:
             raise AssertionError("Aseprite frame size mismatch")
-        if set(cels) != set(range(len(names))):
+        if set(cels) != set(range(len(LAYER_NAMES))):
             raise AssertionError("Aseprite frame has missing cels")
-        frames.append([cels[index] for index in range(len(names))])
+        frames.append([cels[index] for index in range(len(LAYER_NAMES))])
     if offset != len(data):
         raise AssertionError("Aseprite file has trailing data")
-    return names, flags, frames
+    return names, frames
 
 
-def composite_visible_source(names: list[str], flags: list[int], cels: list[Image.Image]) -> Image.Image:
-    composite = new_layer()
-    for name, layer_flags, cel in zip(names, flags, cels):
-        if name != "vanilla_guide" and layer_flags & 1:
-            composite = Image.alpha_composite(composite, cel)
-    return composite
+def assembled_front(chest: Image.Image) -> Image.Image:
+    result = Image.new("RGBA", (14, 15), TRANSPARENT)
+    result.alpha_composite(chest.crop((14, 14, 28, 19)), (0, 0))
+    result.alpha_composite(chest.crop((14, 33, 28, 43)), (0, 5))
+    result.alpha_composite(chest.crop((1, 1, 3, 5)), (6, 3))
+    return result
 
 
 def stone_background(size: tuple[int, int], light: bool) -> Image.Image:
@@ -788,15 +678,6 @@ def stone_background(size: tuple[int, int], light: bool) -> Image.Image:
     return image
 
 
-def assembled_front(chest: Image.Image) -> Image.Image:
-    result = Image.new("RGBA", (14, 15), TRANSPARENT)
-    result.alpha_composite(chest.crop((14, 14, 28, 19)), (0, 0))
-    result.alpha_composite(chest.crop((14, 33, 28, 43)), (0, 5))
-    latch = chest.crop((1, 1, 3, 5))
-    result.alpha_composite(latch, (6, 3))
-    return result
-
-
 def write_preview(style_id: str, chest: Image.Image) -> None:
     panel_size = (336, 256)
     preview = Image.new("RGBA", (panel_size[0] * 2, panel_size[1]), TRANSPARENT)
@@ -810,13 +691,53 @@ def write_preview(style_id: str, chest: Image.Image) -> None:
     save_png(preview, PREVIEW_DIR / f"{style_id}_4x.png")
 
 
+def write_all_styles_preview(vanilla: Image.Image) -> None:
+    panel_size = (272, 360)
+    entries = (("vanilla", vanilla),) + tuple(
+        (style_id, Image.open(ENTITY_DIR / f"{style_id}.png").convert("RGBA"))
+        for style_id in STYLE_IDS
+    )
+    preview = Image.new("RGBA", (panel_size[0] * len(entries), panel_size[1]), TRANSPARENT)
+    for index, (label, chest) in enumerate(entries):
+        panel = stone_background(panel_size, light=False)
+        panel.alpha_composite(stone_background((panel_size[0] // 2, 80), light=True), (136, 280))
+        ImageDraw.Draw(panel).text((8, 7), label, fill=(240, 243, 239, 255))
+        panel.alpha_composite(chest.resize((256, 256), Image.Resampling.NEAREST), (8, 24))
+        front = assembled_front(chest).resize((56, 60), Image.Resampling.NEAREST)
+        panel.alpha_composite(front, (40, 290))
+        panel.alpha_composite(front, (176, 290))
+        preview.alpha_composite(panel, (index * panel_size[0], 0))
+    save_png(preview, PREVIEW_DIR / "all_styles_4x.png")
+
+
+def horizontal_structure(vanilla: Image.Image, target: Image.Image) -> float:
+    vanilla_edges = 0
+    kept_edges = 0
+    for y in range(CANVAS_SIZE[1]):
+        for x in range(CANVAS_SIZE[0] - 1):
+            vanilla_edge = (
+                abs(luminance(vanilla.getpixel((x, y))) - luminance(vanilla.getpixel((x + 1, y))))
+                > 12
+            )
+            if vanilla_edge:
+                vanilla_edges += 1
+                target_edge = (
+                    abs(luminance(target.getpixel((x, y))) - luminance(target.getpixel((x + 1, y))))
+                    > 12
+                )
+                kept_edges += target_edge
+    return 100.0 * kept_edges / max(1, vanilla_edges)
+
+
 def validate_style(style_id: str, vanilla: Image.Image) -> str:
+    style = STYLES[style_id]
     chest_path = ENTITY_DIR / f"{style_id}.png"
     particle_path = BLOCK_DIR / f"boss_chest_{style_id}.png"
     chest = Image.open(chest_path).convert("RGBA")
     particle = Image.open(particle_path).convert("RGBA")
     if chest.size != CANVAS_SIZE or particle.size != PARTICLE_SIZE:
         raise AssertionError(f"{style_id}: incorrect output dimensions")
+
     vanilla_alpha = list(flat_pixels(vanilla.getchannel("A")))
     chest_alpha = list(flat_pixels(chest.getchannel("A")))
     mask_diff = sum(a != b for a, b in zip(vanilla_alpha, chest_alpha))
@@ -828,56 +749,76 @@ def validate_style(style_id: str, vanilla: Image.Image) -> str:
             f"{style_id}: mask-diff={mask_diff}, semi-alpha={semi_alpha}, "
             f"particle-semi={particle_semi}"
         )
+
     colors = {pixel[:3] for pixel in flat_pixels(chest) if pixel[3]}
     particle_colors = {pixel[:3] for pixel in flat_pixels(particle) if pixel[3]}
-    allowed = {color[:3] for color in STYLES[style_id].palette.values()}
+    allowed = set(style.colors)
     if not colors <= allowed or not particle_colors <= allowed:
         raise AssertionError(f"{style_id}: output contains colors outside its GPL palette")
-    if len(colors | particle_colors) > 16:
-        raise AssertionError(f"{style_id}: output uses more than 16 colors")
+    if not 12 <= len(colors) <= 24:
+        raise AssertionError(f"{style_id}: expected 12..24 opaque colors, got {len(colors)}")
 
-    seam_diff = 0
-    for y0, height in ((14, 5), (33, 10)):
-        for left_edge, right_edge in ((13, 14), (27, 28), (41, 42), (55, 0)):
-            for y in range(y0, y0 + height):
-                seam_diff += chest.getpixel((left_edge, y)) != chest.getpixel((right_edge, y))
-    if seam_diff:
-        raise AssertionError(f"{style_id}: side-face seam-diff={seam_diff}")
+    mapping = build_palette_mapping(vanilla, style)
+    base = remap_image(vanilla, mapping)
+    protected = protected_mask(vanilla)
+    opaque_pixels = sum(alpha == 255 for alpha in vanilla_alpha)
+    accent_pixels = 0
+    protected_changes = 0
+    for y in range(CANVAS_SIZE[1]):
+        for x in range(CANVAS_SIZE[0]):
+            if chest_alpha[y * CANVAS_SIZE[0] + x] and chest.getpixel((x, y)) != base.getpixel((x, y)):
+                accent_pixels += 1
+                protected_changes += bool(protected.getpixel((x, y)))
+    accent_fraction = accent_pixels / opaque_pixels
+    if accent_pixels == 0 or accent_fraction > MAX_ACCENT_FRACTION or protected_changes:
+        raise AssertionError(
+            f"{style_id}: accents={accent_pixels} ({accent_fraction:.1%}), "
+            f"protected-changes={protected_changes}"
+        )
+
+    structure = horizontal_structure(vanilla, chest)
+    if structure < 70:
+        raise AssertionError(f"{style_id}: vanilla structure retained only {structure:.1f}%")
+
+    metal_mask = [is_metal_source(pixel) for pixel in flat_pixels(vanilla)]
+    metal_luma = [luminance(pixel) for pixel, selected in zip(flat_pixels(chest), metal_mask) if selected]
+    body_luma = [
+        luminance(pixel)
+        for pixel, source_pixel in zip(flat_pixels(chest), flat_pixels(vanilla))
+        if source_pixel[3] and not is_metal_source(source_pixel)
+    ]
+    if sum(metal_luma) / len(metal_luma) <= sum(body_luma) / len(body_luma):
+        raise AssertionError(f"{style_id}: latch is not lighter than the chest body")
 
     source_path = ART_DIR / f"{style_id}.aseprite"
-    names, flags, frames = decode_aseprite(source_path.read_bytes())
-    expected_names = ["vanilla_guide", "base", "shading", "details"]
-    if STYLES[style_id].glow:
-        expected_names.append("glow")
-    if names != expected_names or flags[0] & 1 or any(not value & 1 for value in flags[1:]):
+    names, frames = decode_aseprite(source_path.read_bytes())
+    if names != list(LAYER_NAMES):
         raise AssertionError(f"{style_id}: incorrect Aseprite layer structure")
-    if frames[0][0].tobytes() != vanilla.tobytes():
-        raise AssertionError(f"{style_id}: vanilla guide differs from the loaded template")
-    source_chest = composite_visible_source(names, flags, frames[0])
-    source_particle = composite_visible_source(names, flags, frames[1]).crop((0, 0, 16, 16))
+    source_chest = composite_layers(dict(zip(LAYER_NAMES, frames[0])))
+    source_particle = composite_layers(dict(zip(LAYER_NAMES, frames[1]))).crop((0, 0, *PARTICLE_SIZE))
     if source_chest.tobytes() != chest.tobytes() or source_particle.tobytes() != particle.tobytes():
-        raise AssertionError(f"{style_id}: source frames do not reproduce runtime PNG pixels")
+        raise AssertionError(f"{style_id}: Aseprite frames do not reproduce runtime PNG pixels")
+
     return (
-        f"{style_id:10s} chest=64x64 particle=16x16 mask-diff={mask_diff} "
-        f"semi-alpha={semi_alpha} seam-diff={seam_diff} colors={len(colors | particle_colors)}"
+        f"{style_id:10s} size=64x64 mask-diff={mask_diff} semi-alpha={semi_alpha} "
+        f"structure={structure:.0f}% colors={len(colors)} accents={accent_fraction:.1%}"
     )
 
 
 def build_style(style_id: str, vanilla: Image.Image) -> None:
     chest_layers, chest = render_chest(style_id, vanilla)
-    particle_layers, particle = render_particle(style_id)
+    particle_layers, particle = render_particle_layers(chest_layers)
     save_png(chest, ENTITY_DIR / f"{style_id}.png")
     save_png(particle, BLOCK_DIR / f"boss_chest_{style_id}.png")
     write_gpl(style_id)
     write_preview(style_id, chest)
-    source = encode_aseprite(vanilla, chest_layers, particle_layers)
     source_path = ART_DIR / f"{style_id}.aseprite"
     source_path.parent.mkdir(parents=True, exist_ok=True)
-    source_path.write_bytes(source)
+    source_path.write_bytes(encode_aseprite(chest_layers, particle_layers))
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate the six boss chest skin art packages")
+    parser = argparse.ArgumentParser(description="Palette-remap Minecraft 1.21.1 boss chest skins")
     parser.add_argument("--vanilla", type=Path, help="Path to Minecraft 1.21.1 chest normal.png")
     parser.add_argument("--style", choices=STYLE_IDS, action="append", help="Build only selected style")
     parser.add_argument("--check", action="store_true", help="Validate existing files without rebuilding")
@@ -893,8 +834,14 @@ def main() -> int:
         for style_id in selected:
             build_style(style_id, vanilla)
             print(f"generated {style_id}")
+        if all((ENTITY_DIR / f"{style_id}.png").is_file() for style_id in STYLE_IDS):
+            write_all_styles_preview(vanilla)
+            print("generated all_styles_4x")
     for style_id in selected:
         print(validate_style(style_id, vanilla))
+    all_preview = PREVIEW_DIR / "all_styles_4x.png"
+    if selected == STYLE_IDS and (not all_preview.is_file() or Image.open(all_preview).size != (1904, 360)):
+        raise AssertionError("all_styles_4x.png is missing or has incorrect dimensions")
     return 0
 
 
