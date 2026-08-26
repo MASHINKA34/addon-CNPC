@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.world;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.NpcCarryData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
@@ -17,6 +18,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -58,6 +62,9 @@ public final class NpcCarryManager {
     private static final double PREVIEW_RADIUS = 0.6D;
     private static final Vector3f PREVIEW_FREE = new Vector3f(0.35F, 0.95F, 0.45F);
     private static final Vector3f PREVIEW_BLOCKED = new Vector3f(0.95F, 0.25F, 0.25F);
+    /** One fixed id, so picking up a second npc replaces the slowdown instead of stacking. */
+    private static final ResourceLocation SLOWNESS_MODIFIER_ID =
+            ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "npc_carry_slowness");
 
     private static final Set<UUID> CARRY_MODE = new HashSet<>();
     private static final Map<UUID, CarryRuntime> BY_PLAYER = new HashMap<>();
@@ -71,6 +78,8 @@ public final class NpcCarryManager {
     private static final class CarryRuntime {
         private final UUID playerId;
         private final UUID npcId;
+        /** Kept so the carrier can be found again from any path that ends a carry. */
+        private final MinecraftServer server;
         private final ResourceKey<Level> levelKey;
         private final Vec3 pickupPos;
         private final float pickupYaw;
@@ -81,10 +90,14 @@ public final class NpcCarryManager {
         private final boolean hadNoGravity;
         private final boolean invulnerableWhileHeld;
         private final boolean updatesHome;
+        private final int slownessPercent;
+        private final boolean dropOnDamage;
+        private final double leashRadiusSqr;
 
         private CarryRuntime(ServerPlayer player, EntityNPCInterface npc, boolean builderTool) {
             this.playerId = player.getUUID();
             this.npcId = npc.getUUID();
+            this.server = player.getServer();
             this.levelKey = npc.level().dimension();
             this.pickupPos = npc.position();
             this.pickupYaw = npc.getYRot();
@@ -98,6 +111,16 @@ public final class NpcCarryManager {
             NpcCarryData settings = settings(npc);
             this.invulnerableWhileHeld = builderTool || settings.isInvulnerable();
             this.updatesHome = builderTool || settings.isUpdatesHome();
+            // The builder tool costs its user nothing: no slowdown, no fumbling, no leash.
+            this.slownessPercent = builderTool ? 0 : settings.getSlownessPercent();
+            this.dropOnDamage = !builderTool && settings.isDropOnDamage();
+            double radius = builderTool ? 0.0D : settings.getLeashRadius();
+            this.leashRadiusSqr = radius * radius;
+        }
+
+        /** @return true when the carrier has taken the npc too far from where it was picked up */
+        private boolean outOfLeash(ServerPlayer player) {
+            return leashRadiusSqr > 0.0D && player.position().distanceToSqr(pickupPos) > leashRadiusSqr;
         }
 
         /**
@@ -205,6 +228,7 @@ public final class NpcCarryManager {
             // meant to be shootable out of their hands - that is the fight, not a bug.
             npc.setInvulnerable(true);
         }
+        applySlowness(player, carry);
         hold(player, npc);
         player.displayClientMessage(
                 Component.translatable("cnpcgeckoaddon.carry.picked", npc.getName()), true);
@@ -256,7 +280,31 @@ public final class NpcCarryManager {
     /** A logout also drops carry mode, so a returning builder is not still holding a tool. */
     public static void onPlayerGone(ServerPlayer player) {
         release(player);
+        // Straight off this instance, without going through the player list it is being
+        // removed from: a slowdown that outlives the carry is a player slow forever.
+        clearSlowness(player);
         CARRY_MODE.remove(player.getUUID());
+    }
+
+    /**
+     * Knocks the npc out of a carrier's hands, when the npc it is carrying asked for that.
+     *
+     * <p>Any damage counts. The npc lands where it slipped rather than going back to its
+     * pickup point, because a bomb dropped mid fight is supposed to be lying at your feet.</p>
+     */
+    public static void onCarrierDamaged(ServerPlayer player) {
+        CarryRuntime carry = BY_PLAYER.get(player.getUUID());
+        if (carry == null || !carry.dropOnDamage
+                || !(player.level() instanceof ServerLevel level)
+                || !carry.levelKey.equals(level.dimension())) {
+            return;
+        }
+        Entity held = level.getEntity(carry.npcId);
+        if (!(held instanceof EntityNPCInterface npc) || npc.isRemoved() || !npc.isAlive()) {
+            forget(carry, held);
+            return;
+        }
+        drop(level, carry, npc, player, null);
     }
 
     /** The npc is gone - dead, deleted or unloaded - so there is nowhere left to carry it. */
@@ -323,6 +371,12 @@ public final class NpcCarryManager {
             ServerPlayer player = carrier(level, carry);
             if (player == null || player.isRemoved() || !player.isAlive()) {
                 abort(level, carry, npc, player);
+                continue;
+            }
+            if (carry.outOfLeash(player)) {
+                // Checked before the npc is pulled along for another tick, so it stays at the
+                // edge of the leash instead of being dragged one more step past it.
+                drop(level, carry, npc, player, "cnpcgeckoaddon.carry.too_far");
                 continue;
             }
             hold(player, npc);
@@ -447,6 +501,30 @@ public final class NpcCarryManager {
         forget(carry);
     }
 
+    /**
+     * Ends a carry the carrier did not ask to end, leaving the npc where it slipped.
+     *
+     * <p>Where it slipped is where it was floating, so it drops to the floor under its own
+     * weight once its gravity comes back. Only when that spot cannot hold it at all does this
+     * fall back on {@link #abort}, which puts it at the carrier's feet or back where it was
+     * picked up: an npc is never lost, whatever the drop was for.</p>
+     *
+     * @param messageKey what to tell the carrier, or null to let the npc falling say it
+     */
+    private static void drop(ServerLevel level, CarryRuntime carry, EntityNPCInterface npc,
+                             ServerPlayer player, String messageKey) {
+        if (messageKey != null) {
+            message(player, messageKey, npc);
+        }
+        Vec3 here = npc.position();
+        if (!fits(level, npc, here)) {
+            abort(level, carry, npc, player);
+            return;
+        }
+        settle(npc, carry, here, npc.getYRot(), 0.0F, carry.homeFor(here));
+        forget(carry);
+    }
+
     private static void message(ServerPlayer player, String key, EntityNPCInterface npc) {
         if (player != null) {
             player.displayClientMessage(Component.translatable(key, npc.getName()), true);
@@ -520,5 +598,47 @@ public final class NpcCarryManager {
     private static void forget(CarryRuntime carry) {
         BY_PLAYER.remove(carry.playerId, carry);
         BY_NPC.remove(carry.npcId, carry);
+        clearSlowness(carry);
+    }
+
+    /**
+     * Weighs the carrier down for as long as they are holding the npc.
+     *
+     * <p>Transient on purpose: a permanent modifier is written into the player's own data,
+     * and a server that goes down mid carry would bring them back slow with nothing left to
+     * explain why.</p>
+     */
+    private static void applySlowness(ServerPlayer player, CarryRuntime carry) {
+        if (carry.slownessPercent <= 0) {
+            return;
+        }
+        AttributeInstance instance = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (instance == null) {
+            return;
+        }
+        // ADD_MULTIPLIED_TOTAL scales the finished value by 1 + amount, so a 30% setting is
+        // handed -0.3 and leaves the carrier at seven tenths of their own speed.
+        instance.removeModifier(SLOWNESS_MODIFIER_ID);
+        instance.addTransientModifier(new AttributeModifier(SLOWNESS_MODIFIER_ID,
+                -carry.slownessPercent / 100.0D, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+    }
+
+    /** Looks the carrier up wherever they are now, because a carry can end without them. */
+    private static void clearSlowness(CarryRuntime carry) {
+        if (carry.slownessPercent <= 0 || carry.server == null) {
+            return;
+        }
+        ServerPlayer player = carry.server.getPlayerList().getPlayer(carry.playerId);
+        if (player != null) {
+            clearSlowness(player);
+        }
+    }
+
+    /** Idempotent, so every path out of a carry can call it without checking first. */
+    public static void clearSlowness(ServerPlayer player) {
+        AttributeInstance instance = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (instance != null) {
+            instance.removeModifier(SLOWNESS_MODIFIER_ID);
+        }
     }
 }

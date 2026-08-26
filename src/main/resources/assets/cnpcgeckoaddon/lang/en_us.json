@@ -421,5 +421,6 @@
   "cnpcgeckoaddon.carry.blocked": "No room there",
   "cnpcgeckoaddon.carry.busy": "Someone is already carrying that npc",
   "cnpcgeckoaddon.carry.returned": "Returned %s to where it was picked up",
+  "cnpcgeckoaddon.carry.too_far": "It slipped out of your hands",
   "block.cnpcgeckoaddon.boss_chest": "Boss chest"
 }

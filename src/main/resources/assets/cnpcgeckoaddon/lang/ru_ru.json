@@ -421,5 +421,6 @@
   "cnpcgeckoaddon.carry.blocked": "Здесь не помещается",
   "cnpcgeckoaddon.carry.busy": "Этого НПС уже несут",
   "cnpcgeckoaddon.carry.returned": "%s возвращён на место, откуда его взяли",
+  "cnpcgeckoaddon.carry.too_far": "Он выскользнул из рук",
   "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
 }

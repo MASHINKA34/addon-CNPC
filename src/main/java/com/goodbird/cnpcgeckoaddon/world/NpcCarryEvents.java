@@ -9,6 +9,7 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -102,6 +103,19 @@ public final class NpcCarryEvents {
     public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             NpcCarryManager.release(player);
+        }
+    }
+
+    /**
+     * Damage can knock the npc out of its carrier's hands.
+     *
+     * <p>Post, not incoming: damage that was cancelled or fully soaked up never reached the
+     * carrier, and nothing a carrier did not feel should cost them the npc.</p>
+     */
+    @SubscribeEvent
+    public static void onCarrierDamaged(final LivingDamageEvent.Post event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            NpcCarryManager.onCarrierDamaged(player);
         }
     }
 
