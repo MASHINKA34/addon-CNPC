@@ -34,6 +34,27 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.hook_mode_cinch"
     };
 
+    /** Straight up and back down onto the same spot. */
+    public static final int LEAP_MODE_UP = 0;
+    /** An arc that ends on whoever this ability picked. */
+    public static final int LEAP_MODE_TARGET = 1;
+    /** An arc onto absolute world coordinates. */
+    public static final int LEAP_MODE_FIXED = 2;
+    /** An arc onto the arena spot the boss started the fight at, plus an offset. */
+    public static final int LEAP_MODE_ARENA_OFFSET = 3;
+
+    public static final String[] LEAP_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.leap_mode_up",
+            "cnpcgeckoaddon.boss.leap_mode_target",
+            "cnpcgeckoaddon.boss.leap_mode_fixed",
+            "cnpcgeckoaddon.boss.leap_mode_arena"
+    };
+
+    /** Absolute leap coordinates share the world limit the chest coordinates use. */
+    public static final int MAX_LEAP_COORDINATE = 30000000;
+    /** Ceiling on the arc, read by the controller when a high target raises the jump. */
+    public static final int MAX_LEAP_HEIGHT = 64;
+
     public static final int CAPTURE_MODE_HOLD = 0;
     public static final int CAPTURE_MODE_LIFT = 1;
     public static final int CAPTURE_EFFECT_PLAYER = 0;
@@ -155,6 +176,31 @@ public final class BossPhaseData {
     private int captureBeamSagPercent;
     private boolean captureAllowLook = true;
 
+    private boolean leapEnabled;
+    private String leapAnimation = "";
+    private String leapLandAnimation = "";
+    private int leapActionDelayTicks = 12;
+    private int leapCooldownTicks = 200;
+    private int leapMode = LEAP_MODE_UP;
+    private int leapTargetMode = BossTargetMode.MAIN;
+    private int leapHeight = 8;
+    private int leapMinRange = 4;
+    private int leapMaxRange = 24;
+    private int leapOffsetX;
+    private int leapOffsetY;
+    private int leapOffsetZ;
+    private int leapFixedX;
+    private int leapFixedY;
+    private int leapFixedZ;
+    private int leapImpactDamage = 10;
+    private int leapImpactRadius = 4;
+    private int leapImpactKnockback = 2;
+    /** Ends a leap that never lands, so a jump into a pit cannot strand the boss in mid air. */
+    private int leapMaxAirTicks = 100;
+    private boolean leapTelegraph = true;
+    private String leapVfx = AreaVfxStyles.NONE;
+    private boolean leapBlockWave;
+
     private boolean invulnerableEnabled;
     private int invulnerableEndMode = INVULNERABLE_END_TIMER_OR_MINIONS;
     private int invulnerableDurationTicks = 200;
@@ -167,6 +213,7 @@ public final class BossPhaseData {
     private final BossEffectSet fluidSpitEffects = new BossEffectSet();
     private final BossEffectSet hookEffects = new BossEffectSet();
     private final BossEffectSet captureEffects = new BossEffectSet();
+    private final BossEffectSet leapEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -258,6 +305,29 @@ public final class BossPhaseData {
         tag.putInt("CaptureBeamWidthPercent", captureBeamWidthPercent);
         tag.putInt("CaptureBeamSagPercent", captureBeamSagPercent);
         tag.putBoolean("CaptureAllowLook", captureAllowLook);
+        tag.putBoolean("LeapEnabled", leapEnabled);
+        tag.putString("LeapAnimation", leapAnimation);
+        tag.putString("LeapLandAnimation", leapLandAnimation);
+        tag.putInt("LeapActionDelayTicks", leapActionDelayTicks);
+        tag.putInt("LeapCooldownTicks", leapCooldownTicks);
+        tag.putInt("LeapMode", leapMode);
+        tag.putInt("LeapTargetMode", leapTargetMode);
+        tag.putInt("LeapHeight", leapHeight);
+        tag.putInt("LeapMinRange", leapMinRange);
+        tag.putInt("LeapMaxRange", leapMaxRange);
+        tag.putInt("LeapOffsetX", leapOffsetX);
+        tag.putInt("LeapOffsetY", leapOffsetY);
+        tag.putInt("LeapOffsetZ", leapOffsetZ);
+        tag.putInt("LeapFixedX", leapFixedX);
+        tag.putInt("LeapFixedY", leapFixedY);
+        tag.putInt("LeapFixedZ", leapFixedZ);
+        tag.putInt("LeapImpactDamage", leapImpactDamage);
+        tag.putInt("LeapImpactRadius", leapImpactRadius);
+        tag.putInt("LeapImpactKnockback", leapImpactKnockback);
+        tag.putInt("LeapMaxAirTicks", leapMaxAirTicks);
+        tag.putBoolean("LeapTelegraph", leapTelegraph);
+        tag.putString("LeapVfx", leapVfx);
+        tag.putBoolean("LeapBlockWave", leapBlockWave);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
         tag.putInt("InvulnerableDurationTicks", invulnerableDurationTicks);
@@ -269,6 +339,7 @@ public final class BossPhaseData {
         tag.put("FluidSpitEffects", fluidSpitEffects.writeToNBT());
         tag.put("HookEffects", hookEffects.writeToNBT());
         tag.put("CaptureEffects", captureEffects.writeToNBT());
+        tag.put("LeapEffects", leapEffects.writeToNBT());
         return tag;
     }
 
@@ -380,6 +451,34 @@ public final class BossPhaseData {
         captureBeamSagPercent = value(tag, "CaptureBeamSagPercent", 0, 0, 200);
         captureAllowLook = !tag.contains("CaptureAllowLook") || tag.getBoolean("CaptureAllowLook");
 
+        leapEnabled = tag.getBoolean("LeapEnabled");
+        leapAnimation = clean(tag.getString("LeapAnimation"));
+        leapLandAnimation = clean(tag.getString("LeapLandAnimation"));
+        leapActionDelayTicks = value(tag, "LeapActionDelayTicks", 12, 0, 1200);
+        leapCooldownTicks = value(tag, "LeapCooldownTicks", 200, 1, 12000);
+        leapMode = value(tag, "LeapMode", LEAP_MODE_UP, LEAP_MODE_UP, LEAP_MODE_ARENA_OFFSET);
+        leapTargetMode = value(tag, "LeapTargetMode",
+                BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
+        leapHeight = value(tag, "LeapHeight", 8, 1, MAX_LEAP_HEIGHT);
+        setLeapRange(
+                value(tag, "LeapMinRange", 4, 0, 64),
+                value(tag, "LeapMaxRange", 24, 1, 128));
+        leapOffsetX = value(tag, "LeapOffsetX", 0, -64, 64);
+        leapOffsetY = value(tag, "LeapOffsetY", 0, -64, 64);
+        leapOffsetZ = value(tag, "LeapOffsetZ", 0, -64, 64);
+        leapFixedX = value(tag, "LeapFixedX", 0, -MAX_LEAP_COORDINATE, MAX_LEAP_COORDINATE);
+        leapFixedY = value(tag, "LeapFixedY", 0, -MAX_LEAP_COORDINATE, MAX_LEAP_COORDINATE);
+        leapFixedZ = value(tag, "LeapFixedZ", 0, -MAX_LEAP_COORDINATE, MAX_LEAP_COORDINATE);
+        leapImpactDamage = value(tag, "LeapImpactDamage", 10, 0, 1000);
+        leapImpactRadius = value(tag, "LeapImpactRadius", 4, 1, 32);
+        leapImpactKnockback = value(tag, "LeapImpactKnockback", 2, 0, 10);
+        leapMaxAirTicks = value(tag, "LeapMaxAirTicks", 100, 20, 400);
+        // A boss saved before the marker existed gets it: an unannounced slam that big
+        // reads as an unfair death rather than as a mechanic.
+        leapTelegraph = !tag.contains("LeapTelegraph") || tag.getBoolean("LeapTelegraph");
+        leapVfx = AreaVfxStyles.normalize(tag.getString("LeapVfx"));
+        leapBlockWave = tag.getBoolean("LeapBlockWave");
+
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
         invulnerableEndMode = value(tag, "InvulnerableEndMode", INVULNERABLE_END_TIMER_OR_MINIONS,
                 INVULNERABLE_END_TIMER, INVULNERABLE_END_TIMER_AND_MINIONS);
@@ -394,6 +493,7 @@ public final class BossPhaseData {
         fluidSpitEffects.readFromNBT(tag, "FluidSpitEffects");
         hookEffects.readFromNBT(tag, "HookEffects");
         captureEffects.readFromNBT(tag, "CaptureEffects");
+        leapEffects.readFromNBT(tag, "LeapEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -647,6 +747,64 @@ public final class BossPhaseData {
     public boolean isCaptureAllowLook() { return captureAllowLook; }
     public void setCaptureAllowLook(boolean value) { captureAllowLook = value; }
 
+    public boolean isLeapEnabled() { return leapEnabled; }
+    public void setLeapEnabled(boolean value) { leapEnabled = value; }
+    public String getLeapAnimation() { return leapAnimation; }
+    public void setLeapAnimation(String value) { leapAnimation = clean(value); }
+    /** Played the moment the boss touches down, alongside the slam itself. */
+    public String getLeapLandAnimation() { return leapLandAnimation; }
+    public void setLeapLandAnimation(String value) { leapLandAnimation = clean(value); }
+    public int getLeapActionDelayTicks() { return leapActionDelayTicks; }
+    public void setLeapActionDelayTicks(int value) { leapActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getLeapCooldownTicks() { return leapCooldownTicks; }
+    public void setLeapCooldownTicks(int value) { leapCooldownTicks = Mth.clamp(value, 1, 12000); }
+    public int getLeapMode() { return leapMode; }
+    public void setLeapMode(int value) { leapMode = Mth.clamp(value, LEAP_MODE_UP, LEAP_MODE_ARENA_OFFSET); }
+    public int getLeapTargetMode() { return leapTargetMode; }
+    public void setLeapTargetMode(int value) { leapTargetMode = BossTargetMode.clamp(value); }
+    /** How high the arc climbs above the spot the boss pushed off from. */
+    public int getLeapHeight() { return leapHeight; }
+    public void setLeapHeight(int value) { leapHeight = Mth.clamp(value, 1, MAX_LEAP_HEIGHT); }
+    public int getLeapMinRange() { return leapMinRange; }
+    public int getLeapMaxRange() { return leapMaxRange; }
+    public void setLeapRange(int min, int max) {
+        min = Mth.clamp(min, 0, 64);
+        max = Mth.clamp(max, 1, 128);
+        leapMinRange = Math.min(min, max);
+        leapMaxRange = Math.max(min, max);
+    }
+    public int getLeapOffsetX() { return leapOffsetX; }
+    public int getLeapOffsetY() { return leapOffsetY; }
+    public int getLeapOffsetZ() { return leapOffsetZ; }
+    public void setLeapOffset(int x, int y, int z) {
+        leapOffsetX = Mth.clamp(x, -64, 64);
+        leapOffsetY = Mth.clamp(y, -64, 64);
+        leapOffsetZ = Mth.clamp(z, -64, 64);
+    }
+    public int getLeapFixedX() { return leapFixedX; }
+    public int getLeapFixedY() { return leapFixedY; }
+    public int getLeapFixedZ() { return leapFixedZ; }
+    public void setLeapFixed(int x, int y, int z) {
+        leapFixedX = Mth.clamp(x, -MAX_LEAP_COORDINATE, MAX_LEAP_COORDINATE);
+        leapFixedY = Mth.clamp(y, -MAX_LEAP_COORDINATE, MAX_LEAP_COORDINATE);
+        leapFixedZ = Mth.clamp(z, -MAX_LEAP_COORDINATE, MAX_LEAP_COORDINATE);
+    }
+    public int getLeapImpactDamage() { return leapImpactDamage; }
+    public void setLeapImpactDamage(int value) { leapImpactDamage = Mth.clamp(value, 0, 1000); }
+    public int getLeapImpactRadius() { return leapImpactRadius; }
+    public void setLeapImpactRadius(int value) { leapImpactRadius = Mth.clamp(value, 1, 32); }
+    public int getLeapImpactKnockback() { return leapImpactKnockback; }
+    public void setLeapImpactKnockback(int value) { leapImpactKnockback = Mth.clamp(value, 0, 10); }
+    public int getLeapMaxAirTicks() { return leapMaxAirTicks; }
+    public void setLeapMaxAirTicks(int value) { leapMaxAirTicks = Mth.clamp(value, 20, 400); }
+    /** Draws the landing ring through the windup and the flight. */
+    public boolean isLeapTelegraph() { return leapTelegraph; }
+    public void setLeapTelegraph(boolean value) { leapTelegraph = value; }
+    public String getLeapVfx() { return leapVfx; }
+    public void setLeapVfx(String value) { leapVfx = AreaVfxStyles.normalize(value); }
+    public boolean isLeapBlockWave() { return leapBlockWave; }
+    public void setLeapBlockWave(boolean value) { leapBlockWave = value; }
+
     /** While this phase runs the boss takes no damage and only its summon ability fires. */
     public boolean isInvulnerableEnabled() { return invulnerableEnabled; }
     public void setInvulnerableEnabled(boolean value) { invulnerableEnabled = value; }
@@ -686,6 +844,7 @@ public final class BossPhaseData {
     public BossEffectSet getFluidSpitEffects() { return fluidSpitEffects; }
     public BossEffectSet getHookEffects() { return hookEffects; }
     public BossEffectSet getCaptureEffects() { return captureEffects; }
+    public BossEffectSet getLeapEffects() { return leapEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();
