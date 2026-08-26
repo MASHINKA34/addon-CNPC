@@ -1,18 +1,27 @@
 GIMP Palette
 Name: Infernal Boss Chest
-Columns: 7
+Columns: 8
 #
-  0   0   0	outline
-  9   9   9	deepest
- 13  13  13	shadow
- 21  21  21	base
- 23  23  23	mid
- 24  25  24	light
- 42  43  44	highlight
- 20  23  31	trim_dark
- 35  40  51	trim
- 60  63  72	trim_light
-101  25  20	accent_dark
-174  42  26	accent
-237  85  27	accent_light
-255 166  57	hot
+  1   2   3	wood_00
+  4   5   6	wood_01
+  8   8   9	wood_02
+ 11  11  11	wood_03
+ 15  14  14	wood_04
+ 20  19  18	wood_05
+ 26  24  23	wood_06
+ 33  29  28	wood_07
+ 39  34  33	wood_08
+ 49  43  40	wood_09
+ 69  57  51	wood_10
+ 88  72  62	wood_11
+107  86  73	wood_12
+126 101  84	wood_13
+ 48  53  62	metal_00
+ 65  71  81	metal_01
+ 84  91 101	metal_02
+110 117 127	metal_03
+151 157 166	metal_04
+207 211 216	metal_05
+111  23  16	accent_dark
+218  55  20	accent
+255 157  46	accent_light

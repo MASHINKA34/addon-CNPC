@@ -1,18 +1,27 @@
 GIMP Palette
 Name: Gilded Treasury Boss Chest
-Columns: 7
+Columns: 8
 #
- 18  12  10	outline
- 32  19  15	deepest
- 49  28  20	shadow
- 70  39  25	base
- 94  52  29	mid
-128  74  38	light
-167 103  52	highlight
-101  64  14	trim_dark
-151 101  26	trim
-218 165  42	trim_light
-126  82  18	accent_dark
-218 165  42	accent
-255 220  91	accent_light
-255 241 166	hot
+ 13   8   7	wood_00
+ 19  11   9	wood_01
+ 25  14  11	wood_02
+ 30  18  13	wood_03
+ 36  21  14	wood_04
+ 45  26  17	wood_05
+ 56  32  19	wood_06
+ 68  38  21	wood_07
+ 79  44  23	wood_08
+ 92  52  27	wood_09
+110  66  33	wood_10
+128  79  40	wood_11
+146  92  46	wood_12
+164 105  52	wood_13
+ 78  48  10	metal_00
+111  72  15	metal_01
+149 101  23	metal_02
+190 137  32	metal_03
+229 180  55	metal_04
+255 229 125	metal_05
+124  80  18	accent_dark
+218 164  42	accent
+255 241 166	accent_light

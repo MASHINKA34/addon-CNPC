@@ -1,18 +1,27 @@
 GIMP Palette
 Name: Moss Cave Boss Chest
-Columns: 7
+Columns: 8
 #
- 12  24  21	outline
- 19  34  29	deepest
- 39  43  32	shadow
- 55  61  39	base
- 76  82  48	mid
-104 106  58	light
-152 152  94	highlight
- 43  52  55	trim_dark
- 56  70  70	trim
- 84 104 105	trim_light
- 22  36  32	accent_dark
-  3 101  50	accent
- 10 136  67	accent_light
-105 134 133	hot
+  7  16  14	wood_00
+ 13  24  20	wood_01
+ 19  32  25	wood_02
+ 26  40  31	wood_03
+ 32  48  36	wood_04
+ 42  59  42	wood_05
+ 53  70  47	wood_06
+ 65  82  52	wood_07
+ 76  93  57	wood_08
+ 91 107  66	wood_09
+111 124  81	wood_10
+131 142  95	wood_11
+152 159 110	wood_12
+172 177 125	wood_13
+ 52  66  71	metal_00
+ 69  85  91	metal_01
+ 90 108 114	metal_02
+116 136 141	metal_03
+153 173 176	metal_04
+205 218 217	metal_05
+ 18  70  39	accent_dark
+  3 121  56	accent
+ 30 174  86	accent_light

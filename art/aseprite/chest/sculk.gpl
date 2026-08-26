@@ -1,18 +1,27 @@
 GIMP Palette
 Name: Sculk Boss Chest
-Columns: 7
+Columns: 8
 #
-  2   5   9	outline
-  4   9  16	deepest
- 13  20  28	shadow
- 24  35  44	base
- 39  54  64	mid
- 67  91  99	light
-118 126 128	highlight
-  3  22  29	trim_dark
-  5  58  74	trim
-  6  79  96	trim_light
-  7  31  48	accent_dark
-  8 133 145	accent
- 20 211 222	accent_light
-118 246 238	hot
+  2   5   9	wood_00
+  4  10  15	wood_01
+  5  14  21	wood_02
+  7  19  26	wood_03
+  8  23  32	wood_04
+ 12  29  38	wood_05
+ 17  36  45	wood_06
+ 21  43  51	wood_07
+ 26  50  58	wood_08
+ 35  60  68	wood_09
+ 54  78  85	wood_10
+ 72  97 102	wood_11
+ 91 115 119	wood_12
+109 133 136	wood_13
+ 53  77  87	metal_00
+ 69  95 106	metal_01
+ 90 120 130	metal_02
+119 151 159	metal_03
+159 187 191	metal_04
+213 231 230	metal_05
+  5  77  91	accent_dark
+  8 145 155	accent
+ 55 228 226	accent_light

@@ -1,18 +1,27 @@
 GIMP Palette
 Name: Ghost Dungeon Boss Chest
-Columns: 7
+Columns: 8
 #
- 19  22  34	outline
- 44  67  76	deepest
- 76 153 174	shadow
-104 184 201	base
-148 217 228	mid
-207 244 245	light
-245 255 250	highlight
- 54 116 137	trim_dark
- 66 142 165	trim
-148 217 228	trim_light
- 45 100 121	accent_dark
-104 184 201	accent
-207 244 245	accent_light
-245 255 250	hot
+ 20  29  40	wood_00
+ 31  46  58	wood_01
+ 42  63  75	wood_02
+ 53  80  93	wood_03
+ 64  96 110	wood_04
+ 81 117 130	wood_05
+101 139 152	wood_06
+120 162 173	wood_07
+140 184 195	wood_08
+160 203 212	wood_09
+179 214 221	wood_10
+199 226 229	wood_11
+218 237 238	wood_12
+238 249 247	wood_13
+115 151 166	metal_00
+137 172 185	metal_01
+160 195 205	metal_02
+186 217 224	metal_03
+216 239 242	metal_04
+247 255 255	metal_05
+ 54 124 151	accent_dark
+132 218 232	accent
+241 255 252	accent_light
