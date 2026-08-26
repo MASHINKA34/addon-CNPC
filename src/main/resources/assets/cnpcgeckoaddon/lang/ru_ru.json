@@ -422,5 +422,16 @@
   "cnpcgeckoaddon.carry.busy": "Этого НПС уже несут",
   "cnpcgeckoaddon.carry.returned": "%s возвращён на место, откуда его взяли",
   "cnpcgeckoaddon.carry.too_far": "Он выскользнул из рук",
+  "cnpcgeckoaddon.carry.open": "Переноска...",
+  "cnpcgeckoaddon.carry.title": "Переноска",
+  "cnpcgeckoaddon.carry.carryable": "Игроки могут носить",
+  "cnpcgeckoaddon.carry.sneak": "Поднимать в присяде",
+  "cnpcgeckoaddon.carry.item": "Нужный предмет",
+  "cnpcgeckoaddon.carry.slowness": "Замедление носильщика (%)",
+  "cnpcgeckoaddon.carry.drop_damage": "Ронять при уроне",
+  "cnpcgeckoaddon.carry.invulnerable": "Неуязвим в руках",
+  "cnpcgeckoaddon.carry.updates_home": "Постановка меняет дом",
+  "cnpcgeckoaddon.carry.leash": "Поводок от места подъёма",
+  "cnpcgeckoaddon.carry.hint": "Присяд оставляет обычный правый клик диалогу.",
   "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
 }

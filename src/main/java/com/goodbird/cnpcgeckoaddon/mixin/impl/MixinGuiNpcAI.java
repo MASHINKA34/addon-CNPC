@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiNpcCarry;
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiSoundReaction;
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiTeleportPath;
 import noppes.npcs.client.gui.mainmenu.GuiNpcAI;
@@ -29,5 +30,7 @@ public abstract class MixinGuiNpcAI extends GuiNPCInterface2 {
                 "cnpcgeckoaddon.sound.open", button -> setSubGui(new SubGuiSoundReaction(ai))));
         addButton(new GuiButtonNop(this, 942, guiLeft + 150, guiTop + 160, 140, 20,
                 "cnpcgeckoaddon.teleport.open", button -> setSubGui(new SubGuiTeleportPath(ai, npc))));
+        addButton(new GuiButtonNop(this, 943, guiLeft + 150, guiTop + 185, 140, 20,
+                "cnpcgeckoaddon.carry.open", button -> setSubGui(new SubGuiNpcCarry(ai))));
     }
 }
