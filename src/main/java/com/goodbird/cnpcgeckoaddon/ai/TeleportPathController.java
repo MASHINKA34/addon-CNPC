@@ -2482,8 +2482,8 @@ public final class TeleportPathController {
         if (candidates.isEmpty()) {
             return null;
         }
-        if (phase.getCaptureTargetMode() == BossTargetMode.MAIN
-                && npc.getTarget() instanceof LivingEntity main && candidates.contains(main)) {
+        LivingEntity main = npc.getTarget();
+        if (phase.getCaptureTargetMode() == BossTargetMode.MAIN && candidates.contains(main)) {
             return main;
         }
         if (phase.getCaptureTargetMode() == BossTargetMode.RANDOM

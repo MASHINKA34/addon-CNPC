@@ -248,6 +248,11 @@ public final class BossCaptureManager {
             victim.setYRot(capture.lockedYaw);
             victim.setYHeadRot(capture.lockedYaw);
             victim.setXRot(capture.lockedPitch);
+            // A mob re-aims its head off its body every tick, so locking the head alone
+            // lets a held npc swivel straight back to face whatever it was looking at.
+            if (victim instanceof Mob mob) {
+                mob.yBodyRot = capture.lockedYaw;
+            }
         }
         // Gravity still pulls on the victim during its own tick; the pin simply runs after
         // it every time, so what the trackers broadcast is always the anchored position.
