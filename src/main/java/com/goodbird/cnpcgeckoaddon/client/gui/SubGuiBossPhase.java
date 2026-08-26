@@ -60,6 +60,7 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
         addAbilityButton(16, 0, 3, "cnpcgeckoaddon.boss.hook_settings");
         addAbilityButton(17, 1, 3, "cnpcgeckoaddon.boss.invulnerable_settings");
         addAbilityButton(18, 0, 4, "cnpcgeckoaddon.boss.capture_settings");
+        addAbilityButton(19, 1, 4, "cnpcgeckoaddon.boss.leap_settings");
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
                 "gui.done", button -> close()));
     }
@@ -89,6 +90,8 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
             setSubGui(new SubGuiBossInvulnerable(phase, phaseIndex));
         } else if (button.id == 18) {
             setSubGui(new SubGuiBossCapture(npc, phase, phaseIndex));
+        } else if (button.id == 19) {
+            setSubGui(new SubGuiBossLeap(npc, phase, phaseIndex));
         }
     }
 
