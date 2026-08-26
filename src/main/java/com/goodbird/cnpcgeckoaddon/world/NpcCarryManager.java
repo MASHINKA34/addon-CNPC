@@ -314,6 +314,11 @@ public final class NpcCarryManager {
         if (hit.getType() != HitResult.Type.BLOCK) {
             return new Placement(far, false);
         }
+        if (hit.getDirection() == Direction.DOWN) {
+            // Aimed at a ceiling. Its top face is on the far side of it, so snapping there
+            // would push the npc through the block into whatever room is above.
+            return new Placement(hit.getLocation(), false);
+        }
         BlockPos hitPos = hit.getBlockPos();
         VoxelShape shape = level.getBlockState(hitPos).getCollisionShape(level, hitPos);
         double top = shape.isEmpty() ? 0.0D : shape.max(Direction.Axis.Y);
