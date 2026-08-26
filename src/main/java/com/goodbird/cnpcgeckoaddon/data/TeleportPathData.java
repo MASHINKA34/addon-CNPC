@@ -104,6 +104,45 @@ public final class TeleportPathData {
             "cnpcgeckoaddon.boss.explosion_mode_blocks_always"
     };
 
+    /** Only the danger zone on the floor. */
+    public static final int TELEGRAPH_STYLE_ZONE = 0;
+    /** Only the charge-up on the boss itself, for a player who is not looking down. */
+    public static final int TELEGRAPH_STYLE_AURA = 1;
+    public static final int TELEGRAPH_STYLE_BOTH = 2;
+
+    public static final String[] TELEGRAPH_STYLE_LABELS = {
+            "cnpcgeckoaddon.boss.telegraph_style_zone",
+            "cnpcgeckoaddon.boss.telegraph_style_aura",
+            "cnpcgeckoaddon.boss.telegraph_style_both"
+    };
+
+    /**
+     * One bit of the warning mask per ability, in the order the labels below are listed.
+     * A quick jab can be left silent while the heavy swing that kills still warns.
+     */
+    public static final int TELEGRAPH_AREA = 0;
+    public static final int TELEGRAPH_RANGED = 1;
+    public static final int TELEGRAPH_MELEE = 2;
+    public static final int TELEGRAPH_FLUID = 3;
+    public static final int TELEGRAPH_HOOK = 4;
+    public static final int TELEGRAPH_CAPTURE = 5;
+    public static final int TELEGRAPH_SUMMON = 6;
+    public static final int TELEGRAPH_LEAP = 7;
+    public static final int TELEGRAPH_ABILITY_COUNT = 8;
+    /** Everything warns until a builder switches an ability off. */
+    public static final int TELEGRAPH_ALL_ABILITIES = (1 << TELEGRAPH_ABILITY_COUNT) - 1;
+
+    public static final String[] TELEGRAPH_ABILITY_LABELS = {
+            "cnpcgeckoaddon.boss.ability.area",
+            "cnpcgeckoaddon.boss.ability.ranged",
+            "cnpcgeckoaddon.boss.ability.melee",
+            "cnpcgeckoaddon.boss.ability.fluid",
+            "cnpcgeckoaddon.boss.ability.hook",
+            "cnpcgeckoaddon.boss.ability.capture",
+            "cnpcgeckoaddon.boss.ability.summon",
+            "cnpcgeckoaddon.boss.ability.leap"
+    };
+
     /** The chest lands where the boss fell - what it has always done. */
     public static final int CHEST_PLACEMENT_DEATH = 0;
     /** Where the boss fell, shifted by the configured offset. */
@@ -201,6 +240,11 @@ public final class TeleportPathData {
     private static final String EXPLOSION_POWER_KEY = "GeckoBossExplosionPower";
     private static final String EXPLOSION_MODE_KEY = "GeckoBossExplosionMode";
     private static final String EXPLOSION_FIRE_KEY = "GeckoBossExplosionFire";
+    private static final String TELEGRAPH_ENABLED_KEY = "GeckoBossTelegraphEnabled";
+    private static final String TELEGRAPH_STYLE_KEY = "GeckoBossTelegraphStyle";
+    private static final String TELEGRAPH_ABILITIES_KEY = "GeckoBossTelegraphAbilities";
+    private static final String TELEGRAPH_ANNOUNCE_KEY = "GeckoBossTelegraphAnnounce";
+    private static final String TELEGRAPH_SOUND_KEY = "GeckoBossTelegraphSound";
     private static final String CHEST_ENABLED_KEY = "GeckoBossChestEnabled";
     private static final String CHEST_BLOCK_KEY = "GeckoBossChestBlock";
     private static final String CHEST_DELAY_KEY = "GeckoBossChestDelay";
@@ -323,6 +367,16 @@ public final class TeleportPathData {
     private int explosionMode = EXPLOSION_MODE_DAMAGE;
     private boolean explosionFire;
 
+    /**
+     * On by default, and deliberately so: a wind-up nobody can read turns a boss fight into
+     * guesswork, and switching the warning back off is one button.
+     */
+    private boolean telegraphEnabled = true;
+    private int telegraphStyle = TELEGRAPH_STYLE_BOTH;
+    private int telegraphAbilities = TELEGRAPH_ALL_ABILITIES;
+    private boolean telegraphAnnounce = true;
+    private boolean telegraphSound = true;
+
     private boolean chestEnabled;
     private String chestBlock = ContainerBlockUtil.DEFAULT_ID;
     private int chestDelayTicks;
@@ -426,6 +480,11 @@ public final class TeleportPathData {
         tag.putInt(EXPLOSION_POWER_KEY, explosionPower);
         tag.putInt(EXPLOSION_MODE_KEY, explosionMode);
         tag.putBoolean(EXPLOSION_FIRE_KEY, explosionFire);
+        tag.putBoolean(TELEGRAPH_ENABLED_KEY, telegraphEnabled);
+        tag.putInt(TELEGRAPH_STYLE_KEY, telegraphStyle);
+        tag.putInt(TELEGRAPH_ABILITIES_KEY, telegraphAbilities);
+        tag.putBoolean(TELEGRAPH_ANNOUNCE_KEY, telegraphAnnounce);
+        tag.putBoolean(TELEGRAPH_SOUND_KEY, telegraphSound);
         tag.putBoolean(CHEST_ENABLED_KEY, chestEnabled);
         tag.putString(CHEST_BLOCK_KEY, chestBlock);
         tag.putInt(CHEST_DELAY_KEY, chestDelayTicks);
@@ -563,6 +622,14 @@ public final class TeleportPathData {
                 ? Mth.clamp(tag.getInt(EXPLOSION_MODE_KEY), EXPLOSION_MODE_EFFECT, EXPLOSION_MODE_BLOCKS_ALWAYS)
                 : EXPLOSION_MODE_DAMAGE;
         explosionFire = tag.getBoolean(EXPLOSION_FIRE_KEY);
+
+        telegraphEnabled = !tag.contains(TELEGRAPH_ENABLED_KEY) || tag.getBoolean(TELEGRAPH_ENABLED_KEY);
+        setTelegraphStyle(tag.contains(TELEGRAPH_STYLE_KEY)
+                ? tag.getInt(TELEGRAPH_STYLE_KEY) : TELEGRAPH_STYLE_BOTH);
+        setTelegraphAbilities(tag.contains(TELEGRAPH_ABILITIES_KEY)
+                ? tag.getInt(TELEGRAPH_ABILITIES_KEY) : TELEGRAPH_ALL_ABILITIES);
+        telegraphAnnounce = !tag.contains(TELEGRAPH_ANNOUNCE_KEY) || tag.getBoolean(TELEGRAPH_ANNOUNCE_KEY);
+        telegraphSound = !tag.contains(TELEGRAPH_SOUND_KEY) || tag.getBoolean(TELEGRAPH_SOUND_KEY);
 
         chestEnabled = tag.getBoolean(CHEST_ENABLED_KEY);
         chestBlock = tag.contains(CHEST_BLOCK_KEY)
@@ -899,6 +966,37 @@ public final class TeleportPathData {
     }
     public boolean isExplosionFire() { return explosionFire; }
     public void setExplosionFire(boolean value) { explosionFire = value; }
+
+    /** Whether players are shown what is coming for as long as the boss winds up. */
+    public boolean isTelegraphEnabled() { return telegraphEnabled; }
+    public void setTelegraphEnabled(boolean value) { telegraphEnabled = value; }
+    public int getTelegraphStyle() { return telegraphStyle; }
+    public void setTelegraphStyle(int value) {
+        telegraphStyle = Mth.clamp(value, TELEGRAPH_STYLE_ZONE, TELEGRAPH_STYLE_BOTH);
+    }
+    /** Whether the shape the ability covers is painted on the ground. */
+    public boolean isTelegraphZone() { return telegraphStyle != TELEGRAPH_STYLE_AURA; }
+    /** Whether the boss itself is lit up in the ability's colour. */
+    public boolean isTelegraphAura() { return telegraphStyle != TELEGRAPH_STYLE_ZONE; }
+    public int getTelegraphAbilities() { return telegraphAbilities; }
+    public void setTelegraphAbilities(int value) { telegraphAbilities = value & TELEGRAPH_ALL_ABILITIES; }
+    public boolean isTelegraphAbility(int ability) {
+        return ability >= 0 && ability < TELEGRAPH_ABILITY_COUNT
+                && (telegraphAbilities & 1 << ability) != 0;
+    }
+    public void setTelegraphAbility(int ability, boolean value) {
+        if (ability < 0 || ability >= TELEGRAPH_ABILITY_COUNT) {
+            return;
+        }
+        telegraphAbilities = value
+                ? telegraphAbilities | 1 << ability
+                : telegraphAbilities & ~(1 << ability);
+    }
+    /** Whether the ability's name is put in the action bar as the wind-up starts. */
+    public boolean isTelegraphAnnounce() { return telegraphAnnounce; }
+    public void setTelegraphAnnounce(boolean value) { telegraphAnnounce = value; }
+    public boolean isTelegraphSound() { return telegraphSound; }
+    public void setTelegraphSound(boolean value) { telegraphSound = value; }
 
     /** Whether a loot chest is left behind where the boss died. */
     public boolean isChestEnabled() { return chestEnabled; }
