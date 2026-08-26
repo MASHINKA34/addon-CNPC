@@ -1,14 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import noppes.npcs.entity.EntityNPCInterface;
-
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 
 /**
  * Keeps the boss the only thing that decides when a totem or a minion comes back.
@@ -34,6 +31,9 @@ import java.util.List;
  * sound and the scripts their own frame; a single tick is still well ahead of the earliest
  * moment CustomNPCs could resurrect anything, because the first {@code tickDeath} is what
  * arms the stamp in the first place.</p>
+ *
+ * <p>Discarding an entity runs whatever that entity's mod hung on its removal, so it happens
+ * outside the walk over the queue - see {@link TickQueue}.</p>
  */
 public final class BossCloneRespawnGuard {
     /**
@@ -44,10 +44,13 @@ public final class BossCloneRespawnGuard {
     private static final int RESPAWN_TYPE_NEVER = 3;
     private static final int RESPAWN_TYPE_NATURALLY = 4;
 
+    /** How many corpses may be taken away in one level tick; the rest go on the next. */
+    private static final int MAX_PER_TICK = 64;
+
     private record Pending(ResourceKey<Level> dimension, Entity entity, long removeAt) {
     }
 
-    private static final List<Pending> PENDING = new ArrayList<>();
+    private static final TickQueue<Pending> PENDING = new TickQueue<>("boss clone removals", MAX_PER_TICK);
 
     private BossCloneRespawnGuard() {
     }
@@ -79,19 +82,10 @@ public final class BossCloneRespawnGuard {
     }
 
     public static void tick(ServerLevel level) {
-        if (PENDING.isEmpty()) {
-            return;
-        }
         long gameTime = level.getGameTime();
-        Iterator<Pending> iterator = PENDING.iterator();
-        while (iterator.hasNext()) {
-            Pending pending = iterator.next();
-            if (!pending.dimension().equals(level.dimension()) || gameTime < pending.removeAt()) {
-                continue;
-            }
-            iterator.remove();
-            pending.entity().discard();
-        }
+        PENDING.drain(
+                pending -> pending.dimension().equals(level.dimension()) && gameTime >= pending.removeAt(),
+                pending -> pending.entity().discard());
     }
 
     /**

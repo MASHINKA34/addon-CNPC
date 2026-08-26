@@ -137,7 +137,10 @@ public class BossChestStore extends SavedData {
             return;
         }
         long gameTime = level.getGameTime();
-        boolean changed = false;
+        // Collected and taken out of the list first, and only then taken out of the world.
+        // Removing a chest writes blocks and wakes their neighbours up, and none of that may
+        // happen while the list it might grow is being walked.
+        List<Entry> expired = new ArrayList<>();
         Iterator<Entry> iterator = entries.iterator();
         while (iterator.hasNext()) {
             Entry entry = iterator.next();
@@ -146,11 +149,13 @@ public class BossChestStore extends SavedData {
             if (gameTime < entry.expiresAt() || !level.isLoaded(entry.pos())) {
                 continue;
             }
-            remove(level, entry);
             iterator.remove();
-            changed = true;
+            expired.add(entry);
         }
-        if (changed) {
+        for (Entry entry : expired) {
+            remove(level, entry);
+        }
+        if (!expired.isEmpty()) {
             closeOrphanedMenus(level);
             setDirty();
             markActive();

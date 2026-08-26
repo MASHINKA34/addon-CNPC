@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Places fluid blocks that vanish again after a fixed time and leave the world exactly
@@ -181,20 +182,8 @@ public class TemporaryFluidStore extends SavedData {
             return;
         }
         long gameTime = level.getGameTime();
-        boolean changed = false;
-        Iterator<Entry> iterator = entries.iterator();
-        while (iterator.hasNext()) {
-            Entry entry = iterator.next();
-            // An unloaded chunk is kept for later so the fluid is never silently forgotten.
-            if (gameTime < entry.expiresAt() || !level.isLoaded(entry.pos())) {
-                continue;
-            }
+        for (Entry entry : takeOut(level, expired -> gameTime >= expired.expiresAt())) {
             restore(level, entry);
-            iterator.remove();
-            changed = true;
-        }
-        if (changed) {
-            setDirty();
         }
     }
 
@@ -207,16 +196,34 @@ public class TemporaryFluidStore extends SavedData {
         if (entries.isEmpty()) {
             return;
         }
+        for (Entry entry : takeOut(level, entry -> true)) {
+            restore(level, entry);
+        }
+    }
+
+    /**
+     * Takes the entries the filter accepts, and whose chunk is loaded, out of the list.
+     *
+     * <p>Collected before anything is put back rather than as it goes: restoring a block
+     * writes to the world and wakes its neighbours up, and none of that may happen while the
+     * list it could grow is being walked.</p>
+     */
+    private List<Entry> takeOut(ServerLevel level, Predicate<Entry> filter) {
+        List<Entry> taken = new ArrayList<>();
         Iterator<Entry> iterator = entries.iterator();
         while (iterator.hasNext()) {
             Entry entry = iterator.next();
-            if (!level.isLoaded(entry.pos())) {
+            // An unloaded chunk is kept for later so the fluid is never silently forgotten.
+            if (!level.isLoaded(entry.pos()) || !filter.test(entry)) {
                 continue;
             }
-            restore(level, entry);
             iterator.remove();
+            taken.add(entry);
         }
-        setDirty();
+        if (!taken.isEmpty()) {
+            setDirty();
+        }
+        return taken;
     }
 
     private void restore(ServerLevel level, Entry entry) {

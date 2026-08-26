@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -20,10 +21,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -40,6 +38,9 @@ import java.util.Set;
  *
  * <p>Nothing is persisted. A wave lives for a second or two, and a server that shuts down
  * inside that window should not resume a light show on the next start.</p>
+ *
+ * <p>A wave spawns entities as it goes, so it runs outside the walk over its own queue for
+ * the reason {@link TickQueue} spells out.</p>
  */
 public final class BossAreaVfxScheduler {
 
@@ -57,6 +58,14 @@ public final class BossAreaVfxScheduler {
     private static final int MAX_BLOCKS_PER_TICK = 12;
     /** A lifted block that never lands - launched over a pit - is dropped after this. */
     private static final int BLOCK_LIFETIME_TICKS = 40;
+
+    /**
+     * Ceilings on the queues, high enough that ordinary play never reaches them: a handful of
+     * bosses is a handful of waves, and one wave alone can have {@link #MAX_BLOCKS_PER_WAVE}
+     * blocks in the air. They are here to stop a runaway, not to shape the show.
+     */
+    private static final int MAX_WAVES_PER_TICK = 64;
+    private static final int MAX_BLOCKS_TRACKED_PER_TICK = 256;
 
     /** One boss's wave, mid-expansion. */
     private static final class Wave {
@@ -88,8 +97,9 @@ public final class BossAreaVfxScheduler {
     private record Launched(ResourceKey<Level> dimension, FallingBlockEntity entity, long expireAt) {
     }
 
-    private static final List<Wave> WAVES = new ArrayList<>();
-    private static final List<Launched> LAUNCHED = new ArrayList<>();
+    private static final TickQueue<Wave> WAVES = new TickQueue<>("boss area waves", MAX_WAVES_PER_TICK);
+    private static final TickQueue<Launched> LAUNCHED =
+            new TickQueue<>("wave-lifted blocks", MAX_BLOCKS_TRACKED_PER_TICK);
 
     private BossAreaVfxScheduler() {
     }
@@ -121,18 +131,9 @@ public final class BossAreaVfxScheduler {
 
     public static void tick(ServerLevel level) {
         tickLaunched(level);
-        if (WAVES.isEmpty()) {
-            return;
-        }
-        Iterator<Wave> iterator = WAVES.iterator();
-        while (iterator.hasNext()) {
-            Wave wave = iterator.next();
-            if (!wave.dimension.equals(level.dimension())) {
-                continue;
-            }
+        WAVES.sweep(wave -> wave.dimension.equals(level.dimension()), wave -> {
             if (++wave.tick > wave.duration) {
-                iterator.remove();
-                continue;
+                return false;
             }
             // With nobody around the wave still runs its clock down, so a player walking in
             // halfway through catches the rest of it rather than a ring frozen in time.
@@ -140,7 +141,8 @@ public final class BossAreaVfxScheduler {
                     AUDIENCE_RANGE, false) != null) {
                 emitRing(level, wave);
             }
-        }
+            return true;
+        });
     }
 
     /** Drops anything still waiting in a level that is going away. */
@@ -359,22 +361,16 @@ public final class BossAreaVfxScheduler {
     }
 
     private static void tickLaunched(ServerLevel level) {
-        if (LAUNCHED.isEmpty()) {
-            return;
-        }
         long gameTime = level.getGameTime();
-        Iterator<Launched> iterator = LAUNCHED.iterator();
-        while (iterator.hasNext()) {
-            Launched launched = iterator.next();
-            if (!launched.dimension().equals(level.dimension())) {
-                continue;
-            }
+        LAUNCHED.sweep(launched -> launched.dimension().equals(level.dimension()), launched -> {
             if (launched.entity().isRemoved()) {
-                iterator.remove();
-            } else if (gameTime >= launched.expireAt()) {
-                launched.entity().discard();
-                iterator.remove();
+                return false;
             }
-        }
+            if (gameTime < launched.expireAt()) {
+                return true;
+            }
+            launched.entity().discard();
+            return false;
+        });
     }
 }

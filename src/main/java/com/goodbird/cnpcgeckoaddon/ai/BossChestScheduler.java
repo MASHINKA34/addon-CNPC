@@ -6,6 +6,7 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.registry.BlockRegistry;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ContainerBlockUtil;
+import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.BossChestStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -39,7 +40,6 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -54,6 +54,10 @@ import java.util.Map;
  * server killed inside that window should not drop loot on an empty field on the next start.
  * The chest that did get placed is another matter - {@code BossChestStore} owns it from
  * there on.</p>
+ *
+ * <p>Placing a chest writes to the world, spills leftovers on the floor and can end up
+ * rolling a loot table, so it happens outside the walk over the queue like every other
+ * scheduler here - see {@link TickQueue}.</p>
  */
 public final class BossChestScheduler {
 
@@ -72,6 +76,8 @@ public final class BossChestScheduler {
     private static final double NO_SUPPORT_PENALTY = 1000.0D;
     /** How long drops wait for a chest to claim them before they are thrown away. */
     private static final int STAGED_DROPS_TIMEOUT = 100;
+    /** How many chests may be placed in a single level tick; the rest wait for the next one. */
+    private static final int MAX_PER_TICK = 16;
 
     /**
      * @param deathPos where the boss actually fell - kept apart from {@code origin} because
@@ -86,7 +92,7 @@ public final class BossChestScheduler {
     private record StagedDrops(long stagedAt, List<ItemStack> items) {
     }
 
-    private static final List<Pending> PENDING = new ArrayList<>();
+    private static final TickQueue<Pending> PENDING = new TickQueue<>("boss loot chests", MAX_PER_TICK);
 
     /**
      * Drops handed over before the chest that wants them was scheduled. CustomNPCs empties
@@ -161,11 +167,10 @@ public final class BossChestScheduler {
         if (drops.isEmpty()) {
             return;
         }
-        for (Pending pending : PENDING) {
-            if (pending.bossId() == bossId) {
-                pending.items().addAll(drops);
-                return;
-            }
+        Pending pending = PENDING.find(entry -> entry.bossId() == bossId);
+        if (pending != null) {
+            pending.items().addAll(drops);
+            return;
         }
         StagedDrops staged = STAGED_DROPS.computeIfAbsent(bossId,
                 key -> new StagedDrops(gameTime, new ArrayList<>()));
@@ -179,18 +184,13 @@ public final class BossChestScheduler {
     public static void tick(ServerLevel level) {
         long gameTime = level.getGameTime();
         // Drops nobody came back for: the death was cancelled, or the chest was switched off
-        // between the two events. Holding on to them would leak the items forever.
+        // between the two events. Holding on to them would leak the items forever. Swept
+        // before any chest is placed, so a death set off by the placement can still stage.
         STAGED_DROPS.values().removeIf(staged -> gameTime - staged.stagedAt() > STAGED_DROPS_TIMEOUT);
 
-        Iterator<Pending> iterator = PENDING.iterator();
-        while (iterator.hasNext()) {
-            Pending pending = iterator.next();
-            if (!pending.dimension().equals(level.dimension()) || gameTime < pending.spawnAt()) {
-                continue;
-            }
-            iterator.remove();
-            place(level, pending);
-        }
+        PENDING.drain(
+                pending -> pending.dimension().equals(level.dimension()) && gameTime >= pending.spawnAt(),
+                pending -> place(level, pending));
     }
 
     /** Drops anything still waiting in a level that is going away. */
