@@ -3143,20 +3143,14 @@ public final class TeleportPathController {
                     phase.getAreaAttackRadius(), dust);
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
                     phase.getMeleeAttackRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
-            case RANGED_ATTACK, FLUID_SPIT -> drawTelegraphLine(level, pendingTarget(level), dust);
+            case RANGED_ATTACK, FLUID_SPIT, CAPTURE ->
+                    drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
             case HOOK -> {
-                drawTelegraphLine(level, pendingTarget(level), dust);
+                drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
                 for (int id : pendingExtraTargets) {
                     if (level.getEntity(id) instanceof LivingEntity victim) {
-                        drawTelegraphLine(level, victim, dust);
+                        drawTelegraphTargetZone(level, data, victim, dust);
                     }
-                }
-            }
-            case CAPTURE -> {
-                LivingEntity victim = pendingTarget(level);
-                if (victim != null) {
-                    BossTelegraphUtil.ring(level, victim.position(),
-                            Math.max(1.0D, victim.getBbWidth()), dust);
                 }
             }
             case SUMMON -> drawTelegraphSpawnRings(level, phase, dust);
@@ -3171,6 +3165,24 @@ public final class TeleportPathController {
                 // advance, and NONE never gets this far.
             }
         }
+    }
+
+    /**
+     * Who an aimed ability has picked, and the ground that puts at risk.
+     *
+     * <p>A line on its own says which player is being aimed at and nothing at all about
+     * where they should not be standing, which is no use to the one player it matters to.
+     * The ring is walked from where the victim is on this very tick, so someone running
+     * sees the zone travel with them rather than a mark left on the spot they were called
+     * out from.</p>
+     */
+    private void drawTelegraphTargetZone(ServerLevel level, TeleportPathData data,
+                                         LivingEntity target, DustParticleOptions dust) {
+        if (target == null) {
+            return;
+        }
+        drawTelegraphLine(level, target, dust);
+        BossTelegraphUtil.ring(level, target.position(), data.getTelegraphZoneRadius(), dust);
     }
 
     /** The line an aimed ability is about to run along, from the same two points it uses. */

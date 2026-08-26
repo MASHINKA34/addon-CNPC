@@ -132,6 +132,15 @@ public final class TeleportPathData {
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = (1 << TELEGRAPH_ABILITY_COUNT) - 1;
 
+    /**
+     * Radius of the ring an aimed ability paints under whoever it picked. Its own reach is
+     * no use here - a hook that pulls from forty blocks would ring half the arena - so the
+     * mark gets a size of its own. Area abilities keep marking the ground they really cover.
+     */
+    public static final int MIN_TELEGRAPH_ZONE_RADIUS = 1;
+    public static final int MAX_TELEGRAPH_ZONE_RADIUS = 16;
+    public static final int DEFAULT_TELEGRAPH_ZONE_RADIUS = 3;
+
     public static final String[] TELEGRAPH_ABILITY_LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
             "cnpcgeckoaddon.boss.ability.ranged",
@@ -245,6 +254,7 @@ public final class TeleportPathData {
     private static final String TELEGRAPH_ABILITIES_KEY = "GeckoBossTelegraphAbilities";
     private static final String TELEGRAPH_ANNOUNCE_KEY = "GeckoBossTelegraphAnnounce";
     private static final String TELEGRAPH_SOUND_KEY = "GeckoBossTelegraphSound";
+    private static final String TELEGRAPH_ZONE_RADIUS_KEY = "GeckoBossTelegraphZoneRadius";
     private static final String CHEST_ENABLED_KEY = "GeckoBossChestEnabled";
     private static final String CHEST_BLOCK_KEY = "GeckoBossChestBlock";
     private static final String CHEST_DELAY_KEY = "GeckoBossChestDelay";
@@ -374,6 +384,7 @@ public final class TeleportPathData {
     private boolean telegraphEnabled = true;
     private int telegraphStyle = TELEGRAPH_STYLE_BOTH;
     private int telegraphAbilities = TELEGRAPH_ALL_ABILITIES;
+    private int telegraphZoneRadius = DEFAULT_TELEGRAPH_ZONE_RADIUS;
     private boolean telegraphAnnounce = true;
     private boolean telegraphSound = true;
 
@@ -483,6 +494,7 @@ public final class TeleportPathData {
         tag.putBoolean(TELEGRAPH_ENABLED_KEY, telegraphEnabled);
         tag.putInt(TELEGRAPH_STYLE_KEY, telegraphStyle);
         tag.putInt(TELEGRAPH_ABILITIES_KEY, telegraphAbilities);
+        tag.putInt(TELEGRAPH_ZONE_RADIUS_KEY, telegraphZoneRadius);
         tag.putBoolean(TELEGRAPH_ANNOUNCE_KEY, telegraphAnnounce);
         tag.putBoolean(TELEGRAPH_SOUND_KEY, telegraphSound);
         tag.putBoolean(CHEST_ENABLED_KEY, chestEnabled);
@@ -628,6 +640,8 @@ public final class TeleportPathData {
                 ? tag.getInt(TELEGRAPH_STYLE_KEY) : TELEGRAPH_STYLE_BOTH);
         setTelegraphAbilities(tag.contains(TELEGRAPH_ABILITIES_KEY)
                 ? tag.getInt(TELEGRAPH_ABILITIES_KEY) : TELEGRAPH_ALL_ABILITIES);
+        setTelegraphZoneRadius(tag.contains(TELEGRAPH_ZONE_RADIUS_KEY)
+                ? tag.getInt(TELEGRAPH_ZONE_RADIUS_KEY) : DEFAULT_TELEGRAPH_ZONE_RADIUS);
         telegraphAnnounce = !tag.contains(TELEGRAPH_ANNOUNCE_KEY) || tag.getBoolean(TELEGRAPH_ANNOUNCE_KEY);
         telegraphSound = !tag.contains(TELEGRAPH_SOUND_KEY) || tag.getBoolean(TELEGRAPH_SOUND_KEY);
 
@@ -980,6 +994,11 @@ public final class TeleportPathData {
     public boolean isTelegraphAura() { return telegraphStyle != TELEGRAPH_STYLE_ZONE; }
     public int getTelegraphAbilities() { return telegraphAbilities; }
     public void setTelegraphAbilities(int value) { telegraphAbilities = value & TELEGRAPH_ALL_ABILITIES; }
+    /** How wide a ring an aimed ability paints under its victim. */
+    public int getTelegraphZoneRadius() { return telegraphZoneRadius; }
+    public void setTelegraphZoneRadius(int value) {
+        telegraphZoneRadius = Mth.clamp(value, MIN_TELEGRAPH_ZONE_RADIUS, MAX_TELEGRAPH_ZONE_RADIUS);
+    }
     public boolean isTelegraphAbility(int ability) {
         return ability >= 0 && ability < TELEGRAPH_ABILITY_COUNT
                 && (telegraphAbilities & 1 << ability) != 0;
