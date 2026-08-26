@@ -141,6 +141,19 @@ public final class TeleportPathData {
     public static final int MAX_TELEGRAPH_ZONE_RADIUS = 16;
     public static final int DEFAULT_TELEGRAPH_ZONE_RADIUS = 3;
 
+    /**
+     * How long a player is guaranteed to see a warning before the ability behind it lands.
+     *
+     * <p>Counted together with the wind-up rather than added to it: the wind-up is measured
+     * against the attack animation, so anything stretching it would leave the swing playing
+     * after the hit. Only the shortfall is added, and it is added in front, where nothing is
+     * animating yet.</p>
+     */
+    public static final int MIN_TELEGRAPH_LEAD_TICKS = 0;
+    public static final int MAX_TELEGRAPH_LEAD_TICKS = 200;
+    /** A second and a half: long enough to look down, read the ring and walk out of it. */
+    public static final int DEFAULT_TELEGRAPH_LEAD_TICKS = 30;
+
     public static final String[] TELEGRAPH_ABILITY_LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
             "cnpcgeckoaddon.boss.ability.ranged",
@@ -255,6 +268,8 @@ public final class TeleportPathData {
     private static final String TELEGRAPH_ANNOUNCE_KEY = "GeckoBossTelegraphAnnounce";
     private static final String TELEGRAPH_SOUND_KEY = "GeckoBossTelegraphSound";
     private static final String TELEGRAPH_ZONE_RADIUS_KEY = "GeckoBossTelegraphZoneRadius";
+    private static final String TELEGRAPH_LEAD_KEY = "GeckoBossTelegraphLead";
+    private static final String TELEGRAPH_DODGE_KEY = "GeckoBossTelegraphDodge";
     private static final String CHEST_ENABLED_KEY = "GeckoBossChestEnabled";
     private static final String CHEST_BLOCK_KEY = "GeckoBossChestBlock";
     private static final String CHEST_DELAY_KEY = "GeckoBossChestDelay";
@@ -385,6 +400,8 @@ public final class TeleportPathData {
     private int telegraphStyle = TELEGRAPH_STYLE_BOTH;
     private int telegraphAbilities = TELEGRAPH_ALL_ABILITIES;
     private int telegraphZoneRadius = DEFAULT_TELEGRAPH_ZONE_RADIUS;
+    private int telegraphLeadTicks = DEFAULT_TELEGRAPH_LEAD_TICKS;
+    private boolean telegraphDodge = true;
     private boolean telegraphAnnounce = true;
     private boolean telegraphSound = true;
 
@@ -495,6 +512,8 @@ public final class TeleportPathData {
         tag.putInt(TELEGRAPH_STYLE_KEY, telegraphStyle);
         tag.putInt(TELEGRAPH_ABILITIES_KEY, telegraphAbilities);
         tag.putInt(TELEGRAPH_ZONE_RADIUS_KEY, telegraphZoneRadius);
+        tag.putInt(TELEGRAPH_LEAD_KEY, telegraphLeadTicks);
+        tag.putBoolean(TELEGRAPH_DODGE_KEY, telegraphDodge);
         tag.putBoolean(TELEGRAPH_ANNOUNCE_KEY, telegraphAnnounce);
         tag.putBoolean(TELEGRAPH_SOUND_KEY, telegraphSound);
         tag.putBoolean(CHEST_ENABLED_KEY, chestEnabled);
@@ -642,6 +661,9 @@ public final class TeleportPathData {
                 ? tag.getInt(TELEGRAPH_ABILITIES_KEY) : TELEGRAPH_ALL_ABILITIES);
         setTelegraphZoneRadius(tag.contains(TELEGRAPH_ZONE_RADIUS_KEY)
                 ? tag.getInt(TELEGRAPH_ZONE_RADIUS_KEY) : DEFAULT_TELEGRAPH_ZONE_RADIUS);
+        setTelegraphLeadTicks(tag.contains(TELEGRAPH_LEAD_KEY)
+                ? tag.getInt(TELEGRAPH_LEAD_KEY) : DEFAULT_TELEGRAPH_LEAD_TICKS);
+        telegraphDodge = !tag.contains(TELEGRAPH_DODGE_KEY) || tag.getBoolean(TELEGRAPH_DODGE_KEY);
         telegraphAnnounce = !tag.contains(TELEGRAPH_ANNOUNCE_KEY) || tag.getBoolean(TELEGRAPH_ANNOUNCE_KEY);
         telegraphSound = !tag.contains(TELEGRAPH_SOUND_KEY) || tag.getBoolean(TELEGRAPH_SOUND_KEY);
 
@@ -1016,6 +1038,17 @@ public final class TeleportPathData {
     public void setTelegraphAnnounce(boolean value) { telegraphAnnounce = value; }
     public boolean isTelegraphSound() { return telegraphSound; }
     public void setTelegraphSound(boolean value) { telegraphSound = value; }
+    /** Ticks of warning a player gets before an ability lands, wind-up included. */
+    public int getTelegraphLeadTicks() { return telegraphLeadTicks; }
+    public void setTelegraphLeadTicks(int value) {
+        telegraphLeadTicks = Mth.clamp(value, MIN_TELEGRAPH_LEAD_TICKS, MAX_TELEGRAPH_LEAD_TICKS);
+    }
+    /**
+     * Whether getting out of the marked zone in time calls the ability off. Without it the
+     * warning is only an announcement of a death that was already decided.
+     */
+    public boolean isTelegraphDodge() { return telegraphDodge; }
+    public void setTelegraphDodge(boolean value) { telegraphDodge = value; }
 
     /** Whether a loot chest is left behind where the boss died. */
     public boolean isChestEnabled() { return chestEnabled; }

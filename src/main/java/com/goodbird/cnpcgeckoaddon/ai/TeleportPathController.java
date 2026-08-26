@@ -129,6 +129,8 @@ public final class TeleportPathController {
     private static final float TELEGRAPH_SOUND_VOLUME = 0.8F;
     /** Well under the bell's own pitch, which is what turns a ding into a gong. */
     private static final float TELEGRAPH_SOUND_PITCH = 0.6F;
+    /** A dodged ability comes back round in a couple of seconds, not a whole cooldown. */
+    private static final int TELEGRAPH_DODGE_RETRY_TICKS = 40;
     /** The client counts down on its own, so the server only has to correct it now and then. */
     private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
     private static final int TOTEM_RETRY_INTERVAL_TICKS = 20;
@@ -231,6 +233,15 @@ public final class TeleportPathController {
     private PendingAction pendingAction = PendingAction.NONE;
     private long pendingActionAt = NOT_SCHEDULED;
     private int pendingTargetId = -1;
+    /**
+     * Game time the wind-up animation starts at. Until then the boss is only warning: the
+     * target is picked and marked, and nothing is animating yet.
+     */
+    private long pendingWarningEndsAt = NOT_SCHEDULED;
+    /** The wind-up animation the warning is holding back. */
+    private String pendingAnimation = "";
+    /** Warning ticks put in front of this action, owed back to its cooldown afterwards. */
+    private int pendingLeadTicks;
     private int lastPathIndex = -1;
     private int pingPongDirection = 1;
     private int previousPathSize;
@@ -343,12 +354,17 @@ public final class TeleportPathController {
             return;
         }
         if (pendingAction != PendingAction.NONE) {
+            if (pendingWarningEndsAt != NOT_SCHEDULED && gameTime >= pendingWarningEndsAt
+                    && !endTelegraphWarning(level, data, phase, gameTime)) {
+                return;
+            }
             if (gameTime >= pendingActionAt) {
                 executePendingAction(level, data, phase, gameTime);
-                pendingAction = PendingAction.NONE;
-                pendingActionAt = NOT_SCHEDULED;
-                pendingTargetId = -1;
-            pendingExtraTargets.clear();
+                // The cooldown was counted from before the warning was put in front of the
+                // wind-up. Handing those ticks back keeps a warned ability on exactly the
+                // rhythm it had without one.
+                delayAbilitySchedule(pendingAction, pendingLeadTicks);
+                clearPendingAction();
                 busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
             }
             return;
@@ -3051,21 +3067,28 @@ public final class TeleportPathController {
 
     private void beginAction(PendingAction action, String animation, int actionDelay, long gameTime,
                              LivingEntity target, TeleportPathData data, BossPhaseData phase) {
-        playAnimation(animation);
         pendingAction = action;
         pendingTargetId = target == null ? -1 : target.getId();
-        if (actionDelay <= 0) {
+        pendingLeadTicks = telegraphLead(data, action, actionDelay);
+        if (pendingLeadTicks <= 0 && actionDelay <= 0) {
+            playAnimation(animation);
             if (npc.level() instanceof ServerLevel level) {
                 executePendingAction(level, data, phase, gameTime);
             }
-            pendingAction = PendingAction.NONE;
-            pendingActionAt = NOT_SCHEDULED;
-            pendingTargetId = -1;
-            pendingExtraTargets.clear();
+            clearPendingAction();
             busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
             return;
         }
-        pendingActionAt = gameTime + actionDelay;
+        pendingActionAt = gameTime + pendingLeadTicks + actionDelay;
+        if (pendingLeadTicks > 0) {
+            // The animation is deliberately left standing: it is cut to the length of the
+            // wind-up, and stretching it over the warning would leave the swing playing
+            // after the hit. The warning is mark and sound only.
+            pendingWarningEndsAt = gameTime + pendingLeadTicks;
+            pendingAnimation = animation;
+        } else {
+            playAnimation(animation);
+        }
         announceTelegraph(data, action);
         // Painted here as well as on the clock, so the mark is up on the very tick the boss
         // commits rather than a tick into a wind-up that may only last a handful.
@@ -3250,6 +3273,143 @@ public final class TeleportPathController {
             case LEAP -> TeleportPathData.TELEGRAPH_LEAP;
             case NONE, TELEPORT -> -1;
         };
+    }
+
+    /**
+     * Ticks of plain warning to put in front of a wind-up too short to react to.
+     *
+     * <p>Zero for an ability nothing is drawn for: a pause nobody can see is not a warning,
+     * it is the boss standing there doing nothing.</p>
+     */
+    private int telegraphLead(TeleportPathData data, PendingAction action, int actionDelay) {
+        int ability = telegraphAbility(action);
+        if (ability < 0 || !telegraphs(data, ability)) {
+            return 0;
+        }
+        return Math.max(0, data.getTelegraphLeadTicks() - actionDelay);
+    }
+
+    /**
+     * Closes the warning phase: the target gets one last look, and only then does the
+     * wind-up animation start, in step with the hit it belongs to.
+     *
+     * @return false when the ability was dropped because whoever it was aimed at got out
+     */
+    private boolean endTelegraphWarning(ServerLevel level, TeleportPathData data,
+                                        BossPhaseData phase, long gameTime) {
+        // Zero unless something held the boss - a rage lock, a carry - past the moment the
+        // warning was due to end.
+        long overdue = gameTime - pendingWarningEndsAt;
+        pendingWarningEndsAt = NOT_SCHEDULED;
+        if (data.isTelegraphDodge() && !pendingTargetStillValid(level, phase)) {
+            PendingAction dodged = pendingAction;
+            clearPendingAction();
+            // A short retry rather than the whole cooldown: a boss left standing for ten
+            // seconds because somebody stepped aside is a worse fight than the one this
+            // replaced.
+            bringAbilityScheduleForward(dodged, gameTime + TELEGRAPH_DODGE_RETRY_TICKS);
+            return false;
+        }
+        playAnimation(pendingAnimation);
+        // The wind-up is measured off the animation, so a warning held past its end drags
+        // the hit along with it instead of landing on a swing that has only just started.
+        pendingActionAt += overdue;
+        pendingAnimation = "";
+        return true;
+    }
+
+    /**
+     * Whether the ability still has somebody to land on, judged by the rule that picked
+     * them in the first place.
+     *
+     * <p>This is the whole point of the warning: the same check that chose the victim gets
+     * to say, once they have had their time, whether they got away with it.</p>
+     */
+    private boolean pendingTargetStillValid(ServerLevel level, BossPhaseData phase) {
+        LivingEntity target = pendingTarget(level);
+        return switch (pendingAction) {
+            case GROUND_ATTACK -> hasAreaTargets(level, phase);
+            case RANGED_ATTACK -> isValidRangedTarget(target, phase)
+                    && npc.inventory.getProjectile() != null;
+            case MELEE_ATTACK -> isValidMeleeTarget(target, phase);
+            case FLUID_SPIT -> isValidFluidSpitTarget(target, phase);
+            case HOOK -> hasHookVictim(level, phase);
+            case CAPTURE -> target instanceof ServerPlayer player
+                    && isValidCaptureTarget(player, phase);
+            // A leap at a fixed spot lands there whoever is standing on it.
+            case LEAP -> phase.getLeapMode() != BossPhaseData.LEAP_MODE_TARGET
+                    || isValidLeapTarget(target, phase);
+            // Nobody to dodge a summon, a teleport, or an action that is not running.
+            case NONE, SUMMON, TELEPORT -> true;
+        };
+    }
+
+    /**
+     * Whether anyone the hook wound up on is still worth reeling in.
+     *
+     * <p>Per victim rather than all or nothing: one of three walking out of range takes
+     * only their own chain with them, which is exactly what dodging should buy them.</p>
+     */
+    private boolean hasHookVictim(ServerLevel level, BossPhaseData phase) {
+        if (isValidHookTarget(pendingTarget(level), phase)) {
+            return true;
+        }
+        for (int id : pendingExtraTargets) {
+            if (level.getEntity(id) instanceof LivingEntity extra
+                    && isValidHookTarget(extra, phase)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** When one ability is next allowed to start. */
+    private long abilityScheduleAt(PendingAction action) {
+        return switch (action) {
+            case SUMMON -> nextSummonAt;
+            case GROUND_ATTACK -> nextGroundAttackAt;
+            case RANGED_ATTACK -> nextRangedAttackAt;
+            case MELEE_ATTACK -> nextMeleeAttackAt;
+            case FLUID_SPIT -> nextFluidSpitAt;
+            case HOOK -> nextHookAt;
+            case CAPTURE -> nextCaptureAt;
+            case LEAP -> nextLeapAt;
+            case TELEPORT -> nextTeleportAt;
+            case NONE -> NOT_SCHEDULED;
+        };
+    }
+
+    private void setAbilityScheduleAt(PendingAction action, long at) {
+        switch (action) {
+            case SUMMON -> nextSummonAt = at;
+            case GROUND_ATTACK -> nextGroundAttackAt = at;
+            case RANGED_ATTACK -> nextRangedAttackAt = at;
+            case MELEE_ATTACK -> nextMeleeAttackAt = at;
+            case FLUID_SPIT -> nextFluidSpitAt = at;
+            case HOOK -> nextHookAt = at;
+            case CAPTURE -> nextCaptureAt = at;
+            case LEAP -> nextLeapAt = at;
+            case TELEPORT -> nextTeleportAt = at;
+            case NONE -> {
+                // Nothing was running, so there is no schedule to move.
+            }
+        }
+    }
+
+    /** Pulls a schedule in, and never pushes one out past the cooldown it already had. */
+    private void bringAbilityScheduleForward(PendingAction action, long at) {
+        long current = abilityScheduleAt(action);
+        if (current == NOT_SCHEDULED || current > at) {
+            setAbilityScheduleAt(action, at);
+        }
+    }
+
+    /** Pays back the ticks an ability spent warning before its wind-up ever started. */
+    private void delayAbilitySchedule(PendingAction action, int ticks) {
+        long current = abilityScheduleAt(action);
+        if (ticks > 0 && current != NOT_SCHEDULED) {
+            setAbilityScheduleAt(action, current + ticks);
+        }
     }
 
     private void executePendingAction(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
@@ -3857,11 +4017,29 @@ public final class TeleportPathController {
         }
     }
 
-    private void cancelPendingAndSchedules() {
+    /**
+     * Drops whatever the boss was winding up, warning phase and all, leaving the schedules
+     * alone. Everything the action was holding goes in one place so a new stage of it - the
+     * warning was the last one - cannot be left behind by one of the callers.
+     */
+    private void clearPendingAction() {
         pendingAction = PendingAction.NONE;
         pendingActionAt = NOT_SCHEDULED;
+        pendingWarningEndsAt = NOT_SCHEDULED;
+        pendingAnimation = "";
+        pendingLeadTicks = 0;
         pendingTargetId = -1;
         pendingExtraTargets.clear();
+        // A leap still in the air is physics and keeps going; only a plan that has not been
+        // pushed off yet dies with the windup that was just thrown away.
+        if (!leapAirborne) {
+            leapDestination = null;
+            leapPhaseIndex = -1;
+        }
+    }
+
+    private void cancelPendingAndSchedules() {
+        clearPendingAction();
         nextTeleportAt = NOT_SCHEDULED;
         nextSummonAt = NOT_SCHEDULED;
         nextGroundAttackAt = NOT_SCHEDULED;
@@ -3871,12 +4049,6 @@ public final class TeleportPathController {
         nextHookAt = NOT_SCHEDULED;
         nextCaptureAt = NOT_SCHEDULED;
         nextLeapAt = NOT_SCHEDULED;
-        // A leap still in the air is physics and keeps going; only a plan that has not been
-        // pushed off yet dies with the windup that was just thrown away.
-        if (!leapAirborne) {
-            leapDestination = null;
-            leapPhaseIndex = -1;
-        }
     }
 
     private void reset() {
