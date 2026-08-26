@@ -21,8 +21,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Draws the wave an area attack throws out around the boss.
@@ -64,8 +66,13 @@ public final class BossAreaVfxScheduler {
         private final String style;
         private final int duration;
         private final boolean blockWave;
+        /**
+         * Every floor block this wave has already thrown up. A slow wave crosses the same
+         * cell for several ticks running, and without this its whole allowance would be
+         * spent on the ring it started from.
+         */
+        private final Set<BlockPos> lifted = new HashSet<>();
         private int tick;
-        private int blocksLaunched;
 
         private Wave(ResourceKey<Level> dimension, Vec3 center, double radius, String style,
                      int duration, boolean blockWave) {
@@ -163,10 +170,11 @@ public final class BossAreaVfxScheduler {
 
             if (wave.blockWave && i % blockStride == 0
                     && blocksThisTick < MAX_BLOCKS_PER_TICK
-                    && wave.blocksLaunched < MAX_BLOCKS_PER_WAVE
+                    && wave.lifted.size() < MAX_BLOCKS_PER_WAVE
+                    && !wave.lifted.contains(floor)
                     && launchBlock(level, floor, wave.center, random)) {
+                wave.lifted.add(floor);
                 blocksThisTick++;
-                wave.blocksLaunched++;
             }
         }
     }
