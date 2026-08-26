@@ -18,6 +18,7 @@ import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossBarStyle;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossLink;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossTimer;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
+import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -268,6 +269,13 @@ public final class TeleportPathController {
                 }
             }
             reset();
+            return;
+        }
+        if (NpcCarryManager.isCarried(npc)) {
+            // The builder tool owns the boss' position while it is held, so the stationary
+            // pin and the home leash have to keep their hands off it. Following the carry
+            // here is what stops the pin from yanking it back on the tick it is put down.
+            rememberCurrentPosition();
             return;
         }
 
