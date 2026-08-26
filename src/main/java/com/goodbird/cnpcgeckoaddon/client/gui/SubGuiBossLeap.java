@@ -14,6 +14,8 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
+import java.util.function.Consumer;
+
 /** Leap slam: the boss jumps - up, at someone, or onto a spot - and hits the ground. */
 public final class SubGuiBossLeap extends GuiBasic implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
@@ -251,7 +253,7 @@ public final class SubGuiBossLeap extends GuiBasic implements ITextfieldListener
         }
     }
 
-    private void applyAnimation(int id, String current, java.util.function.Consumer<String> setter) {
+    private void applyAnimation(int id, String current, Consumer<String> setter) {
         GuiTextFieldNop field = getTextField(id);
         if (field == null) {
             return;
