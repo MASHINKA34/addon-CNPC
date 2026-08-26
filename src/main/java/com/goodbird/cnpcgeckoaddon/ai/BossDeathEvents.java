@@ -44,8 +44,9 @@ public final class BossDeathEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBossDeath(final LivingDeathEvent event) {
+        // Any captured victim, player or npc, has to be let go before it stops existing.
+        BossCaptureManager.releaseVictim(event.getEntity());
         if (event.getEntity() instanceof ServerPlayer player) {
-            BossCaptureManager.releasePlayer(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
         if (BossTotemUtil.isTotem(event.getEntity())) {
@@ -212,7 +213,7 @@ public final class BossDeathEvents {
     @SubscribeEvent
     public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            BossCaptureManager.releasePlayer(player);
+            BossCaptureManager.releaseVictim(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
     }
@@ -220,7 +221,7 @@ public final class BossDeathEvents {
     @SubscribeEvent
     public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            BossCaptureManager.releasePlayer(player);
+            BossCaptureManager.releaseVictim(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
     }

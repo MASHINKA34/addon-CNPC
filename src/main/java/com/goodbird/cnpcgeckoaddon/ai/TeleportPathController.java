@@ -2020,7 +2020,7 @@ public final class TeleportPathController {
     }
 
     public String captureStatus(long gameTime) {
-        String victim = BossCaptureManager.capturedPlayerName(npc.getUUID());
+        String victim = BossCaptureManager.capturedVictimName(npc.getUUID());
         if (victim != null) {
             return "Capture: holding " + victim;
         }
@@ -2459,7 +2459,7 @@ public final class TeleportPathController {
                                     BossPhaseData phase, long gameTime) {
         if (!phase.isCaptureEnabled() || gameTime < nextCaptureAt
                 || BossCaptureManager.hasCaptureForBoss(npc.getUUID())) return false;
-        ServerPlayer target = selectCaptureTarget(level, phase);
+        LivingEntity target = selectCaptureTarget(level, phase);
         if (target == null) {
             nextCaptureAt = gameTime + 10;
             return false;
@@ -2472,18 +2472,18 @@ public final class TeleportPathController {
         return true;
     }
 
-    private ServerPlayer selectCaptureTarget(ServerLevel level, BossPhaseData phase) {
-        List<ServerPlayer> candidates = new ArrayList<>();
-        for (ServerPlayer player : level.players()) {
-            if (isValidCaptureTarget(player, phase)) {
-                candidates.add(player);
-            }
-        }
+    /**
+     * Capture keeps its own mode handling because MAIN falls back to a random victim here:
+     * a grab animation that plays with nobody in the beam would look broken.
+     */
+    private LivingEntity selectCaptureTarget(ServerLevel level, BossPhaseData phase) {
+        List<LivingEntity> candidates = abilityCandidates(level, phase.getCaptureMaxRange(),
+                candidate -> isValidCaptureTarget(candidate, phase));
         if (candidates.isEmpty()) {
             return null;
         }
         if (phase.getCaptureTargetMode() == BossTargetMode.MAIN
-                && npc.getTarget() instanceof ServerPlayer main && candidates.contains(main)) {
+                && npc.getTarget() instanceof LivingEntity main && candidates.contains(main)) {
             return main;
         }
         if (phase.getCaptureTargetMode() == BossTargetMode.RANDOM
@@ -2491,10 +2491,10 @@ public final class TeleportPathController {
             return candidates.get(npc.getRandom().nextInt(candidates.size()));
         }
         boolean farthest = phase.getCaptureTargetMode() == BossTargetMode.FARTHEST;
-        ServerPlayer best = candidates.getFirst();
+        LivingEntity best = candidates.getFirst();
         double bestDistance = npc.distanceToSqr(best);
         for (int i = 1; i < candidates.size(); i++) {
-            ServerPlayer candidate = candidates.get(i);
+            LivingEntity candidate = candidates.get(i);
             double distance = npc.distanceToSqr(candidate);
             if (farthest ? distance > bestDistance : distance < bestDistance) {
                 best = candidate;
@@ -2504,44 +2504,45 @@ public final class TeleportPathController {
         return best;
     }
 
-    private boolean isValidCaptureTarget(ServerPlayer player, BossPhaseData phase) {
-        if (player == null || player.level() != npc.level() || !player.isAlive()
-                || player.isRemoved() || player.isCreative() || player.isSpectator()
-                || !npc.canAttack(player) || npc.isAlliedTo(player)
-                || BossCaptureManager.isCaptured(player.getUUID())) {
+    private boolean isValidCaptureTarget(LivingEntity target, BossPhaseData phase) {
+        if (target == null || target.level() != npc.level() || !target.isAlive()
+                || target.isRemoved() || !isAreaTarget(target)
+                || BossCaptureManager.isCaptured(target.getUUID())) {
             return false;
         }
-        double distanceSquared = npc.distanceToSqr(player);
+        double distanceSquared = npc.distanceToSqr(target);
         double min = phase.getCaptureMinRange();
         double max = phase.getCaptureMaxRange();
         if (distanceSquared < min * min || distanceSquared > max * max) {
             return false;
         }
-        return !npc.ais.directLOS || npc.canNpcSee(player);
+        return !npc.ais.directLOS || npc.canNpcSee(target);
     }
 
     private void performCapture(ServerLevel level, BossPhaseData phase, long gameTime) {
-        LivingEntity pending = pendingTarget(level);
-        if (!(pending instanceof ServerPlayer player) || !isValidCaptureTarget(player, phase)) {
+        LivingEntity victim = pendingTarget(level);
+        if (!isValidCaptureTarget(victim, phase)) {
             return;
         }
-        if (!BossCaptureManager.start(npc, player, phase, currentPhase, gameTime)) {
+        if (!BossCaptureManager.start(npc, victim, phase, currentPhase, gameTime)) {
             return;
         }
         int receiver = phase.getCaptureEffectTarget();
         if (receiver == BossPhaseData.CAPTURE_EFFECT_PLAYER
                 || receiver == BossPhaseData.CAPTURE_EFFECT_BOTH) {
-            phase.getCaptureEffects().applyAll(player, npc);
+            phase.getCaptureEffects().applyAll(victim, npc);
         }
         if (receiver == BossPhaseData.CAPTURE_EFFECT_BOSS
                 || receiver == BossPhaseData.CAPTURE_EFFECT_BOTH) {
             phase.getCaptureEffects().applyAll(npc, npc);
         }
-        trackParticipant(player);
-        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+        if (victim instanceof ServerPlayer player) {
+            trackParticipant(player);
+        }
+        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
                 SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 0.8F, 1.4F);
-        level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + player.getBbHeight() * 0.5D,
-                player.getZ(), 12, 0.25D, 0.5D, 0.25D, 0.02D);
+        level.sendParticles(ParticleTypes.END_ROD, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
+                victim.getZ(), 12, 0.25D, 0.5D, 0.25D, 0.02D);
     }
 
     private void performHook(ServerLevel level, BossPhaseData phase, long gameTime) {
@@ -3374,8 +3375,7 @@ public final class TeleportPathController {
             case MELEE_ATTACK -> isValidMeleeTarget(target, phase);
             case FLUID_SPIT -> isValidFluidSpitTarget(target, phase);
             case HOOK -> hasHookVictim(level, phase);
-            case CAPTURE -> target instanceof ServerPlayer player
-                    && isValidCaptureTarget(player, phase);
+            case CAPTURE -> isValidCaptureTarget(target, phase);
             // A leap at a fixed spot lands there whoever is standing on it.
             case LEAP -> phase.getLeapMode() != BossPhaseData.LEAP_MODE_TARGET
                     || isValidLeapTarget(target, phase);

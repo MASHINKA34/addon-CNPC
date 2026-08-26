@@ -11,6 +11,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -20,20 +23,26 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Owns transient, server-authoritative player captures. Nothing here is persisted. */
+/**
+ * Owns transient, server-authoritative captures. Nothing here is persisted.
+ *
+ * <p>A held player has to be fought for: their own client keeps sending movement, so the
+ * hold only sticks because {@link #handleMovePacket} drops those packets. Everything else
+ * is server-side already and simply gets pinned each tick, the way a boss pins its totems.</p>
+ */
 public final class BossCaptureManager {
     private static final double POSITION_EPSILON_SQUARED = 1.0E-8D;
     private static final double COLLISION_STEP = 0.05D;
-    private static final Map<UUID, CaptureRuntime> BY_PLAYER = new HashMap<>();
+    private static final Map<UUID, CaptureRuntime> BY_VICTIM = new HashMap<>();
     private static final Map<UUID, CaptureRuntime> BY_BOSS = new HashMap<>();
 
     private BossCaptureManager() {
     }
 
     private static final class CaptureRuntime {
-        private final UUID playerId;
-        private final int playerEntityId;
-        private final String playerName;
+        private final UUID victimId;
+        private final int victimEntityId;
+        private final String victimName;
         private final UUID bossId;
         private final int bossEntityId;
         private final ResourceKey<Level> levelKey;
@@ -52,23 +61,23 @@ public final class BossCaptureManager {
         private final int beamWidthPercent;
         private final int beamSagPercent;
 
-        private CaptureRuntime(EntityNPCInterface boss, ServerPlayer player, BossPhaseData phase,
+        private CaptureRuntime(EntityNPCInterface boss, LivingEntity victim, BossPhaseData phase,
                                int phaseIndex, long gameTime, double targetY, int liftTicks) {
-            this.playerId = player.getUUID();
-            this.playerEntityId = player.getId();
-            this.playerName = player.getGameProfile().getName();
+            this.victimId = victim.getUUID();
+            this.victimEntityId = victim.getId();
+            this.victimName = victim.getName().getString();
             this.bossId = boss.getUUID();
             this.bossEntityId = boss.getId();
-            this.levelKey = player.level().dimension();
+            this.levelKey = victim.level().dimension();
             this.originPhaseIndex = phaseIndex;
-            this.anchor = player.position();
+            this.anchor = victim.position();
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.getCaptureDurationTicks();
             this.liftEndsAt = gameTime + liftTicks;
             this.mode = phase.getCaptureMode();
             this.targetY = targetY;
-            this.lockedYaw = player.getYRot();
-            this.lockedPitch = player.getXRot();
+            this.lockedYaw = victim.getYRot();
+            this.lockedPitch = victim.getXRot();
             this.allowLook = phase.isCaptureAllowLook();
             this.beamChannel = 0;
             this.beamStyle = phase.getCaptureBeamStyle();
@@ -77,42 +86,44 @@ public final class BossCaptureManager {
         }
     }
 
-    /** Atomically claims both the player and boss, preventing overlapping captures. */
-    public static boolean start(EntityNPCInterface boss, ServerPlayer player,
+    /** Atomically claims both the victim and boss, preventing overlapping captures. */
+    public static boolean start(EntityNPCInterface boss, LivingEntity victim,
                                 BossPhaseData phase, int phaseIndex, long gameTime) {
-        if (BY_PLAYER.containsKey(player.getUUID()) || BY_BOSS.containsKey(boss.getUUID())
-                || player.level() != boss.level() || !(player.level() instanceof ServerLevel level)
-                || !level.noCollision(player, player.getBoundingBox())) {
+        if (BY_VICTIM.containsKey(victim.getUUID()) || BY_BOSS.containsKey(boss.getUUID())
+                || victim.level() != boss.level() || !(victim.level() instanceof ServerLevel level)
+                || !level.noCollision(victim, victim.getBoundingBox())) {
             return false;
         }
         int liftTicks = Math.min(phase.getCaptureLiftTicks(), phase.getCaptureDurationTicks());
         double height = phase.getCaptureMode() == BossPhaseData.CAPTURE_MODE_LIFT
-                ? safeLiftHeight(level, player, player.getBoundingBox(), phase.getCaptureLiftHeight()) : 0.0D;
-        CaptureRuntime capture = new CaptureRuntime(boss, player, phase, phaseIndex, gameTime,
-                player.getY() + height, liftTicks);
-        BY_PLAYER.put(capture.playerId, capture);
+                ? safeLiftHeight(level, victim, victim.getBoundingBox(), phase.getCaptureLiftHeight()) : 0.0D;
+        CaptureRuntime capture = new CaptureRuntime(boss, victim, phase, phaseIndex, gameTime,
+                victim.getY() + height, liftTicks);
+        BY_VICTIM.put(capture.victimId, capture);
         BY_BOSS.put(capture.bossId, capture);
-        if (!hold(player, capture, gameTime)) {
-            BY_PLAYER.remove(capture.playerId);
+        if (!hold(victim, capture, gameTime)) {
+            BY_VICTIM.remove(capture.victimId);
             BY_BOSS.remove(capture.bossId);
             return false;
         }
-        syncState(player, capture, true);
-        syncLink(boss, player, capture, phase.getCaptureDurationTicks());
+        if (victim instanceof ServerPlayer player) {
+            syncState(player, capture, true);
+        }
+        syncLink(boss, victim, capture, phase.getCaptureDurationTicks());
         return true;
     }
 
-    public static boolean isCaptured(UUID playerId) {
-        return BY_PLAYER.containsKey(playerId);
+    public static boolean isCaptured(UUID victimId) {
+        return BY_VICTIM.containsKey(victimId);
     }
 
     public static boolean hasCaptureForBoss(UUID bossId) {
         return BY_BOSS.containsKey(bossId);
     }
 
-    public static String capturedPlayerName(UUID bossId) {
+    public static String capturedVictimName(UUID bossId) {
         CaptureRuntime capture = BY_BOSS.get(bossId);
-        return capture == null ? null : capture.playerName;
+        return capture == null ? null : capture.victimName;
     }
 
     public static long remainingTicks(UUID bossId, long gameTime) {
@@ -126,14 +137,14 @@ public final class BossCaptureManager {
             return;
         }
         long gameTime = level.getGameTime();
-        for (CaptureRuntime capture : BY_PLAYER.values()) {
+        for (CaptureRuntime capture : BY_VICTIM.values()) {
             if (!capture.levelKey.equals(level.dimension())
                     || tracked.getId() != capture.bossEntityId
-                    && tracked.getId() != capture.playerEntityId) {
+                    && tracked.getId() != capture.victimEntityId) {
                 continue;
             }
             Entity boss = level.getEntity(capture.bossId);
-            Entity victim = level.getEntity(capture.playerId);
+            Entity victim = level.getEntity(capture.victimId);
             int remaining = (int) Math.max(0L, capture.endsAt - gameTime);
             if (boss != null && victim != null && remaining > 0) {
                 NetworkWrapper.send(viewer, linkPacket(capture, remaining));
@@ -143,7 +154,7 @@ public final class BossCaptureManager {
 
     /** Drops client movement while still accepting look packets when the phase allows it. */
     public static boolean handleMovePacket(ServerPlayer player, ServerboundMovePlayerPacket packet) {
-        CaptureRuntime capture = BY_PLAYER.get(player.getUUID());
+        CaptureRuntime capture = BY_VICTIM.get(player.getUUID());
         if (capture == null || !player.level().dimension().equals(capture.levelKey)) {
             return false;
         }
@@ -173,20 +184,20 @@ public final class BossCaptureManager {
 
     public static void tick(ServerLevel level) {
         long gameTime = level.getGameTime();
-        for (CaptureRuntime capture : BY_PLAYER.values().toArray(CaptureRuntime[]::new)) {
+        for (CaptureRuntime capture : BY_VICTIM.values().toArray(CaptureRuntime[]::new)) {
             if (!capture.levelKey.equals(level.dimension())) {
                 continue;
             }
-            ServerPlayer player = level.getPlayerByUUID(capture.playerId) instanceof ServerPlayer found
+            LivingEntity victim = level.getEntity(capture.victimId) instanceof LivingEntity found
                     ? found : null;
             Entity bossEntity = level.getEntity(capture.bossId);
-            if (!isUsable(player, bossEntity, capture) || gameTime >= capture.endsAt) {
+            if (!isUsable(victim, bossEntity, capture) || gameTime >= capture.endsAt) {
                 release(level, capture);
                 continue;
             }
             if (capture.mode == BossPhaseData.CAPTURE_MODE_LIFT) {
-                double safeHeight = safeLiftHeight(level, player,
-                        player.getBoundingBox().move(capture.anchor.subtract(player.position())),
+                double safeHeight = safeLiftHeight(level, victim,
+                        victim.getBoundingBox().move(capture.anchor.subtract(victim.position())),
                         Math.max(0.0D, capture.targetY - capture.anchor.y));
                 if (safeHeight < 0.0D) {
                     release(level, capture);
@@ -195,19 +206,21 @@ public final class BossCaptureManager {
                 double safeTargetY = capture.anchor.y + safeHeight;
                 if (safeTargetY + 1.0E-4D < capture.targetY) {
                     capture.targetY = safeTargetY;
-                    syncState(player, capture, true);
+                    if (victim instanceof ServerPlayer player) {
+                        syncState(player, capture, true);
+                    }
                 }
             }
-            if (!hold(player, capture, gameTime)) {
+            if (!hold(victim, capture, gameTime)) {
                 release(level, capture);
             }
         }
     }
 
-    private static boolean isUsable(ServerPlayer player, Entity bossEntity, CaptureRuntime capture) {
-        if (player == null || player.isRemoved() || !player.isAlive()
-                || player.isCreative() || player.isSpectator()
-                || !player.level().dimension().equals(capture.levelKey)
+    private static boolean isUsable(LivingEntity victim, Entity bossEntity, CaptureRuntime capture) {
+        if (victim == null || victim.isRemoved() || !victim.isAlive()
+                || victim instanceof Player player && (player.isCreative() || player.isSpectator())
+                || !victim.level().dimension().equals(capture.levelKey)
                 || !(bossEntity instanceof EntityNPCInterface boss) || boss.isRemoved() || !boss.isAlive()) {
             return false;
         }
@@ -218,28 +231,37 @@ public final class BossCaptureManager {
         return controller != null && controller.isCaptureEnabledForPhase(capture.originPhaseIndex);
     }
 
-    private static boolean hold(ServerPlayer player, CaptureRuntime capture, long gameTime) {
+    private static boolean hold(LivingEntity victim, CaptureRuntime capture, long gameTime) {
         double desiredY = desiredY(capture, gameTime);
-        AABB desiredBox = player.getBoundingBox().move(
-                capture.anchor.x - player.getX(), desiredY - player.getY(), capture.anchor.z - player.getZ());
-        if (!player.level().noCollision(player, desiredBox)) {
+        AABB desiredBox = victim.getBoundingBox().move(
+                capture.anchor.x - victim.getX(), desiredY - victim.getY(), capture.anchor.z - victim.getZ());
+        if (!victim.level().noCollision(victim, desiredBox)) {
             return false;
         }
         Vec3 desired = new Vec3(capture.anchor.x, desiredY, capture.anchor.z);
-        boolean moved = player.position().distanceToSqr(desired) > POSITION_EPSILON_SQUARED;
-        boolean hadMotion = player.getDeltaMovement().lengthSqr() > POSITION_EPSILON_SQUARED;
+        boolean moved = victim.position().distanceToSqr(desired) > POSITION_EPSILON_SQUARED;
+        boolean hadMotion = victim.getDeltaMovement().lengthSqr() > POSITION_EPSILON_SQUARED;
         if (moved) {
-            player.setPos(desired);
+            victim.setPos(desired);
         }
         if (!capture.allowLook) {
-            player.setYRot(capture.lockedYaw);
-            player.setYHeadRot(capture.lockedYaw);
-            player.setXRot(capture.lockedPitch);
+            victim.setYRot(capture.lockedYaw);
+            victim.setYHeadRot(capture.lockedYaw);
+            victim.setXRot(capture.lockedPitch);
         }
-        player.setDeltaMovement(Vec3.ZERO);
-        player.setKnownMovement(Vec3.ZERO);
-        player.fallDistance = 0.0F;
-        player.hurtMarked |= moved || hadMotion;
+        // Gravity still pulls on the victim during its own tick; the pin simply runs after
+        // it every time, so what the trackers broadcast is always the anchored position.
+        victim.setDeltaMovement(Vec3.ZERO);
+        victim.fallDistance = 0.0F;
+        victim.hurtMarked |= moved || hadMotion;
+        if (victim instanceof ServerPlayer player) {
+            player.setKnownMovement(Vec3.ZERO);
+        }
+        // A path left running would re-apply movement on the victim's own next tick, so it
+        // is cut here for the same reason a pinned totem has its navigation stopped.
+        if (victim instanceof Mob mob) {
+            mob.getNavigation().stop();
+        }
         return true;
     }
 
@@ -252,16 +274,16 @@ public final class BossCaptureManager {
         return Mth.lerp(progress, capture.anchor.y, capture.targetY);
     }
 
-    private static double safeLiftHeight(ServerLevel level, ServerPlayer player,
+    private static double safeLiftHeight(ServerLevel level, LivingEntity victim,
                                          AABB anchorBox, double requestedHeight) {
-        if (!level.noCollision(player, anchorBox)) {
+        if (!level.noCollision(victim, anchorBox)) {
             return -1.0D;
         }
         double safe = 0.0D;
         for (double height = Math.min(COLLISION_STEP, requestedHeight);
              height <= requestedHeight + 1.0E-7D; height += COLLISION_STEP) {
             double candidate = Math.min(height, requestedHeight);
-            if (!level.noCollision(player, anchorBox.move(0.0D, candidate, 0.0D))) {
+            if (!level.noCollision(victim, anchorBox.move(0.0D, candidate, 0.0D))) {
                 break;
             }
             safe = candidate;
@@ -272,13 +294,13 @@ public final class BossCaptureManager {
         return Math.max(0.0D, safe);
     }
 
-    public static void releasePlayer(ServerPlayer player) {
-        CaptureRuntime capture = BY_PLAYER.get(player.getUUID());
+    public static void releaseVictim(LivingEntity victim) {
+        CaptureRuntime capture = BY_VICTIM.get(victim.getUUID());
         if (capture == null) {
             return;
         }
-        ServerLevel level = player.getServer().getLevel(capture.levelKey);
-        release(level, capture, player);
+        ServerLevel level = victim.getServer() == null ? null : victim.getServer().getLevel(capture.levelKey);
+        release(level, capture, victim);
     }
 
     public static void releaseByBoss(EntityNPCInterface boss) {
@@ -290,7 +312,7 @@ public final class BossCaptureManager {
     }
 
     public static void clearLevel(ServerLevel level) {
-        for (CaptureRuntime capture : BY_PLAYER.values().toArray(CaptureRuntime[]::new)) {
+        for (CaptureRuntime capture : BY_VICTIM.values().toArray(CaptureRuntime[]::new)) {
             if (capture.levelKey.equals(level.dimension())) {
                 release(level, capture);
             }
@@ -301,34 +323,36 @@ public final class BossCaptureManager {
         release(level, capture, null);
     }
 
-    private static void release(ServerLevel level, CaptureRuntime capture, ServerPlayer knownPlayer) {
-        if (!BY_PLAYER.remove(capture.playerId, capture)) {
+    private static void release(ServerLevel level, CaptureRuntime capture, LivingEntity knownVictim) {
+        if (!BY_VICTIM.remove(capture.victimId, capture)) {
             return;
         }
         BY_BOSS.remove(capture.bossId, capture);
-        ServerPlayer player = knownPlayer;
-        if (player == null && level != null
-                && level.getPlayerByUUID(capture.playerId) instanceof ServerPlayer found) {
-            player = found;
+        LivingEntity victim = knownVictim;
+        if (victim == null && level != null
+                && level.getEntity(capture.victimId) instanceof LivingEntity found) {
+            victim = found;
         }
-        if (player != null) {
-            player.setDeltaMovement(0.0D, -0.05D, 0.0D);
-            player.setKnownMovement(Vec3.ZERO);
-            player.fallDistance = 0.0F;
-            player.hurtMarked = true;
-            syncState(player, capture, false);
+        if (victim != null) {
+            victim.setDeltaMovement(0.0D, -0.05D, 0.0D);
+            victim.fallDistance = 0.0F;
+            victim.hurtMarked = true;
+            if (victim instanceof ServerPlayer player) {
+                player.setKnownMovement(Vec3.ZERO);
+                syncState(player, capture, false);
+            }
         }
         if (level != null) {
             Entity boss = level.getEntity(capture.bossId);
-            Entity victim = level.getEntity(capture.playerId);
+            Entity tracked = level.getEntity(capture.victimId);
             PacketSyncBossLink packet = linkPacket(capture, 0);
             if (boss != null) {
                 NetworkWrapper.sendToTracking(boss, packet);
             }
-            if (victim != null) {
-                NetworkWrapper.sendToTracking(victim, packet);
+            if (tracked != null) {
+                NetworkWrapper.sendToTracking(tracked, packet);
             }
-            if (player != null) {
+            if (victim instanceof ServerPlayer player) {
                 NetworkWrapper.send(player, packet);
             }
         }
@@ -341,17 +365,19 @@ public final class BossCaptureManager {
                 capture.allowLook));
     }
 
-    private static void syncLink(EntityNPCInterface boss, ServerPlayer player,
+    private static void syncLink(EntityNPCInterface boss, LivingEntity victim,
                                  CaptureRuntime capture, int durationTicks) {
         PacketSyncBossLink packet = linkPacket(capture, durationTicks);
         NetworkWrapper.sendToTracking(boss, packet);
-        NetworkWrapper.sendToTracking(player, packet);
-        NetworkWrapper.send(player, packet);
+        NetworkWrapper.sendToTracking(victim, packet);
+        if (victim instanceof ServerPlayer player) {
+            NetworkWrapper.send(player, packet);
+        }
     }
 
     private static PacketSyncBossLink linkPacket(CaptureRuntime capture, int durationTicks) {
         return new PacketSyncBossLink(PacketSyncBossLink.KIND_CAPTURE, capture.bossEntityId,
-                capture.playerEntityId, capture.beamChannel, capture.beamStyle, durationTicks,
+                capture.victimEntityId, capture.beamChannel, capture.beamStyle, durationTicks,
                 capture.beamWidthPercent, capture.beamSagPercent, false);
     }
 }
