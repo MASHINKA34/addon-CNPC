@@ -37,6 +37,29 @@ public final class NpcCarryEvents {
         }
     }
 
+    /**
+     * Puts the held npc down where the ring is showing.
+     *
+     * <p>A held npc usually covers the crosshair itself, in which case the click arrives as
+     * an entity interact instead and is placed from there; these two cover the rest, from a
+     * short npc that leaves the aim clear to a click that reached a block first.</p>
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onRightClickBlock(final PlayerInteractEvent.RightClickBlock event) {
+        if (isPlaceClick(event) && NpcCarryManager.placeFromAim((ServerPlayer) event.getEntity())) {
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onRightClickItem(final PlayerInteractEvent.RightClickItem event) {
+        if (isPlaceClick(event) && NpcCarryManager.placeFromAim((ServerPlayer) event.getEntity())) {
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            event.setCanceled(true);
+        }
+    }
+
     @SubscribeEvent
     public static void onLevelTick(final LevelTickEvent.Post event) {
         if (event.getLevel() instanceof ServerLevel level) {
@@ -50,5 +73,9 @@ public final class NpcCarryEvents {
                 && event.getHand() == InteractionHand.MAIN_HAND
                 && event.getEntity() instanceof ServerPlayer player
                 && NpcCarryManager.isCarryMode(player);
+    }
+
+    private static boolean isPlaceClick(PlayerInteractEvent event) {
+        return isCarryClick(event) && NpcCarryManager.isCarrying((ServerPlayer) event.getEntity());
     }
 }

@@ -2103,6 +2103,21 @@ public final class TeleportPathController {
         lockedZ = npc.getZ();
     }
 
+    /**
+     * Moves the arena to wherever the boss was just put down by the carry tool.
+     *
+     * <p>The home is captured once, on the tick the boss first activates, so an encounter
+     * that is already running would otherwise leash and reset the boss back to the room it
+     * was carried out of.</p>
+     */
+    public void onRelocated() {
+        homeX = npc.getX();
+        homeY = npc.getY();
+        homeZ = npc.getZ();
+        rememberCurrentPosition();
+        outsideHomeLeashSince = NOT_SCHEDULED;
+    }
+
     /** The removed vanilla damage must not also remove the boss' visual tracking of its target. */
     private void faceCombatTarget() {
         LivingEntity target = npc.getTarget();
