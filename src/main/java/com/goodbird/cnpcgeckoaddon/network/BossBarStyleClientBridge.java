@@ -6,23 +6,29 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 
 public final class BossBarStyleClientBridge {
-    private static final Map<UUID, String> PENDING = new HashMap<>();
-    private static BiConsumer<UUID, String> handler;
+
+    /** One bar's skin, as the server last described it. */
+    public record Bar(String styleId, int scalePercent) {
+    }
+
+    private static final Map<UUID, Bar> PENDING = new HashMap<>();
+    private static BiConsumer<UUID, Bar> handler;
 
     private BossBarStyleClientBridge() {
     }
 
-    public static void setHandler(BiConsumer<UUID, String> value) {
+    public static void setHandler(BiConsumer<UUID, Bar> value) {
         handler = value;
         PENDING.forEach(handler);
         PENDING.clear();
     }
 
-    public static void accept(UUID eventId, String styleId) {
+    public static void accept(UUID eventId, String styleId, int scalePercent) {
+        Bar bar = new Bar(styleId, scalePercent);
         if (handler == null) {
-            PENDING.put(eventId, styleId);
+            PENDING.put(eventId, bar);
         } else {
-            handler.accept(eventId, styleId);
+            handler.accept(eventId, bar);
         }
     }
 }

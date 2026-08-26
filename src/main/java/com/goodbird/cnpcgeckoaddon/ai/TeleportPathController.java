@@ -99,6 +99,7 @@ public final class TeleportPathController {
     /** Server-side encounter membership, independent of whether any boss bar is visible. */
     private final Set<UUID> encounterParticipants = new HashSet<>();
     private String activeBossBarStyle = BossBarStyles.NONE;
+    private int activeBossBarScalePercent = TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT;
     private boolean active;
     private int currentPhase = -1;
     private int highestPhaseReached;
@@ -1480,6 +1481,7 @@ public final class TeleportPathController {
 
     private void updateBossBar(ServerLevel level, TeleportPathData data) {
         String style = BossBarStyles.normalize(data.getBossBarStyle());
+        int scalePercent = data.getBossBarScalePercent();
         if (!BossBarStyles.isEnabled(style)) {
             hideBossBar();
             restoreNativeBossBar();
@@ -1497,10 +1499,11 @@ public final class TeleportPathController {
         bossEvent.setProgress(maximum <= 0.0F ? 0.0F : Mth.clamp(npc.getHealth() / maximum, 0.0F, 1.0F));
         bossEvent.setVisible(true);
 
-        if (!style.equals(activeBossBarStyle)) {
+        if (!style.equals(activeBossBarStyle) || scalePercent != activeBossBarScalePercent) {
             activeBossBarStyle = style;
+            activeBossBarScalePercent = scalePercent;
             for (ServerPlayer player : bossEvent.getPlayers()) {
-                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style));
+                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style, scalePercent));
             }
         }
 
@@ -1523,12 +1526,13 @@ public final class TeleportPathController {
         for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
             if (!eligible.contains(player)) {
                 bossEvent.removePlayer(player);
-                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
+                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,
+                        TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
             }
         }
         for (ServerPlayer player : eligible) {
             if (!bossEvent.getPlayers().contains(player)) {
-                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style));
+                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style, scalePercent));
                 // Whoever just joined the bar has no countdown yet, and the throttled sync
                 // below would leave them staring at an empty timer for up to five ticks.
                 NetworkWrapper.send(player, buildTimerPacket(data));
@@ -1816,7 +1820,8 @@ public final class TeleportPathController {
             return;
         }
         bossEvent.removePlayer(player);
-        NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
+        NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,
+                        TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
     }
 
     public void removeParticipant(ServerPlayer player) {
@@ -1993,9 +1998,11 @@ public final class TeleportPathController {
         }
         for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
             bossEvent.removePlayer(player);
-            NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE));
+            NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,
+                        TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
         }
         activeBossBarStyle = BossBarStyles.NONE;
+        activeBossBarScalePercent = TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT;
         bossBarParticipants.clear();
     }
 

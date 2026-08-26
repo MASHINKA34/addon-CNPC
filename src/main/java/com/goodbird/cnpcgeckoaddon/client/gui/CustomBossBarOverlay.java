@@ -24,7 +24,7 @@ import java.util.UUID;
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID, value = Dist.CLIENT)
 public final class CustomBossBarOverlay {
     private static final int VANILLA_WIDTH = 182;
-    private static final Map<UUID, String> STYLES = new HashMap<>();
+    private static final Map<UUID, BossBarStyleClientBridge.Bar> STYLES = new HashMap<>();
 
     static {
         BossBarStyleClientBridge.setHandler(CustomBossBarOverlay::updateStyle);
@@ -33,12 +33,12 @@ public final class CustomBossBarOverlay {
     private CustomBossBarOverlay() {
     }
 
-    public static void updateStyle(UUID eventId, String styleId) {
-        String normalized = BossBarStyles.normalize(styleId);
+    public static void updateStyle(UUID eventId, BossBarStyleClientBridge.Bar bar) {
+        String normalized = BossBarStyles.normalize(bar.styleId());
         if (BossBarStyles.NONE.equals(normalized)) {
             STYLES.remove(eventId);
         } else {
-            STYLES.put(eventId, normalized);
+            STYLES.put(eventId, new BossBarStyleClientBridge.Bar(normalized, bar.scalePercent()));
         }
     }
 
@@ -48,12 +48,12 @@ public final class CustomBossBarOverlay {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void render(CustomizeGuiOverlayEvent.BossEventProgress event) {
-        String styleId = STYLES.get(event.getBossEvent().getId());
-        if (styleId == null) {
+        BossBarStyleClientBridge.Bar bar = STYLES.get(event.getBossEvent().getId());
+        if (bar == null) {
             return;
         }
 
-        BossBarStyles.Style style = BossBarStyles.get(styleId);
+        BossBarStyles.Style style = BossBarStyles.get(bar.styleId());
         ResourceLocation background = texture(style.id(), "background.png");
         ResourceLocation fill = texture(style.id(), "fill.png");
         ResourceLocation frame = texture(style.id(), "frame.png");
@@ -67,7 +67,9 @@ public final class CustomBossBarOverlay {
         }
 
         GuiGraphics graphics = event.getGuiGraphics();
-        int renderWidth = Math.min(style.preferredWidth(), Math.max(1, graphics.guiWidth() - 8));
+        // The configured size first, then the screen: a narrow window still has to fit the bar.
+        int scaledWidth = Math.max(1, style.preferredWidth() * bar.scalePercent() / 100);
+        int renderWidth = Math.min(scaledWidth, Math.max(1, graphics.guiWidth() - 8));
         float scale = renderWidth / (float) style.textureWidth();
         int renderHeight = Math.max(1, Math.round(style.textureHeight() * scale));
         int centerX = event.getX() + VANILLA_WIDTH / 2;

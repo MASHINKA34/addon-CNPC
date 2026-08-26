@@ -19,6 +19,11 @@ public final class TeleportPathData {
     public static final int MIN_PHASES = 1;
     public static final int MAX_PHASES = 8;
 
+    public static final int MIN_BOSS_BAR_SCALE_PERCENT = 25;
+    public static final int MAX_BOSS_BAR_SCALE_PERCENT = 150;
+    /** The size a style was drawn at before the setting existed, so old bosses keep it. */
+    public static final int DEFAULT_BOSS_BAR_SCALE_PERCENT = 100;
+
     public static final int MIN_RESET_TICKS = 20;
     public static final int MAX_RESET_TICKS = 12000;
     public static final int MIN_HOME_LEASH_RADIUS = 1;
@@ -213,6 +218,7 @@ public final class TeleportPathData {
     private static final String CHEST_FIXED_Z_KEY = "GeckoBossChestFixedZ";
     private static final String CHEST_STYLE_KEY = "GeckoBossChestStyle";
     private static final String BOSS_BAR_STYLE_KEY = "GeckoBossBarStyle";
+    private static final String BOSS_BAR_SCALE_KEY = "GeckoBossBarScale";
     private static final String RESET_TICKS_KEY = "GeckoBossResetTicks";
     private static final String RESET_HEAL_KEY = "GeckoBossResetHeal";
     private static final String RESET_RETURN_KEY = "GeckoBossResetReturn";
@@ -335,6 +341,7 @@ public final class TeleportPathData {
     private String chestStyle = BossChestStyles.VANILLA;
 
     private String bossBarStyle = BossBarStyles.NONE;
+    private int bossBarScalePercent = DEFAULT_BOSS_BAR_SCALE_PERCENT;
 
     public TeleportPathData() {
         setPhaseCount(2);
@@ -436,6 +443,7 @@ public final class TeleportPathData {
         tag.putInt(CHEST_FIXED_Z_KEY, chestFixedZ);
         tag.putString(CHEST_STYLE_KEY, chestStyle);
         tag.putString(BOSS_BAR_STYLE_KEY, bossBarStyle);
+        tag.putInt(BOSS_BAR_SCALE_KEY, bossBarScalePercent);
         return tag;
     }
 
@@ -580,6 +588,9 @@ public final class TeleportPathData {
         chestStyle = BossChestStyles.normalize(tag.getString(CHEST_STYLE_KEY));
 
         bossBarStyle = BossBarStyles.normalize(tag.getString(BOSS_BAR_STYLE_KEY));
+        bossBarScalePercent = tag.contains(BOSS_BAR_SCALE_KEY)
+                ? Mth.clamp(tag.getInt(BOSS_BAR_SCALE_KEY), MIN_BOSS_BAR_SCALE_PERCENT,
+                MAX_BOSS_BAR_SCALE_PERCENT) : DEFAULT_BOSS_BAR_SCALE_PERCENT;
     }
 
     private void readPhases(CompoundTag tag) {
@@ -958,6 +969,11 @@ public final class TeleportPathData {
     public void setChestStyle(String value) { chestStyle = BossChestStyles.normalize(value); }
     public String getBossBarStyle() { return bossBarStyle; }
     public void setBossBarStyle(String value) { bossBarStyle = BossBarStyles.normalize(value); }
+    /** How big the bar is drawn, as a percentage of the style's own size. */
+    public int getBossBarScalePercent() { return bossBarScalePercent; }
+    public void setBossBarScalePercent(int value) {
+        bossBarScalePercent = Mth.clamp(value, MIN_BOSS_BAR_SCALE_PERCENT, MAX_BOSS_BAR_SCALE_PERCENT);
+    }
 
     // Compatibility helpers retained for migrated NPCs and scripts.
     public BossPhaseData getPhaseOne() { return phases.get(0); }
