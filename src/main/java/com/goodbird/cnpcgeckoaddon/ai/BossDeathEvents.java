@@ -20,6 +20,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -156,6 +157,28 @@ public final class BossDeathEvents {
         }
         event.setNewDamage(maximumDamage);
         controller.playTotemHitFeedback();
+    }
+
+    /**
+     * A boss is not hurt by the arc it threw itself along.
+     *
+     * <p>The controller wipes the fall distance every tick of a leap, so what is left here
+     * is at most one tick of drop - but a jump down off a ledge still crosses vanilla's
+     * three block threshold, and dying to your own signature move is not a mechanic.</p>
+     *
+     * <p>Only a leap in flight is covered: a boss that walks off a ledge on its own falls
+     * exactly as it always did.</p>
+     */
+    @SubscribeEvent
+    public static void onBossLeapFall(final LivingFallEvent event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller != null && controller.isLeaping()) {
+            event.setCanceled(true);
+        }
     }
 
     @SubscribeEvent

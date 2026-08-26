@@ -448,7 +448,10 @@ public final class TeleportPathController {
 
     /** @return true when crossing the leash ended the encounter this tick */
     private boolean tickHomeLeash(ServerLevel level, long gameTime, TeleportPathData data) {
-        if (!data.isHomeLeashEnabled() || !encounterRunning || !active || !npc.isAlive()) {
+        // A leap in flight is not the boss wandering off: its landing spot was pulled
+        // inside the radius before it pushed off, and with a vertical leash the arc over
+        // the arena would otherwise reset the fight the boss is in the middle of.
+        if (!data.isHomeLeashEnabled() || !encounterRunning || !active || !npc.isAlive() || leapAirborne) {
             outsideHomeLeashSince = NOT_SCHEDULED;
             return false;
         }
@@ -966,6 +969,11 @@ public final class TeleportPathController {
         return phase.getInvulnerableEndMode() == BossPhaseData.INVULNERABLE_END_TIMER_AND_MINIONS
                 ? timerDone && minionsDone
                 : timerDone || minionsDone;
+    }
+
+    /** Whether a leap is in the air right now. Read by the fall damage handler. */
+    public boolean isLeaping() {
+        return active && leapAirborne;
     }
 
     /** Whether the boss is in an immune phase right now. Read by the damage handler and the HUD. */
