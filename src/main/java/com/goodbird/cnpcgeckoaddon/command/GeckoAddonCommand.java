@@ -9,13 +9,16 @@ import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
+import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -36,7 +39,16 @@ public class GeckoAddonCommand {
         root.then(Commands.literal("scan").executes(context -> check(context.getSource(), false)));
         root.then(Commands.literal("fix").executes(context -> check(context.getSource(), true)));
         root.then(Commands.literal("boss").executes(context -> showBossStatus(context.getSource())));
+        root.then(Commands.literal("carry").executes(context -> toggleCarry(context.getSource())));
         event.getDispatcher().register(root);
+    }
+
+    private static int toggleCarry(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        boolean enabled = NpcCarryManager.toggleMode(player);
+        source.sendSuccess(() -> Component.translatable(enabled
+                ? "cnpcgeckoaddon.carry.on" : "cnpcgeckoaddon.carry.off"), false);
+        return 1;
     }
 
     private static int showBossStatus(CommandSourceStack source) {
