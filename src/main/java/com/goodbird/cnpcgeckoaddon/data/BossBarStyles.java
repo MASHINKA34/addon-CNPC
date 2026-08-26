@@ -10,7 +10,7 @@ public final class BossBarStyles {
                     0, 0, 0, 0, 0, 0),
             new Style("moss_cave", "cnpcgeckoaddon.boss.bar_style.moss_cave", 260, 37, 31, 11, 200, 14, 260,
                     260, 10, 31, 2, 200, 6),
-            new Style("ghost_dungeon", "cnpcgeckoaddon.boss.bar_style.ghost_dungeon", 1329, 261, 104, 108, 1121, 105, 443,
+            new Style("ghost_dungeon", "cnpcgeckoaddon.boss.bar_style.ghost_dungeon", 1329, 261, 104, 108, 1121, 105, 300,
                     1329, 54, 104, 12, 1121, 30),
             new Style("infernal", "cnpcgeckoaddon.boss.bar_style.infernal", 182, 16, 14, 4, 154, 9, 182,
                     182, 7, 14, 2, 154, 3),
