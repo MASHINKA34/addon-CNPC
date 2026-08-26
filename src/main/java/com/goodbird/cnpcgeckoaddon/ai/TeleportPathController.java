@@ -1821,7 +1821,7 @@ public final class TeleportPathController {
         }
         bossEvent.removePlayer(player);
         NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,
-                        TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
+                TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
     }
 
     public void removeParticipant(ServerPlayer player) {
@@ -1999,7 +1999,7 @@ public final class TeleportPathController {
         for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
             bossEvent.removePlayer(player);
             NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,
-                        TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
+                    TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
         }
         activeBossBarStyle = BossBarStyles.NONE;
         activeBossBarScalePercent = TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT;
