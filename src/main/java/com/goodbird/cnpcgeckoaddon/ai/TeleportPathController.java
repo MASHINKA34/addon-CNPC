@@ -311,7 +311,7 @@ public final class TeleportPathController {
             activate(level, gameTime, data);
         }
         updateAggroZone(level, data, gameTime);
-        updateNearestPlayerTarget(level, data, gameTime);
+        updateNearestTarget(level, data, gameTime);
         if (hasCombatTarget()) {
             beginEncounter(level, gameTime, data);
         }
@@ -1451,7 +1451,7 @@ public final class TeleportPathController {
         List<ServerPlayer> candidates = new ArrayList<>();
         for (ServerPlayer player : level.players()) {
             if (player.level() == level && zone.contains(player.position())
-                    && isTargetablePlayer(player, data)) {
+                    && isTargetableCandidate(player, data)) {
                 candidates.add(player);
             }
         }
@@ -1500,7 +1500,7 @@ public final class TeleportPathController {
         if (!hasCombatTarget()) {
             return false;
         }
-        return !(target instanceof Player player) || isTargetablePlayer(player, data);
+        return !(target instanceof Player player) || isTargetableCandidate(player, data);
     }
 
     private void setTargetIfChanged(LivingEntity target) {
@@ -1510,10 +1510,10 @@ public final class TeleportPathController {
     }
 
     /**
-     * Locks the boss onto the closest reachable player. Without this a boss keeps chasing
+     * Locks the boss onto the closest reachable enemy. Without this a boss keeps chasing
      * whoever aggroed it first, which lets a group trivially kite it with one player.
      */
-    private void updateNearestPlayerTarget(ServerLevel level, TeleportPathData data, long gameTime) {
+    private void updateNearestTarget(ServerLevel level, TeleportPathData data, long gameTime) {
         if (!data.isTargetNearestPlayer()) {
             nextRetargetAt = NOT_SCHEDULED;
             return;
@@ -1527,7 +1527,7 @@ public final class TeleportPathController {
         AABB zoneConstraint = restrictToZone ? aggroZoneBounds(level, data) : null;
         double radius = data.getTargetSearchRadius();
         double radiusSquared = radius * radius;
-        Player nearest = null;
+        LivingEntity nearest = null;
         double nearestDistance = Double.MAX_VALUE;
         Iterable<? extends Player> players = !restrictToZone
                 ? level.players() : zoneConstraint == null
@@ -1537,11 +1537,19 @@ public final class TeleportPathController {
             if ((!restrictToZone && distance > radiusSquared) || distance >= nearestDistance) {
                 continue;
             }
-            if (!isTargetablePlayer(player, data)) {
+            if (!isTargetableCandidate(player, data)) {
                 continue;
             }
             nearest = player;
             nearestDistance = distance;
+        }
+        for (LivingEntity candidate : nearbyNonPlayerTargets(level, data, radius, restrictToZone,
+                zoneConstraint)) {
+            double distance = npc.distanceToSqr(candidate);
+            if (distance < nearestDistance) {
+                nearest = candidate;
+                nearestDistance = distance;
+            }
         }
 
         LivingEntity current = npc.getTarget();
@@ -1558,14 +1566,42 @@ public final class TeleportPathController {
         }
     }
 
-    private boolean isTargetablePlayer(Player player, TeleportPathData data) {
-        if (!player.isAlive() || player.isSpectator() || player.isCreative() || player.isRemoved()) {
+    /**
+     * The non-player half of the retarget search.
+     *
+     * <p>Players keep their own scan because inside an aggro zone the zone, not the search
+     * radius, is their range, and walking a builder-sized zone section by section would
+     * cost far more than the player list it replaced. Everything else is looked up in a
+     * box around the boss and then, when the zone holds the fight, trimmed down to it.</p>
+     */
+    private List<LivingEntity> nearbyNonPlayerTargets(ServerLevel level, TeleportPathData data,
+                                                      double radius, boolean restrictToZone,
+                                                      AABB zoneConstraint) {
+        if (data.getAbilityTargetKind() == TeleportPathData.ABILITY_TARGET_PLAYERS
+                || restrictToZone && zoneConstraint == null) {
+            return List.of();
+        }
+        double radiusSquared = radius * radius;
+        AABB box = new AABB(npc.position(), npc.position()).inflate(radius + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, candidate ->
+                candidate != npc && !(candidate instanceof Player)
+                        && npc.distanceToSqr(candidate) <= radiusSquared
+                        && (!restrictToZone || zoneConstraint.contains(candidate.position()))
+                        && matchesAbilityTargetKind(candidate, data)
+                        && isTargetableCandidate(candidate, data));
+    }
+
+    /**
+     * Whether the retarget search may lock the boss onto this candidate.
+     *
+     * <p>Defers to {@link #isAreaTarget} so the boss can never decide to chase something
+     * its own attacks would refuse to hit, its minions and totems included.</p>
+     */
+    private boolean isTargetableCandidate(LivingEntity candidate, TeleportPathData data) {
+        if (!candidate.isAlive() || candidate.isRemoved() || !isAreaTarget(candidate)) {
             return false;
         }
-        if (!npc.canAttack(player) || npc.isAlliedTo(player)) {
-            return false;
-        }
-        return !data.isTargetRequiresLineOfSight() || npc.getSensing().hasLineOfSight(player);
+        return !data.isTargetRequiresLineOfSight() || npc.getSensing().hasLineOfSight(candidate);
     }
 
     /**
@@ -2299,7 +2335,7 @@ public final class TeleportPathController {
                                          BossPhaseData phase, long gameTime) {
         if (!phase.isRangedAttackEnabled() || gameTime < nextRangedAttackAt) return false;
         LivingEntity target = selectAbilityTarget(level, phase.getRangedAttackTargetMode(),
-                candidate -> isValidRangedTarget(candidate, phase));
+                phase.getRangedAttackMaxRange(), candidate -> isValidRangedTarget(candidate, phase));
         if (target == null || npc.inventory.getProjectile() == null) {
             nextRangedAttackAt = gameTime + 10;
             return false;
@@ -2314,7 +2350,10 @@ public final class TeleportPathController {
     private boolean tryStartMeleeAttack(ServerLevel level, TeleportPathData data,
                                         BossPhaseData phase, long gameTime) {
         if (!phase.isMeleeAttackEnabled() || gameTime < nextMeleeAttackAt) return false;
+        // Melee reach is measured hitbox to hitbox, so the search box carries the boss own
+        // half-width on top of the configured range or a wide boss loses candidates to it.
         LivingEntity target = selectAbilityTarget(level, phase.getMeleeAttackTargetMode(),
+                phase.getMeleeAttackRange() + npc.getBbWidth() * 0.5D,
                 candidate -> isValidMeleeTarget(candidate, phase));
         if (target == null) {
             nextMeleeAttackAt = gameTime + 5;
@@ -2331,7 +2370,7 @@ public final class TeleportPathController {
                                       BossPhaseData phase, long gameTime) {
         if (!phase.canSpitFluid() || gameTime < nextFluidSpitAt) return false;
         LivingEntity target = selectAbilityTarget(level, phase.getFluidSpitTargetMode(),
-                candidate -> isValidFluidSpitTarget(candidate, phase));
+                phase.getFluidSpitMaxRange(), candidate -> isValidFluidSpitTarget(candidate, phase));
         if (target == null || FluidBlockUtil.resolve(phase.getFluidSpitBlock()) == null) {
             nextFluidSpitAt = gameTime + 20;
             return false;
@@ -2390,7 +2429,8 @@ public final class TeleportPathController {
                                  BossPhaseData phase, long gameTime) {
         if (!phase.isHookEnabled() || gameTime < nextHookAt) return false;
         List<LivingEntity> targets = selectAbilityTargets(level, phase.getHookTargetMode(),
-                candidate -> isValidHookTarget(candidate, phase), phase.getHookTargetCount());
+                phase.getHookMaxRange(), candidate -> isValidHookTarget(candidate, phase),
+                phase.getHookTargetCount());
         if (targets.isEmpty()) {
             nextHookAt = gameTime + 10;
             return false;
@@ -2675,7 +2715,7 @@ public final class TeleportPathController {
         LivingEntity target = null;
         if (phase.getLeapMode() == BossPhaseData.LEAP_MODE_TARGET) {
             target = selectAbilityTarget(level, phase.getLeapTargetMode(),
-                    candidate -> isValidLeapTarget(candidate, phase));
+                    phase.getLeapMaxRange(), candidate -> isValidLeapTarget(candidate, phase));
             if (target == null) {
                 nextLeapAt = gameTime + 10;
                 return false;
@@ -3839,6 +3879,40 @@ public final class TeleportPathController {
                         && isAreaTarget(target));
     }
 
+    /**
+     * Whether this candidate is a species the boss is configured to aim at.
+     *
+     * <p>Deliberately only the species filter: whether the boss may hit something at all
+     * stays in {@link #isAreaTarget}, so a hook and an area slam can never end up with
+     * different ideas of who counts as an enemy.</p>
+     */
+    private boolean matchesAbilityTargetKind(LivingEntity candidate, TeleportPathData data) {
+        if (candidate instanceof Player) {
+            return true;
+        }
+        return switch (data.getAbilityTargetKind()) {
+            case TeleportPathData.ABILITY_TARGET_ALL -> true;
+            case TeleportPathData.ABILITY_TARGET_PLAYERS_AND_NPCS ->
+                    candidate instanceof EntityNPCInterface;
+            default -> false;
+        };
+    }
+
+    /**
+     * Everyone one ability is allowed to pick, looked up in a box around the boss.
+     *
+     * <p>{@code searchRange} is that ability's own maximum reach, so the box is only a
+     * cheap pre-filter for the range and sight tests {@code canHit} runs anyway - it is
+     * what keeps the boss from sweeping the whole world every time it wants to attack.</p>
+     */
+    private List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange,
+                                                 Predicate<LivingEntity> canHit) {
+        TeleportPathData data = settings();
+        AABB box = new AABB(npc.position(), npc.position()).inflate(searchRange + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, candidate -> candidate != npc
+                && matchesAbilityTargetKind(candidate, data) && canHit.test(candidate));
+    }
+
     private boolean isAreaTarget(LivingEntity target) {
         if (target instanceof Player player && (player.isCreative() || player.isSpectator())) return false;
         if (BossMinionUtil.isMinionOf(target, npc)) return false;
@@ -3887,12 +3961,13 @@ public final class TeleportPathController {
      * it returns the player at the back of the room only while that player is still inside
      * the attack's maximum range, never someone the boss could not reach anyway.</p>
      *
-     * <p>Players are the only candidates for the distance-based modes - a boss fight is
-     * about the party, and picking the farthest "target" would otherwise happily settle on
-     * a cow. When no player qualifies the NPC falls back to its normal combat target, so
-     * turning a mode on never makes an ability quieter than MAIN would have been.</p>
+     * <p>Which species may reach that list is the boss' ability-target setting, because
+     * letting every living thing in would mean FARTHEST happily settling on a cow thirty
+     * blocks out instead of the tank. When nobody qualifies the NPC falls back to its
+     * normal combat target, so turning a mode on never makes an ability quieter than MAIN
+     * would have been.</p>
      */
-    private LivingEntity selectAbilityTarget(ServerLevel level, int mode,
+    private LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange,
                                              Predicate<LivingEntity> canHit) {
         LivingEntity main = npc.getTarget();
         LivingEntity fallback = main != null && canHit.test(main) ? main : null;
@@ -3900,12 +3975,7 @@ public final class TeleportPathController {
             return fallback;
         }
 
-        List<Player> candidates = new ArrayList<>();
-        for (Player player : level.players()) {
-            if (canHit.test(player)) {
-                candidates.add(player);
-            }
-        }
+        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit);
         if (candidates.isEmpty()) {
             return fallback;
         }
@@ -3914,12 +3984,12 @@ public final class TeleportPathController {
         }
 
         boolean farthest = mode == BossTargetMode.FARTHEST;
-        Player best = null;
+        LivingEntity best = null;
         double bestDistance = farthest ? -1.0D : Double.MAX_VALUE;
-        for (Player player : candidates) {
-            double distance = npc.distanceToSqr(player);
+        for (LivingEntity candidate : candidates) {
+            double distance = npc.distanceToSqr(candidate);
             if (farthest ? distance > bestDistance : distance < bestDistance) {
-                best = player;
+                best = candidate;
                 bestDistance = distance;
             }
         }
@@ -3928,27 +3998,22 @@ public final class TeleportPathController {
 
     /**
      * The multi-victim form of {@link #selectAbilityTarget}. Candidates are ordered by the
-     * same rule, so FARTHEST with a count of three grabs the three players furthest away.
+     * same rule, so FARTHEST with a count of three grabs the three victims furthest away.
      */
-    private List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode,
+    private List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange,
                                                     Predicate<LivingEntity> canHit, int count) {
         List<LivingEntity> result = new ArrayList<>();
         if (count <= 1) {
-            LivingEntity single = selectAbilityTarget(level, mode, canHit);
+            LivingEntity single = selectAbilityTarget(level, mode, searchRange, canHit);
             if (single != null) {
                 result.add(single);
             }
             return result;
         }
 
-        List<Player> candidates = new ArrayList<>();
-        for (Player player : level.players()) {
-            if (canHit.test(player)) {
-                candidates.add(player);
-            }
-        }
+        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit);
         if (candidates.isEmpty()) {
-            LivingEntity fallback = selectAbilityTarget(level, mode, canHit);
+            LivingEntity fallback = selectAbilityTarget(level, mode, searchRange, canHit);
             if (fallback != null) {
                 result.add(fallback);
             }

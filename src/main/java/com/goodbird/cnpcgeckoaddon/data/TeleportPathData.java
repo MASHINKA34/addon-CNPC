@@ -31,6 +31,22 @@ public final class TeleportPathData {
     public static final int MIN_HOME_LEASH_GRACE_TICKS = 0;
     public static final int MAX_HOME_LEASH_GRACE_TICKS = 1200;
 
+    /**
+     * Which kinds of living entity a boss ability may pick as its target.
+     *
+     * <p>Defaults to players and NPCs: a boss dropped into a dungeon full of hostile NPCs
+     * is expected to fight them, while {@link #ABILITY_TARGET_ALL} is opt-in because it
+     * lets a wandering cow become the "farthest target".</p>
+     */
+    public static final int ABILITY_TARGET_PLAYERS = 0;
+    public static final int ABILITY_TARGET_PLAYERS_AND_NPCS = 1;
+    public static final int ABILITY_TARGET_ALL = 2;
+    public static final String[] ABILITY_TARGET_KIND_LABELS = {
+            "cnpcgeckoaddon.boss.ability_target_players",
+            "cnpcgeckoaddon.boss.ability_target_players_npcs",
+            "cnpcgeckoaddon.boss.ability_target_all"
+    };
+
     public static final int AGGRO_ZONE_TARGET_NEAREST = 0;
     public static final int AGGRO_ZONE_TARGET_RANDOM = 1;
     public static final String[] AGGRO_ZONE_TARGET_LABELS = {
@@ -236,6 +252,7 @@ public final class TeleportPathData {
     private static final String TARGET_INTERVAL_KEY = "GeckoBossTargetInterval";
     private static final String TARGET_LOS_KEY = "GeckoBossTargetLineOfSight";
     private static final String TARGET_KEEP_KEY = "GeckoBossTargetKeepOutOfRange";
+    private static final String ABILITY_TARGET_KIND_KEY = "GeckoBossAbilityTargetKind";
     private static final String AGGRO_ZONE_ENABLED_KEY = "GeckoBossAggroZoneEnabled";
     private static final String AGGRO_ZONE_X1_KEY = "GeckoBossAggroZoneX1";
     private static final String AGGRO_ZONE_Y1_KEY = "GeckoBossAggroZoneY1";
@@ -333,6 +350,7 @@ public final class TeleportPathData {
     private int targetRecheckTicks = 20;
     private boolean targetRequiresLineOfSight;
     private boolean keepTargetOutOfRange;
+    private int abilityTargetKind = ABILITY_TARGET_PLAYERS_AND_NPCS;
 
     private boolean aggroZoneEnabled;
     private int aggroZoneX1;
@@ -457,6 +475,7 @@ public final class TeleportPathData {
         tag.putInt(TARGET_INTERVAL_KEY, targetRecheckTicks);
         tag.putBoolean(TARGET_LOS_KEY, targetRequiresLineOfSight);
         tag.putBoolean(TARGET_KEEP_KEY, keepTargetOutOfRange);
+        tag.putInt(ABILITY_TARGET_KIND_KEY, abilityTargetKind);
         tag.putBoolean(AGGRO_ZONE_ENABLED_KEY, aggroZoneEnabled);
         tag.putInt(AGGRO_ZONE_X1_KEY, aggroZoneX1);
         tag.putInt(AGGRO_ZONE_Y1_KEY, aggroZoneY1);
@@ -558,6 +577,9 @@ public final class TeleportPathData {
                 ? Mth.clamp(tag.getInt(TARGET_INTERVAL_KEY), 1, 200) : 20;
         targetRequiresLineOfSight = tag.getBoolean(TARGET_LOS_KEY);
         keepTargetOutOfRange = tag.getBoolean(TARGET_KEEP_KEY);
+        abilityTargetKind = tag.contains(ABILITY_TARGET_KIND_KEY)
+                ? Mth.clamp(tag.getInt(ABILITY_TARGET_KIND_KEY), ABILITY_TARGET_PLAYERS,
+                ABILITY_TARGET_ALL) : ABILITY_TARGET_PLAYERS_AND_NPCS;
         aggroZoneEnabled = tag.getBoolean(AGGRO_ZONE_ENABLED_KEY);
         aggroZoneX1 = coordinate(tag, AGGRO_ZONE_X1_KEY);
         aggroZoneY1 = coordinate(tag, AGGRO_ZONE_Y1_KEY);
@@ -806,6 +828,11 @@ public final class TeleportPathData {
     /** Keeps the current player target even after it left the search radius. */
     public boolean isKeepTargetOutOfRange() { return keepTargetOutOfRange; }
     public void setKeepTargetOutOfRange(boolean value) { keepTargetOutOfRange = value; }
+    /** Widens or narrows the pool every ability and the auto-retarget search draw from. */
+    public int getAbilityTargetKind() { return abilityTargetKind; }
+    public void setAbilityTargetKind(int value) {
+        abilityTargetKind = Mth.clamp(value, ABILITY_TARGET_PLAYERS, ABILITY_TARGET_ALL);
+    }
 
     public boolean isAggroZoneEnabled() { return aggroZoneEnabled; }
     public void setAggroZoneEnabled(boolean value) { aggroZoneEnabled = value; }
