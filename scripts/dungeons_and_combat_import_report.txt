@@ -1,0 +1,86 @@
+# Dungeons and Combat model import report
+
+## Source and scope
+
+- Source: Modrinth project `dungeons-and-combat`, version `1.2.2`.
+- Donor archive: `dungeons_and_combat-1.2.2-forge-1.20.1.jar`.
+- SHA-512: `8adf1d55643d5db7443e2833743019ef31ca3eec901602c8a8793e12e526451b8e00323ad5e5544565bb98a5d8ef0fb04e8926bc0c45668649c5d59d39a3ae16`.
+- Donor platform: Forge 1.20.1. The donor code is not loaded or packaged.
+- License: All Rights Reserved according to the Modrinth project metadata.
+- Destination namespace: `dungeons_and_combat` (no collision with the existing bundle namespaces).
+
+The inventory found 49 `.geo.json` files, 48 animation files, 172 entity textures, 113 model classes, and 2 animation classes. The 48 files under `assets/dungeons_and_combat/geo` are portable GeckoLib resources and were imported. The extra `models/displaysettings/fairystaffanimated.geo.json` file is an item display-settings resource, not a selectable GeckoLib mob model, and was excluded.
+
+The ordinary Java model classes are armor, wearable-layer, or projectile render shapes rather than additional standalone mob models. They were not copied or converted. No class files, manifests, registries, data packs, sounds, language files, or other donor metadata were imported.
+
+## Result
+
+- 48 selectable geometry files.
+- 48 paired animation files.
+- 177 texture files: 172 entity textures plus 5 textures required by animated item-shaped geometry.
+- 48 exact model-to-texture mappings.
+- Idle: 48/48 models; walk: 36/48; attack: 33/48; death: 1/48.
+- Authored nonstandard clips such as summon, cast, fly, combo, and spawn were retained.
+- `corroding_flame_scepter` and `sunleia_light_v2` received looping `idle` aliases from their existing authored clips.
+- Ten animation channels were normalized: four case-only bone renames and six references to bones absent from the matching geometry were removed.
+
+## Imported models
+
+`yes` means the animation file contains at least one clip whose name includes that standard action. Missing walk, attack, or death clips are non-blocking.
+
+| Model | Namespace | Animations | Default texture |
+|---|---|---|---|
+| `ammit` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/ammit_alternative.png` |
+| `bloody_cultist_defender` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/bloodywarden.png` |
+| `bloody_cultist` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/bloody_cultist.png` |
+| `bloodymancer` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/bloodymancer_entity.png` |
+| `centinel` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/centinel.png` |
+| `chained` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/chained.png` |
+| `chuck` | `dungeons_and_combat` | idle yes, walk yes, attack no, death no (3 clips) | `dungeons_and_combat:textures/entities/chuck.png` |
+| `corroding_flame_scepter` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (2 clips) | `dungeons_and_combat:textures/item/corroding_flame_scepter.png` |
+| `counselor_skull` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (4 clips) | `dungeons_and_combat:textures/entities/counselor_skull.png` |
+| `deserter` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/deserter_skull.png` |
+| `disappointment` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/disappointment.png` |
+| `ebony_crimson_-_converted` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (1 clip) | `dungeons_and_combat:textures/entities/ebony_crimson.png` |
+| `ernos` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/ernos.png` |
+| `failure` | `dungeons_and_combat` | idle yes, walk yes, attack no, death no (2 clips) | `dungeons_and_combat:textures/entities/failure.png` |
+| `fairy` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (1 clip) | `dungeons_and_combat:textures/entities/flower_fairy.png` |
+| `fairystaffanimated` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (1 clip) | `dungeons_and_combat:textures/item/fairy_staff_animated.png` |
+| `flowerfairy` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (1 clip) | `dungeons_and_combat:textures/entities/flower_fairy.png` |
+| `fractured_vex` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (1 clip) | `dungeons_and_combat:textures/entities/fractured_vex.png` |
+| `ghoul` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/ghoul.png` |
+| `gigantscorpion` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/gigant_scorpion.png` |
+| `gravewatcher` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (5 clips) | `dungeons_and_combat:textures/entities/gravewatcher.png` |
+| `hermit_witch` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/hermit_witch.png` |
+| `high_priest` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (6 clips) | `dungeons_and_combat:textures/entities/high_priest.png` |
+| `horuso` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/horuso.png` |
+| `infernus` | `dungeons_and_combat` | idle yes, walk yes, attack no, death no (2 clips) | `dungeons_and_combat:textures/entities/infernus_alternative.png` |
+| `ladyblaze` | `dungeons_and_combat` | idle yes, walk no, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/ladyblaze.png` |
+| `lilith` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (2 clips) | `dungeons_and_combat:textures/entities/lilith.png` |
+| `mimic` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (4 clips) | `dungeons_and_combat:textures/entities/mimic.png` |
+| `mummy` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/centinel.png` |
+| `palehands` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (4 clips) | `dungeons_and_combat:textures/entities/palehands.png` |
+| `prisoner_skull` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (5 clips) | `dungeons_and_combat:textures/entities/prisoner_skull.png` |
+| `pyroknight` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/pyroknight.png` |
+| `remanent` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/remanent.png` |
+| `royal_kamath` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (15 clips) | `dungeons_and_combat:textures/entities/royal_kamath.png` |
+| `royal_skull` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (4 clips) | `dungeons_and_combat:textures/entities/royal_skull.png` |
+| `sandstone_golem` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (4 clips) | `dungeons_and_combat:textures/entities/sandstone_golem.png` |
+| `sanguinescepter` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (1 clip) | `dungeons_and_combat:textures/item/sanguinescepter.png` |
+| `scepterofcompensation` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (1 clip) | `dungeons_and_combat:textures/item/scepter_of_compensation.png` |
+| `skull_deserter` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/skull_deserter.png` |
+| `skull` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/skull.png` |
+| `soleia` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/soleia.png` |
+| `spell_book` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (2 clips) | `dungeons_and_combat:textures/item/spell_book.png` |
+| `sunleia_light_v2` | `dungeons_and_combat` | idle yes, walk no, attack no, death no (2 clips) | `dungeons_and_combat:textures/entities/human_soleia.png` |
+| `sunleia` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death yes (30 clips) | `dungeons_and_combat:textures/entities/human_soleia.png` |
+| `the_monarch` | `dungeons_and_combat` | idle yes, walk yes, attack no, death no (7 clips) | `dungeons_and_combat:textures/entities/the_monarch.png` |
+| `theaberrator` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (3 clips) | `dungeons_and_combat:textures/entities/theaberrator.png` |
+| `torture` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (4 clips) | `dungeons_and_combat:textures/entities/torture.png` |
+| `weak_aberration` | `dungeons_and_combat` | idle yes, walk yes, attack yes, death no (4 clips) | `dungeons_and_combat:textures/entities/weak_aberration.png` |
+
+## Verification
+
+- `scripts/ensure_dungeons_and_combat_animations.py`: 48/48 paired animation files contain `idle`.
+- `scripts/validate_mob_bundle.py`: passed with 964 geometry files, 749 animation files, 2,207 PNG files, and 499 exact texture mappings in the complete bundle.
+- In-game selection and rendering remain a manual verification step; no Minecraft client was launched during this import.

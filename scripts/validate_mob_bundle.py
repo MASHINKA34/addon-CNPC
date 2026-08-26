@@ -12,6 +12,7 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 RESOURCE_ROOT = PROJECT_DIR / "src" / "main" / "resources"
 ASSET_ROOT = RESOURCE_ROOT / "assets"
 PATH_PATTERN = re.compile(r"^[a-z0-9._/-]+$")
+STRICT_PAIRED_NAMESPACES = {"dungeons_and_combat"}
 
 
 def resource_path(identifier: str) -> Path:
@@ -75,6 +76,42 @@ def main() -> None:
             failures.append(f"mapped model missing: {model}")
         if not resource_path(texture).is_file() and not texture.startswith("minecraft:"):
             failures.append(f"mapped texture missing: {texture}")
+
+    for namespace in STRICT_PAIRED_NAMESPACES:
+        namespace_root = ASSET_ROOT / namespace
+        for model in sorted((namespace_root / "geo").glob("*.geo.json")):
+            name = model.name.removesuffix(".geo.json")
+            model_id = f"{namespace}:geo/{model.name}"
+            animation = namespace_root / "animations" / f"{name}.animation.json"
+            if model_id not in mappings:
+                failures.append(f"missing model-texture mapping: {model_id}")
+            if not animation.is_file():
+                failures.append(f"missing paired animation: {model_id}")
+                continue
+
+            geometry = json.loads(model.read_text(encoding="utf-8-sig"))
+            animation_data = json.loads(animation.read_text(encoding="utf-8-sig"))
+            clips = animation_data.get("animations", {})
+            if "idle" not in clips:
+                failures.append(f"missing idle animation: {animation.relative_to(ASSET_ROOT).as_posix()}")
+
+            geometries = geometry.get("minecraft:geometry", [])
+            if not geometries:
+                continue
+            geometry_bones = {
+                bone.get("name")
+                for bone in geometries[0].get("bones", [])
+                if isinstance(bone, dict)
+            }
+            for clip_name, clip in clips.items():
+                if not isinstance(clip, dict) or not isinstance(clip.get("bones"), dict):
+                    continue
+                unknown = sorted(set(clip["bones"]) - geometry_bones)
+                if unknown:
+                    failures.append(
+                        f"unknown animation bones {unknown}: "
+                        f"{animation.relative_to(ASSET_ROOT).as_posix()}#{clip_name}"
+                    )
 
     print(
         f"Validated {json_count} JSON files ({geo_count} geometry, {animation_count} animation), "

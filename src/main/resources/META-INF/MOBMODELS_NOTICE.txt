@@ -41,13 +41,14 @@ Bundled model, animation, and texture resources originate from:
 - Critters & Cryptids 1.5.1 for Forge 1.19.2 (Academic Free License v3.0)
 - ReDev Mobs 1.0.3 beta for NeoForge 1.21.1 (license not specified in archive)
 - Wrought Nights: Critters 1.0.2 for Forge 1.19.2 (Academic Free License v3.0)
+- Dungeons and Combat 1.2.2 for Forge 1.20.1 (All Rights Reserved)
 
 The original authors retain all rights to their respective resources.
 Do not publish or monetize this combined archive without permission from
 the respective authors. Install the same archive on the server and on
 every connecting client.
 
-Bundle update date: 2026-08-20
+Bundle update date: 2026-08-26
 
 Texture behavior:
 - Bundled mob models automatically use their matching base entity texture
@@ -99,6 +100,14 @@ Mowzie's Mobs integration:
   donor mod is not needed at runtime.
 - No donor classes, registries, world generation, AI, sounds, or mod metadata
   are packaged. This bundle provides visual NPC resources only.
+
+2026-08-26 Dungeons and Combat integration:
+- Added 48 standalone GeckoLib geometry files with paired animation files and
+  reviewed default textures under the isolated dungeons_and_combat namespace.
+- Preserved the donor's authored clips and supplied an idle alias to the two
+  visual models whose animation files did not expose a clip named "idle".
+- Imported only model, animation, and required texture resources. No donor
+  classes, registries, data packs, sounds, or mod metadata are packaged.
 
 Important redistribution note:
 - "Allowed in modpacks" is not permission to extract and republish a mod's art.

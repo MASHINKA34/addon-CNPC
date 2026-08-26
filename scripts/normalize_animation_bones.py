@@ -26,6 +26,16 @@ MANUAL_RENAMES = {
         "head": "CTR_head",
         "CTR_shoulder_left": "CTR_shoulde1r_left",
     },
+    ("dungeons_and_combat", "spell_book"): {
+        "left_arm": "LeftArm",
+        "right_arm": "RightArm",
+    },
+}
+
+MANUAL_DROPS = {
+    ("dungeons_and_combat", "failure"): {"bone2"},
+    ("dungeons_and_combat", "skull"): {"weapon"},
+    ("dungeons_and_combat", "sunleia"): {"center"},
 }
 
 
@@ -43,6 +53,7 @@ def normalize_pair(namespace: str, model: Path, animation: Path) -> int:
 
     model_name = model.name.removesuffix(".geo.json")
     manual = MANUAL_RENAMES.get((namespace, model_name), {})
+    dropped = MANUAL_DROPS.get((namespace, model_name), set())
     changed = 0
 
     for clip in animation_data.get("animations", {}).values():
@@ -52,6 +63,9 @@ def normalize_pair(namespace: str, model: Path, animation: Path) -> int:
 
         renamed: dict[str, object] = {}
         for source_name, channels in bones.items():
+            if source_name in dropped:
+                changed += 1
+                continue
             target_name = source_name
             if source_name not in geometry_names:
                 target_name = manual.get(source_name, source_name)
@@ -89,6 +103,11 @@ def main() -> None:
             ROOT / "mowziesmobs" / "geo",
             ROOT / "mowziesmobs" / "animations",
         ),
+        (
+            "dungeons_and_combat",
+            ROOT / "dungeons_and_combat" / "geo",
+            ROOT / "dungeons_and_combat" / "animations",
+        ),
     ]
 
     total = 0
@@ -98,9 +117,9 @@ def main() -> None:
             if model.exists():
                 changed = normalize_pair(namespace, model, animation)
                 if changed:
-                    print(f"{animation.relative_to(ROOT)}: renamed {changed} channels")
+                    print(f"{animation.relative_to(ROOT)}: normalized {changed} channels")
                 total += changed
-    print(f"Total renamed animation bone channels: {total}")
+    print(f"Total normalized animation bone channels: {total}")
 
 
 if __name__ == "__main__":

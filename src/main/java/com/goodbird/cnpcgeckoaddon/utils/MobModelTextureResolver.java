@@ -62,7 +62,8 @@ public final class MobModelTextureResolver {
             "undergarden",
             "critters_and_cryptids",
             "redev_edition_mobs",
-            "wroughtnights"
+            "wroughtnights",
+            "dungeons_and_combat"
     );
 
     private static final Map<String, ResourceLocation> BUNDLED_TEXTURES = loadBundledTextures();
