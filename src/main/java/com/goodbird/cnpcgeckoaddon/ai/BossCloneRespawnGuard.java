@@ -37,11 +37,12 @@ import java.util.List;
  */
 public final class BossCloneRespawnGuard {
     /**
-     * The "No" entry of the CustomNPCs respawn dropdown, whose options are
-     * yes / day / night / no / naturally. Both {@code remove} and {@code tickDeath} branch on
-     * this value before they touch {@code killedtime}.
+     * The "No" entry of the CustomNPCs respawn dropdown ({@code yes / day / night / no /
+     * naturally}). Both {@code remove} and {@code tickDeath} check for it, and for
+     * "naturally" right beside it, before they go anywhere near {@code killedtime}.
      */
     private static final int RESPAWN_TYPE_NEVER = 3;
+    private static final int RESPAWN_TYPE_NATURALLY = 4;
 
     private record Pending(ResourceKey<Level> dimension, Entity entity, long removeAt) {
     }
@@ -53,11 +54,16 @@ public final class BossCloneRespawnGuard {
 
     /** Takes a clone's own resurrection away, for the spawn path and for adopted survivors. */
     public static void suppressSelfRespawn(Entity clone) {
-        if (clone instanceof EntityNPCInterface npc && npc.stats.getRespawnType() != RESPAWN_TYPE_NEVER) {
-            // Written per entity rather than into the clone template, so the same NPC keeps
-            // its configured respawn everywhere it is used outside a boss fight.
-            npc.stats.setRespawnType(RESPAWN_TYPE_NEVER);
+        if (!(clone instanceof EntityNPCInterface npc)) {
+            return;
         }
+        int respawnType = npc.stats.getRespawnType();
+        if (respawnType == RESPAWN_TYPE_NEVER || respawnType == RESPAWN_TYPE_NATURALLY) {
+            return;
+        }
+        // Written onto the entity rather than into the clone template, so the same NPC keeps
+        // the respawn it was configured with everywhere it is used outside a boss fight.
+        npc.stats.setRespawnType(RESPAWN_TYPE_NEVER);
     }
 
     /** Retires a dead boss clone: no self-respawn now, and no corpse left to resurrect. */
