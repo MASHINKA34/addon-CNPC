@@ -25,6 +25,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
@@ -124,6 +125,10 @@ public final class TeleportPathController {
     private static final double TELEGRAPH_SPAWN_RING_RADIUS = 1.0D;
     /** Ceiling on the spawn points marked at once, so a long list cannot flood the floor. */
     private static final int TELEGRAPH_MAX_SPAWN_RINGS = 8;
+    /** One quiet note as the boss commits, never a rattle every tick it winds up for. */
+    private static final float TELEGRAPH_SOUND_VOLUME = 0.8F;
+    /** Well under the bell's own pitch, which is what turns a ding into a gong. */
+    private static final float TELEGRAPH_SOUND_PITCH = 0.6F;
     /** The client counts down on its own, so the server only has to correct it now and then. */
     private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
     private static final int TOTEM_RETRY_INTERVAL_TICKS = 20;
@@ -3061,6 +3066,7 @@ public final class TeleportPathController {
             return;
         }
         pendingActionAt = gameTime + actionDelay;
+        announceTelegraph(data, action);
         // Painted here as well as on the clock, so the mark is up on the very tick the boss
         // commits rather than a tick into a wind-up that may only last a handful.
         if (npc.level() instanceof ServerLevel level) {
@@ -3096,6 +3102,36 @@ public final class TeleportPathController {
         DustParticleOptions dust = BossTelegraphUtil.dust(ability);
         if (data.isTelegraphZone()) {
             drawTelegraphZone(level, data, dust);
+        }
+        if (data.isTelegraphAura()) {
+            BossTelegraphUtil.aura(level, npc, dust);
+        }
+    }
+
+    /**
+     * The one-off half of the warning: a note and a name, both at the moment the boss
+     * commits rather than on every tick the wind-up runs for.
+     */
+    private void announceTelegraph(TeleportPathData data, PendingAction action) {
+        int ability = telegraphAbility(action);
+        if (ability < 0 || !telegraphs(data, ability)) {
+            return;
+        }
+        if (data.isTelegraphSound() && npc.level() instanceof ServerLevel level) {
+            level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
+                    SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.HOSTILE,
+                    TELEGRAPH_SOUND_VOLUME, TELEGRAPH_SOUND_PITCH);
+        }
+        if (!data.isTelegraphAnnounce()) {
+            return;
+        }
+        // In the ability's own colour, so the name and the shape on the floor read as one
+        // warning rather than as two.
+        Component name = Component.translatable(TeleportPathData.TELEGRAPH_ABILITY_LABELS[ability])
+                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(ability)));
+        // The audience the countdown already goes to: whoever this fight belongs to.
+        for (ServerPlayer player : timerBossEvent().getPlayers()) {
+            player.displayClientMessage(name, true);
         }
     }
 
