@@ -48,7 +48,13 @@ public final class BossDeathEvents {
         }
         if (BossTotemUtil.isTotem(event.getEntity())) {
             TeleportPathController.onTotemDeath(event.getEntity());
+            BossCloneRespawnGuard.retire(event.getEntity());
             return;
+        }
+        if (BossMinionUtil.isMinion(event.getEntity())) {
+            // No early return: a summoned clone can be a boss in its own right, and its own
+            // death handling below still has to run.
+            BossCloneRespawnGuard.retire(event.getEntity());
         }
         if (!(event.getEntity() instanceof EntityNPCInterface npc)
                 || !(npc.level() instanceof ServerLevel level)) {
@@ -256,6 +262,9 @@ public final class BossDeathEvents {
         if (BossAreaVfxScheduler.hasPending()) {
             BossAreaVfxScheduler.tick(level);
         }
+        if (BossCloneRespawnGuard.hasPending()) {
+            BossCloneRespawnGuard.tick(level);
+        }
         BossCaptureManager.tick(level);
     }
 
@@ -265,6 +274,7 @@ public final class BossDeathEvents {
             BossExplosionScheduler.clear(level);
             BossChestScheduler.clear(level);
             BossAreaVfxScheduler.clear(level);
+            BossCloneRespawnGuard.clear(level);
             BossCaptureManager.clearLevel(level);
             TeleportPathController.shutdownLevel(level);
         }

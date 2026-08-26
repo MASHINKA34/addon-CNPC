@@ -41,6 +41,11 @@ public final class BossMinionUtil {
                 && boss.getUUID().toString().equals(entity.getPersistentData().getString(MINION_OWNER_KEY));
     }
 
+    /** Whether some boss summoned this, without caring which one - the owner may be unloaded. */
+    public static boolean isMinion(Entity entity) {
+        return entity != null && !entity.getPersistentData().getString(MINION_OWNER_KEY).isEmpty();
+    }
+
     public static int countAlive(ServerLevel level, Entity boss) {
         int count = 0;
         for (Entity entity : level.getAllEntities()) {

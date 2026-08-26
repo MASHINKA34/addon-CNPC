@@ -630,6 +630,7 @@ public final class TeleportPathController {
             }
             Entity spawned = wrapper.getMCEntity();
             BossTotemUtil.markAsTotem(spawned, npc, slotId);
+            BossCloneRespawnGuard.suppressSelfRespawn(spawned);
             pinTotem(spawned, entry, anchor);
             reportedBlockedTotemSlots.remove(slotId);
             return spawned;
@@ -718,6 +719,9 @@ public final class TeleportPathController {
                 totem.discard();
                 continue;
             }
+            // Totems saved before the boss started suppressing this lose their own respawn
+            // here, so an older world stops resurrecting them behind the boss' back.
+            BossCloneRespawnGuard.suppressSelfRespawn(totem);
             totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(totem.getUUID()))
                     .entityId = totem.getUUID();
         }
@@ -2911,6 +2915,7 @@ public final class TeleportPathController {
             }
             Entity minion = wrapper.getMCEntity();
             BossMinionUtil.markAsMinion(minion, npc, phaseIndex, slotIndex);
+            BossCloneRespawnGuard.suppressSelfRespawn(minion);
             if (Float.isFinite(yaw)) {
                 minion.setYRot(yaw);
                 if (minion instanceof Mob mob) {
