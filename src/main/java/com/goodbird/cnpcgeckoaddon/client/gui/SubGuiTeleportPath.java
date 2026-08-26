@@ -22,6 +22,7 @@ public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldList
     private static final int RESET_BUTTON = 26;
     private static final int RAGE_BUTTON = 27;
     private static final int CHEST_BUTTON = 28;
+    private static final int TELEGRAPH_BUTTON = 29;
 
     private final TeleportPathData data;
     private final EntityNPCInterface npc;
@@ -38,46 +39,49 @@ public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldList
     @Override
     public void init() {
         super.init();
-        int y = guiTop + 10;
+        // A row tighter than the usual 26 all the way down: it buys the fifth row of
+        // buttons the ninth settings screen needs, and a field still clears the one above.
+        int y = guiTop + 8;
         addYesNo(ENABLED_BUTTON, "cnpcgeckoaddon.teleport.enabled", y, data.isEnabled());
-        y += 26;
+        y += 21;
         addYesNo(COMBAT_ONLY_BUTTON, "cnpcgeckoaddon.teleport.combat_only", y, data.isCombatOnly());
-        y += 26;
+        y += 21;
         addYesNo(STATIONARY_BUTTON, "cnpcgeckoaddon.boss.stationary", y, data.isStationary());
-        y += 26;
+        y += 21;
 
         addNumberField(PHASE_COUNT_FIELD, "cnpcgeckoaddon.boss.phase_count", y,
                 data.getPhaseCount(), TeleportPathData.MIN_PHASES, TeleportPathData.MAX_PHASES, 2);
-        y += 26;
+        y += 21;
 
         addLabel(new GuiLabel(TRANSITION_ANIMATION_FIELD, "cnpcgeckoaddon.boss.transition_anim", guiLeft + 8, y + 6));
         addTextField(new GuiTextFieldNop(TRANSITION_ANIMATION_FIELD, this, guiLeft + 98, y, 96, 20,
                 data.getPhaseTransitionAnimation()));
         addButton(new GuiButtonNop(this, TRANSITION_ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
-        y += 26;
+        y += 21;
         addNumberField(TRANSITION_LOCK_FIELD, "cnpcgeckoaddon.boss.transition_lock", y,
                 data.getPhaseTransitionLockTicks(), 0, 1200, 40);
 
-        addButton(new GuiButtonNop(this, 22, guiLeft + 8, guiTop + 164, 114, 20,
+        addButton(new GuiButtonNop(this, 22, guiLeft + 8, guiTop + 140, 114, 20,
                 "cnpcgeckoaddon.boss.targeting_settings"));
-        addButton(new GuiButtonNop(this, 23, guiLeft + 128, guiTop + 164, 114, 20,
+        addButton(new GuiButtonNop(this, 23, guiLeft + 128, guiTop + 140, 114, 20,
                 "cnpcgeckoaddon.boss.minion_settings"));
-        addButton(new GuiButtonNop(this, RESET_BUTTON, guiLeft + 8, guiTop + 186, 114, 20,
+        addButton(new GuiButtonNop(this, RESET_BUTTON, guiLeft + 8, guiTop + 162, 114, 20,
                 "cnpcgeckoaddon.boss.reset_settings"));
-        addButton(new GuiButtonNop(this, RAGE_BUTTON, guiLeft + 128, guiTop + 186, 114, 20,
+        addButton(new GuiButtonNop(this, RAGE_BUTTON, guiLeft + 128, guiTop + 162, 114, 20,
                 "cnpcgeckoaddon.boss.rage_settings"));
-        addButton(new GuiButtonNop(this, 24, guiLeft + 8, guiTop + 208, 114, 20,
+        addButton(new GuiButtonNop(this, 24, guiLeft + 8, guiTop + 184, 114, 20,
                 "cnpcgeckoaddon.boss.explosion_settings"));
-        addButton(new GuiButtonNop(this, CHEST_BUTTON, guiLeft + 128, guiTop + 208, 114, 20,
+        addButton(new GuiButtonNop(this, CHEST_BUTTON, guiLeft + 128, guiTop + 184, 114, 20,
                 "cnpcgeckoaddon.boss.chest_settings"));
-        // Four rows is all that fits below the fields, so the bottom one takes three
-        // buttons - the two shortest labels of the eight, plus Done.
-        addButton(new GuiButtonNop(this, 20, guiLeft + 8, guiTop + 230, 84, 20,
+        addButton(new GuiButtonNop(this, 20, guiLeft + 8, guiTop + 206, 114, 20,
                 "cnpcgeckoaddon.boss.phase_settings"));
-        addButton(new GuiButtonNop(this, BOSS_BAR_BUTTON, guiLeft + 98, guiTop + 230, 84, 20,
+        addButton(new GuiButtonNop(this, BOSS_BAR_BUTTON, guiLeft + 128, guiTop + 206, 114, 20,
                 "cnpcgeckoaddon.boss.bar_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 186, guiTop + 230, 56, 20,
+        // The longest label of the nine gets the wide half of the bottom row, next to Done.
+        addButton(new GuiButtonNop(this, TELEGRAPH_BUTTON, guiLeft + 8, guiTop + 228, 170, 20,
+                "cnpcgeckoaddon.boss.telegraph_settings"));
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 228, 60, 20,
                 "gui.done", button -> close()));
     }
 
@@ -133,6 +137,9 @@ public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldList
         } else if (button.id == CHEST_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossChest(data));
+        } else if (button.id == TELEGRAPH_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossTelegraph(data));
         }
     }
 
