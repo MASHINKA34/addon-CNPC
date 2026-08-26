@@ -18,6 +18,8 @@
   "cnpcgeckoaddon.boss.bar_style.ghost_dungeon": "Ghost Dungeon",
   "cnpcgeckoaddon.boss.bar_style.infernal": "Infernal Dungeon",
   "cnpcgeckoaddon.boss.bar_style.sculk": "Sculk Dungeon",
+  "cnpcgeckoaddon.boss.bar_scale": "Bar size (%)",
+  "cnpcgeckoaddon.boss.bar_scale_hint": "Percent of the style's normal size.",
   "cnpcgeckoaddon.teleport.enabled": "Enabled",
   "cnpcgeckoaddon.teleport.combat_only": "Combat only",
   "cnpcgeckoaddon.boss.stationary": "Stay in place",

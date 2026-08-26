@@ -18,6 +18,8 @@
   "cnpcgeckoaddon.boss.bar_style.ghost_dungeon": "Призрачный данж",
   "cnpcgeckoaddon.boss.bar_style.infernal": "Адский данж",
   "cnpcgeckoaddon.boss.bar_style.sculk": "Скалковый данж",
+  "cnpcgeckoaddon.boss.bar_scale": "Размер полоски (%)",
+  "cnpcgeckoaddon.boss.bar_scale_hint": "Процент от обычного размера стиля.",
   "cnpcgeckoaddon.teleport.enabled": "Включено",
   "cnpcgeckoaddon.teleport.combat_only": "Только во время боя",
   "cnpcgeckoaddon.boss.stationary": "Стоять на месте",

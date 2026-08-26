@@ -6,8 +6,11 @@ import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
+import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
+import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-public final class SubGuiBossBarStyle extends GuiBasic {
+public final class SubGuiBossBarStyle extends GuiBasic implements ITextfieldListener {
+    private static final int SCALE_FIELD = 1;
     private static final int FIRST_STYLE_BUTTON = 100;
 
     private final TeleportPathData data;
@@ -16,7 +19,7 @@ public final class SubGuiBossBarStyle extends GuiBasic {
         this.data = data;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 184;
+        imageHeight = 208;
         closeOnEsc = true;
     }
 
@@ -29,12 +32,26 @@ public final class SubGuiBossBarStyle extends GuiBasic {
             addButton(new GuiButtonNop(this, FIRST_STYLE_BUTTON + i, guiLeft + 8, y, 234, 20, styleLabel(i)));
             y += 22;
         }
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 158, 60, 20,
-                "gui.done", button -> close()));
+
+        addLabel(new GuiLabel(SCALE_FIELD, "cnpcgeckoaddon.boss.bar_scale", guiLeft + 8, y + 6));
+        GuiTextFieldNop scale = new GuiTextFieldNop(SCALE_FIELD, this, guiLeft + 172, y, 70, 20,
+                Integer.toString(data.getBossBarScalePercent()));
+        scale.setNumbersOnly();
+        scale.setMinMaxDefault(TeleportPathData.MIN_BOSS_BAR_SCALE_PERCENT,
+                TeleportPathData.MAX_BOSS_BAR_SCALE_PERCENT,
+                TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT);
+        addTextField(scale);
+        y += 24;
+
+        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.bar_scale_hint", guiLeft + 8, y, 0xA0A0A0));
+        y += 14;
+
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, y, 60, 20, "gui.done", button -> close()));
     }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        applyFields();
         int index = button.id - FIRST_STYLE_BUTTON;
         if (index < 0 || index >= BossBarStyles.values().size()) {
             return;
@@ -46,6 +63,20 @@ public final class SubGuiBossBarStyle extends GuiBasic {
                 styleButton.setDisplayText(styleLabel(i));
             }
         }
+    }
+
+    @Override
+    public void unFocused(GuiTextFieldNop field) { applyFields(); }
+
+    @Override
+    public void close() {
+        applyFields();
+        super.close();
+    }
+
+    private void applyFields() {
+        GuiTextFieldNop scale = getTextField(SCALE_FIELD);
+        if (scale != null) data.setBossBarScalePercent(scale.getInteger());
     }
 
     private String styleLabel(int index) {
