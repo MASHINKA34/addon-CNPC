@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -10,10 +11,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-
 /**
  * Blows a boss up a configurable number of ticks after it dies.
  *
@@ -22,16 +19,29 @@ import java.util.List;
  * settings are therefore snapshotted at the moment of death and the explosion is driven from
  * the level tick instead.</p>
  *
+ * <p>The blast itself never goes off while the queue is being read. It kills whatever stands
+ * around it, and one of those can easily be another boss that blows up in turn - which is a
+ * perfectly good mechanic, and was also a way to modify the pending list from inside its own
+ * iteration and take the server down with a {@code ConcurrentModificationException}.
+ * {@link TickQueue} is what keeps the two apart.</p>
+ *
  * <p>Nothing here is persisted. A pending explosion lives for a second or two, and a server
  * that shuts down inside that window should not detonate something on the next start.</p>
  */
 public final class BossExplosionScheduler {
 
+    /**
+     * How many bosses may go off in a single level tick. A chain reaction is allowed to run
+     * its course, just not all at once: the rest keeps its place in the queue and goes off on
+     * the following ticks.
+     */
+    private static final int MAX_PER_TICK = 16;
+
     private record Pending(ResourceKey<Level> dimension, Entity source, Vec3 pos, long fireAt,
                            int mode, float power, boolean fire) {
     }
 
-    private static final List<Pending> PENDING = new ArrayList<>();
+    private static final TickQueue<Pending> PENDING = new TickQueue<>("boss explosions", MAX_PER_TICK);
 
     private BossExplosionScheduler() {
     }
@@ -41,7 +51,10 @@ public final class BossExplosionScheduler {
                 level.getGameTime() + data.getExplosionDelayTicks(),
                 data.getExplosionMode(), data.getExplosionPower(), data.isExplosionFire());
         if (data.getExplosionDelayTicks() <= 0) {
-            detonate(level, pending);
+            // Undelayed still means "in this death event", exactly as it always has - but only
+            // while no other blast is already running. One that is has just killed this boss,
+            // and detonating inside it would nest the chain instead of queueing it.
+            PENDING.runNow(pending, blast -> detonate(level, blast));
             return;
         }
         PENDING.add(pending);
@@ -52,19 +65,10 @@ public final class BossExplosionScheduler {
     }
 
     public static void tick(ServerLevel level) {
-        if (PENDING.isEmpty()) {
-            return;
-        }
         long gameTime = level.getGameTime();
-        Iterator<Pending> iterator = PENDING.iterator();
-        while (iterator.hasNext()) {
-            Pending pending = iterator.next();
-            if (!pending.dimension().equals(level.dimension()) || gameTime < pending.fireAt()) {
-                continue;
-            }
-            iterator.remove();
-            detonate(level, pending);
-        }
+        PENDING.drain(
+                pending -> pending.dimension().equals(level.dimension()) && gameTime >= pending.fireAt(),
+                pending -> detonate(level, pending));
     }
 
     /** Drops anything still waiting in a level that is going away. */
