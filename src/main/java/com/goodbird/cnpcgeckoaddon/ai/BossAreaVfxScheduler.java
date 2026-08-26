@@ -190,9 +190,10 @@ public final class BossAreaVfxScheduler {
     /**
      * The block the wave runs along at one point of the ring, or null when the floor is more
      * than {@link #FLOOR_SEARCH_DEPTH} below the boss - a wave hanging in mid air over a
-     * balcony edge looks worse than one that simply skips the gap.
+     * balcony edge looks worse than one that simply skips the gap. Shared with the
+     * ability warnings, which lie on the arena floor under the same rule.
      */
-    private static BlockPos findFloor(ServerLevel level, double x, double y, double z) {
+    static BlockPos findFloor(ServerLevel level, double x, double y, double z) {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(Mth.floor(x), Mth.floor(y), Mth.floor(z));
         for (int depth = 0; depth <= FLOOR_SEARCH_DEPTH; depth++) {
             if (!level.isLoaded(pos)) {

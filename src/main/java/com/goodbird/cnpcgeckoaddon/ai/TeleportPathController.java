@@ -23,6 +23,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
@@ -113,6 +114,16 @@ public final class TeleportPathController {
     private static final int LEAP_VFX_DURATION_TICKS = 20;
     /** Kept clear of the leash edge so a landing cannot start the reset countdown. */
     private static final double LEAP_LEASH_MARGIN = 1.5D;
+    /** How often the wind-up mark is repainted. Every other tick reads as a steady shape. */
+    private static final int TELEGRAPH_INTERVAL_TICKS = 2;
+    /** With no player this close the mark cannot be seen, so it is not worth the particles. */
+    private static final double TELEGRAPH_AUDIENCE_RANGE = 64.0D;
+    /** How far to either side of its gaze a melee swing is marked. */
+    private static final double TELEGRAPH_MELEE_HALF_ANGLE = 60.0D;
+    /** Small enough to read as "one climbs out here" rather than as an attack zone. */
+    private static final double TELEGRAPH_SPAWN_RING_RADIUS = 1.0D;
+    /** Ceiling on the spawn points marked at once, so a long list cannot flood the floor. */
+    private static final int TELEGRAPH_MAX_SPAWN_RINGS = 8;
     /** The client counts down on its own, so the server only has to correct it now and then. */
     private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
     private static final int TOTEM_RETRY_INTERVAL_TICKS = 20;
@@ -315,6 +326,9 @@ public final class TeleportPathController {
         // Above the combat-only return and the busy gate on purpose: a leap already in the
         // air has to come down and land even if the boss loses its target mid flight.
         tickLeap(level, data, gameTime);
+        // Above the busy gate and the pending block below on purpose: a wind-up has to stay
+        // marked through a lock, and the mark has to stop on the tick the ability goes off.
+        tickTelegraph(level, data, gameTime);
 
         if (data.isCombatOnly() && !hasCombatTarget()) {
             cancelPendingAndSchedules();
@@ -2870,6 +2884,7 @@ public final class TeleportPathController {
                 return;
             }
         }
+        refreshLeapAim(level, data);
         drawLeapTelegraph(level, data, gameTime);
     }
 
@@ -2935,11 +2950,35 @@ public final class TeleportPathController {
     }
 
     /**
+     * Keeps a leap that has not been pushed off yet aimed at where its target is now, which
+     * is what gives that target the chance to step out of the marked ring before it lands.
+     *
+     * <p>Kept out of the drawing below because the aim is not decoration: the push itself
+     * falls back on this spot when the victim dies inside the windup.</p>
+     */
+    private void refreshLeapAim(ServerLevel level, TeleportPathData data) {
+        if (pendingAction != PendingAction.LEAP || leapDestination == null) {
+            return;
+        }
+        BossPhaseData phase = leapPhase(data);
+        if (phase == null) {
+            return;
+        }
+        Vec3 refreshed = resolveLeapDestination(data, phase, pendingTarget(level));
+        if (refreshed != null) {
+            leapDestination = refreshed;
+        }
+    }
+
+    /**
      * Paints the ring the slam is going to cover.
      *
      * <p>A jump this heavy landing without warning reads as an unfair death rather than as
-     * a mechanic, so the mark is up for the whole windup and the whole flight. During the
-     * windup it is still following the plan, which is what lets a target walk out of it.</p>
+     * a mechanic, so the mark is up for the whole windup and the whole flight.</p>
+     *
+     * <p>The general ability warning owns the windup wherever it is switched on for the
+     * leap, and this keeps the flight, which no wind-up mark can cover: by then the ability
+     * has gone off and the boss is a thrown object on its way down.</p>
      */
     private void drawLeapTelegraph(ServerLevel level, TeleportPathData data, long gameTime) {
         boolean windup = pendingAction == PendingAction.LEAP;
@@ -2950,11 +2989,10 @@ public final class TeleportPathController {
         if (phase == null || !phase.isLeapTelegraph() || gameTime % LEAP_MARKER_INTERVAL_TICKS != 0L) {
             return;
         }
-        if (windup) {
-            Vec3 refreshed = resolveLeapDestination(data, phase, pendingTarget(level));
-            if (refreshed != null) {
-                leapDestination = refreshed;
-            }
+        // Never both marks over one ring: whichever of the two is drawing, it draws alone.
+        if (windup && data.isTelegraphEnabled()
+                && data.isTelegraphAbility(TeleportPathData.TELEGRAPH_LEAP)) {
+            return;
         }
         double radius = phase.getLeapImpactRadius();
         int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / LEAP_MARKER_SPACING), 8, 48);
@@ -3023,6 +3061,147 @@ public final class TeleportPathController {
             return;
         }
         pendingActionAt = gameTime + actionDelay;
+        // Painted here as well as on the clock, so the mark is up on the very tick the boss
+        // commits rather than a tick into a wind-up that may only last a handful.
+        if (npc.level() instanceof ServerLevel level) {
+            paintTelegraph(level, data);
+        }
+    }
+
+    /**
+     * Paints what the boss is about to do, for as long as it is winding up.
+     *
+     * <p>The wind-up is the gap {@link #beginAction} opens between the animation starting and
+     * {@link #executePendingAction} firing, so the mark needs no clock of its own: it is up
+     * for exactly that gap and stops on the tick the ability lands.</p>
+     */
+    private void tickTelegraph(ServerLevel level, TeleportPathData data, long gameTime) {
+        if (pendingAction == PendingAction.NONE || gameTime >= pendingActionAt
+                || gameTime % TELEGRAPH_INTERVAL_TICKS != 0L) {
+            return;
+        }
+        paintTelegraph(level, data);
+    }
+
+    private void paintTelegraph(ServerLevel level, TeleportPathData data) {
+        int ability = telegraphAbility(pendingAction);
+        if (ability < 0 || !telegraphs(data, ability)) {
+            return;
+        }
+        // Decoration only, so an arena with nobody in it costs nothing to warn.
+        if (level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
+                TELEGRAPH_AUDIENCE_RANGE, false) == null) {
+            return;
+        }
+        DustParticleOptions dust = BossTelegraphUtil.dust(ability);
+        if (data.isTelegraphZone()) {
+            drawTelegraphZone(level, data, dust);
+        }
+    }
+
+    /** The ground the ability being wound up is about to cover. */
+    private void drawTelegraphZone(ServerLevel level, TeleportPathData data, DustParticleOptions dust) {
+        BossPhaseData phase = data.getPhase(currentPhase);
+        switch (pendingAction) {
+            case GROUND_ATTACK -> BossTelegraphUtil.ring(level, npc.position(),
+                    phase.getAreaAttackRadius(), dust);
+            case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
+                    phase.getMeleeAttackRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
+            case RANGED_ATTACK, FLUID_SPIT -> drawTelegraphLine(level, pendingTarget(level), dust);
+            case HOOK -> {
+                drawTelegraphLine(level, pendingTarget(level), dust);
+                for (int id : pendingExtraTargets) {
+                    if (level.getEntity(id) instanceof LivingEntity victim) {
+                        drawTelegraphLine(level, victim, dust);
+                    }
+                }
+            }
+            case CAPTURE -> {
+                LivingEntity victim = pendingTarget(level);
+                if (victim != null) {
+                    BossTelegraphUtil.ring(level, victim.position(),
+                            Math.max(1.0D, victim.getBbWidth()), dust);
+                }
+            }
+            case SUMMON -> drawTelegraphSpawnRings(level, phase, dust);
+            case LEAP -> {
+                BossPhaseData leaping = leapPhase(data);
+                if (leaping != null && leapDestination != null) {
+                    BossTelegraphUtil.ring(level, leapDestination, leaping.getLeapImpactRadius(), dust);
+                }
+            }
+            default -> {
+                // A teleport picks its point as it goes, so there is nothing to promise in
+                // advance, and NONE never gets this far.
+            }
+        }
+    }
+
+    /** The line an aimed ability is about to run along, from the same two points it uses. */
+    private void drawTelegraphLine(ServerLevel level, LivingEntity target, DustParticleOptions dust) {
+        if (target == null) {
+            return;
+        }
+        BossTelegraphUtil.line(level, new Vec3(npc.getX(), npc.getEyeY() - 0.2D, npc.getZ()),
+                target.position().add(0.0D, target.getBbHeight() * 0.5D, 0.0D), dust);
+    }
+
+    /**
+     * A small ring on every spot a minion is about to climb out of.
+     *
+     * <p>A phase that scatters its minions has no points to mark, so its spawn radius is
+     * ringed instead: the warning still says where not to be standing.</p>
+     */
+    private void drawTelegraphSpawnRings(ServerLevel level, BossPhaseData phase,
+                                         DustParticleOptions dust) {
+        int drawn = 0;
+        if (phase.getMinionSpawnMode() != BossPhaseData.MINION_SPAWN_RANDOM_RADIUS) {
+            for (BossMinionSpawnPoint point : phase.getMinionSpawnPoints().entries()) {
+                if (drawn >= TELEGRAPH_MAX_SPAWN_RINGS) {
+                    break;
+                }
+                if (point.isEnabled()) {
+                    BossTelegraphUtil.ring(level, minionPointAnchor(point),
+                            TELEGRAPH_SPAWN_RING_RADIUS, dust);
+                    drawn++;
+                }
+            }
+        }
+        if (drawn == 0) {
+            BossTelegraphUtil.ring(level, npc.position(), phase.getMinionRadius(), dust);
+        }
+    }
+
+    /**
+     * Whether this ability warns at all: the master switch, its own bit of the mask, and the
+     * leap's older per-phase flag.
+     */
+    private boolean telegraphs(TeleportPathData data, int ability) {
+        if (!data.isTelegraphEnabled() || !data.isTelegraphAbility(ability)) {
+            return false;
+        }
+        // The leap had a mark of its own before there was a general warning. That flag stays
+        // on as a per-phase override, so a boss already set up without one keeps its silence.
+        if (ability != TeleportPathData.TELEGRAPH_LEAP) {
+            return true;
+        }
+        BossPhaseData phase = leapPhase(data);
+        return phase == null || phase.isLeapTelegraph();
+    }
+
+    /** Which entry of the warning mask an action belongs to, or -1 when it is never marked. */
+    private static int telegraphAbility(PendingAction action) {
+        return switch (action) {
+            case GROUND_ATTACK -> TeleportPathData.TELEGRAPH_AREA;
+            case RANGED_ATTACK -> TeleportPathData.TELEGRAPH_RANGED;
+            case MELEE_ATTACK -> TeleportPathData.TELEGRAPH_MELEE;
+            case FLUID_SPIT -> TeleportPathData.TELEGRAPH_FLUID;
+            case HOOK -> TeleportPathData.TELEGRAPH_HOOK;
+            case CAPTURE -> TeleportPathData.TELEGRAPH_CAPTURE;
+            case SUMMON -> TeleportPathData.TELEGRAPH_SUMMON;
+            case LEAP -> TeleportPathData.TELEGRAPH_LEAP;
+            case NONE, TELEPORT -> -1;
+        };
     }
 
     private void executePendingAction(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
