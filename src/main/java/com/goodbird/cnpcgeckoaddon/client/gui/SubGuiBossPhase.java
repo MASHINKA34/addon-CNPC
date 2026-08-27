@@ -63,7 +63,10 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
         addAbilityButton(19, 1, 4, "cnpcgeckoaddon.boss.leap_settings");
         addAbilityButton(20, 0, 5, "cnpcgeckoaddon.boss.line_settings");
         addAbilityButton(21, 1, 5, "cnpcgeckoaddon.boss.geyser_settings");
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 217, 60, 20,
+        addAbilityButton(22, 0, 6, "cnpcgeckoaddon.boss.cast_move_settings");
+        // Beside the odd thirteenth ability button: a seventh full row plus a Done line
+        // below it would no longer fit the panel.
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 210, 60, 20,
                 "gui.done", button -> close()));
     }
 
@@ -98,6 +101,8 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
             setSubGui(new SubGuiBossLineAttack(npc, phase, phaseIndex));
         } else if (button.id == 21) {
             setSubGui(new SubGuiBossGeyser(npc, phase, phaseIndex));
+        } else if (button.id == 22) {
+            setSubGui(new SubGuiBossCastMovement(phase, phaseIndex));
         }
     }
 
