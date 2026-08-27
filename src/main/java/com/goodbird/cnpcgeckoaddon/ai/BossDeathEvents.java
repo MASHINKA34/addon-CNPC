@@ -135,6 +135,23 @@ public final class BossDeathEvents {
     }
 
     /**
+     * Lets an npc marked immune to the death blast stand in the crater.
+     *
+     * <p>The explosion is a vanilla one going off after the boss is gone, so there is no
+     * ability call left to filter it from the inside; what it leaves behind is a damage
+     * source tagged as an explosion, and that is what this catches. It cannot tell whose
+     * explosion it was, which is why the setting is described as covering every blast rather
+     * than only the boss one.</p>
+     */
+    @SubscribeEvent
+    public static void onBlastImmuneDamage(final LivingIncomingDamageEvent event) {
+        if (event.getSource().is(DamageTypeTags.IS_EXPLOSION)
+                && BossAbilityDamageUtil.isImmune(event.getEntity(), BossAbilityKind.BLAST)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
      * Clamps the fully mitigated health damage, after armor and effects but before HP changes.
      * Absorption is applied later and can only make the guarded result safer.
      */
