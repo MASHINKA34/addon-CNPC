@@ -47,13 +47,30 @@ public final class BossMinionUtil {
     }
 
     public static int countAlive(ServerLevel level, Entity boss) {
+        return countAlive(level, boss, Integer.MAX_VALUE);
+    }
+
+    /**
+     * The same count, cut short at {@code cap}: exact below it, and simply "at least the
+     * cap" once it is reached. Every caller only compares against the cap, and a minion can
+     * be anywhere in the world - this walk cannot be boxed in, so it is kept short instead.
+     */
+    public static int countAlive(ServerLevel level, Entity boss, int cap) {
         int count = 0;
         for (Entity entity : level.getAllEntities()) {
             if (entity.isAlive() && isMinionOf(entity, boss)) {
                 count++;
+                if (count >= cap) {
+                    return count;
+                }
             }
         }
         return count;
+    }
+
+    /** Whether any minion of this boss is alive at all, stopping at the first one found. */
+    public static boolean hasAlive(ServerLevel level, Entity boss) {
+        return countAlive(level, boss, 1) > 0;
     }
 
     /** Searches loaded entities only, so checking a slot never loads its chunk. */

@@ -1057,7 +1057,8 @@ public final class TeleportPathController {
         // otherwise the phase would end on the very tick it began. The summon counts as
         // called for even if nothing spawned, so a boss walled into a corner with nowhere
         // to put its clones still gets out of the phase.
-        boolean minionsDone = invulnerableSummonedOnce && BossMinionUtil.countAlive(level, npc) == 0;
+        // Asked every tick the phase waits, so the walk stops at the first living minion.
+        boolean minionsDone = invulnerableSummonedOnce && !BossMinionUtil.hasAlive(level, npc);
         if (!phase.invulnerableWaitsForTimer()) {
             return minionsDone;
         }
@@ -3387,7 +3388,7 @@ public final class TeleportPathController {
     private boolean tryStartSummon(ServerLevel level, TeleportPathData data,
                                    BossPhaseData phase, long gameTime) {
         if (!phase.canSummon() || gameTime < nextSummonAt) return false;
-        if (BossMinionUtil.countAlive(level, npc) >= phase.getMaxAliveMinions()) {
+        if (BossMinionUtil.countAlive(level, npc, phase.getMaxAliveMinions()) >= phase.getMaxAliveMinions()) {
             nextSummonAt = gameTime + 20;
             return false;
         }
@@ -3917,7 +3918,10 @@ public final class TeleportPathController {
     }
 
     private void summonMinions(ServerLevel level, BossPhaseData phase) {
-        int available = phase.getMaxAliveMinions() - BossMinionUtil.countAlive(level, npc);
+        // Capped at the ceiling it is subtracted from: past that the difference is never
+        // positive anyway, and the walk does not have to finish counting a full arena.
+        int available = phase.getMaxAliveMinions()
+                - BossMinionUtil.countAlive(level, npc, phase.getMaxAliveMinions());
         int amount = Math.min(phase.getMinionCount(), Math.max(available, 0));
         if (amount <= 0) return;
 
