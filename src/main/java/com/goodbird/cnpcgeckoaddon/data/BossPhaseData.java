@@ -87,6 +87,36 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.invulnerable_end_both"
     };
 
+    /**
+     * The abilities whose wind-up can pin a walking boss to the spot it started on, in
+     * {@link BossAbilityKind} order. One mask rather than a boolean per ability: there are
+     * already ten of them, and each new one would otherwise drag a field, a getter and a
+     * GUI row behind it.
+     *
+     * <p>The movers are deliberately absent. A leap roots its crouch unconditionally and
+     * flies free from the push, a teleport is never held - moving away is the whole
+     * ability - and the death blast goes off with nobody left standing to hold.</p>
+     */
+    public static final int[] CAST_ROOT_ABILITIES = {
+            BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
+            BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
+            BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER
+    };
+    /**
+     * Every ability is cast standing still until a builder frees it, existing bosses
+     * included: a warning zone that travels with a running boss lies about where the hit
+     * lands, and a line strike fires into a corridor the boss has already left.
+     */
+    public static final int CAST_ROOT_ALL = castRootAllMask();
+
+    private static int castRootAllMask() {
+        int mask = 0;
+        for (int ability : CAST_ROOT_ABILITIES) {
+            mask |= 1 << ability;
+        }
+        return mask;
+    }
+
     /** Health percentage at which this phase takes over. Phase 1 is pinned to 100. */
     private int startHealthPercent = 100;
 
@@ -249,6 +279,9 @@ public final class BossPhaseData {
     private String geyserVfx = AreaVfxStyles.NONE;
     private boolean geyserBlockWave;
 
+    /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
+    private int castRootMask = CAST_ROOT_ALL;
+
     private boolean invulnerableEnabled;
     private int invulnerableEndMode = INVULNERABLE_END_TIMER_OR_MINIONS;
     private int invulnerableDurationTicks = 200;
@@ -410,6 +443,7 @@ public final class BossPhaseData {
         tag.putInt("GeyserFluidLifetime", geyserFluidLifetimeTicks);
         tag.putString("GeyserVfx", geyserVfx);
         tag.putBoolean("GeyserBlockWave", geyserBlockWave);
+        tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
         tag.putInt("InvulnerableDurationTicks", invulnerableDurationTicks);
@@ -599,6 +633,11 @@ public final class BossPhaseData {
         geyserFluidLifetimeTicks = value(tag, "GeyserFluidLifetime", 60, 5, 1200);
         geyserVfx = AreaVfxStyles.normalize(tag.getString("GeyserVfx"));
         geyserBlockWave = tag.getBoolean("GeyserBlockWave");
+
+        // An absent key is a boss saved before the choice existed. It gets the rooted
+        // default on purpose: its warnings were lying whenever it cast on the run.
+        castRootMask = tag.contains("CastRootMask")
+                ? tag.getInt("CastRootMask") & CAST_ROOT_ALL : CAST_ROOT_ALL;
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
         invulnerableEndMode = value(tag, "InvulnerableEndMode", INVULNERABLE_END_TIMER_OR_MINIONS,
@@ -1013,6 +1052,21 @@ public final class BossPhaseData {
     public void setGeyserBlockWave(boolean value) { geyserBlockWave = value; }
     /** Whether the eruption pools anything, i.e. whether the fluid id is worth resolving. */
     public boolean leavesGeyserFluid() { return !geyserFluid.isEmpty(); }
+
+    /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
+    public boolean isCastRooted(int ability) {
+        return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
+    }
+    public void setCastRooted(int ability, boolean value) {
+        if (!isCastRootable(ability)) {
+            return;
+        }
+        castRootMask = value ? castRootMask | 1 << ability : castRootMask & ~(1 << ability);
+    }
+    /** Whether this ability has a bit in the mask at all; the movers and the blast have none. */
+    private static boolean isCastRootable(int ability) {
+        return ability >= 0 && ability < Integer.SIZE && (CAST_ROOT_ALL & 1 << ability) != 0;
+    }
 
     /** While this phase runs the boss takes no damage and only its summon ability fires. */
     public boolean isInvulnerableEnabled() { return invulnerableEnabled; }

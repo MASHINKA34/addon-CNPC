@@ -3,9 +3,9 @@ package com.goodbird.cnpcgeckoaddon.data;
 /**
  * The one list of boss abilities every per-ability mask indexes into.
  *
- * <p>Warnings and npc immunities both switch abilities on and off a bit at a time, and a
- * second private numbering would let the same ability mean different bits - and carry two
- * different names - in the two masks.</p>
+ * <p>Warnings, npc immunities and the standing-cast choice all switch abilities on and off
+ * a bit at a time, and a second private numbering would let the same ability mean different
+ * bits - and carry two different names - in two of the masks.</p>
  *
  * <p>The order is fixed for good: saved bosses already hold these positions in their warning
  * mask, so anything new is appended rather than slotted in.</p>
