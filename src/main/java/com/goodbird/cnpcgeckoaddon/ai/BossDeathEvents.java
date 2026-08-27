@@ -4,9 +4,11 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.NpcDamageResistEntry;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -132,6 +134,35 @@ public final class BossDeathEvents {
             controller.playInvulnerableHitFeedback();
         }
         event.setCanceled(true);
+    }
+
+    /**
+     * Applies the npc's own damage resistance list to whatever still comes in.
+     *
+     * <p>Registered LOW so the phase and totem protections above have already had their say -
+     * a hit they swallowed whole never reaches a mere percentage. The CustomNPCs resistances
+     * run later, inside mitigation, so this multiplier stacks on top of them: 50% here and
+     * 50% there make 25%.</p>
+     */
+    @SubscribeEvent(priority = EventPriority.LOW)
+    public static void onNpcDamageResist(final LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc.ais instanceof INpcImmunityData holder)
+                // The same escape hatch the phase protection leaves: /kill has to keep working.
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return;
+        }
+        NpcDamageResistEntry resist = holder.cnpcgeckoaddon$getNpcImmunityData().findResist(event.getSource());
+        if (resist == null) {
+            return;
+        }
+        if (resist.getPercent() == 0) {
+            // Cancelled rather than zeroed: full immunity should leave no knockback, no hurt
+            // animation and nothing for on-hit effects to ride in on.
+            event.setCanceled(true);
+        } else {
+            event.setAmount(event.getAmount() * resist.getPercent() / 100.0F);
+        }
     }
 
     /**
