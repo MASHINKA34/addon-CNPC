@@ -3,7 +3,9 @@ package com.goodbird.cnpcgeckoaddon.world;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
@@ -40,6 +42,15 @@ public class TemporaryFluidStore extends SavedData {
     private static final String POS_KEY = "Pos";
     private static final String STATE_KEY = "State";
     private static final String PLACED_KEY = "Placed";
+    /**
+     * The same two states again, stored by block name instead of by numeric id. The numeric
+     * ids shift the moment the modpack gains or loses a mod, and these entries are restored
+     * on the load right after a restart - which is exactly when the ids may have moved, and
+     * a shifted id would put a different block back than the one the fluid covered. The old
+     * int keys are still written and read so a downgrade keeps working.
+     */
+    private static final String STATE_TAG_KEY = "StateTag";
+    private static final String PLACED_TAG_KEY = "PlacedTag";
     private static final String EXPIRES_KEY = "Expires";
 
     /**
@@ -103,8 +114,10 @@ public class TemporaryFluidStore extends SavedData {
     private TemporaryFluidStore() {
     }
 
-    private static TemporaryFluidStore load(CompoundTag tag, HolderLookup.Provider registries) {
+    /** Public only so the game tests can feed it a saved tag; the factory is the real caller. */
+    public static TemporaryFluidStore load(CompoundTag tag, HolderLookup.Provider registries) {
         TemporaryFluidStore store = new TemporaryFluidStore();
+        HolderGetter<Block> blocks = registries.lookupOrThrow(Registries.BLOCK);
         ListTag list = tag.getList(ENTRIES_KEY, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             CompoundTag entry = list.getCompound(i);
@@ -113,11 +126,20 @@ public class TemporaryFluidStore extends SavedData {
                 continue;
             }
             store.entries.add(new Entry(pos,
-                    Block.stateById(entry.getInt(STATE_KEY)),
-                    Block.stateById(entry.getInt(PLACED_KEY)),
+                    readState(blocks, entry, STATE_TAG_KEY, STATE_KEY),
+                    readState(blocks, entry, PLACED_TAG_KEY, PLACED_KEY),
                     entry.getLong(EXPIRES_KEY)));
         }
         return store;
+    }
+
+    /** The name-based state when this session wrote one, the numeric id of an older save otherwise. */
+    private static BlockState readState(HolderGetter<Block> blocks, CompoundTag entry,
+                                        String tagKey, String idKey) {
+        if (entry.contains(tagKey, Tag.TAG_COMPOUND)) {
+            return NbtUtils.readBlockState(blocks, entry.getCompound(tagKey));
+        }
+        return Block.stateById(entry.getInt(idKey));
     }
 
     @Override
@@ -128,6 +150,8 @@ public class TemporaryFluidStore extends SavedData {
             saved.put(POS_KEY, NbtUtils.writeBlockPos(entry.pos()));
             saved.putInt(STATE_KEY, Block.getId(entry.original()));
             saved.putInt(PLACED_KEY, Block.getId(entry.placed()));
+            saved.put(STATE_TAG_KEY, NbtUtils.writeBlockState(entry.original()));
+            saved.put(PLACED_TAG_KEY, NbtUtils.writeBlockState(entry.placed()));
             saved.putLong(EXPIRES_KEY, entry.expiresAt());
             list.add(saved);
         }
