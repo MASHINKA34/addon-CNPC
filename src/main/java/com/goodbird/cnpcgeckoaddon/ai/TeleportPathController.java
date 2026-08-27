@@ -77,6 +77,8 @@ import java.util.function.Predicate;
 public final class TeleportPathController {
     private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
+    /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
+    private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
     private static final int ABILITY_COUNT = 10;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
@@ -170,6 +172,8 @@ public final class TeleportPathController {
     private int invulnerablePhaseIndex = -1;
     /** Earliest game time the next blocked-hit clang may play at. */
     private long nextBlockFeedbackAt;
+    /** Earliest game time the tick guard may report the next failure at. */
+    private long nextTickFailureLogAt;
     private long outOfCombatSince = NOT_SCHEDULED;
     private long outsideHomeLeashSince = NOT_SCHEDULED;
     private boolean encounterResetDone;
@@ -300,7 +304,29 @@ public final class TeleportPathController {
         INSTANCES.add(this);
     }
 
+    /**
+     * Runs the controller's whole tick behind a guard.
+     *
+     * <p>The call is injected into the NPC's own tick, and an exception escaping from there
+     * takes the level tick - and the server - down with it. One boss with a configuration
+     * or a world state nothing here foresaw is not worth that: it is logged and skipped,
+     * and the rest of the tick carries on.</p>
+     */
     public void tick() {
+        try {
+            tickGuarded();
+        } catch (Throwable error) {
+            long gameTime = npc.level() instanceof ServerLevel level ? level.getGameTime() : 0L;
+            // One line every ten seconds at worst, not one per tick for as long as it lasts.
+            if (gameTime >= nextTickFailureLogAt) {
+                nextTickFailureLogAt = gameTime + TICK_FAILURE_LOG_INTERVAL_TICKS;
+                LOGGER.error("Boss controller tick failed for NPC {}; skipping this tick",
+                        npc.getName().getString(), error);
+            }
+        }
+    }
+
+    private void tickGuarded() {
         TeleportPathData data = settings();
         if (!data.isEnabled() || !(npc.level() instanceof ServerLevel level) || !npc.isAlive()) {
             // `active` is only true between activate() and reset(), so this runs exactly
