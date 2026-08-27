@@ -3850,7 +3850,12 @@ public final class TeleportPathController {
                             SoundSource.HOSTILE, 1.0F, 1.0F);
                 }
                 return true;
-            } catch (Throwable ignored) {
+            } catch (Throwable error) {
+                // CustomNPCs is free to veto or break a teleport from a script hook. The
+                // boss stays where it is and tries again on its next window, but somebody
+                // debugging a boss that never moves deserves to find this in the log.
+                LOGGER.warn("Boss {} could not teleport to path point {}: {}",
+                        npc.getName().getString(), candidate, error.getMessage());
                 lockedX = npc.getX();
                 lockedZ = npc.getZ();
                 return false;

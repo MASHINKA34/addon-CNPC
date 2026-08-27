@@ -193,6 +193,9 @@ public class EntityCustomModel extends Animal implements GeoAnimatable, GeoEntit
         try {
             return this.getAttributes().getValue(p_233637_1_);
         }catch (Exception e){
+            // Deliberately quiet: this is the render-side stand-in entity, and GeckoLib asks
+            // it for attributes the real NPC owns - vanilla throws on any it does not carry.
+            // Logging would spam once per frame; a neutral 1.0 is the correct stand-in value.
             return 1.0;
         }
     }
