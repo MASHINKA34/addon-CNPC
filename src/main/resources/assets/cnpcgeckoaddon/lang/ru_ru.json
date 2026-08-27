@@ -446,5 +446,9 @@
   "cnpcgeckoaddon.carry.updates_home": "Постановка меняет дом",
   "cnpcgeckoaddon.carry.leash": "Поводок от места подъёма",
   "cnpcgeckoaddon.carry.hint": "Присяд оставляет обычный правый клик диалогу.",
+  "cnpcgeckoaddon.npc.immunity_open": "Иммунитет к способностям...",
+  "cnpcgeckoaddon.npc.immunity_title": "Не действуют",
+  "cnpcgeckoaddon.npc.immunity_hint": "Отмеченные способности проходят мимо: ни урона, ни эффектов, ни рывка.",
+  "cnpcgeckoaddon.npc.immunity_blast_hint": "Иммунитет к взрыву снимает любой взрывной урон, не только боссовый.",
   "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
 }

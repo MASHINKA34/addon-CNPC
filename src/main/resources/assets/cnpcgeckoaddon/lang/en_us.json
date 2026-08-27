@@ -446,5 +446,9 @@
   "cnpcgeckoaddon.carry.updates_home": "Placing sets its home",
   "cnpcgeckoaddon.carry.leash": "Leash from pickup spot",
   "cnpcgeckoaddon.carry.hint": "Sneak-click keeps normal right-click free for dialogue.",
+  "cnpcgeckoaddon.npc.immunity_open": "Boss immunities...",
+  "cnpcgeckoaddon.npc.immunity_title": "Immune to",
+  "cnpcgeckoaddon.npc.immunity_hint": "Checked abilities pass this npc by entirely: no damage, no effects, no pull.",
+  "cnpcgeckoaddon.npc.immunity_blast_hint": "Blast immunity covers any explosion, not only the boss one.",
   "block.cnpcgeckoaddon.boss_chest": "Boss chest"
 }
