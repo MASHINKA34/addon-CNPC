@@ -333,6 +333,9 @@ public final class BossDeathEvents {
         if (BossAreaVfxScheduler.hasPending()) {
             BossAreaVfxScheduler.tick(level);
         }
+        if (BossGeyserScheduler.hasPending()) {
+            BossGeyserScheduler.tick(level);
+        }
         if (BossCloneRespawnGuard.hasPending()) {
             BossCloneRespawnGuard.tick(level);
         }
@@ -345,6 +348,7 @@ public final class BossDeathEvents {
             BossExplosionScheduler.clear(level);
             BossChestScheduler.clear(level);
             BossAreaVfxScheduler.clear(level);
+            BossGeyserScheduler.clear(level);
             BossCloneRespawnGuard.clear(level);
             BossCaptureManager.clearLevel(level);
             TeleportPathController.shutdownLevel(level);

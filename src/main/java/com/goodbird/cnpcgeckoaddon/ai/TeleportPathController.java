@@ -78,7 +78,7 @@ public final class TeleportPathController {
     private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 9;
+    private static final int ABILITY_COUNT = 10;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -147,7 +147,7 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK
+        LEAP, LINE_ATTACK, GEYSER
     }
 
     private final EntityNPCInterface npc;
@@ -208,6 +208,7 @@ public final class TeleportPathController {
     private long nextCaptureAt = NOT_SCHEDULED;
     private long nextLeapAt = NOT_SCHEDULED;
     private long nextLineAttackAt = NOT_SCHEDULED;
+    private long nextGeyserAt = NOT_SCHEDULED;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -263,6 +264,7 @@ public final class TeleportPathController {
     /** Phase index -> the last point that successfully spawned in round-robin order. */
     private final Map<Integer, Integer> minionRoundRobinCursor = new HashMap<>();
     private String reportedBrokenFluid = "";
+    private String reportedBrokenGeyserFluid = "";
     private final Map<Integer, TotemRuntime> totemRuntime = new HashMap<>();
     private final Set<Integer> deadTotemSlots = new HashSet<>();
     private final Set<Integer> resetTotemHealthSlots = new HashSet<>();
@@ -1149,6 +1151,7 @@ public final class TeleportPathController {
         clearRage();
         cancelPendingAndSchedules();
         clearHookPulls();
+        BossGeyserScheduler.clearBoss(npc);
         // Before the return below: clearing the leap re-pins the boss where it stands, and
         // the return then moves that pin home rather than the other way round.
         clearLeap();
@@ -2091,6 +2094,7 @@ public final class TeleportPathController {
         clearHealthScaling(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
+        BossGeyserScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             removeTotemsOnBossDeath(level, settings());
         }
@@ -2115,6 +2119,7 @@ public final class TeleportPathController {
         clearHealthScaling(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
+        BossGeyserScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
                 dropTotemLink(totem, BossTotemUtil.slotId(totem));
@@ -2295,6 +2300,13 @@ public final class TeleportPathController {
         } else {
             nextLeapAt = NOT_SCHEDULED;
         }
+        if (phase.isGeyserEnabled()) {
+            if (nextGeyserAt == NOT_SCHEDULED) {
+                nextGeyserAt = gameTime + rageDown(phase.getGeyserCooldownTicks());
+            }
+        } else {
+            nextGeyserAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2323,6 +2335,7 @@ public final class TeleportPathController {
                 case 5 -> tryStartCapture(level, data, phase, gameTime);
                 case 6 -> tryStartLeap(level, data, phase, gameTime);
                 case 7 -> tryStartLineAttack(level, data, phase, gameTime);
+                case 8 -> tryStartGeyser(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -2792,6 +2805,93 @@ public final class TeleportPathController {
             Vec3 point = from.add(step.scale((double) i / points));
             level.sendParticles(ParticleTypes.CRIT, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
+    }
+
+    private boolean tryStartGeyser(ServerLevel level, TeleportPathData data,
+                                   BossPhaseData phase, long gameTime) {
+        if (!phase.isGeyserEnabled() || gameTime < nextGeyserAt) return false;
+        List<LivingEntity> targets = selectAbilityTargets(level, phase.getGeyserTargetMode(),
+                phase.getGeyserMaxRange(), candidate -> isValidGeyserTarget(candidate, phase),
+                phase.getGeyserTargetCount());
+        if (targets.isEmpty()) {
+            nextGeyserAt = gameTime + 10;
+            return false;
+        }
+        pendingExtraTargets.clear();
+        for (int i = 1; i < targets.size(); i++) {
+            pendingExtraTargets.add(targets.get(i).getId());
+        }
+        beginAction(PendingAction.GEYSER, phase.getGeyserAnimation(),
+                phase.getGeyserActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        nextGeyserAt = gameTime + phase.getGeyserActionDelayTicks()
+                + rageDown(phase.getGeyserCooldownTicks());
+        return true;
+    }
+
+    /**
+     * Line of sight is deliberately not required: the column comes up through the floor, so
+     * a wall someone is standing behind is nothing for it to reach around.
+     */
+    private boolean isValidGeyserTarget(LivingEntity target, BossPhaseData phase) {
+        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.GEYSER)) {
+            return false;
+        }
+        double distanceSquared = npc.distanceToSqr(target);
+        double min = phase.getGeyserMinRange();
+        double max = phase.getGeyserMaxRange();
+        return distanceSquared >= min * min && distanceSquared <= max * max;
+    }
+
+    /**
+     * Lights a fuse under everyone this cast wound up on.
+     *
+     * <p>Nothing erupts here. The mark goes on the floor and {@link BossGeyserScheduler}
+     * owns it from now on, because the boss is back on its rotation long before the column
+     * comes up - which is the whole point of the ability.</p>
+     */
+    private void performGeyser(ServerLevel level, BossPhaseData phase, long gameTime) {
+        List<LivingEntity> victims = new ArrayList<>();
+        LivingEntity primary = pendingTarget(level);
+        if (primary != null && isValidGeyserTarget(primary, phase)) {
+            victims.add(primary);
+        }
+        for (int id : pendingExtraTargets) {
+            if (level.getEntity(id) instanceof LivingEntity extra
+                    && isValidGeyserTarget(extra, phase) && !victims.contains(extra)) {
+                victims.add(extra);
+            }
+        }
+        if (victims.isEmpty()) {
+            return;
+        }
+        BlockState fluid = geyserFluid(phase);
+        // The fuse is deliberately left alone by the enrage: it is the window a player gets
+        // to read the mark and step off it, not a number the fight is allowed to turn up.
+        int damage = rageUp(phase.getGeyserDamage());
+        int launch = rageUp(phase.getGeyserLaunch());
+        for (LivingEntity victim : victims) {
+            BossGeyserScheduler.schedule(level, npc, victim, phase, fluid, damage, launch, gameTime);
+        }
+    }
+
+    /** What the eruption pools, or null when it pools nothing or the id is not a fluid. */
+    private BlockState geyserFluid(BossPhaseData phase) {
+        if (!phase.leavesGeyserFluid()) {
+            return null;
+        }
+        BlockState fluid = FluidBlockUtil.resolve(phase.getGeyserFluid());
+        if (fluid == null) {
+            // The geyser still goes off; only the puddle is dropped. Reported once per broken
+            // id rather than once per eruption.
+            if (!phase.getGeyserFluid().equals(reportedBrokenGeyserFluid)) {
+                reportedBrokenGeyserFluid = phase.getGeyserFluid();
+                LOGGER.warn("Boss {} cannot pool {}: that block is not a fluid",
+                        npc.getName().getString(), phase.getGeyserFluid());
+            }
+            return null;
+        }
+        reportedBrokenGeyserFluid = "";
+        return fluid;
     }
 
     private boolean tryStartLeap(ServerLevel level, TeleportPathData data,
@@ -3306,7 +3406,7 @@ public final class TeleportPathController {
                     phase.getMeleeAttackRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE ->
                     drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
-            case HOOK -> {
+            case HOOK, GEYSER -> {
                 drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
                 for (int id : pendingExtraTargets) {
                     if (level.getEntity(id) instanceof LivingEntity victim) {
@@ -3410,6 +3510,7 @@ public final class TeleportPathController {
             case SUMMON -> BossAbilityKind.SUMMON;
             case LEAP -> BossAbilityKind.LEAP;
             case LINE_ATTACK -> BossAbilityKind.LINE;
+            case GEYSER -> BossAbilityKind.GEYSER;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -3472,7 +3573,8 @@ public final class TeleportPathController {
                     && npc.inventory.getProjectile() != null;
             case MELEE_ATTACK -> isValidMeleeTarget(target, phase);
             case FLUID_SPIT -> isValidFluidSpitTarget(target, phase);
-            case HOOK -> hasHookVictim(level, phase);
+            case HOOK -> hasWoundUpVictim(level, candidate -> isValidHookTarget(candidate, phase));
+            case GEYSER -> hasWoundUpVictim(level, candidate -> isValidGeyserTarget(candidate, phase));
             case CAPTURE -> isValidCaptureTarget(target, phase);
             // A leap at a fixed spot lands there whoever is standing on it.
             case LEAP -> phase.getLeapMode() != BossPhaseData.LEAP_MODE_TARGET
@@ -3487,18 +3589,17 @@ public final class TeleportPathController {
     }
 
     /**
-     * Whether anyone the hook wound up on is still worth reeling in.
+     * Whether anyone a multi-victim ability wound up on is still worth landing it on.
      *
      * <p>Per victim rather than all or nothing: one of three walking out of range takes
-     * only their own chain with them, which is exactly what dodging should buy them.</p>
+     * only their own share with them, which is exactly what dodging should buy them.</p>
      */
-    private boolean hasHookVictim(ServerLevel level, BossPhaseData phase) {
-        if (isValidHookTarget(pendingTarget(level), phase)) {
+    private boolean hasWoundUpVictim(ServerLevel level, Predicate<LivingEntity> valid) {
+        if (valid.test(pendingTarget(level))) {
             return true;
         }
         for (int id : pendingExtraTargets) {
-            if (level.getEntity(id) instanceof LivingEntity extra
-                    && isValidHookTarget(extra, phase)) {
+            if (level.getEntity(id) instanceof LivingEntity extra && valid.test(extra)) {
                 return true;
             }
         }
@@ -3517,6 +3618,7 @@ public final class TeleportPathController {
             case HOOK -> nextHookAt;
             case CAPTURE -> nextCaptureAt;
             case LEAP -> nextLeapAt;
+            case GEYSER -> nextGeyserAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -3533,6 +3635,7 @@ public final class TeleportPathController {
             case HOOK -> nextHookAt = at;
             case CAPTURE -> nextCaptureAt = at;
             case LEAP -> nextLeapAt = at;
+            case GEYSER -> nextGeyserAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -3576,6 +3679,8 @@ public final class TeleportPathController {
             performCapture(level, phase, gameTime);
         } else if (pendingAction == PendingAction.LEAP) {
             performLeap(level, data, phase, gameTime);
+        } else if (pendingAction == PendingAction.GEYSER) {
+            performGeyser(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -3988,6 +4093,16 @@ public final class TeleportPathController {
     }
 
     /**
+     * Everyone an eruption at this spot may catch, judged by this boss.
+     *
+     * <p>Asked for by {@link BossGeyserScheduler}, which runs the eruption seconds after the
+     * cast and has no idea on its own who this boss counts as an enemy.</p>
+     */
+    List<LivingEntity> geyserVictims(ServerLevel level, Vec3 centre, double radius) {
+        return getTargetsAround(level, centre, radius, BossAbilityKind.GEYSER);
+    }
+
+    /**
      * Whether this candidate is a species the boss is configured to aim at.
      *
      * <p>Deliberately only the species filter: whether the boss may hit something at all
@@ -4309,6 +4424,7 @@ public final class TeleportPathController {
         nextHookAt = NOT_SCHEDULED;
         nextCaptureAt = NOT_SCHEDULED;
         nextLeapAt = NOT_SCHEDULED;
+        nextGeyserAt = NOT_SCHEDULED;
     }
 
     private void reset() {
@@ -4324,6 +4440,7 @@ public final class TeleportPathController {
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
         clearHookPulls();
+        BossGeyserScheduler.clearBoss(npc);
         clearLeap();
         BossCaptureManager.releaseByBoss(npc);
         busyUntil = 0L;
@@ -4339,5 +4456,6 @@ public final class TeleportPathController {
         reportedBrokenMinionClones.clear();
         reportedBlockedMinionPoints.clear();
         reportedBrokenFluid = "";
+        reportedBrokenGeyserFluid = "";
     }
 }
