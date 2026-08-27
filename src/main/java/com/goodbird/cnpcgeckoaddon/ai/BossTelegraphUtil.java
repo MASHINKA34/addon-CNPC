@@ -30,7 +30,8 @@ public final class BossTelegraphUtil {
             0xCC8C40, // hook - bronze, the colour of the chain it throws
             0xFF59BF, // capture - pink
             0x8C59FF, // minion summon - violet
-            0xFFCC33  // leap slam - amber
+            0xFFCC33, // leap slam - amber
+            0xFF3355  // line strike - crimson
     };
 
     /** Built once: the options are immutable and one is handed out per ability per emit. */

@@ -177,6 +177,7 @@
   "cnpcgeckoaddon.boss.ability.capture": "Захват",
   "cnpcgeckoaddon.boss.ability.summon": "Призыв миньонов",
   "cnpcgeckoaddon.boss.ability.leap": "Прыжок",
+  "cnpcgeckoaddon.boss.ability.line": "Удар по линии",
   "cnpcgeckoaddon.boss.hook_settings": "Хук (притягивание)...",
   "cnpcgeckoaddon.boss.hook_phase": "Хук - фаза",
   "cnpcgeckoaddon.boss.hook_pull": "Рывок (сила / тики)",

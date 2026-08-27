@@ -55,6 +55,16 @@ public final class BossPhaseData {
     /** Ceiling on the arc, read by the controller when a high target raises the jump. */
     public static final int MAX_LEAP_HEIGHT = 64;
 
+    /** The corridor is laid down toward whoever the line strike picked. */
+    public static final int LINE_DIRECTION_TARGET = 0;
+    /** The corridor follows the boss' own gaze, whoever happens to be standing in it. */
+    public static final int LINE_DIRECTION_FACING = 1;
+
+    public static final String[] LINE_DIRECTION_LABELS = {
+            "cnpcgeckoaddon.boss.line_direction_target",
+            "cnpcgeckoaddon.boss.line_direction_facing"
+    };
+
     public static final int CAPTURE_MODE_HOLD = 0;
     public static final int CAPTURE_MODE_LIFT = 1;
     public static final int CAPTURE_EFFECT_PLAYER = 0;
@@ -112,6 +122,23 @@ public final class BossPhaseData {
     private String areaAttackVfx = AreaVfxStyles.NONE;
     private int areaAttackVfxDurationTicks = 20;
     private boolean areaAttackBlockWave;
+
+    private boolean lineAttackEnabled;
+    private String lineAttackAnimation = "";
+    private int lineAttackActionDelayTicks = 12;
+    private int lineAttackCooldownTicks = 140;
+    private int lineAttackDirection = LINE_DIRECTION_TARGET;
+    private int lineAttackTargetMode = BossTargetMode.MAIN;
+    private int lineAttackLength = 9;
+    private int lineAttackWidth = 2;
+    private int lineAttackHeight = 3;
+    private int lineAttackDamage = 10;
+    private int lineAttackKnockback = 2;
+    /** How far past the corridor the weaker wave reaches; zero leaves the flanks alone. */
+    private int lineAttackSideWidth = 2;
+    private int lineAttackSidePercent = 50;
+    private String lineAttackVfx = AreaVfxStyles.NONE;
+    private boolean lineAttackBlockWave;
 
     private boolean rangedAttackEnabled;
     private String rangedAttackAnimation = "";
@@ -208,6 +235,7 @@ public final class BossPhaseData {
     private boolean invulnerableSummonImmediately = true;
 
     private final BossEffectSet areaAttackEffects = new BossEffectSet();
+    private final BossEffectSet lineAttackEffects = new BossEffectSet();
     private final BossEffectSet rangedAttackEffects = new BossEffectSet();
     private final BossEffectSet meleeAttackEffects = new BossEffectSet();
     private final BossEffectSet fluidSpitEffects = new BossEffectSet();
@@ -248,6 +276,21 @@ public final class BossPhaseData {
         tag.putString("AreaAttackVfx", areaAttackVfx);
         tag.putInt("AreaAttackVfxDuration", areaAttackVfxDurationTicks);
         tag.putBoolean("AreaAttackBlockWave", areaAttackBlockWave);
+        tag.putBoolean("LineAttackEnabled", lineAttackEnabled);
+        tag.putString("LineAttackAnimation", lineAttackAnimation);
+        tag.putInt("LineAttackActionDelayTicks", lineAttackActionDelayTicks);
+        tag.putInt("LineAttackCooldownTicks", lineAttackCooldownTicks);
+        tag.putInt("LineAttackDirection", lineAttackDirection);
+        tag.putInt("LineAttackTargetMode", lineAttackTargetMode);
+        tag.putInt("LineAttackLength", lineAttackLength);
+        tag.putInt("LineAttackWidth", lineAttackWidth);
+        tag.putInt("LineAttackHeight", lineAttackHeight);
+        tag.putInt("LineAttackDamage", lineAttackDamage);
+        tag.putInt("LineAttackKnockback", lineAttackKnockback);
+        tag.putInt("LineAttackSideWidth", lineAttackSideWidth);
+        tag.putInt("LineAttackSidePercent", lineAttackSidePercent);
+        tag.putString("LineAttackVfx", lineAttackVfx);
+        tag.putBoolean("LineAttackBlockWave", lineAttackBlockWave);
         tag.putBoolean("RangedAttackEnabled", rangedAttackEnabled);
         tag.putString("RangedAttackAnimation", rangedAttackAnimation);
         tag.putInt("RangedAttackActionDelayTicks", rangedAttackActionDelayTicks);
@@ -334,6 +377,7 @@ public final class BossPhaseData {
         tag.putBoolean("InvulnerableAllowTeleport", invulnerableAllowTeleport);
         tag.putBoolean("InvulnerableSummonImmediately", invulnerableSummonImmediately);
         tag.put("AreaAttackEffects", areaAttackEffects.writeToNBT());
+        tag.put("LineAttackEffects", lineAttackEffects.writeToNBT());
         tag.put("RangedAttackEffects", rangedAttackEffects.writeToNBT());
         tag.put("MeleeAttackEffects", meleeAttackEffects.writeToNBT());
         tag.put("FluidSpitEffects", fluidSpitEffects.writeToNBT());
@@ -378,6 +422,23 @@ public final class BossPhaseData {
         areaAttackVfx = AreaVfxStyles.normalize(tag.getString("AreaAttackVfx"));
         areaAttackVfxDurationTicks = value(tag, "AreaAttackVfxDuration", 20, 5, 100);
         areaAttackBlockWave = tag.getBoolean("AreaAttackBlockWave");
+        lineAttackEnabled = tag.getBoolean("LineAttackEnabled");
+        lineAttackAnimation = clean(tag.getString("LineAttackAnimation"));
+        lineAttackActionDelayTicks = value(tag, "LineAttackActionDelayTicks", 12, 0, 1200);
+        lineAttackCooldownTicks = value(tag, "LineAttackCooldownTicks", 140, 1, 12000);
+        lineAttackDirection = value(tag, "LineAttackDirection", LINE_DIRECTION_TARGET,
+                LINE_DIRECTION_TARGET, LINE_DIRECTION_FACING);
+        lineAttackTargetMode = value(tag, "LineAttackTargetMode",
+                BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
+        lineAttackLength = value(tag, "LineAttackLength", 9, 1, 64);
+        lineAttackWidth = value(tag, "LineAttackWidth", 2, 1, 8);
+        lineAttackHeight = value(tag, "LineAttackHeight", 3, 1, 8);
+        lineAttackDamage = value(tag, "LineAttackDamage", 10, 1, 1000);
+        lineAttackKnockback = value(tag, "LineAttackKnockback", 2, 0, 10);
+        lineAttackSideWidth = value(tag, "LineAttackSideWidth", 2, 0, 8);
+        lineAttackSidePercent = value(tag, "LineAttackSidePercent", 50, 10, 100);
+        lineAttackVfx = AreaVfxStyles.normalize(tag.getString("LineAttackVfx"));
+        lineAttackBlockWave = tag.getBoolean("LineAttackBlockWave");
         rangedAttackEnabled = tag.getBoolean("RangedAttackEnabled");
         rangedAttackAnimation = clean(tag.getString("RangedAttackAnimation"));
         rangedAttackActionDelayTicks = value(tag, "RangedAttackActionDelayTicks", 12, 0, 1200);
@@ -488,6 +549,7 @@ public final class BossPhaseData {
                 || tag.getBoolean("InvulnerableSummonImmediately");
 
         areaAttackEffects.readFromNBT(tag, "AreaAttackEffects");
+        lineAttackEffects.readFromNBT(tag, "LineAttackEffects");
         rangedAttackEffects.readFromNBT(tag, "RangedAttackEffects");
         meleeAttackEffects.readFromNBT(tag, "MeleeAttackEffects");
         fluidSpitEffects.readFromNBT(tag, "FluidSpitEffects");
@@ -582,6 +644,45 @@ public final class BossPhaseData {
     public void setAreaAttackVfxDurationTicks(int value) { areaAttackVfxDurationTicks = Mth.clamp(value, 5, 100); }
     public boolean isAreaAttackBlockWave() { return areaAttackBlockWave; }
     public void setAreaAttackBlockWave(boolean value) { areaAttackBlockWave = value; }
+
+    public boolean isLineAttackEnabled() { return lineAttackEnabled; }
+    public void setLineAttackEnabled(boolean value) { lineAttackEnabled = value; }
+    public String getLineAttackAnimation() { return lineAttackAnimation; }
+    public void setLineAttackAnimation(String value) { lineAttackAnimation = clean(value); }
+    public int getLineAttackActionDelayTicks() { return lineAttackActionDelayTicks; }
+    public void setLineAttackActionDelayTicks(int value) { lineAttackActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getLineAttackCooldownTicks() { return lineAttackCooldownTicks; }
+    public void setLineAttackCooldownTicks(int value) { lineAttackCooldownTicks = Mth.clamp(value, 1, 12000); }
+    /** Whether the corridor is laid toward the chosen victim or along the boss' own gaze. */
+    public int getLineAttackDirection() { return lineAttackDirection; }
+    public void setLineAttackDirection(int value) {
+        lineAttackDirection = Mth.clamp(value, LINE_DIRECTION_TARGET, LINE_DIRECTION_FACING);
+    }
+    public int getLineAttackTargetMode() { return lineAttackTargetMode; }
+    public void setLineAttackTargetMode(int value) { lineAttackTargetMode = BossTargetMode.clamp(value); }
+    /** How far down the line the strike reaches, measured flat from the boss. */
+    public int getLineAttackLength() { return lineAttackLength; }
+    public void setLineAttackLength(int value) { lineAttackLength = Mth.clamp(value, 1, 64); }
+    /** The full width of the corridor, so the strike reaches half of this to either side. */
+    public int getLineAttackWidth() { return lineAttackWidth; }
+    public void setLineAttackWidth(int value) { lineAttackWidth = Mth.clamp(value, 1, 8); }
+    /** How far above and below the boss the strike still catches somebody. */
+    public int getLineAttackHeight() { return lineAttackHeight; }
+    public void setLineAttackHeight(int value) { lineAttackHeight = Mth.clamp(value, 1, 8); }
+    public int getLineAttackDamage() { return lineAttackDamage; }
+    public void setLineAttackDamage(int value) { lineAttackDamage = Mth.clamp(value, 1, 1000); }
+    public int getLineAttackKnockback() { return lineAttackKnockback; }
+    public void setLineAttackKnockback(int value) { lineAttackKnockback = Mth.clamp(value, 0, 10); }
+    /** Width of the softer band running along each flank of the corridor. */
+    public int getLineAttackSideWidth() { return lineAttackSideWidth; }
+    public void setLineAttackSideWidth(int value) { lineAttackSideWidth = Mth.clamp(value, 0, 8); }
+    /** What the flanks hit for, as a percentage of the corridor's own damage. */
+    public int getLineAttackSidePercent() { return lineAttackSidePercent; }
+    public void setLineAttackSidePercent(int value) { lineAttackSidePercent = Mth.clamp(value, 10, 100); }
+    public String getLineAttackVfx() { return lineAttackVfx; }
+    public void setLineAttackVfx(String value) { lineAttackVfx = AreaVfxStyles.normalize(value); }
+    public boolean isLineAttackBlockWave() { return lineAttackBlockWave; }
+    public void setLineAttackBlockWave(boolean value) { lineAttackBlockWave = value; }
 
     public boolean isRangedAttackEnabled() { return rangedAttackEnabled; }
     public void setRangedAttackEnabled(boolean value) { rangedAttackEnabled = value; }
@@ -839,6 +940,7 @@ public final class BossPhaseData {
     }
 
     public BossEffectSet getAreaAttackEffects() { return areaAttackEffects; }
+    public BossEffectSet getLineAttackEffects() { return lineAttackEffects; }
     public BossEffectSet getRangedAttackEffects() { return rangedAttackEffects; }
     public BossEffectSet getMeleeAttackEffects() { return meleeAttackEffects; }
     public BossEffectSet getFluidSpitEffects() { return fluidSpitEffects; }

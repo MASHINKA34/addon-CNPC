@@ -144,9 +144,13 @@ public final class TeleportPathData {
     public static final int TELEGRAPH_CAPTURE = 5;
     public static final int TELEGRAPH_SUMMON = 6;
     public static final int TELEGRAPH_LEAP = 7;
-    public static final int TELEGRAPH_ABILITY_COUNT = 8;
+    /** Appended rather than slotted in: the older bits are already in saved bosses. */
+    public static final int TELEGRAPH_LINE = 8;
+    public static final int TELEGRAPH_ABILITY_COUNT = 9;
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = (1 << TELEGRAPH_ABILITY_COUNT) - 1;
+    /** What {@link #TELEGRAPH_ALL_ABILITIES} was before the line strike joined the mask. */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_LINE = (1 << TELEGRAPH_LINE) - 1;
 
     /**
      * Radius of the ring an aimed ability paints under whoever it picked. Its own reach is
@@ -178,7 +182,8 @@ public final class TeleportPathData {
             "cnpcgeckoaddon.boss.ability.hook",
             "cnpcgeckoaddon.boss.ability.capture",
             "cnpcgeckoaddon.boss.ability.summon",
-            "cnpcgeckoaddon.boss.ability.leap"
+            "cnpcgeckoaddon.boss.ability.leap",
+            "cnpcgeckoaddon.boss.ability.line"
     };
 
     /** The chest lands where the boss fell - what it has always done. */
@@ -680,7 +685,8 @@ public final class TeleportPathData {
         setTelegraphStyle(tag.contains(TELEGRAPH_STYLE_KEY)
                 ? tag.getInt(TELEGRAPH_STYLE_KEY) : TELEGRAPH_STYLE_BOTH);
         setTelegraphAbilities(tag.contains(TELEGRAPH_ABILITIES_KEY)
-                ? tag.getInt(TELEGRAPH_ABILITIES_KEY) : TELEGRAPH_ALL_ABILITIES);
+                ? restoreTelegraphAbilities(tag.getInt(TELEGRAPH_ABILITIES_KEY))
+                : TELEGRAPH_ALL_ABILITIES);
         setTelegraphZoneRadius(tag.contains(TELEGRAPH_ZONE_RADIUS_KEY)
                 ? tag.getInt(TELEGRAPH_ZONE_RADIUS_KEY) : DEFAULT_TELEGRAPH_ZONE_RADIUS);
         setTelegraphLeadTicks(tag.contains(TELEGRAPH_LEAD_KEY)
@@ -1048,6 +1054,19 @@ public final class TeleportPathData {
     public void setTelegraphZoneRadius(int value) {
         telegraphZoneRadius = Mth.clamp(value, MIN_TELEGRAPH_ZONE_RADIUS, MAX_TELEGRAPH_ZONE_RADIUS);
     }
+    /**
+     * A saved mask, with the line strike's bit filled in where the save predates it.
+     *
+     * <p>A boss that had every ability warning on was saying "warn for everything", not
+     * "warn for these eight", so it keeps warning for everything. One that had abilities
+     * switched off was making a choice, and the new bit stays off rather than overriding
+     * it - the line strike is off by default anyway, so nothing changes until a builder
+     * turns it on and goes looking for its warning.</p>
+     */
+    private static int restoreTelegraphAbilities(int saved) {
+        return saved == TELEGRAPH_ABILITIES_BEFORE_LINE ? TELEGRAPH_ALL_ABILITIES : saved;
+    }
+
     public boolean isTelegraphAbility(int ability) {
         return ability >= 0 && ability < TELEGRAPH_ABILITY_COUNT
                 && (telegraphAbilities & 1 << ability) != 0;
