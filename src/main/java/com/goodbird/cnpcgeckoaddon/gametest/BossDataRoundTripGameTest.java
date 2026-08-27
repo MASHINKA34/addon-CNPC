@@ -94,6 +94,7 @@ public class BossDataRoundTripGameTest {
         phase.setAreaAttackDamage(7);
         phase.setLineAttackEnabled(true);
         phase.setLineAttackLength(24);
+        phase.setLineAttackFaceAxis(false);
         phase.setGeyserEnabled(true);
         phase.setHookEnabled(true);
         phase.setHookTargetCount(3);

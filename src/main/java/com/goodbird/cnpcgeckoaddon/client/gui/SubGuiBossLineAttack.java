@@ -27,6 +27,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITe
     private static final int COOLDOWN_FIELD = 13;
     private static final int VFX_STYLE_BUTTON = 14;
     private static final int BLOCK_WAVE_BUTTON = 15;
+    private static final int FACE_AXIS_BUTTON = 16;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
@@ -45,7 +46,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITe
         imageWidth = 256;
         // Taller than an ordinary ability screen: the corridor, its flanks and its wave are
         // three sets of numbers, and squeezing them onto one page beats a second screen.
-        imageHeight = 284;
+        imageHeight = 305;
         closeOnEsc = true;
     }
 
@@ -78,6 +79,11 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITe
                 BossPhaseData.LINE_DIRECTION_LABELS, phase.getLineAttackDirection()));
         y += 21;
 
+        addLabel(new GuiLabel(FACE_AXIS_BUTTON, "cnpcgeckoaddon.boss.line_face_axis", guiLeft + 6, y + 6));
+        addButton(new GuiButtonYesNo(this, FACE_AXIS_BUTTON, guiLeft + 155, y, 87, 20,
+                phase.isLineAttackFaceAxis()));
+        y += 21;
+
         addPairRow(LENGTH_FIELD, WIDTH_FIELD, "cnpcgeckoaddon.boss.line_size", y,
                 phase.getLineAttackLength(), 1, 64, 9,
                 phase.getLineAttackWidth(), 1, 8, 2);
@@ -107,10 +113,10 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITe
         addButton(new GuiButtonYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.isLineAttackBlockWave()));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.line_hint", guiLeft + 6, guiTop + 250, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 260, 120, 20,
+        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.line_hint", guiLeft + 6, guiTop + 271, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 281, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 260, 60, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 281, 60, 20,
                 "gui.done", button -> close()));
     }
 
@@ -167,6 +173,8 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITe
             phase.setLineAttackTargetMode(button.getValue());
         } else if (button.id == DIRECTION_BUTTON) {
             phase.setLineAttackDirection(button.getValue());
+        } else if (button.id == FACE_AXIS_BUTTON) {
+            phase.setLineAttackFaceAxis(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == VFX_STYLE_BUTTON) {
             phase.setLineAttackVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == BLOCK_WAVE_BUTTON) {

@@ -158,6 +158,8 @@ public final class BossPhaseData {
     private int lineAttackActionDelayTicks = 12;
     private int lineAttackCooldownTicks = 140;
     private int lineAttackDirection = LINE_DIRECTION_TARGET;
+    /** Off for animations that must not turn with the strike, such as a full-circle swing. */
+    private boolean lineAttackFaceAxis = true;
     private int lineAttackTargetMode = BossTargetMode.MAIN;
     private int lineAttackLength = 9;
     private int lineAttackWidth = 2;
@@ -336,6 +338,7 @@ public final class BossPhaseData {
         tag.putInt("LineAttackActionDelayTicks", lineAttackActionDelayTicks);
         tag.putInt("LineAttackCooldownTicks", lineAttackCooldownTicks);
         tag.putInt("LineAttackDirection", lineAttackDirection);
+        tag.putBoolean("LineAttackFaceAxis", lineAttackFaceAxis);
         tag.putInt("LineAttackTargetMode", lineAttackTargetMode);
         tag.putInt("LineAttackLength", lineAttackLength);
         tag.putInt("LineAttackWidth", lineAttackWidth);
@@ -502,6 +505,7 @@ public final class BossPhaseData {
         lineAttackCooldownTicks = value(tag, "LineAttackCooldownTicks", 140, 1, 12000);
         lineAttackDirection = value(tag, "LineAttackDirection", LINE_DIRECTION_TARGET,
                 LINE_DIRECTION_TARGET, LINE_DIRECTION_FACING);
+        lineAttackFaceAxis = !tag.contains("LineAttackFaceAxis") || tag.getBoolean("LineAttackFaceAxis");
         lineAttackTargetMode = value(tag, "LineAttackTargetMode",
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         lineAttackLength = value(tag, "LineAttackLength", 9, 1, 64);
@@ -758,6 +762,9 @@ public final class BossPhaseData {
     public void setLineAttackDirection(int value) {
         lineAttackDirection = Mth.clamp(value, LINE_DIRECTION_TARGET, LINE_DIRECTION_FACING);
     }
+    /** Whether the wind-up turns the model onto the committed corridor instead of the target. */
+    public boolean isLineAttackFaceAxis() { return lineAttackFaceAxis; }
+    public void setLineAttackFaceAxis(boolean value) { lineAttackFaceAxis = value; }
     public int getLineAttackTargetMode() { return lineAttackTargetMode; }
     public void setLineAttackTargetMode(int value) { lineAttackTargetMode = BossTargetMode.clamp(value); }
     /** How far down the line the strike reaches, measured flat from the boss. */

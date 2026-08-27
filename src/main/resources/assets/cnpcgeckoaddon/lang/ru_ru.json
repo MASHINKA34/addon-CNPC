@@ -253,6 +253,7 @@
   "cnpcgeckoaddon.boss.line_direction": "Направление",
   "cnpcgeckoaddon.boss.line_direction_target": "На цель",
   "cnpcgeckoaddon.boss.line_direction_facing": "Куда смотрит",
+  "cnpcgeckoaddon.boss.line_face_axis": "Поворачиваться по удару",
   "cnpcgeckoaddon.boss.line_size": "Длина / ширина (блоки)",
   "cnpcgeckoaddon.boss.line_height": "Высота (блоки)",
   "cnpcgeckoaddon.boss.line_damage": "Урон / отбрасывание",

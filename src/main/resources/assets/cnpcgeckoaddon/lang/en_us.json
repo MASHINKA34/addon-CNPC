@@ -253,6 +253,7 @@
   "cnpcgeckoaddon.boss.line_direction": "Aim along",
   "cnpcgeckoaddon.boss.line_direction_target": "The target",
   "cnpcgeckoaddon.boss.line_direction_facing": "Where it faces",
+  "cnpcgeckoaddon.boss.line_face_axis": "Turn to face the strike",
   "cnpcgeckoaddon.boss.line_size": "Length / width (blocks)",
   "cnpcgeckoaddon.boss.line_height": "Height (blocks)",
   "cnpcgeckoaddon.boss.line_damage": "Damage / knockback",

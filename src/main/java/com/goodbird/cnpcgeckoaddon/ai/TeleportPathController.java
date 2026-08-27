@@ -134,6 +134,8 @@ public final class TeleportPathController {
     private static final float TELEGRAPH_SOUND_PITCH = 0.6F;
     /** A dodged ability comes back round in a couple of seconds, not a whole cooldown. */
     private static final int TELEGRAPH_DODGE_RETRY_TICKS = 40;
+    /** Yaw eased onto a wound-up line strike's axis per tick; the hit itself snaps the rest. */
+    private static final float LINE_FACE_TURN_DEGREES_PER_TICK = 15.0F;
     /** The client counts down on its own, so the server only has to correct it now and then. */
     private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
     private static final int TOTEM_RETRY_INTERVAL_TICKS = 20;
@@ -384,7 +386,7 @@ public final class TeleportPathController {
             rememberCurrentPosition();
         }
         tickHookPulls(level, gameTime);
-        faceCombatTarget();
+        faceCombatTarget(data);
         // Runs before updatePhase so the phase it unlocks is switched to in this same tick,
         // and above the busy/no-target early returns so a locked boss cannot stay immune.
         tickInvulnerability(level, gameTime, data);
@@ -2346,7 +2348,10 @@ public final class TeleportPathController {
     }
 
     /** The removed vanilla damage must not also remove the boss' visual tracking of its target. */
-    private void faceCombatTarget() {
+    private void faceCombatTarget(TeleportPathData data) {
+        if (faceLineAxis(data)) {
+            return;
+        }
         LivingEntity target = npc.getTarget();
         if (target == null || !target.isAlive()) return;
         npc.getLookControl().setLookAt(target, 90.0F, 90.0F);
@@ -2361,6 +2366,49 @@ public final class TeleportPathController {
         npc.yBodyRot = yaw;
         npc.yHeadRot = yaw;
         npc.setXRot(Mth.clamp(pitch, -90.0F, 90.0F));
+    }
+
+    /**
+     * Turns a boss winding up a line strike onto the corridor it committed to, instead of
+     * after the target.
+     *
+     * <p>The axis was fixed the moment the warning went down, but the tracking above kept
+     * swinging the model after the runner, so the sword read as aimed one way while the hit
+     * came down another. Eased rather than snapped: the wind-up doubles as the turn, and
+     * {@link #performLineAttack} squares up whatever is left on the tick the strike lands.</p>
+     *
+     * @return true when the wind-up owns the rotation this tick
+     */
+    private boolean faceLineAxis(TeleportPathData data) {
+        if (pendingAction != PendingAction.LINE_ATTACK || lineAttackAxis == null) {
+            return false;
+        }
+        BossPhaseData phase = data.getPhase(currentPhase);
+        if (!phase.isLineAttackFaceAxis()) {
+            return false;
+        }
+        turnTowardLineAxis(phase, LINE_FACE_TURN_DEGREES_PER_TICK);
+        return true;
+    }
+
+    /** Body, head and gaze onto the strike axis, moving at most {@code maxTurn} degrees. */
+    private void turnTowardLineAxis(BossPhaseData phase, float maxTurn) {
+        Vec3 axis = lineAttackAxis;
+        if (axis == null) {
+            return;
+        }
+        float wanted = (float) (Mth.atan2(axis.z, axis.x) * Mth.RAD_TO_DEG) - 90.0F;
+        float yaw = Mth.approachDegrees(npc.getYRot(), wanted, maxTurn);
+        npc.setYRot(yaw);
+        npc.yBodyRot = yaw;
+        npc.yHeadRot = yaw;
+        // The corridor is flat, so the gaze levels out instead of staying dipped at
+        // wherever the victim's eyes last were.
+        npc.setXRot(Mth.approach(npc.getXRot(), 0.0F, maxTurn));
+        // The look control is pointed down the corridor too, or its own tick drags the
+        // head straight back to the target between two of these.
+        npc.getLookControl().setLookAt(npc.getX() + axis.x * phase.getLineAttackLength(),
+                npc.getEyeY(), npc.getZ() + axis.z * phase.getLineAttackLength(), 90.0F, 90.0F);
     }
 
     private void preparePath(List<int[]> points) {
@@ -4381,6 +4429,11 @@ public final class TeleportPathController {
         Vec3 axis = lineAttackAxis;
         if (axis == null) {
             return;
+        }
+        if (phase.isLineAttackFaceAxis()) {
+            // Whatever the eased turn had left to cover is finished on the tick the strike
+            // lands, so the model points exactly down the corridor it hits.
+            turnTowardLineAxis(phase, 360.0F);
         }
         Vec3 origin = npc.position();
         // Purely for show, and started before the hits so the wave leaves at the same moment
