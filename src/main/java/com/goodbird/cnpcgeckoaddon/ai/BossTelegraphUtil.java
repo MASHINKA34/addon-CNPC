@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
@@ -18,9 +19,9 @@ import org.joml.Vector3f;
 public final class BossTelegraphUtil {
 
     /**
-     * One colour per ability, in the order {@code TeleportPathData} lists them in its warning
-     * mask. Two abilities winding up in the same fight have to be told apart at a glance, so
-     * the colour is what says which one is coming and not merely that one is.
+     * One colour per ability, numbered by {@link BossAbilityKind}. Two abilities winding up
+     * in the same fight have to be told apart at a glance, so the colour is what says which
+     * one is coming and not merely that one is.
      */
     private static final int[] ABILITY_COLORS = {
             0xFF5926, // area attack - red-orange
@@ -31,7 +32,9 @@ public final class BossTelegraphUtil {
             0xFF59BF, // capture - pink
             0x8C59FF, // minion summon - violet
             0xFFCC33, // leap slam - amber
-            0xFF3355  // line strike - crimson
+            0xFF3355, // line strike - crimson
+            0xFF8C1A, // death blast - ember; never painted, the boss is already dead
+            0x3355FF  // geyser - deep blue, the column coming up out of the floor
     };
 
     /** How much of an ability's colour its faded half keeps. */

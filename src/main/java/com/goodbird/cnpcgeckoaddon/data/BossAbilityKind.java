@@ -22,7 +22,8 @@ public final class BossAbilityKind {
     public static final int LINE = 8;
     /** Not something the boss aims: the explosion it leaves behind when it dies. */
     public static final int BLAST = 9;
-    public static final int COUNT = 10;
+    public static final int GEYSER = 10;
+    public static final int COUNT = 11;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -34,7 +35,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.summon",
             "cnpcgeckoaddon.boss.ability.leap",
             "cnpcgeckoaddon.boss.ability.line",
-            "cnpcgeckoaddon.boss.ability.blast"
+            "cnpcgeckoaddon.boss.ability.blast",
+            "cnpcgeckoaddon.boss.ability.geyser"
     };
 
     /**
@@ -44,7 +46,7 @@ public final class BossAbilityKind {
      * spawns helpers rather than touching a victim, so there is nothing for it to pass by.</p>
      */
     public static final int[] IMMUNITY_ABILITIES = {
-            AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST
+            AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER
     };
 
     private BossAbilityKind() {

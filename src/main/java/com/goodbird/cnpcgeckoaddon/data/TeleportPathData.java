@@ -133,18 +133,34 @@ public final class TeleportPathData {
     };
 
     /**
-     * One bit of the warning mask per ability, numbered by {@link BossAbilityKind}. A quick
-     * jab can be left silent while the heavy swing that kills still warns.
+     * The abilities that warn before they land, in the order they are offered. A quick jab
+     * can be left silent while the heavy swing that kills still warns.
      *
-     * <p>The mask stops at the line strike because the abilities after it are not aimed at
-     * anyone - there is no wind-up to warn about - and because the bits of a saved boss have
-     * to keep meaning what they meant when it was built.</p>
+     * <p>Everything the boss winds up and aims. The death blast is deliberately absent - it
+     * goes off after the fight is already lost, so there is nothing to warn about - and its
+     * bit is simply skipped rather than reused, because the bits of a saved boss have to keep
+     * meaning what they meant when it was built.</p>
      */
-    public static final int TELEGRAPH_ABILITY_COUNT = BossAbilityKind.LINE + 1;
+    public static final int[] TELEGRAPH_ABILITIES = {
+            BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
+            BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
+            BossAbilityKind.SUMMON, BossAbilityKind.LEAP, BossAbilityKind.LINE,
+            BossAbilityKind.GEYSER
+    };
     /** Everything warns until a builder switches an ability off. */
-    public static final int TELEGRAPH_ALL_ABILITIES = (1 << TELEGRAPH_ABILITY_COUNT) - 1;
+    public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
     /** What {@link #TELEGRAPH_ALL_ABILITIES} was before the line strike joined the mask. */
     private static final int TELEGRAPH_ABILITIES_BEFORE_LINE = (1 << BossAbilityKind.LINE) - 1;
+    /** And before the geyser did, which is every bit up to and including the line strike. */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_GEYSER = (1 << BossAbilityKind.LINE + 1) - 1;
+
+    private static int telegraphMask() {
+        int mask = 0;
+        for (int ability : TELEGRAPH_ABILITIES) {
+            mask |= 1 << ability;
+        }
+        return mask;
+    }
 
     /**
      * Radius of the ring an aimed ability paints under whoever it picked. Its own reach is
@@ -1037,29 +1053,33 @@ public final class TeleportPathData {
         telegraphZoneRadius = Mth.clamp(value, MIN_TELEGRAPH_ZONE_RADIUS, MAX_TELEGRAPH_ZONE_RADIUS);
     }
     /**
-     * A saved mask, with the line strike's bit filled in where the save predates it.
+     * A saved mask, with the bits of later abilities filled in where the save predates them.
      *
      * <p>A boss that had every ability warning on was saying "warn for everything", not
      * "warn for these eight", so it keeps warning for everything. One that had abilities
      * switched off was making a choice, and the new bit stays off rather than overriding
-     * it - the line strike is off by default anyway, so nothing changes until a builder
-     * turns it on and goes looking for its warning.</p>
+     * it - a newly added ability is off by default anyway, so nothing changes until a
+     * builder turns it on and goes looking for its warning.</p>
      */
     private static int restoreTelegraphAbilities(int saved) {
-        return saved == TELEGRAPH_ABILITIES_BEFORE_LINE ? TELEGRAPH_ALL_ABILITIES : saved;
+        return saved == TELEGRAPH_ABILITIES_BEFORE_LINE || saved == TELEGRAPH_ABILITIES_BEFORE_GEYSER
+                ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 
     public boolean isTelegraphAbility(int ability) {
-        return ability >= 0 && ability < TELEGRAPH_ABILITY_COUNT
-                && (telegraphAbilities & 1 << ability) != 0;
+        return isTelegraphable(ability) && (telegraphAbilities & 1 << ability) != 0;
     }
     public void setTelegraphAbility(int ability, boolean value) {
-        if (ability < 0 || ability >= TELEGRAPH_ABILITY_COUNT) {
+        if (!isTelegraphable(ability)) {
             return;
         }
         telegraphAbilities = value
                 ? telegraphAbilities | 1 << ability
                 : telegraphAbilities & ~(1 << ability);
+    }
+    /** Whether this ability has a bit in the mask at all; the blast has none. */
+    private static boolean isTelegraphable(int ability) {
+        return ability >= 0 && ability < Integer.SIZE && (TELEGRAPH_ALL_ABILITIES & 1 << ability) != 0;
     }
     /** Whether the ability's name is put in the action bar as the wind-up starts. */
     public boolean isTelegraphAnnounce() { return telegraphAnnounce; }

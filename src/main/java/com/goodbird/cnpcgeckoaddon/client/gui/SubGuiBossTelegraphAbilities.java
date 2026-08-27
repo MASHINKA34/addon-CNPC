@@ -17,13 +17,18 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 public final class SubGuiBossTelegraphAbilities extends GuiBasic {
     private static final int FIRST_ABILITY_BUTTON = 100;
 
+    /** Two columns, the way the npc immunity screen lists the same abilities. */
+    private static final int ROWS_PER_COLUMN = 5;
+    private static final int COLUMN_WIDTH = 117;
+    private static final int ROW_HEIGHT = 22;
+
     private final TeleportPathData data;
 
     public SubGuiBossTelegraphAbilities(TeleportPathData data) {
         this.data = data;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 254;
+        imageHeight = 172;
         closeOnEsc = true;
     }
 
@@ -32,28 +37,32 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
         super.init();
         addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.telegraph_abilities",
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
-        for (int ability = 0; ability < TeleportPathData.TELEGRAPH_ABILITY_COUNT; ability++) {
-            addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + ability,
-                    guiLeft + 8, guiTop + 24 + ability * 22, 234, 20, abilityLabel(ability)));
+        for (int i = 0; i < TeleportPathData.TELEGRAPH_ABILITIES.length; i++) {
+            int x = guiLeft + 8 + i / ROWS_PER_COLUMN * (COLUMN_WIDTH + 6);
+            int y = guiTop + 24 + i % ROWS_PER_COLUMN * ROW_HEIGHT;
+            addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
+                    abilityLabel(i)));
         }
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 228, 60, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 144, 60, 20,
                 "gui.done", button -> close()));
     }
 
     /** "+ Ground attack" while it warns, "- Ground attack" once it goes quiet. */
-    private String abilityLabel(int ability) {
+    private String abilityLabel(int index) {
+        int ability = TeleportPathData.TELEGRAPH_ABILITIES[index];
         return (data.isTelegraphAbility(ability) ? "+ " : "- ")
                 + I18n.get(BossAbilityKind.LABELS[ability]);
     }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
-        int ability = button.id - FIRST_ABILITY_BUTTON;
-        if (ability >= 0 && ability < TeleportPathData.TELEGRAPH_ABILITY_COUNT) {
+        int index = button.id - FIRST_ABILITY_BUTTON;
+        if (index >= 0 && index < TeleportPathData.TELEGRAPH_ABILITIES.length) {
+            int ability = TeleportPathData.TELEGRAPH_ABILITIES[index];
             data.setTelegraphAbility(ability, !data.isTelegraphAbility(ability));
             // Relabelled in place: this GUI framework has no widget-clearing rebuild, so
             // calling init() again would stack a second set of buttons on the first.
-            button.setDisplayText(abilityLabel(ability));
+            button.setDisplayText(abilityLabel(index));
         }
     }
 }

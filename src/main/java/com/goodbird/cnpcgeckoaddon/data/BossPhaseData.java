@@ -228,6 +228,27 @@ public final class BossPhaseData {
     private String leapVfx = AreaVfxStyles.NONE;
     private boolean leapBlockWave;
 
+    private boolean geyserEnabled;
+    private String geyserAnimation = "";
+    private int geyserActionDelayTicks = 12;
+    private int geyserCooldownTicks = 160;
+    private int geyserTargetMode = BossTargetMode.RANDOM;
+    private int geyserTargetCount = 1;
+    private int geyserMinRange = 3;
+    private int geyserMaxRange = 24;
+    /** How long the mark sits on the floor before the column comes up through it. */
+    private int geyserFuseTicks = 25;
+    private int geyserRadius = 3;
+    private int geyserDamage = 8;
+    /** Tenths of a block per tick, so 8 throws a victim up at 0.8 blocks a tick. */
+    private int geyserLaunch = 8;
+    private boolean geyserFollowTarget;
+    /** Empty leaves nothing behind; anything else is a block id the eruption pools. */
+    private String geyserFluid = "";
+    private int geyserFluidLifetimeTicks = 60;
+    private String geyserVfx = AreaVfxStyles.NONE;
+    private boolean geyserBlockWave;
+
     private boolean invulnerableEnabled;
     private int invulnerableEndMode = INVULNERABLE_END_TIMER_OR_MINIONS;
     private int invulnerableDurationTicks = 200;
@@ -242,6 +263,7 @@ public final class BossPhaseData {
     private final BossEffectSet hookEffects = new BossEffectSet();
     private final BossEffectSet captureEffects = new BossEffectSet();
     private final BossEffectSet leapEffects = new BossEffectSet();
+    private final BossEffectSet geyserEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -371,6 +393,23 @@ public final class BossPhaseData {
         tag.putBoolean("LeapTelegraph", leapTelegraph);
         tag.putString("LeapVfx", leapVfx);
         tag.putBoolean("LeapBlockWave", leapBlockWave);
+        tag.putBoolean("GeyserEnabled", geyserEnabled);
+        tag.putString("GeyserAnimation", geyserAnimation);
+        tag.putInt("GeyserActionDelayTicks", geyserActionDelayTicks);
+        tag.putInt("GeyserCooldownTicks", geyserCooldownTicks);
+        tag.putInt("GeyserTargetMode", geyserTargetMode);
+        tag.putInt("GeyserTargetCount", geyserTargetCount);
+        tag.putInt("GeyserMinRange", geyserMinRange);
+        tag.putInt("GeyserMaxRange", geyserMaxRange);
+        tag.putInt("GeyserFuseTicks", geyserFuseTicks);
+        tag.putInt("GeyserRadius", geyserRadius);
+        tag.putInt("GeyserDamage", geyserDamage);
+        tag.putInt("GeyserLaunch", geyserLaunch);
+        tag.putBoolean("GeyserFollowTarget", geyserFollowTarget);
+        tag.putString("GeyserFluid", geyserFluid);
+        tag.putInt("GeyserFluidLifetime", geyserFluidLifetimeTicks);
+        tag.putString("GeyserVfx", geyserVfx);
+        tag.putBoolean("GeyserBlockWave", geyserBlockWave);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
         tag.putInt("InvulnerableDurationTicks", invulnerableDurationTicks);
@@ -384,6 +423,7 @@ public final class BossPhaseData {
         tag.put("HookEffects", hookEffects.writeToNBT());
         tag.put("CaptureEffects", captureEffects.writeToNBT());
         tag.put("LeapEffects", leapEffects.writeToNBT());
+        tag.put("GeyserEffects", geyserEffects.writeToNBT());
         return tag;
     }
 
@@ -540,6 +580,26 @@ public final class BossPhaseData {
         leapVfx = AreaVfxStyles.normalize(tag.getString("LeapVfx"));
         leapBlockWave = tag.getBoolean("LeapBlockWave");
 
+        geyserEnabled = tag.getBoolean("GeyserEnabled");
+        geyserAnimation = clean(tag.getString("GeyserAnimation"));
+        geyserActionDelayTicks = value(tag, "GeyserActionDelayTicks", 12, 0, 1200);
+        geyserCooldownTicks = value(tag, "GeyserCooldownTicks", 160, 1, 12000);
+        geyserTargetMode = value(tag, "GeyserTargetMode",
+                BossTargetMode.RANDOM, BossTargetMode.MAIN, BossTargetMode.RANDOM);
+        geyserTargetCount = value(tag, "GeyserTargetCount", 1, 1, 8);
+        setGeyserRange(
+                value(tag, "GeyserMinRange", 3, 0, 64),
+                value(tag, "GeyserMaxRange", 24, 1, 128));
+        geyserFuseTicks = value(tag, "GeyserFuseTicks", 25, 5, 200);
+        geyserRadius = value(tag, "GeyserRadius", 3, 1, 16);
+        geyserDamage = value(tag, "GeyserDamage", 8, 0, 1000);
+        geyserLaunch = value(tag, "GeyserLaunch", 8, 0, 20);
+        geyserFollowTarget = tag.getBoolean("GeyserFollowTarget");
+        geyserFluid = clean(tag.getString("GeyserFluid"));
+        geyserFluidLifetimeTicks = value(tag, "GeyserFluidLifetime", 60, 5, 1200);
+        geyserVfx = AreaVfxStyles.normalize(tag.getString("GeyserVfx"));
+        geyserBlockWave = tag.getBoolean("GeyserBlockWave");
+
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
         invulnerableEndMode = value(tag, "InvulnerableEndMode", INVULNERABLE_END_TIMER_OR_MINIONS,
                 INVULNERABLE_END_TIMER, INVULNERABLE_END_TIMER_AND_MINIONS);
@@ -556,6 +616,7 @@ public final class BossPhaseData {
         hookEffects.readFromNBT(tag, "HookEffects");
         captureEffects.readFromNBT(tag, "CaptureEffects");
         leapEffects.readFromNBT(tag, "LeapEffects");
+        geyserEffects.readFromNBT(tag, "GeyserEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -906,6 +967,53 @@ public final class BossPhaseData {
     public boolean isLeapBlockWave() { return leapBlockWave; }
     public void setLeapBlockWave(boolean value) { leapBlockWave = value; }
 
+    public boolean isGeyserEnabled() { return geyserEnabled; }
+    public void setGeyserEnabled(boolean value) { geyserEnabled = value; }
+    public String getGeyserAnimation() { return geyserAnimation; }
+    public void setGeyserAnimation(String value) { geyserAnimation = clean(value); }
+    public int getGeyserActionDelayTicks() { return geyserActionDelayTicks; }
+    public void setGeyserActionDelayTicks(int value) { geyserActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getGeyserCooldownTicks() { return geyserCooldownTicks; }
+    public void setGeyserCooldownTicks(int value) { geyserCooldownTicks = Mth.clamp(value, 1, 12000); }
+    public int getGeyserTargetMode() { return geyserTargetMode; }
+    public void setGeyserTargetMode(int value) { geyserTargetMode = BossTargetMode.clamp(value); }
+    /** How many marks a single cast puts on the floor, one under each victim it picked. */
+    public int getGeyserTargetCount() { return geyserTargetCount; }
+    public void setGeyserTargetCount(int value) { geyserTargetCount = Mth.clamp(value, 1, 8); }
+    public int getGeyserMinRange() { return geyserMinRange; }
+    public int getGeyserMaxRange() { return geyserMaxRange; }
+    public void setGeyserRange(int min, int max) {
+        min = Mth.clamp(min, 0, 64);
+        max = Mth.clamp(max, 1, 128);
+        geyserMinRange = Math.min(min, max);
+        geyserMaxRange = Math.max(min, max);
+    }
+    /** The window a victim has to walk out of the circle, which is the whole mechanic. */
+    public int getGeyserFuseTicks() { return geyserFuseTicks; }
+    public void setGeyserFuseTicks(int value) { geyserFuseTicks = Mth.clamp(value, 5, 200); }
+    public int getGeyserRadius() { return geyserRadius; }
+    public void setGeyserRadius(int value) { geyserRadius = Mth.clamp(value, 1, 16); }
+    public int getGeyserDamage() { return geyserDamage; }
+    public void setGeyserDamage(int value) { geyserDamage = Mth.clamp(value, 0, 1000); }
+    /** Upward throw in tenths of a block per tick; zero leaves the victim on the floor. */
+    public int getGeyserLaunch() { return geyserLaunch; }
+    public void setGeyserLaunch(int value) { geyserLaunch = Mth.clamp(value, 0, 20); }
+    /** With this on the mark rides the victim, so there is nowhere to step out to. */
+    public boolean isGeyserFollowTarget() { return geyserFollowTarget; }
+    public void setGeyserFollowTarget(boolean value) { geyserFollowTarget = value; }
+    public String getGeyserFluid() { return geyserFluid; }
+    public void setGeyserFluid(String value) { geyserFluid = clean(value); }
+    public int getGeyserFluidLifetimeTicks() { return geyserFluidLifetimeTicks; }
+    public void setGeyserFluidLifetimeTicks(int value) {
+        geyserFluidLifetimeTicks = Mth.clamp(value, 5, 1200);
+    }
+    public String getGeyserVfx() { return geyserVfx; }
+    public void setGeyserVfx(String value) { geyserVfx = AreaVfxStyles.normalize(value); }
+    public boolean isGeyserBlockWave() { return geyserBlockWave; }
+    public void setGeyserBlockWave(boolean value) { geyserBlockWave = value; }
+    /** Whether the eruption pools anything, i.e. whether the fluid id is worth resolving. */
+    public boolean leavesGeyserFluid() { return !geyserFluid.isEmpty(); }
+
     /** While this phase runs the boss takes no damage and only its summon ability fires. */
     public boolean isInvulnerableEnabled() { return invulnerableEnabled; }
     public void setInvulnerableEnabled(boolean value) { invulnerableEnabled = value; }
@@ -947,6 +1055,7 @@ public final class BossPhaseData {
     public BossEffectSet getHookEffects() { return hookEffects; }
     public BossEffectSet getCaptureEffects() { return captureEffects; }
     public BossEffectSet getLeapEffects() { return leapEffects; }
+    public BossEffectSet getGeyserEffects() { return geyserEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();
