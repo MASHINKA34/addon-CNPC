@@ -152,7 +152,7 @@ public final class TeleportPathData {
     /** What {@link #TELEGRAPH_ALL_ABILITIES} was before the line strike joined the mask. */
     private static final int TELEGRAPH_ABILITIES_BEFORE_LINE = (1 << BossAbilityKind.LINE) - 1;
     /** And before the geyser did, which is every bit up to and including the line strike. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_GEYSER = (1 << BossAbilityKind.LINE + 1) - 1;
+    private static final int TELEGRAPH_ABILITIES_BEFORE_GEYSER = (1 << (BossAbilityKind.LINE + 1)) - 1;
 
     private static int telegraphMask() {
         int mask = 0;
