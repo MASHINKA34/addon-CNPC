@@ -146,23 +146,28 @@ public final class BossDeathEvents {
      */
     @SubscribeEvent(priority = EventPriority.LOW)
     public static void onNpcDamageResist(final LivingIncomingDamageEvent event) {
-        if (!(event.getEntity() instanceof EntityNPCInterface npc)
-                || !(npc.ais instanceof INpcImmunityData holder)
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)) {
+            return;
+        }
+        float before = event.getAmount();
+        NpcDamageResistEntry resist = null;
+        if (npc.ais instanceof INpcImmunityData holder
                 // The same escape hatch the phase protection leaves: /kill has to keep working.
-                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
-            return;
+                && !event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            resist = holder.cnpcgeckoaddon$getNpcImmunityData().findResist(event.getSource());
         }
-        NpcDamageResistEntry resist = holder.cnpcgeckoaddon$getNpcImmunityData().findResist(event.getSource());
-        if (resist == null) {
-            return;
+        if (resist != null) {
+            if (resist.getPercent() == 0) {
+                // Cancelled rather than zeroed: full immunity should leave no knockback, no
+                // hurt animation and nothing for on-hit effects to ride in on.
+                event.setCanceled(true);
+            } else {
+                event.setAmount(before * resist.getPercent() / 100.0F);
+            }
         }
-        if (resist.getPercent() == 0) {
-            // Cancelled rather than zeroed: full immunity should leave no knockback, no hurt
-            // animation and nothing for on-hit effects to ride in on.
-            event.setCanceled(true);
-        } else {
-            event.setAmount(event.getAmount() * resist.getPercent() / 100.0F);
-        }
+        // Reported from here rather than its own listener so the breakdown can name the rule
+        // that fired and both sides of the multiplication.
+        NpcDamageInfoManager.report(event, before, resist);
     }
 
     /**

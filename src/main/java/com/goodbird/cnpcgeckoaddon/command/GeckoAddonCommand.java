@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.command;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.ai.NpcDamageInfoManager;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -40,6 +41,7 @@ public class GeckoAddonCommand {
         root.then(Commands.literal("fix").executes(context -> check(context.getSource(), true)));
         root.then(Commands.literal("boss").executes(context -> showBossStatus(context.getSource())));
         root.then(Commands.literal("carry").executes(context -> toggleCarry(context.getSource())));
+        root.then(Commands.literal("damageinfo").executes(context -> toggleDamageInfo(context.getSource())));
         event.getDispatcher().register(root);
     }
 
@@ -48,6 +50,14 @@ public class GeckoAddonCommand {
         boolean enabled = NpcCarryManager.toggleMode(player);
         source.sendSuccess(() -> Component.translatable(enabled
                 ? "cnpcgeckoaddon.carry.on" : "cnpcgeckoaddon.carry.off"), false);
+        return 1;
+    }
+
+    private static int toggleDamageInfo(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        boolean enabled = NpcDamageInfoManager.toggle(player);
+        source.sendSuccess(() -> Component.translatable(enabled
+                ? "cnpcgeckoaddon.cmd.damageinfo_on" : "cnpcgeckoaddon.cmd.damageinfo_off"), false);
         return 1;
     }
 

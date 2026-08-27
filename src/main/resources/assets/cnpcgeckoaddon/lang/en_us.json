@@ -469,5 +469,7 @@
   "cnpcgeckoaddon.npc.immunity_title": "Immune to",
   "cnpcgeckoaddon.npc.immunity_hint": "Checked abilities pass this npc by entirely: no damage, no effects, no pull.",
   "cnpcgeckoaddon.npc.immunity_blast_hint": "Blast immunity covers any explosion, not only the boss one.",
+  "cnpcgeckoaddon.cmd.damageinfo_on": "Damage info on: hit an npc to see its source id",
+  "cnpcgeckoaddon.cmd.damageinfo_off": "Damage info off",
   "block.cnpcgeckoaddon.boss_chest": "Boss chest"
 }

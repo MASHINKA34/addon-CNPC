@@ -469,5 +469,7 @@
   "cnpcgeckoaddon.npc.immunity_title": "Не действуют",
   "cnpcgeckoaddon.npc.immunity_hint": "Отмеченные способности проходят мимо: ни урона, ни эффектов, ни рывка.",
   "cnpcgeckoaddon.npc.immunity_blast_hint": "Иммунитет к взрыву снимает любой взрывной урон, не только боссовый.",
+  "cnpcgeckoaddon.cmd.damageinfo_on": "Разбор урона включён: ударь НПС, чтобы увидеть id источника",
+  "cnpcgeckoaddon.cmd.damageinfo_off": "Разбор урона выключен",
   "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
 }
