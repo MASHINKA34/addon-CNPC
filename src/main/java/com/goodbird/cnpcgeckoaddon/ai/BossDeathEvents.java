@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -279,15 +280,26 @@ public final class BossDeathEvents {
                 || !(npc instanceof IBossController holder)) {
             return;
         }
+        int ability = projectile instanceof EntityFluidSpit
+                ? BossAbilityKind.FLUID
+                : BossAbilityKind.RANGED;
+        if (BossAbilityDamageUtil.isImmune(victim, ability)) {
+            // The whole impact is dropped rather than only the potions: a projectile carries
+            // its own damage, and an ability that passes an npc by cannot leave that behind.
+            // Asked before the phase is read, because immunity does not depend on which part
+            // of the fight the boss happens to be in.
+            event.setCanceled(true);
+            return;
+        }
         TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
         BossPhaseData phase = controller == null ? null : controller.activePhase();
         if (phase == null) {
             return;
         }
-        BossEffectSet effects = projectile instanceof EntityFluidSpit
+        BossEffectSet effects = ability == BossAbilityKind.FLUID
                 ? phase.getFluidSpitEffects()
                 : phase.getRangedAttackEffects();
-        effects.applyAll(victim, npc);
+        BossAbilityDamageUtil.applyEffects(victim, ability, npc, effects);
     }
 
     @SubscribeEvent

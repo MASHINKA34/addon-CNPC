@@ -2405,7 +2405,7 @@ public final class TeleportPathController {
      * corridor laid down toward whoever this picks really does cover them.</p>
      */
     private boolean isValidLineTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
+        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.LINE)) return false;
         if (Math.abs(target.getY() - npc.getY()) > phase.getLineAttackHeight()) return false;
         double dx = target.getX() - npc.getX();
         double dz = target.getZ() - npc.getZ();
@@ -2465,7 +2465,7 @@ public final class TeleportPathController {
     }
 
     private boolean isValidFluidSpitTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
+        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.FLUID)) return false;
         double distanceSquared = npc.distanceToSqr(target);
         double min = phase.getFluidSpitMinRange();
         double max = phase.getFluidSpitMaxRange();
@@ -2528,7 +2528,7 @@ public final class TeleportPathController {
     }
 
     private boolean isValidHookTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
+        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.HOOK)) return false;
         double distanceSquared = npc.distanceToSqr(target);
         double min = phase.getHookMinRange();
         double max = phase.getHookMaxRange();
@@ -2588,7 +2588,7 @@ public final class TeleportPathController {
 
     private boolean isValidCaptureTarget(LivingEntity target, BossPhaseData phase) {
         if (target == null || target.level() != npc.level() || !target.isAlive()
-                || target.isRemoved() || !isAreaTarget(target)
+                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.CAPTURE)
                 || BossCaptureManager.isCaptured(target.getUUID())) {
             return false;
         }
@@ -2612,10 +2612,13 @@ public final class TeleportPathController {
         int receiver = phase.getCaptureEffectTarget();
         if (receiver == BossPhaseData.CAPTURE_EFFECT_PLAYER
                 || receiver == BossPhaseData.CAPTURE_EFFECT_BOTH) {
-            phase.getCaptureEffects().applyAll(victim, npc);
+            BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.CAPTURE, npc,
+                    phase.getCaptureEffects());
         }
         if (receiver == BossPhaseData.CAPTURE_EFFECT_BOSS
                 || receiver == BossPhaseData.CAPTURE_EFFECT_BOTH) {
+            // Ungated on purpose: this half is the boss rewarding itself for a grab it pulled
+            // off, not the grab landing on it.
             phase.getCaptureEffects().applyAll(npc, npc);
         }
         if (victim instanceof ServerPlayer player) {
@@ -2659,10 +2662,10 @@ public final class TeleportPathController {
             } else {
                 drawHookChain(level, victim);
             }
-            if (phase.getHookDamage() > 0) {
-                victim.hurt(level.damageSources().mobAttack(npc), rageUp(phase.getHookDamage()));
-            }
-            phase.getHookEffects().applyAll(victim, npc);
+            // No knockback here: what the hook shoves with is the pull below, which runs for
+            // as long as the cord holds rather than for one tick.
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.HOOK, npc,
+                    rageUp(phase.getHookDamage()), phase.getHookEffects(), 0, 0.0D, 0.0D);
             // Re-hooking someone already being dragged just refreshes their pull.
             activePulls.removeIf(pull -> pull.targetId() == victim.getId());
             activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint,
@@ -2758,6 +2761,11 @@ public final class TeleportPathController {
     }
 
     private void applyPull(LivingEntity victim, double strength, Vec3 gatherPoint) {
+        // The drag is the hook rather than a side effect of it, so it asks for itself: a pull
+        // already in flight when the mask changes must not keep tugging.
+        if (BossAbilityDamageUtil.isImmune(victim, BossAbilityKind.HOOK)) {
+            return;
+        }
         Vec3 destination = gatherPoint != null ? gatherPoint : npc.position();
         Vec3 delta = destination.subtract(victim.position());
         double distance = delta.length();
@@ -2823,7 +2831,7 @@ public final class TeleportPathController {
      * is the whole point of a jump, and a hook's rule would take that away.
      */
     private boolean isValidLeapTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
+        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.LEAP)) return false;
         double distanceSquared = npc.distanceToSqr(target);
         double min = phase.getLeapMinRange();
         double max = phase.getLeapMaxRange();
@@ -3068,13 +3076,11 @@ public final class TeleportPathController {
         BossAreaVfxScheduler.schedule(level, impact, phase.getLeapVfx(), phase.getLeapImpactRadius(),
                 LEAP_VFX_DURATION_TICKS, phase.isLeapBlockWave());
         int damage = rageUp(phase.getLeapImpactDamage());
-        for (LivingEntity target : getTargetsAround(level, impact, phase.getLeapImpactRadius())) {
-            boolean damaged = damage > 0 && target.hurt(level.damageSources().mobAttack(npc), damage);
-            phase.getLeapEffects().applyAll(target, npc);
-            if (damaged && phase.getLeapImpactKnockback() > 0) {
-                target.knockback(rageUp(phase.getLeapImpactKnockback()),
-                        impact.x - target.getX(), impact.z - target.getZ());
-            }
+        for (LivingEntity target : getTargetsAround(level, impact, phase.getLeapImpactRadius(),
+                BossAbilityKind.LEAP)) {
+            BossAbilityDamageUtil.hit(target, BossAbilityKind.LEAP, npc, damage,
+                    phase.getLeapEffects(), rageUp(phase.getLeapImpactKnockback()),
+                    impact.x - target.getX(), impact.z - target.getZ());
         }
         playLeapImpactFeedback(level, impact);
     }
@@ -3959,7 +3965,7 @@ public final class TeleportPathController {
     }
 
     private List<LivingEntity> getAreaTargets(ServerLevel level, BossPhaseData phase) {
-        return getTargetsAround(level, npc.position(), phase.getAreaAttackRadius());
+        return getTargetsAround(level, npc.position(), phase.getAreaAttackRadius(), BossAbilityKind.AREA);
     }
 
     /**
@@ -3967,16 +3973,18 @@ public final class TeleportPathController {
      *
      * <p>Split out of {@link #getAreaTargets} so the leap slam, which lands wherever the
      * boss came down rather than where it stands now, cannot end up with its own idea of
-     * who counts as an enemy.</p>
+     * who counts as an enemy - which is also why the ability being swept for is handed in
+     * rather than assumed.</p>
      */
-    private List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius) {
+    private List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius,
+                                                int ability) {
         double radiusSquared = radius * radius;
         // A whole block of slack on the box: it only pre-filters, and an entity standing
         // exactly on the rim should still be handed to the distance test below.
         AABB box = new AABB(centre, centre).inflate(radius + 1.0D);
         return level.getEntitiesOfClass(LivingEntity.class, box, target ->
                 target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= radiusSquared
-                        && isAreaTarget(target));
+                        && isAbilityTarget(target, ability));
     }
 
     /**
@@ -4020,21 +4028,27 @@ public final class TeleportPathController {
         return npc.canAttack(target) && !npc.isAlliedTo(target);
     }
 
+    /**
+     * Whether one ability may pick this victim: the boss own idea of who counts as an enemy,
+     * plus the victim's say in it.
+     *
+     * <p>An npc immune to an ability is never chosen by it, not merely left unhurt. A hook
+     * that reels in somebody it cannot move, or a grab closing on somebody it cannot hold,
+     * would spend the boss turn on nothing and read as a bug.</p>
+     */
+    private boolean isAbilityTarget(LivingEntity target, int ability) {
+        return isAreaTarget(target) && !BossAbilityDamageUtil.isImmune(target, ability);
+    }
+
     private void performAreaAttack(ServerLevel level, BossPhaseData phase) {
         // Purely for show, and started before the hits so the wave leaves at the same moment
         // the damage lands rather than a tick behind it.
         BossAreaVfxScheduler.schedule(level, npc.position(), phase);
         for (LivingEntity target : getAreaTargets(level, phase)) {
-            boolean damaged = target.hurt(level.damageSources().mobAttack(npc),
-                    rageUp(phase.getAreaAttackDamage()));
-            // Applied even when the hit was absorbed by invulnerability frames or armour:
-            // a plague aura that stops working because the victim was briefly immune would
-            // feel broken rather than fair.
-            phase.getAreaAttackEffects().applyAll(target, npc);
-            if (damaged && phase.getAreaAttackKnockback() > 0) {
-                target.knockback(rageUp(phase.getAreaAttackKnockback()),
-                        npc.getX() - target.getX(), npc.getZ() - target.getZ());
-            }
+            BossAbilityDamageUtil.hit(target, BossAbilityKind.AREA, npc,
+                    rageUp(phase.getAreaAttackDamage()), phase.getAreaAttackEffects(),
+                    rageUp(phase.getAreaAttackKnockback()),
+                    npc.getX() - target.getX(), npc.getZ() - target.getZ());
         }
     }
 
@@ -4056,7 +4070,7 @@ public final class TeleportPathController {
         AABB box = new AABB(origin, origin.add(axis.scale(phase.getLineAttackLength())))
                 .inflate(reach, phase.getLineAttackHeight() + 1.0D, reach);
         return level.getEntitiesOfClass(LivingEntity.class, box, target -> target != npc
-                && target.isAlive() && isAreaTarget(target)
+                && target.isAlive() && isAbilityTarget(target, BossAbilityKind.LINE)
                 && lineBand(origin, axis, phase, target) != LineBand.MISS);
     }
 
@@ -4102,17 +4116,11 @@ public final class TeleportPathController {
         int knockback = rageUp(phase.getLineAttackKnockback());
         for (LivingEntity target : lineTargets(level, origin, axis, phase)) {
             boolean side = lineBand(origin, axis, phase, target) == LineBand.SIDE;
-            boolean damaged = target.hurt(level.damageSources().mobAttack(npc),
-                    side ? sideDamage : damage);
-            // Applied even when the hit was absorbed by invulnerability frames or armour,
-            // for the reason the area attack spells out.
-            phase.getLineAttackEffects().applyAll(target, npc);
-            if (damaged && knockback > 0) {
-                // Down the line rather than away from the boss: this is a strike forward and
-                // not a blast, so everyone it catches is thrown the same way. Vanilla pushes
-                // against the vector it is handed, which is why the axis goes in negated.
-                target.knockback(knockback, -axis.x, -axis.z);
-            }
+            // Pushed down the line rather than away from the boss: this is a strike forward
+            // and not a blast, so everyone it catches is thrown the same way. Vanilla shoves
+            // against the vector it is handed, which is why the axis goes in negated.
+            BossAbilityDamageUtil.hit(target, BossAbilityKind.LINE, npc, side ? sideDamage : damage,
+                    phase.getLineAttackEffects(), knockback, -axis.x, -axis.z);
         }
     }
 
@@ -4127,7 +4135,7 @@ public final class TeleportPathController {
     }
 
     private boolean isValidRangedTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
+        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.RANGED)) return false;
         double distanceSquared = npc.distanceToSqr(target);
         double min = phase.getRangedAttackMinRange();
         double max = phase.getRangedAttackMaxRange();
@@ -4136,7 +4144,7 @@ public final class TeleportPathController {
     }
 
     private boolean isValidMeleeTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
+        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.MELEE)) return false;
         double range = phase.getMeleeAttackRange() + (npc.getBbWidth() + target.getBbWidth()) * 0.5D;
         return npc.distanceToSqr(target) <= range * range;
     }
@@ -4261,13 +4269,10 @@ public final class TeleportPathController {
         if (phase.getMeleeAttackAnimation().isEmpty()) {
             npc.swing(InteractionHand.MAIN_HAND);
         }
-        boolean damaged = target.hurt(level.damageSources().mobAttack(npc),
-                rageUp(phase.getMeleeAttackDamage()));
-        phase.getMeleeAttackEffects().applyAll(target, npc);
-        if (damaged && phase.getMeleeAttackKnockback() > 0) {
-            target.knockback(rageUp(phase.getMeleeAttackKnockback()),
-                    npc.getX() - target.getX(), npc.getZ() - target.getZ());
-        }
+        BossAbilityDamageUtil.hit(target, BossAbilityKind.MELEE, npc,
+                rageUp(phase.getMeleeAttackDamage()), phase.getMeleeAttackEffects(),
+                rageUp(phase.getMeleeAttackKnockback()),
+                npc.getX() - target.getX(), npc.getZ() - target.getZ());
     }
 
     /**
