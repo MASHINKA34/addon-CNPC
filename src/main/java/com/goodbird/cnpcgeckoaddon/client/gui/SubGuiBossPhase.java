@@ -25,7 +25,7 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
         this.phase = data.getPhase(phaseIndex);
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 245;
+        imageHeight = 262;
         closeOnEsc = true;
     }
 
@@ -64,9 +64,9 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
         addAbilityButton(20, 0, 5, "cnpcgeckoaddon.boss.line_settings");
         addAbilityButton(21, 1, 5, "cnpcgeckoaddon.boss.geyser_settings");
         addAbilityButton(22, 0, 6, "cnpcgeckoaddon.boss.cast_move_settings");
-        // Beside the odd thirteenth ability button: a seventh full row plus a Done line
-        // below it would no longer fit the panel.
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 210, 60, 20,
+        addAbilityButton(23, 1, 6, "cnpcgeckoaddon.boss.boulder_settings");
+        // The boulder filled the seventh row, so Done gets a line of its own below the grid.
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 236, 60, 20,
                 "gui.done", button -> close()));
     }
 
@@ -103,6 +103,8 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
             setSubGui(new SubGuiBossGeyser(npc, phase, phaseIndex));
         } else if (button.id == 22) {
             setSubGui(new SubGuiBossCastMovement(phase, phaseIndex));
+        } else if (button.id == 23) {
+            setSubGui(new SubGuiBossBoulder(npc, phase, phaseIndex));
         }
     }
 
