@@ -77,7 +77,7 @@ public final class TeleportPathController {
     private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 8;
+    private static final int ABILITY_COUNT = 9;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -146,7 +146,7 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP
+        LEAP, LINE_ATTACK
     }
 
     private final EntityNPCInterface npc;
@@ -206,6 +206,15 @@ public final class TeleportPathController {
     private long nextHookAt = NOT_SCHEDULED;
     private long nextCaptureAt = NOT_SCHEDULED;
     private long nextLeapAt = NOT_SCHEDULED;
+    private long nextLineAttackAt = NOT_SCHEDULED;
+
+    /**
+     * Which way the line strike being wound up is going to go, unit length and flat.
+     *
+     * <p>Fixed the moment the boss commits and never touched again: a corridor that swung
+     * round after a running player would turn its own warning into a lie.</p>
+     */
+    private Vec3 lineAttackAxis;
 
     /** Where the leap being wound up or flown right now is meant to come down. */
     private Vec3 leapDestination;
@@ -2236,6 +2245,13 @@ public final class TeleportPathController {
         } else {
             nextGroundAttackAt = NOT_SCHEDULED;
         }
+        if (phase.isLineAttackEnabled()) {
+            if (nextLineAttackAt == NOT_SCHEDULED) {
+                nextLineAttackAt = gameTime + rageDown(phase.getLineAttackCooldownTicks());
+            }
+        } else {
+            nextLineAttackAt = NOT_SCHEDULED;
+        }
         if (phase.isRangedAttackEnabled()) {
             if (nextRangedAttackAt == NOT_SCHEDULED) {
                 nextRangedAttackAt = gameTime + rageDown(phase.getRangedAttackCooldownTicks());
@@ -2305,6 +2321,7 @@ public final class TeleportPathController {
                 case 4 -> tryStartHook(level, data, phase, gameTime);
                 case 5 -> tryStartCapture(level, data, phase, gameTime);
                 case 6 -> tryStartLeap(level, data, phase, gameTime);
+                case 7 -> tryStartLineAttack(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -2329,6 +2346,70 @@ public final class TeleportPathController {
         nextGroundAttackAt = gameTime + phase.getAreaAttackActionDelayTicks()
                 + rageDown(phase.getAreaAttackCooldownTicks());
         return true;
+    }
+
+    /**
+     * A strike straight down a corridor in front of the boss.
+     *
+     * <p>Where it goes is settled here rather than when the hit lands: the warning on the
+     * floor promises one corridor, and the boss has to keep that promise even if whoever it
+     * picked spends the whole wind-up running sideways.</p>
+     */
+    private boolean tryStartLineAttack(ServerLevel level, TeleportPathData data,
+                                       BossPhaseData phase, long gameTime) {
+        if (!phase.isLineAttackEnabled() || gameTime < nextLineAttackAt) return false;
+        LivingEntity target = selectAbilityTarget(level, phase.getLineAttackTargetMode(),
+                phase.getLineAttackLength(), candidate -> isValidLineTarget(candidate, phase));
+        Vec3 axis = resolveLineAxis(phase, target);
+        // An empty corridor is no reason to swing: the strike would land on bare floor and
+        // spend a whole cooldown doing it.
+        if (axis == null || lineTargets(level, npc.position(), axis, phase).isEmpty()) {
+            nextLineAttackAt = gameTime + 10;
+            return false;
+        }
+        lineAttackAxis = axis;
+        beginAction(PendingAction.LINE_ATTACK, phase.getLineAttackAnimation(),
+                phase.getLineAttackActionDelayTicks(), gameTime, target, data, phase);
+        // Only the cooldown is scaled: the action delay is measured against the attack
+        // animation, and shortening it would land the hit before the swing does.
+        nextLineAttackAt = gameTime + phase.getLineAttackActionDelayTicks()
+                + rageDown(phase.getLineAttackCooldownTicks());
+        return true;
+    }
+
+    /** Which way this strike goes: at whoever it picked, or wherever the boss is looking. */
+    private Vec3 resolveLineAxis(BossPhaseData phase, LivingEntity target) {
+        if (phase.getLineAttackDirection() != BossPhaseData.LINE_DIRECTION_TARGET) {
+            return facingAxis();
+        }
+        if (target == null) {
+            return null;
+        }
+        Vec3 flat = new Vec3(target.getX() - npc.getX(), 0.0D, target.getZ() - npc.getZ());
+        // Somebody standing inside the boss leaves no direction to read off them, so the
+        // gaze decides rather than the aim collapsing to nothing.
+        return flat.lengthSqr() < 1.0E-6D ? facingAxis() : flat.normalize();
+    }
+
+    /** Where the boss is looking, flattened onto the plane the corridor is worked out in. */
+    private Vec3 facingAxis() {
+        double yaw = npc.getYRot() * Mth.DEG_TO_RAD;
+        return new Vec3(-Math.sin(yaw), 0.0D, Math.cos(yaw));
+    }
+
+    /**
+     * Whether one candidate is worth aiming a line strike at.
+     *
+     * <p>Measured flat and against the same height band the strike itself uses, so the
+     * corridor laid down toward whoever this picks really does cover them.</p>
+     */
+    private boolean isValidLineTarget(LivingEntity target, BossPhaseData phase) {
+        if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
+        if (Math.abs(target.getY() - npc.getY()) > phase.getLineAttackHeight()) return false;
+        double dx = target.getX() - npc.getX();
+        double dz = target.getZ() - npc.getZ();
+        double length = phase.getLineAttackLength();
+        return dx * dx + dz * dz <= length * length;
     }
 
     private boolean tryStartRangedAttack(ServerLevel level, TeleportPathData data,
@@ -3312,6 +3393,7 @@ public final class TeleportPathController {
             case CAPTURE -> TeleportPathData.TELEGRAPH_CAPTURE;
             case SUMMON -> TeleportPathData.TELEGRAPH_SUMMON;
             case LEAP -> TeleportPathData.TELEGRAPH_LEAP;
+            case LINE_ATTACK -> TeleportPathData.TELEGRAPH_LINE;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -3379,6 +3461,10 @@ public final class TeleportPathController {
             // A leap at a fixed spot lands there whoever is standing on it.
             case LEAP -> phase.getLeapMode() != BossPhaseData.LEAP_MODE_TARGET
                     || isValidLeapTarget(target, phase);
+            // The corridor was committed to when the warning went up, so there is nothing
+            // left to call off: walking out of it already is the dodge, and cancelling
+            // would only bring the same strike back round in two seconds.
+            case LINE_ATTACK -> true;
             // Nobody to dodge a summon, a teleport, or an action that is not running.
             case NONE, SUMMON, TELEPORT -> true;
         };
@@ -3408,6 +3494,7 @@ public final class TeleportPathController {
         return switch (action) {
             case SUMMON -> nextSummonAt;
             case GROUND_ATTACK -> nextGroundAttackAt;
+            case LINE_ATTACK -> nextLineAttackAt;
             case RANGED_ATTACK -> nextRangedAttackAt;
             case MELEE_ATTACK -> nextMeleeAttackAt;
             case FLUID_SPIT -> nextFluidSpitAt;
@@ -3423,6 +3510,7 @@ public final class TeleportPathController {
         switch (action) {
             case SUMMON -> nextSummonAt = at;
             case GROUND_ATTACK -> nextGroundAttackAt = at;
+            case LINE_ATTACK -> nextLineAttackAt = at;
             case RANGED_ATTACK -> nextRangedAttackAt = at;
             case MELEE_ATTACK -> nextMeleeAttackAt = at;
             case FLUID_SPIT -> nextFluidSpitAt = at;
@@ -3458,6 +3546,8 @@ public final class TeleportPathController {
             invulnerableSummonedOnce = true;
         } else if (pendingAction == PendingAction.GROUND_ATTACK) {
             performAreaAttack(level, phase);
+        } else if (pendingAction == PendingAction.LINE_ATTACK) {
+            performLineAttack(level, phase);
         } else if (pendingAction == PendingAction.RANGED_ATTACK) {
             performRangedAttack(level, phase);
         } else if (pendingAction == PendingAction.MELEE_ATTACK) {
@@ -3938,6 +4028,94 @@ public final class TeleportPathController {
         }
     }
 
+    /** Where somebody is standing relative to a line strike: in it, beside it, or clear. */
+    private enum LineBand { MISS, CORRIDOR, SIDE }
+
+    /**
+     * Everyone a line strike laid along {@code axis} currently covers, flanks included.
+     *
+     * <p>The box around the whole strike is only a pre-filter, exactly as the area attack's
+     * is - it is what keeps the boss from sweeping the world every time it swings - and the
+     * shape itself is decided per candidate. Who may be hit at all is left to
+     * {@link #isAreaTarget}, so a corridor and an area slam can never end up with different
+     * ideas of who counts as an enemy.</p>
+     */
+    private List<LivingEntity> lineTargets(ServerLevel level, Vec3 origin, Vec3 axis,
+                                           BossPhaseData phase) {
+        double reach = phase.getLineAttackWidth() * 0.5D + phase.getLineAttackSideWidth() + 1.0D;
+        AABB box = new AABB(origin, origin.add(axis.scale(phase.getLineAttackLength())))
+                .inflate(reach, phase.getLineAttackHeight() + 1.0D, reach);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target -> target != npc
+                && target.isAlive() && isAreaTarget(target)
+                && lineBand(origin, axis, phase, target) != LineBand.MISS);
+    }
+
+    /**
+     * Which part of a line strike covers one entity.
+     *
+     * <p>Worked along and across the axis: how far down the line they are has to fall inside
+     * its length, and how far off it decides whether the corridor itself reaches them or
+     * only the weaker wave running beside it.</p>
+     */
+    private LineBand lineBand(Vec3 origin, Vec3 axis, BossPhaseData phase, LivingEntity target) {
+        if (Math.abs(target.getY() - origin.y) > phase.getLineAttackHeight()) {
+            return LineBand.MISS;
+        }
+        double dx = target.getX() - origin.x;
+        double dz = target.getZ() - origin.z;
+        double along = dx * axis.x + dz * axis.z;
+        if (along < 0.0D || along > phase.getLineAttackLength()) {
+            return LineBand.MISS;
+        }
+        // The axis is flat and unit length, so a quarter turn of it gives the across
+        // measurement without a second normalize.
+        double across = Math.abs(dx * axis.z - dz * axis.x);
+        double half = phase.getLineAttackWidth() * 0.5D;
+        if (across <= half) {
+            return LineBand.CORRIDOR;
+        }
+        return phase.getLineAttackSideWidth() > 0 && across <= half + phase.getLineAttackSideWidth()
+                ? LineBand.SIDE : LineBand.MISS;
+    }
+
+    private void performLineAttack(ServerLevel level, BossPhaseData phase) {
+        Vec3 axis = lineAttackAxis;
+        if (axis == null) {
+            return;
+        }
+        Vec3 origin = npc.position();
+        // Purely for show, and started before the hits so the wave leaves at the same moment
+        // the damage lands rather than a tick behind it.
+        BossAreaVfxScheduler.scheduleLine(level, origin, axis, phase);
+        int damage = rageUp(phase.getLineAttackDamage());
+        int sideDamage = sideWaveDamage(damage, phase.getLineAttackSidePercent());
+        int knockback = rageUp(phase.getLineAttackKnockback());
+        for (LivingEntity target : lineTargets(level, origin, axis, phase)) {
+            boolean side = lineBand(origin, axis, phase, target) == LineBand.SIDE;
+            boolean damaged = target.hurt(level.damageSources().mobAttack(npc),
+                    side ? sideDamage : damage);
+            // Applied even when the hit was absorbed by invulnerability frames or armour,
+            // for the reason the area attack spells out.
+            phase.getLineAttackEffects().applyAll(target, npc);
+            if (damaged && knockback > 0) {
+                // Down the line rather than away from the boss: this is a strike forward and
+                // not a blast, so everyone it catches is thrown the same way. Vanilla pushes
+                // against the vector it is handed, which is why the axis goes in negated.
+                target.knockback(knockback, -axis.x, -axis.z);
+            }
+        }
+    }
+
+    /**
+     * What the wave beside the corridor hits for.
+     *
+     * <p>Rounded up so a light strike does not lose its side wave to integer division, and
+     * capped at the corridor's own damage so a hundred percent is as hard as it gets.</p>
+     */
+    private static int sideWaveDamage(int damage, int percent) {
+        return Math.min(damage, Mth.ceil(damage * percent / 100.0D));
+    }
+
     private boolean isValidRangedTarget(LivingEntity target, BossPhaseData phase) {
         if (target == null || !target.isAlive() || !isAreaTarget(target)) return false;
         double distanceSquared = npc.distanceToSqr(target);
@@ -4095,6 +4273,7 @@ public final class TeleportPathController {
         pendingLeadTicks = 0;
         pendingTargetId = -1;
         pendingExtraTargets.clear();
+        lineAttackAxis = null;
         // A leap still in the air is physics and keeps going; only a plan that has not been
         // pushed off yet dies with the windup that was just thrown away.
         if (!leapAirborne) {
@@ -4108,6 +4287,7 @@ public final class TeleportPathController {
         nextTeleportAt = NOT_SCHEDULED;
         nextSummonAt = NOT_SCHEDULED;
         nextGroundAttackAt = NOT_SCHEDULED;
+        nextLineAttackAt = NOT_SCHEDULED;
         nextRangedAttackAt = NOT_SCHEDULED;
         nextMeleeAttackAt = NOT_SCHEDULED;
         nextFluidSpitAt = NOT_SCHEDULED;

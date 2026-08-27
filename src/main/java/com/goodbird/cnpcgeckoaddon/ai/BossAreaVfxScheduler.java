@@ -25,7 +25,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Draws the wave an area attack throws out around the boss.
+ * Draws the wave an area attack throws out around the boss, or runs down the line a strike
+ * was aimed along.
  *
  * <p>The attack itself lands in a single tick, so the wave cannot be driven from it: it is
  * snapshotted here and expanded from the level tick instead, the same way
@@ -49,6 +50,24 @@ public final class BossAreaVfxScheduler {
     private static final int MIN_RING_POINTS = 4;
     /** Ceiling on the emits per tick, so a wide ring costs no more than a narrow one. */
     private static final int MAX_RING_POINTS = 64;
+    /** The flanks of a corridor are walked at this, which is what makes them read as thinner. */
+    private static final double SIDE_EMIT_SPACING = EMIT_SPACING * 2.0D;
+    /**
+     * Ceilings on the corridor's front, chosen so its widest possible row - the corridor
+     * itself plus a flank on either side - still costs less than {@link #MAX_RING_POINTS}.
+     */
+    private static final int MAX_FRONT_POINTS = 24;
+    private static final int MAX_SIDE_POINTS = 8;
+    /**
+     * Roughly how fast a corridor's front travels, in blocks per tick.
+     *
+     * <p>The strike has no length setting for its wave, so the wave takes its time from the
+     * ground it has to cover: a long corridor is watched running down the arena instead of
+     * being over in the same twenty ticks a short one gets.</p>
+     */
+    private static final double CORRIDOR_FRONT_SPEED = 0.5D;
+    private static final int MIN_CORRIDOR_DURATION_TICKS = 10;
+    private static final int MAX_CORRIDOR_DURATION_TICKS = 60;
     /** Beyond this the wave is invisible anyway, so it plays out without costing anything. */
     private static final double AUDIENCE_RANGE = 64.0D;
     /** How far below the boss the ring will look for a floor to run along. */
@@ -67,11 +86,22 @@ public final class BossAreaVfxScheduler {
     private static final int MAX_WAVES_PER_TICK = 64;
     private static final int MAX_BLOCKS_TRACKED_PER_TICK = 256;
 
+    /** A ring spreads out around its centre; a corridor runs away from it down one line. */
+    private enum Shape { RING, CORRIDOR }
+
     /** One boss's wave, mid-expansion. */
     private static final class Wave {
         private final ResourceKey<Level> dimension;
         private final Vec3 center;
+        private final Shape shape;
+        /** Ring only: how far out it ends up spreading. */
         private final double radius;
+        /** Corridor only: the flat unit direction its front travels in. */
+        private final Vec3 axis;
+        /** Corridor only: how far down the line the front runs, and how wide it is. */
+        private final double length;
+        private final double width;
+        private final double sideWidth;
         private final String style;
         private final int duration;
         private final boolean blockWave;
@@ -83,14 +113,33 @@ public final class BossAreaVfxScheduler {
         private final Set<BlockPos> lifted = new HashSet<>();
         private int tick;
 
-        private Wave(ResourceKey<Level> dimension, Vec3 center, double radius, String style,
+        private Wave(ResourceKey<Level> dimension, Vec3 center, Shape shape, double radius,
+                     Vec3 axis, double length, double width, double sideWidth, String style,
                      int duration, boolean blockWave) {
             this.dimension = dimension;
             this.center = center;
+            this.shape = shape;
             this.radius = radius;
+            this.axis = axis;
+            this.length = length;
+            this.width = width;
+            this.sideWidth = sideWidth;
             this.style = style;
             this.duration = duration;
             this.blockWave = blockWave;
+        }
+
+        private static Wave ring(ResourceKey<Level> dimension, Vec3 center, double radius,
+                                 String style, int duration, boolean blockWave) {
+            return new Wave(dimension, center, Shape.RING, radius, null, 0.0D, 0.0D, 0.0D,
+                    style, duration, blockWave);
+        }
+
+        private static Wave corridor(ResourceKey<Level> dimension, Vec3 origin, Vec3 axis,
+                                     double length, double width, double sideWidth,
+                                     String style, int duration, boolean blockWave) {
+            return new Wave(dimension, origin, Shape.CORRIDOR, 0.0D, axis, length, width,
+                    sideWidth, style, duration, blockWave);
         }
     }
 
@@ -120,9 +169,33 @@ public final class BossAreaVfxScheduler {
         if (!AreaVfxStyles.isVisible(style) && !blockWave) {
             return;
         }
-        WAVES.add(new Wave(level.dimension(), center, radius, style, duration, blockWave));
+        WAVES.add(Wave.ring(level.dimension(), center, radius, style, duration, blockWave));
         // One shout at the front of the wave. Repeating it every tick would drown the fight.
         playStyleSound(level, center, style);
+    }
+
+    /**
+     * Starts a wave that runs down a corridor instead of spreading out in a ring, for a
+     * strike that was aimed along one line rather than thrown out all around.
+     *
+     * @param axis the flat unit direction the strike was committed to
+     */
+    public static void scheduleLine(ServerLevel level, Vec3 origin, Vec3 axis, BossPhaseData phase) {
+        String style = AreaVfxStyles.normalize(phase.getLineAttackVfx());
+        if (!AreaVfxStyles.isVisible(style) && !phase.isLineAttackBlockWave()) {
+            return;
+        }
+        int length = phase.getLineAttackLength();
+        WAVES.add(Wave.corridor(level.dimension(), origin, axis, length,
+                phase.getLineAttackWidth(), phase.getLineAttackSideWidth(), style,
+                corridorDuration(length), phase.isLineAttackBlockWave()));
+        playStyleSound(level, origin, style);
+    }
+
+    /** How long a corridor of this length takes to run itself out. */
+    private static int corridorDuration(int length) {
+        return Mth.clamp((int) Math.round(length / CORRIDOR_FRONT_SPEED),
+                MIN_CORRIDOR_DURATION_TICKS, MAX_CORRIDOR_DURATION_TICKS);
     }
 
     public static boolean hasPending() {
@@ -139,7 +212,11 @@ public final class BossAreaVfxScheduler {
             // halfway through catches the rest of it rather than a ring frozen in time.
             if (level.getNearestPlayer(wave.center.x, wave.center.y, wave.center.z,
                     AUDIENCE_RANGE, false) != null) {
-                emitRing(level, wave);
+                if (wave.shape == Shape.CORRIDOR) {
+                    emitCorridor(level, wave);
+                } else {
+                    emitRing(level, wave);
+                }
             }
             return true;
         });
@@ -187,6 +264,69 @@ public final class BossAreaVfxScheduler {
                 blocksThisTick++;
             }
         }
+    }
+
+    /**
+     * Walks the front of a corridor wave one tick further down its line.
+     *
+     * <p>Nothing here spreads: the row of emits is the same width all the way along, and it
+     * is the row itself that travels, which is what tells a player the strike is coming down
+     * the line at them rather than out at them from the boss.</p>
+     */
+    private static void emitCorridor(ServerLevel level, Wave wave) {
+        double progress = (double) wave.tick / wave.duration;
+        double front = wave.length * progress;
+        // A quarter turn of the axis, which is what the corridor is measured across.
+        double acrossX = wave.axis.z;
+        double acrossZ = -wave.axis.x;
+        double half = wave.width * 0.5D;
+        int mainPoints = Mth.clamp((int) Math.round(wave.width / EMIT_SPACING) + 1,
+                2, MAX_FRONT_POINTS);
+        int sidePoints = wave.sideWidth <= 0.0D ? 0
+                : Mth.clamp((int) Math.round(wave.sideWidth / SIDE_EMIT_SPACING), 1, MAX_SIDE_POINTS);
+        int points = mainPoints + 2 * sidePoints;
+        // Spread the lifted blocks across the front instead of clumping the tick's whole
+        // allowance onto one edge of it, exactly as the ring does around itself.
+        int blockStride = Math.max(1, points / MAX_BLOCKS_PER_TICK);
+
+        RandomSource random = level.getRandom();
+        int blocksThisTick = 0;
+        for (int i = 0; i < points; i++) {
+            double offset = frontOffset(i, mainPoints, sidePoints, half, wave.sideWidth);
+            double x = wave.center.x + wave.axis.x * front + acrossX * offset;
+            double z = wave.center.z + wave.axis.z * front + acrossZ * offset;
+            BlockPos floor = findFloor(level, x, wave.center.y, z);
+            if (floor == null) {
+                continue;
+            }
+            emit(level, wave.style, x, floor.getY() + 1.0D, z, i, random);
+
+            if (wave.blockWave && i % blockStride == 0
+                    && blocksThisTick < MAX_BLOCKS_PER_TICK
+                    && wave.lifted.size() < MAX_BLOCKS_PER_WAVE
+                    && !wave.lifted.contains(floor)
+                    && launchBlock(level, floor, wave.center, random)) {
+                wave.lifted.add(floor);
+                blocksThisTick++;
+            }
+        }
+    }
+
+    /**
+     * Where one point of a corridor's front sits across the line.
+     *
+     * <p>The first {@code mainPoints} walk the corridor itself from edge to edge. The rest
+     * step out along one flank and then the other, at the coarser spacing that makes the
+     * side wave read as the weaker half of the strike that it is.</p>
+     */
+    private static double frontOffset(int index, int mainPoints, int sidePoints, double half,
+                                      double sideWidth) {
+        if (index < mainPoints) {
+            return -half + index * 2.0D * half / (mainPoints - 1);
+        }
+        int step = index - mainPoints;
+        double distance = half + (step / 2 + 1) * sideWidth / sidePoints;
+        return (step & 1) == 0 ? distance : -distance;
     }
 
     /**
