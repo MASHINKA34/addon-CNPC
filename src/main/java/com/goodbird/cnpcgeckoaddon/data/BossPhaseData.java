@@ -65,6 +65,16 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.line_direction_facing"
     };
 
+    /** The boulder hugs the floor all the way down its corridor. */
+    public static final int BOULDER_MODE_ROLL = 0;
+    /** The boulder is lobbed in an arc and breaks on the first thing it meets. */
+    public static final int BOULDER_MODE_THROW = 1;
+
+    public static final String[] BOULDER_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.boulder_mode_roll",
+            "cnpcgeckoaddon.boss.boulder_mode_throw"
+    };
+
     public static final int CAPTURE_MODE_HOLD = 0;
     public static final int CAPTURE_MODE_LIFT = 1;
     public static final int CAPTURE_EFFECT_PLAYER = 0;
@@ -281,6 +291,27 @@ public final class BossPhaseData {
     private String geyserVfx = AreaVfxStyles.NONE;
     private boolean geyserBlockWave;
 
+    private boolean boulderEnabled;
+    private String boulderAnimation = "";
+    private int boulderActionDelayTicks = 16;
+    private int boulderCooldownTicks = 180;
+    private int boulderMode = BOULDER_MODE_ROLL;
+    private int boulderTargetMode = BossTargetMode.MAIN;
+    /** Cosmetic only: what the stone is drawn as, never what it does to the arena. */
+    private String boulderBlock = "minecraft:stone";
+    /** Diameter in tenths of a block, so 15 rolls a 1.5 block stone. */
+    private int boulderScale = 15;
+    /** Tenths of a block per tick, so 6 travels at 0.6 blocks a tick. */
+    private int boulderSpeed = 6;
+    private int boulderRange = 20;
+    private int boulderDamage = 12;
+    private int boulderKnockback = 3;
+    /** Off, the boulder rolls through the whole line; on, it breaks on the first victim. */
+    private boolean boulderStopsOnHit;
+    private int boulderShatterRadius = 2;
+    private int boulderShatterDamage = 4;
+    private String boulderVfx = AreaVfxStyles.NONE;
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -299,6 +330,7 @@ public final class BossPhaseData {
     private final BossEffectSet captureEffects = new BossEffectSet();
     private final BossEffectSet leapEffects = new BossEffectSet();
     private final BossEffectSet geyserEffects = new BossEffectSet();
+    private final BossEffectSet boulderEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -446,6 +478,22 @@ public final class BossPhaseData {
         tag.putInt("GeyserFluidLifetime", geyserFluidLifetimeTicks);
         tag.putString("GeyserVfx", geyserVfx);
         tag.putBoolean("GeyserBlockWave", geyserBlockWave);
+        tag.putBoolean("BoulderEnabled", boulderEnabled);
+        tag.putString("BoulderAnimation", boulderAnimation);
+        tag.putInt("BoulderActionDelayTicks", boulderActionDelayTicks);
+        tag.putInt("BoulderCooldownTicks", boulderCooldownTicks);
+        tag.putInt("BoulderMode", boulderMode);
+        tag.putInt("BoulderTargetMode", boulderTargetMode);
+        tag.putString("BoulderBlock", boulderBlock);
+        tag.putInt("BoulderScale", boulderScale);
+        tag.putInt("BoulderSpeed", boulderSpeed);
+        tag.putInt("BoulderRange", boulderRange);
+        tag.putInt("BoulderDamage", boulderDamage);
+        tag.putInt("BoulderKnockback", boulderKnockback);
+        tag.putBoolean("BoulderStopsOnHit", boulderStopsOnHit);
+        tag.putInt("BoulderShatterRadius", boulderShatterRadius);
+        tag.putInt("BoulderShatterDamage", boulderShatterDamage);
+        tag.putString("BoulderVfx", boulderVfx);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -461,6 +509,7 @@ public final class BossPhaseData {
         tag.put("CaptureEffects", captureEffects.writeToNBT());
         tag.put("LeapEffects", leapEffects.writeToNBT());
         tag.put("GeyserEffects", geyserEffects.writeToNBT());
+        tag.put("BoulderEffects", boulderEffects.writeToNBT());
         return tag;
     }
 
@@ -638,6 +687,25 @@ public final class BossPhaseData {
         geyserVfx = AreaVfxStyles.normalize(tag.getString("GeyserVfx"));
         geyserBlockWave = tag.getBoolean("GeyserBlockWave");
 
+        boulderEnabled = tag.getBoolean("BoulderEnabled");
+        boulderAnimation = clean(tag.getString("BoulderAnimation"));
+        boulderActionDelayTicks = value(tag, "BoulderActionDelayTicks", 16, 0, 1200);
+        boulderCooldownTicks = value(tag, "BoulderCooldownTicks", 180, 1, 12000);
+        boulderMode = value(tag, "BoulderMode", BOULDER_MODE_ROLL, BOULDER_MODE_ROLL, BOULDER_MODE_THROW);
+        boulderTargetMode = value(tag, "BoulderTargetMode",
+                BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
+        boulderBlock = tag.contains("BoulderBlock")
+                ? clean(tag.getString("BoulderBlock")) : "minecraft:stone";
+        boulderScale = value(tag, "BoulderScale", 15, 5, 40);
+        boulderSpeed = value(tag, "BoulderSpeed", 6, 1, 20);
+        boulderRange = value(tag, "BoulderRange", 20, 4, 64);
+        boulderDamage = value(tag, "BoulderDamage", 12, 0, 1000);
+        boulderKnockback = value(tag, "BoulderKnockback", 3, 0, 10);
+        boulderStopsOnHit = tag.getBoolean("BoulderStopsOnHit");
+        boulderShatterRadius = value(tag, "BoulderShatterRadius", 2, 0, 16);
+        boulderShatterDamage = value(tag, "BoulderShatterDamage", 4, 0, 1000);
+        boulderVfx = AreaVfxStyles.normalize(tag.getString("BoulderVfx"));
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -660,6 +728,7 @@ public final class BossPhaseData {
         captureEffects.readFromNBT(tag, "CaptureEffects");
         leapEffects.readFromNBT(tag, "LeapEffects");
         geyserEffects.readFromNBT(tag, "GeyserEffects");
+        boulderEffects.readFromNBT(tag, "BoulderEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -1060,6 +1129,49 @@ public final class BossPhaseData {
     /** Whether the eruption pools anything, i.e. whether the fluid id is worth resolving. */
     public boolean leavesGeyserFluid() { return !geyserFluid.isEmpty(); }
 
+    public boolean isBoulderEnabled() { return boulderEnabled; }
+    public void setBoulderEnabled(boolean value) { boulderEnabled = value; }
+    public String getBoulderAnimation() { return boulderAnimation; }
+    public void setBoulderAnimation(String value) { boulderAnimation = clean(value); }
+    public int getBoulderActionDelayTicks() { return boulderActionDelayTicks; }
+    public void setBoulderActionDelayTicks(int value) { boulderActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getBoulderCooldownTicks() { return boulderCooldownTicks; }
+    public void setBoulderCooldownTicks(int value) { boulderCooldownTicks = Mth.clamp(value, 1, 12000); }
+    /** Whether the stone rolls along the floor or is thrown in an arc. */
+    public int getBoulderMode() { return boulderMode; }
+    public void setBoulderMode(int value) {
+        boulderMode = Mth.clamp(value, BOULDER_MODE_ROLL, BOULDER_MODE_THROW);
+    }
+    public int getBoulderTargetMode() { return boulderTargetMode; }
+    public void setBoulderTargetMode(int value) { boulderTargetMode = BossTargetMode.clamp(value); }
+    /** Block id the stone is drawn as, for example {@code minecraft:deepslate}. */
+    public String getBoulderBlock() { return boulderBlock; }
+    public void setBoulderBlock(String value) { boulderBlock = clean(value); }
+    /** Diameter in tenths of a block. */
+    public int getBoulderScale() { return boulderScale; }
+    public void setBoulderScale(int value) { boulderScale = Mth.clamp(value, 5, 40); }
+    /** Travel speed in tenths of a block per tick. */
+    public int getBoulderSpeed() { return boulderSpeed; }
+    public void setBoulderSpeed(int value) { boulderSpeed = Mth.clamp(value, 1, 20); }
+    /** How far down the corridor the stone travels before breaking apart on its own. */
+    public int getBoulderRange() { return boulderRange; }
+    public void setBoulderRange(int value) { boulderRange = Mth.clamp(value, 4, 64); }
+    public int getBoulderDamage() { return boulderDamage; }
+    public void setBoulderDamage(int value) { boulderDamage = Mth.clamp(value, 0, 1000); }
+    public int getBoulderKnockback() { return boulderKnockback; }
+    public void setBoulderKnockback(int value) { boulderKnockback = Mth.clamp(value, 0, 10); }
+    /** Off rolls through the whole line; on breaks the stone on the first victim it hits. */
+    public boolean isBoulderStopsOnHit() { return boulderStopsOnHit; }
+    public void setBoulderStopsOnHit(boolean value) { boulderStopsOnHit = value; }
+    public int getBoulderShatterRadius() { return boulderShatterRadius; }
+    public void setBoulderShatterRadius(int value) { boulderShatterRadius = Mth.clamp(value, 0, 16); }
+    public int getBoulderShatterDamage() { return boulderShatterDamage; }
+    public void setBoulderShatterDamage(int value) { boulderShatterDamage = Mth.clamp(value, 0, 1000); }
+    public String getBoulderVfx() { return boulderVfx; }
+    public void setBoulderVfx(String value) { boulderVfx = AreaVfxStyles.normalize(value); }
+    /** Whether the ability is worth scheduling: on, and with a block to be made of. */
+    public boolean canLaunchBoulder() { return boulderEnabled && !boulderBlock.isEmpty(); }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -1117,6 +1229,7 @@ public final class BossPhaseData {
     public BossEffectSet getCaptureEffects() { return captureEffects; }
     public BossEffectSet getLeapEffects() { return leapEffects; }
     public BossEffectSet getGeyserEffects() { return geyserEffects; }
+    public BossEffectSet getBoulderEffects() { return boulderEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();

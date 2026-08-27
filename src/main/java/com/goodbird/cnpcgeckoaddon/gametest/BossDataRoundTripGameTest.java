@@ -109,6 +109,10 @@ public class BossDataRoundTripGameTest {
         phase.setLineAttackLength(24);
         phase.setLineAttackFaceAxis(false);
         phase.setGeyserEnabled(true);
+        phase.setBoulderEnabled(true);
+        phase.setBoulderBlock("minecraft:deepslate");
+        phase.setBoulderMode(BossPhaseData.BOULDER_MODE_THROW);
+        phase.setBoulderStopsOnHit(true);
         phase.setHookEnabled(true);
         phase.setHookTargetCount(3);
         phase.setCastRooted(BossAbilityKind.HOOK, false);
