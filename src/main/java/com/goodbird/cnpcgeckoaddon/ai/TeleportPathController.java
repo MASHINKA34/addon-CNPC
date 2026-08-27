@@ -253,6 +253,14 @@ public final class TeleportPathController {
     private String pendingAnimation = "";
     /** Warning ticks put in front of this action, owed back to its cooldown afterwards. */
     private int pendingLeadTicks;
+    /**
+     * Whether the action running right now holds a walking boss on its spot. While it is
+     * set, lockedX/Z stop following the boss and the stationary pin takes over, so the
+     * position from the start of the wind-up is the one the whole cast happens on.
+     */
+    private boolean castRootActive;
+    /** Game time the pin a finished action left behind lets go, or NOT_SCHEDULED mid wind-up. */
+    private long castRootUntil = NOT_SCHEDULED;
     private int lastPathIndex = -1;
     private int pingPongDirection = 1;
     private int previousPathSize;
@@ -333,7 +341,12 @@ public final class TeleportPathController {
         if (tickHomeLeash(level, gameTime, data)) {
             return;
         }
+        tickCastRoot(gameTime);
         if (data.isStationary() && !leapAirborne) {
+            keepStationary();
+        } else if (castRootActive) {
+            // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
+            // boss when the action began, so this holds the spot its warning was shown on.
             keepStationary();
         } else {
             // A leap owns the boss' position while it is in the air - the pin would drag it
@@ -378,6 +391,7 @@ public final class TeleportPathController {
                 delayAbilitySchedule(pendingAction, pendingLeadTicks);
                 clearPendingAction();
                 busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
+                holdCastRootThroughLock(gameTime);
             }
             return;
         }
@@ -2190,6 +2204,65 @@ public final class TeleportPathController {
     }
 
     /**
+     * Pins a walking boss for the action that is just starting, when this phase casts the
+     * ability standing still.
+     *
+     * <p>The stationary boss is pinned every tick anyway, so the root stays out of its way.
+     * A leap always roots its crouch - the flight is what has to stay free, and
+     * {@link #performLeap} lets go at the push - while a teleport is never held: moving
+     * away is the whole ability.</p>
+     */
+    private void beginCastRoot(TeleportPathData data, BossPhaseData phase, PendingAction action) {
+        if (data.isStationary()) {
+            return;
+        }
+        if (action != PendingAction.LEAP && !phase.isCastRooted(abilityKind(action))) {
+            return;
+        }
+        // Freeze the pin on the spot the boss commits on: the warning zone is being shown
+        // around it, and staying there is how the boss keeps that promise.
+        rememberCurrentPosition();
+        castRootActive = true;
+        castRootUntil = NOT_SCHEDULED;
+    }
+
+    /** Keeps the root up for the pause a finished action leaves, instead of for ever. */
+    private void holdCastRootThroughLock(long gameTime) {
+        if (castRootActive) {
+            castRootUntil = gameTime + POST_ACTION_LOCK_TICKS;
+        }
+    }
+
+    /**
+     * Lets go of a root that has nothing holding it any more.
+     *
+     * <p>Mid wind-up the pending action is what holds the root, afterwards the
+     * {@code castRootUntil} deadline does. One with neither - its action was cancelled by
+     * a dodge, a phase change or a reset - drops here, so no way out of an action can
+     * leave the boss nailed to the floor for good.</p>
+     */
+    private void tickCastRoot(long gameTime) {
+        if (!castRootActive) {
+            return;
+        }
+        if (castRootUntil == NOT_SCHEDULED
+                ? pendingAction == PendingAction.NONE
+                : gameTime >= castRootUntil) {
+            endCastRoot();
+        }
+    }
+
+    private void endCastRoot() {
+        if (!castRootActive) {
+            return;
+        }
+        castRootActive = false;
+        castRootUntil = NOT_SCHEDULED;
+        // Hand the pin back to the walk from wherever the boss was released.
+        rememberCurrentPosition();
+    }
+
+    /**
      * Moves the arena to wherever the boss was just put down by the carry tool.
      *
      * <p>The home is captured once, on the tick the boss first activates, so an encounter
@@ -2977,6 +3050,10 @@ public final class TeleportPathController {
 
     /** The push itself, at the end of the windup. */
     private void performLeap(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
+        // The push, not a timer, is what frees a rooted crouch: from here to touchdown the
+        // boss is a thrown object, and even a leap that aborts below has nothing left to
+        // stand still for.
+        endCastRoot();
         LivingEntity target = pendingTarget(level);
         // The victim may have died or run out of range during the windup. The boss still
         // jumps: the marker already promised that spot, and pulling out looks like a bug.
@@ -3299,6 +3376,7 @@ public final class TeleportPathController {
         pendingAction = action;
         pendingTargetId = target == null ? -1 : target.getId();
         pendingLeadTicks = telegraphLead(data, action, actionDelay);
+        beginCastRoot(data, phase, action);
         if (pendingLeadTicks <= 0 && actionDelay <= 0) {
             playAnimation(animation);
             if (npc.level() instanceof ServerLevel level) {
@@ -3306,6 +3384,7 @@ public final class TeleportPathController {
             }
             clearPendingAction();
             busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
+            holdCastRootThroughLock(gameTime);
             return;
         }
         pendingActionAt = gameTime + pendingLeadTicks + actionDelay;
@@ -3342,7 +3421,7 @@ public final class TeleportPathController {
     }
 
     private void paintTelegraph(ServerLevel level, TeleportPathData data) {
-        int ability = telegraphAbility(pendingAction);
+        int ability = abilityKind(pendingAction);
         if (ability < 0 || !telegraphs(data, ability)) {
             return;
         }
@@ -3365,7 +3444,7 @@ public final class TeleportPathController {
      * commits rather than on every tick the wind-up runs for.
      */
     private void announceTelegraph(TeleportPathData data, PendingAction action) {
-        int ability = telegraphAbility(action);
+        int ability = abilityKind(action);
         if (ability < 0 || !telegraphs(data, ability)) {
             return;
         }
@@ -3498,8 +3577,12 @@ public final class TeleportPathController {
         return phase == null || phase.isLeapTelegraph();
     }
 
-    /** Which entry of the warning mask an action belongs to, or -1 when it is never marked. */
-    private static int telegraphAbility(PendingAction action) {
+    /**
+     * Which ability of the shared list an action performs. The warning and standing-cast
+     * masks both index by it; -1 is a teleport or nothing at all, neither of which is on
+     * the list.
+     */
+    private static int abilityKind(PendingAction action) {
         return switch (action) {
             case GROUND_ATTACK -> BossAbilityKind.AREA;
             case RANGED_ATTACK -> BossAbilityKind.RANGED;
@@ -3522,7 +3605,7 @@ public final class TeleportPathController {
      * it is the boss standing there doing nothing.</p>
      */
     private int telegraphLead(TeleportPathData data, PendingAction action, int actionDelay) {
-        int ability = telegraphAbility(action);
+        int ability = abilityKind(action);
         if (ability < 0 || !telegraphs(data, ability)) {
             return 0;
         }
@@ -3543,6 +3626,7 @@ public final class TeleportPathController {
         pendingWarningEndsAt = NOT_SCHEDULED;
         if (data.isTelegraphDodge() && !pendingTargetStillValid(level, phase)) {
             PendingAction dodged = pendingAction;
+            endCastRoot();
             clearPendingAction();
             // A short retry rather than the whole cooldown: a boss left standing for ten
             // seconds because somebody stepped aside is a worse fight than the one this
@@ -4413,6 +4497,9 @@ public final class TeleportPathController {
     }
 
     private void cancelPendingAndSchedules() {
+        // A cancelled wind-up frees the boss at once; only a completed one holds the pin
+        // on through its after-pause.
+        endCastRoot();
         clearPendingAction();
         nextTeleportAt = NOT_SCHEDULED;
         nextSummonAt = NOT_SCHEDULED;
