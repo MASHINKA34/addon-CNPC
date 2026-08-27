@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryData;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -26,8 +25,6 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen implements ITextfiel
     private static final int LEASH_FIELD = 8;
 
     private static final int ROW_HEIGHT = 22;
-    private static final int HINT_COLOR = 0xA0A0A0;
-    private static final int HINT_LINE_HEIGHT = 9;
 
     private final NpcCarryData data;
 
@@ -81,31 +78,6 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen implements ITextfiel
     private void addYesNo(int id, String label, int y, boolean value) {
         addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, id, guiLeft + 155, y, 87, 20, value));
-    }
-
-    /**
-     * A GuiLabel draws one line and never clips it, so a hint too wide for the panel is
-     * split into its own labels here rather than running off the edge of the background.
-     */
-    private void addWrappedHint(int id, String key, int y) {
-        int width = imageWidth - 16;
-        StringBuilder line = new StringBuilder();
-        for (String word : I18n.get(key).split(" ")) {
-            if (!line.isEmpty() && font.width(line + " " + word) > width) {
-                addLabel(new GuiLabel(id++, Component.literal(line.toString()), HINT_COLOR,
-                        guiLeft + 8, y, width, HINT_LINE_HEIGHT));
-                y += HINT_LINE_HEIGHT;
-                line.setLength(0);
-            }
-            if (!line.isEmpty()) {
-                line.append(' ');
-            }
-            line.append(word);
-        }
-        if (!line.isEmpty()) {
-            addLabel(new GuiLabel(id, Component.literal(line.toString()), HINT_COLOR,
-                    guiLeft + 8, y, width, HINT_LINE_HEIGHT));
-        }
     }
 
     @Override
