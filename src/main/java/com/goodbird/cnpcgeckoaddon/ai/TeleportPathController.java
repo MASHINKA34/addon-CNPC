@@ -8,6 +8,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
+import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
 import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
@@ -80,7 +81,7 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 10;
+    private static final int ABILITY_COUNT = 11;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -151,7 +152,7 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER
+        LEAP, LINE_ATTACK, GEYSER, BOULDER
     }
 
     private final EntityNPCInterface npc;
@@ -215,6 +216,7 @@ public final class TeleportPathController {
     private long nextLeapAt = NOT_SCHEDULED;
     private long nextLineAttackAt = NOT_SCHEDULED;
     private long nextGeyserAt = NOT_SCHEDULED;
+    private long nextBoulderAt = NOT_SCHEDULED;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -223,6 +225,13 @@ public final class TeleportPathController {
      * round after a running player would turn its own warning into a lie.</p>
      */
     private Vec3 lineAttackAxis;
+
+    /**
+     * Which way the boulder being wound up is going to travel, unit length and flat.
+     * Committed the same way the line strike's axis is, and for the same reason: the
+     * corridor on the floor is a promise.
+     */
+    private Vec3 boulderAxis;
 
     /** Where the leap being wound up or flown right now is meant to come down. */
     private Vec3 leapDestination;
@@ -279,6 +288,7 @@ public final class TeleportPathController {
     private final Map<Integer, Integer> minionRoundRobinCursor = new HashMap<>();
     private String reportedBrokenFluid = "";
     private String reportedBrokenGeyserFluid = "";
+    private String reportedBrokenBoulderBlock = "";
     private final Map<Integer, TotemRuntime> totemRuntime = new HashMap<>();
     private final Set<Integer> deadTotemSlots = new HashSet<>();
     private final Set<Integer> resetTotemHealthSlots = new HashSet<>();
@@ -2349,7 +2359,7 @@ public final class TeleportPathController {
 
     /** The removed vanilla damage must not also remove the boss' visual tracking of its target. */
     private void faceCombatTarget(TeleportPathData data) {
-        if (faceLineAxis(data)) {
+        if (faceCommittedAxis(data)) {
             return;
         }
         LivingEntity target = npc.getTarget();
@@ -2369,31 +2379,39 @@ public final class TeleportPathController {
     }
 
     /**
-     * Turns a boss winding up a line strike onto the corridor it committed to, instead of
-     * after the target.
+     * Turns a boss winding up a line strike or a boulder onto the corridor it committed to,
+     * instead of after the target.
      *
      * <p>The axis was fixed the moment the warning went down, but the tracking above kept
-     * swinging the model after the runner, so the sword read as aimed one way while the hit
+     * swinging the model after the runner, so the swing read as aimed one way while the hit
      * came down another. Eased rather than snapped: the wind-up doubles as the turn, and
-     * {@link #performLineAttack} squares up whatever is left on the tick the strike lands.</p>
+     * the perform squares up whatever is left on the tick the ability goes off.</p>
      *
      * @return true when the wind-up owns the rotation this tick
      */
-    private boolean faceLineAxis(TeleportPathData data) {
-        if (pendingAction != PendingAction.LINE_ATTACK || lineAttackAxis == null) {
+    private boolean faceCommittedAxis(TeleportPathData data) {
+        if (pendingAction != PendingAction.LINE_ATTACK && pendingAction != PendingAction.BOULDER) {
             return false;
         }
         BossPhaseData phase = data.getPhase(currentPhase);
-        if (!phase.isLineAttackFaceAxis()) {
+        if (pendingAction == PendingAction.LINE_ATTACK) {
+            if (lineAttackAxis == null || !phase.isLineAttackFaceAxis()) {
+                return false;
+            }
+            turnTowardAxis(lineAttackAxis, phase.getLineAttackLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
+            return true;
+        }
+        // The boulder has no opt-out: its corridor is exactly as wide as the stone, so one
+        // launched off the boss' shoulder reads as broken rather than as a style choice.
+        if (boulderAxis == null) {
             return false;
         }
-        turnTowardLineAxis(phase, LINE_FACE_TURN_DEGREES_PER_TICK);
+        turnTowardAxis(boulderAxis, phase.getBoulderRange(), LINE_FACE_TURN_DEGREES_PER_TICK);
         return true;
     }
 
-    /** Body, head and gaze onto the strike axis, moving at most {@code maxTurn} degrees. */
-    private void turnTowardLineAxis(BossPhaseData phase, float maxTurn) {
-        Vec3 axis = lineAttackAxis;
+    /** Body, head and gaze onto the committed axis, moving at most {@code maxTurn} degrees. */
+    private void turnTowardAxis(Vec3 axis, double lookDistance, float maxTurn) {
         if (axis == null) {
             return;
         }
@@ -2407,8 +2425,8 @@ public final class TeleportPathController {
         npc.setXRot(Mth.approach(npc.getXRot(), 0.0F, maxTurn));
         // The look control is pointed down the corridor too, or its own tick drags the
         // head straight back to the target between two of these.
-        npc.getLookControl().setLookAt(npc.getX() + axis.x * phase.getLineAttackLength(),
-                npc.getEyeY(), npc.getZ() + axis.z * phase.getLineAttackLength(), 90.0F, 90.0F);
+        npc.getLookControl().setLookAt(npc.getX() + axis.x * lookDistance,
+                npc.getEyeY(), npc.getZ() + axis.z * lookDistance, 90.0F, 90.0F);
     }
 
     private void preparePath(List<int[]> points) {
@@ -2496,6 +2514,13 @@ public final class TeleportPathController {
         } else {
             nextGeyserAt = NOT_SCHEDULED;
         }
+        if (phase.canLaunchBoulder()) {
+            if (nextBoulderAt == NOT_SCHEDULED) {
+                nextBoulderAt = gameTime + rageDown(phase.getBoulderCooldownTicks());
+            }
+        } else {
+            nextBoulderAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2525,6 +2550,7 @@ public final class TeleportPathController {
                 case 6 -> tryStartLeap(level, data, phase, gameTime);
                 case 7 -> tryStartLineAttack(level, data, phase, gameTime);
                 case 8 -> tryStartGeyser(level, data, phase, gameTime);
+                case 9 -> tryStartBoulder(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -3081,6 +3107,91 @@ public final class TeleportPathController {
         }
         reportedBrokenGeyserFluid = "";
         return fluid;
+    }
+
+    /**
+     * A stone sent rolling or thrown down a corridor in front of the boss.
+     *
+     * <p>Where it goes is settled here, exactly as the line strike's corridor is: the
+     * warning on the floor promises one path, and the boss keeps that promise even if
+     * whoever it picked spends the whole wind-up running sideways.</p>
+     */
+    private boolean tryStartBoulder(ServerLevel level, TeleportPathData data,
+                                    BossPhaseData phase, long gameTime) {
+        if (!phase.canLaunchBoulder() || gameTime < nextBoulderAt) return false;
+        LivingEntity target = selectAbilityTarget(level, phase.getBoulderTargetMode(),
+                phase.getBoulderRange(), candidate -> isValidBoulderTarget(candidate, phase));
+        if (target == null || EntityBossBoulder.resolveBlock(phase.getBoulderBlock()) == null) {
+            nextBoulderAt = gameTime + 20;
+            return false;
+        }
+        Vec3 flat = new Vec3(target.getX() - npc.getX(), 0.0D, target.getZ() - npc.getZ());
+        // Somebody standing inside the boss leaves no direction to read off them, so the
+        // gaze decides rather than the aim collapsing to nothing.
+        boulderAxis = flat.lengthSqr() < 1.0E-6D ? facingAxis() : flat.normalize();
+        beginAction(PendingAction.BOULDER, phase.getBoulderAnimation(),
+                phase.getBoulderActionDelayTicks(), gameTime, target, data, phase);
+        // Only the cooldown is scaled: the action delay is measured against the attack
+        // animation, and shortening it would launch the stone before the swing does.
+        nextBoulderAt = gameTime + phase.getBoulderActionDelayTicks()
+                + rageDown(phase.getBoulderCooldownTicks());
+        return true;
+    }
+
+    private boolean isValidBoulderTarget(LivingEntity target, BossPhaseData phase) {
+        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.BOULDER)) {
+            return false;
+        }
+        // Measured flat, the way the corridor itself is laid out.
+        double dx = target.getX() - npc.getX();
+        double dz = target.getZ() - npc.getZ();
+        double range = phase.getBoulderRange();
+        return dx * dx + dz * dz <= range * range;
+    }
+
+    private void performBoulder(ServerLevel level, BossPhaseData phase) {
+        Vec3 axis = boulderAxis;
+        if (axis == null) {
+            return;
+        }
+        BlockState block = EntityBossBoulder.resolveBlock(phase.getBoulderBlock());
+        if (block == null) {
+            if (!phase.getBoulderBlock().equals(reportedBrokenBoulderBlock)) {
+                reportedBrokenBoulderBlock = phase.getBoulderBlock();
+                LOGGER.warn("Boss {} cannot launch a boulder of {}: no such block",
+                        npc.getName().getString(), phase.getBoulderBlock());
+            }
+            return;
+        }
+        reportedBrokenBoulderBlock = "";
+        // Whatever the eased turn had left to cover is finished on the tick the stone
+        // leaves, so the boss really faces down the corridor it promised.
+        turnTowardAxis(axis, phase.getBoulderRange(), 360.0F);
+
+        EntityBossBoulder boulder = new EntityBossBoulder(EntityRegistry.entityBossBoulder, level);
+        boulder.setOwner(npc);
+        boulder.configure(block, phase.getBoulderScale(), rageUp(phase.getBoulderDamage()),
+                rageUp(phase.getBoulderKnockback()), phase.isBoulderStopsOnHit(),
+                phase.getBoulderShatterRadius(), rageUp(phase.getBoulderShatterDamage()),
+                phase.getBoulderVfx(), phase.getBoulderEffects());
+        double offset = npc.getBbWidth() * 0.5D + phase.getBoulderScale() / 20.0D + 0.25D;
+        boolean rolls = phase.getBoulderMode() == BossPhaseData.BOULDER_MODE_ROLL;
+        boulder.setPos(npc.getX() + axis.x * offset,
+                rolls ? npc.getY() + 0.1D : npc.getY() + npc.getBbHeight() * 0.6D,
+                npc.getZ() + axis.z * offset);
+        // The corridor is measured from the boss, so the spawn offset comes off the travel
+        // budget rather than being rolled past the far end of the warning.
+        double travel = Math.max(2.0D, phase.getBoulderRange() - offset);
+        if (rolls) {
+            boulder.launchRoll(axis, phase.getBoulderSpeed(), travel);
+        } else {
+            boulder.launchThrow(axis, phase.getBoulderSpeed(), travel);
+        }
+        if (!level.addFreshEntity(boulder)) {
+            return;
+        }
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
+                block.getSoundType().getPlaceSound(), SoundSource.HOSTILE, 1.5F, 0.6F);
     }
 
     private boolean tryStartLeap(ServerLevel level, TeleportPathData data,
@@ -3710,6 +3821,7 @@ public final class TeleportPathController {
             case LEAP -> BossAbilityKind.LEAP;
             case LINE_ATTACK -> BossAbilityKind.LINE;
             case GEYSER -> BossAbilityKind.GEYSER;
+            case BOULDER -> BossAbilityKind.BOULDER;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -3782,7 +3894,7 @@ public final class TeleportPathController {
             // The corridor was committed to when the warning went up, so there is nothing
             // left to call off: walking out of it already is the dodge, and cancelling
             // would only bring the same strike back round in two seconds.
-            case LINE_ATTACK -> true;
+            case LINE_ATTACK, BOULDER -> true;
             // Nobody to dodge a summon, a teleport, or an action that is not running.
             case NONE, SUMMON, TELEPORT -> true;
         };
@@ -3819,6 +3931,7 @@ public final class TeleportPathController {
             case CAPTURE -> nextCaptureAt;
             case LEAP -> nextLeapAt;
             case GEYSER -> nextGeyserAt;
+            case BOULDER -> nextBoulderAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -3836,6 +3949,7 @@ public final class TeleportPathController {
             case CAPTURE -> nextCaptureAt = at;
             case LEAP -> nextLeapAt = at;
             case GEYSER -> nextGeyserAt = at;
+            case BOULDER -> nextBoulderAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -3881,6 +3995,8 @@ public final class TeleportPathController {
             performLeap(level, data, phase, gameTime);
         } else if (pendingAction == PendingAction.GEYSER) {
             performGeyser(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.BOULDER) {
+            performBoulder(level, phase);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -4448,7 +4564,7 @@ public final class TeleportPathController {
         if (phase.isLineAttackFaceAxis()) {
             // Whatever the eased turn had left to cover is finished on the tick the strike
             // lands, so the model points exactly down the corridor it hits.
-            turnTowardLineAxis(phase, 360.0F);
+            turnTowardAxis(axis, phase.getLineAttackLength(), 360.0F);
         }
         Vec3 origin = npc.position();
         // Purely for show, and started before the hits so the wave leaves at the same moment
@@ -4632,6 +4748,7 @@ public final class TeleportPathController {
         pendingTargetId = -1;
         pendingExtraTargets.clear();
         lineAttackAxis = null;
+        boulderAxis = null;
         // A leap still in the air is physics and keeps going; only a plan that has not been
         // pushed off yet dies with the windup that was just thrown away.
         if (!leapAirborne) {
@@ -4656,6 +4773,7 @@ public final class TeleportPathController {
         nextCaptureAt = NOT_SCHEDULED;
         nextLeapAt = NOT_SCHEDULED;
         nextGeyserAt = NOT_SCHEDULED;
+        nextBoulderAt = NOT_SCHEDULED;
     }
 
     private void reset() {
@@ -4688,5 +4806,6 @@ public final class TeleportPathController {
         reportedBlockedMinionPoints.clear();
         reportedBrokenFluid = "";
         reportedBrokenGeyserFluid = "";
+        reportedBrokenBoulderBlock = "";
     }
 }
