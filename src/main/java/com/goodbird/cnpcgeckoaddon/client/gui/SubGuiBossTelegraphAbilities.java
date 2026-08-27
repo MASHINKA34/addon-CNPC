@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
@@ -42,7 +43,7 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
     /** "+ Ground attack" while it warns, "- Ground attack" once it goes quiet. */
     private String abilityLabel(int ability) {
         return (data.isTelegraphAbility(ability) ? "+ " : "- ")
-                + I18n.get(TeleportPathData.TELEGRAPH_ABILITY_LABELS[ability]);
+                + I18n.get(BossAbilityKind.LABELS[ability]);
     }
 
     @Override

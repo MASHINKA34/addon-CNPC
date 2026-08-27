@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
@@ -3134,7 +3135,7 @@ public final class TeleportPathController {
         }
         // Never both marks over one ring: whichever of the two is drawing, it draws alone.
         if (windup && data.isTelegraphEnabled()
-                && data.isTelegraphAbility(TeleportPathData.TELEGRAPH_LEAP)) {
+                && data.isTelegraphAbility(BossAbilityKind.LEAP)) {
             return;
         }
         double radius = phase.getLeapImpactRadius();
@@ -3272,7 +3273,7 @@ public final class TeleportPathController {
         }
         // In the ability's own colour, so the name and the shape on the floor read as one
         // warning rather than as two.
-        Component name = Component.translatable(TeleportPathData.TELEGRAPH_ABILITY_LABELS[ability])
+        Component name = Component.translatable(BossAbilityKind.LABELS[ability])
                 .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(ability)));
         // The audience the countdown already goes to: whoever this fight belongs to.
         for (ServerPlayer player : timerBossEvent().getPlayers()) {
@@ -3384,7 +3385,7 @@ public final class TeleportPathController {
         }
         // The leap had a mark of its own before there was a general warning. That flag stays
         // on as a per-phase override, so a boss already set up without one keeps its silence.
-        if (ability != TeleportPathData.TELEGRAPH_LEAP) {
+        if (ability != BossAbilityKind.LEAP) {
             return true;
         }
         BossPhaseData phase = leapPhase(data);
@@ -3394,15 +3395,15 @@ public final class TeleportPathController {
     /** Which entry of the warning mask an action belongs to, or -1 when it is never marked. */
     private static int telegraphAbility(PendingAction action) {
         return switch (action) {
-            case GROUND_ATTACK -> TeleportPathData.TELEGRAPH_AREA;
-            case RANGED_ATTACK -> TeleportPathData.TELEGRAPH_RANGED;
-            case MELEE_ATTACK -> TeleportPathData.TELEGRAPH_MELEE;
-            case FLUID_SPIT -> TeleportPathData.TELEGRAPH_FLUID;
-            case HOOK -> TeleportPathData.TELEGRAPH_HOOK;
-            case CAPTURE -> TeleportPathData.TELEGRAPH_CAPTURE;
-            case SUMMON -> TeleportPathData.TELEGRAPH_SUMMON;
-            case LEAP -> TeleportPathData.TELEGRAPH_LEAP;
-            case LINE_ATTACK -> TeleportPathData.TELEGRAPH_LINE;
+            case GROUND_ATTACK -> BossAbilityKind.AREA;
+            case RANGED_ATTACK -> BossAbilityKind.RANGED;
+            case MELEE_ATTACK -> BossAbilityKind.MELEE;
+            case FLUID_SPIT -> BossAbilityKind.FLUID;
+            case HOOK -> BossAbilityKind.HOOK;
+            case CAPTURE -> BossAbilityKind.CAPTURE;
+            case SUMMON -> BossAbilityKind.SUMMON;
+            case LEAP -> BossAbilityKind.LEAP;
+            case LINE_ATTACK -> BossAbilityKind.LINE;
             case NONE, TELEPORT -> -1;
         };
     }

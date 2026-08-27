@@ -133,24 +133,18 @@ public final class TeleportPathData {
     };
 
     /**
-     * One bit of the warning mask per ability, in the order the labels below are listed.
-     * A quick jab can be left silent while the heavy swing that kills still warns.
+     * One bit of the warning mask per ability, numbered by {@link BossAbilityKind}. A quick
+     * jab can be left silent while the heavy swing that kills still warns.
+     *
+     * <p>The mask stops at the line strike because the abilities after it are not aimed at
+     * anyone - there is no wind-up to warn about - and because the bits of a saved boss have
+     * to keep meaning what they meant when it was built.</p>
      */
-    public static final int TELEGRAPH_AREA = 0;
-    public static final int TELEGRAPH_RANGED = 1;
-    public static final int TELEGRAPH_MELEE = 2;
-    public static final int TELEGRAPH_FLUID = 3;
-    public static final int TELEGRAPH_HOOK = 4;
-    public static final int TELEGRAPH_CAPTURE = 5;
-    public static final int TELEGRAPH_SUMMON = 6;
-    public static final int TELEGRAPH_LEAP = 7;
-    /** Appended rather than slotted in: the older bits are already in saved bosses. */
-    public static final int TELEGRAPH_LINE = 8;
-    public static final int TELEGRAPH_ABILITY_COUNT = 9;
+    public static final int TELEGRAPH_ABILITY_COUNT = BossAbilityKind.LINE + 1;
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = (1 << TELEGRAPH_ABILITY_COUNT) - 1;
     /** What {@link #TELEGRAPH_ALL_ABILITIES} was before the line strike joined the mask. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_LINE = (1 << TELEGRAPH_LINE) - 1;
+    private static final int TELEGRAPH_ABILITIES_BEFORE_LINE = (1 << BossAbilityKind.LINE) - 1;
 
     /**
      * Radius of the ring an aimed ability paints under whoever it picked. Its own reach is
@@ -173,18 +167,6 @@ public final class TeleportPathData {
     public static final int MAX_TELEGRAPH_LEAD_TICKS = 200;
     /** A second and a half: long enough to look down, read the ring and walk out of it. */
     public static final int DEFAULT_TELEGRAPH_LEAD_TICKS = 30;
-
-    public static final String[] TELEGRAPH_ABILITY_LABELS = {
-            "cnpcgeckoaddon.boss.ability.area",
-            "cnpcgeckoaddon.boss.ability.ranged",
-            "cnpcgeckoaddon.boss.ability.melee",
-            "cnpcgeckoaddon.boss.ability.fluid",
-            "cnpcgeckoaddon.boss.ability.hook",
-            "cnpcgeckoaddon.boss.ability.capture",
-            "cnpcgeckoaddon.boss.ability.summon",
-            "cnpcgeckoaddon.boss.ability.leap",
-            "cnpcgeckoaddon.boss.ability.line"
-    };
 
     /** The chest lands where the boss fell - what it has always done. */
     public static final int CHEST_PLACEMENT_DEATH = 0;
