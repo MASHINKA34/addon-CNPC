@@ -3246,7 +3246,7 @@ public final class TeleportPathController {
         }
         DustParticleOptions dust = BossTelegraphUtil.dust(ability);
         if (data.isTelegraphZone()) {
-            drawTelegraphZone(level, data, dust);
+            drawTelegraphZone(level, data, ability, dust);
         }
         if (data.isTelegraphAura()) {
             BossTelegraphUtil.aura(level, npc, dust);
@@ -3281,11 +3281,20 @@ public final class TeleportPathController {
     }
 
     /** The ground the ability being wound up is about to cover. */
-    private void drawTelegraphZone(ServerLevel level, TeleportPathData data, DustParticleOptions dust) {
+    private void drawTelegraphZone(ServerLevel level, TeleportPathData data, int ability,
+                                   DustParticleOptions dust) {
         BossPhaseData phase = data.getPhase(currentPhase);
         switch (pendingAction) {
             case GROUND_ATTACK -> BossTelegraphUtil.ring(level, npc.position(),
                     phase.getAreaAttackRadius(), dust);
+            case LINE_ATTACK -> {
+                if (lineAttackAxis != null) {
+                    BossTelegraphUtil.corridor(level, npc.position(), lineAttackAxis,
+                            phase.getLineAttackLength(), phase.getLineAttackWidth(),
+                            phase.getLineAttackSideWidth(), dust,
+                            BossTelegraphUtil.fadedDust(ability));
+                }
+            }
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
                     phase.getMeleeAttackRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE ->

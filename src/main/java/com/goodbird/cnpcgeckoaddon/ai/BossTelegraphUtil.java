@@ -34,8 +34,14 @@ public final class BossTelegraphUtil {
             0xFF3355  // line strike - crimson
     };
 
+    /** How much of an ability's colour its faded half keeps. */
+    private static final float FADED_BRIGHTNESS = 0.55F;
+    /** Smaller as well as darker: the two together are what read as "this part hurts less". */
+    private static final float FADED_SCALE = 0.7F;
+
     /** Built once: the options are immutable and one is handed out per ability per emit. */
-    private static final DustParticleOptions[] ABILITY_DUST = buildDust();
+    private static final DustParticleOptions[] ABILITY_DUST = buildDust(1.0F, 1.0F);
+    private static final DustParticleOptions[] FADED_DUST = buildDust(FADED_BRIGHTNESS, FADED_SCALE);
 
     /** Roughly one emit per this many blocks along a ring, an arc or a line. */
     private static final double EMIT_SPACING = 0.6D;
@@ -43,6 +49,13 @@ public final class BossTelegraphUtil {
     /** Ceiling on the emits per shape, so a wide ring costs no more than a narrow one. */
     private static final int MAX_SHAPE_POINTS = 48;
     private static final int MAX_LINE_POINTS = 32;
+    /** The flanks of a corridor are walked at this, which is half of what its own edges get. */
+    private static final double SIDE_EMIT_SPACING = EMIT_SPACING * 2.0D;
+    /**
+     * Ceiling on the emits one edge of a corridor costs. A rectangle is four edges and its
+     * flanks are eight more, so each of them has to stay well under a whole ring's budget.
+     */
+    private static final int MAX_CORRIDOR_EDGE_POINTS = 24;
     /** Rare on purpose: the aura only has to catch the eye, not hide the boss behind dust. */
     private static final int AURA_PARTICLES = 6;
 
@@ -52,6 +65,16 @@ public final class BossTelegraphUtil {
     /** The dust one ability marks the ground with. */
     public static DustParticleOptions dust(int ability) {
         return ABILITY_DUST[Mth.clamp(ability, 0, ABILITY_DUST.length - 1)];
+    }
+
+    /**
+     * The same colour, dimmer, for the softer part of a mark an ability draws in two halves.
+     *
+     * <p>Still its own colour rather than a neutral grey: a player has to be able to see at
+     * a glance that the faint band belongs to the bright one beside it.</p>
+     */
+    public static DustParticleOptions fadedDust(int ability) {
+        return FADED_DUST[Mth.clamp(ability, 0, FADED_DUST.length - 1)];
     }
 
     /** The same colour as packed RGB, for the name that goes into the action bar. */
@@ -84,6 +107,63 @@ public final class BossTelegraphUtil {
         for (int i = 0; i <= points; i++) {
             double angle = facing - half + i * 2.0D * half / points;
             emitOnFloor(level, centre, Math.cos(angle) * radius, Math.sin(angle) * radius, dust);
+        }
+    }
+
+    /**
+     * The rectangle a line strike is about to come down, and the softer bands beside it.
+     *
+     * <p>A ring is no use here. What a player needs from this mark is which way to step, and
+     * only an outline with sides can say that. The flanks are drawn in the faded colour for
+     * the same reason they hit softer: standing in one is a mistake, not a death.</p>
+     *
+     * @param axis      the flat unit direction the strike was committed to
+     * @param width     the full width of the corridor, half of it to either side of the axis
+     * @param sideWidth how far past that the softer band reaches, or zero for none
+     */
+    public static void corridor(ServerLevel level, Vec3 origin, Vec3 axis, double length,
+                                double width, double sideWidth, DustParticleOptions dust,
+                                DustParticleOptions sideDust) {
+        double half = width * 0.5D;
+        edge(level, origin, axis, dust, EMIT_SPACING, 0.0D, -half, length, -half);
+        edge(level, origin, axis, dust, EMIT_SPACING, 0.0D, half, length, half);
+        edge(level, origin, axis, dust, EMIT_SPACING, 0.0D, -half, 0.0D, half);
+        edge(level, origin, axis, dust, EMIT_SPACING, length, -half, length, half);
+        if (sideWidth <= 0.0D) {
+            return;
+        }
+        // Only the outer edge and the two caps: the inner edge of each band is the corridor's
+        // own side, already drawn above in the colour that matters more.
+        double outer = half + sideWidth;
+        for (double sign : new double[]{-1.0D, 1.0D}) {
+            edge(level, origin, axis, sideDust, SIDE_EMIT_SPACING,
+                    0.0D, sign * outer, length, sign * outer);
+            edge(level, origin, axis, sideDust, SIDE_EMIT_SPACING,
+                    0.0D, sign * half, 0.0D, sign * outer);
+            edge(level, origin, axis, sideDust, SIDE_EMIT_SPACING,
+                    length, sign * half, length, sign * outer);
+        }
+    }
+
+    /**
+     * One straight run of dust, laid out in a corridor's own terms: how far down the line a
+     * point sits, and how far off it.
+     */
+    private static void edge(ServerLevel level, Vec3 origin, Vec3 axis, DustParticleOptions dust,
+                             double spacing, double fromAlong, double fromAcross,
+                             double toAlong, double toAcross) {
+        double alongStep = toAlong - fromAlong;
+        double acrossStep = toAcross - fromAcross;
+        double distance = Math.sqrt(alongStep * alongStep + acrossStep * acrossStep);
+        int points = Mth.clamp((int) Math.round(distance / spacing), 1, MAX_CORRIDOR_EDGE_POINTS);
+        // A quarter turn of the axis, which is what the corridor is measured across.
+        double acrossX = axis.z;
+        double acrossZ = -axis.x;
+        for (int i = 0; i <= points; i++) {
+            double along = fromAlong + alongStep * i / points;
+            double across = fromAcross + acrossStep * i / points;
+            emitOnFloor(level, origin, axis.x * along + acrossX * across,
+                    axis.z * along + acrossZ * across, dust);
         }
     }
 
@@ -131,14 +211,14 @@ public final class BossTelegraphUtil {
         level.sendParticles(dust, x, floor.getY() + 1.1D, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
     }
 
-    private static DustParticleOptions[] buildDust() {
+    private static DustParticleOptions[] buildDust(float brightness, float scale) {
         DustParticleOptions[] dust = new DustParticleOptions[ABILITY_COLORS.length];
         for (int i = 0; i < ABILITY_COLORS.length; i++) {
             int rgb = ABILITY_COLORS[i];
             dust[i] = new DustParticleOptions(new Vector3f(
-                    (rgb >> 16 & 0xFF) / 255.0F,
-                    (rgb >> 8 & 0xFF) / 255.0F,
-                    (rgb & 0xFF) / 255.0F), 1.0F);
+                    (rgb >> 16 & 0xFF) / 255.0F * brightness,
+                    (rgb >> 8 & 0xFF) / 255.0F * brightness,
+                    (rgb & 0xFF) / 255.0F * brightness), scale);
         }
         return dust;
     }
