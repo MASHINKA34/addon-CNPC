@@ -110,7 +110,8 @@ public final class BossPhaseData {
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
-            BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER
+            BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
+            BossAbilityKind.BOULDER
     };
     /**
      * Every ability is cast standing still until a builder frees it, existing bosses
@@ -710,6 +711,12 @@ public final class BossPhaseData {
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
                 ? tag.getInt("CastRootMask") & CAST_ROOT_ALL : CAST_ROOT_ALL;
+        // A save from before the boulder existed never chose to let it walk, so the new bit
+        // gets the same rooted default the whole mask got when the choice first appeared.
+        // Saves that know the boulder always carry its enabled key.
+        if (!tag.contains("BoulderEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.BOULDER;
+        }
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
         invulnerableEndMode = value(tag, "InvulnerableEndMode", INVULNERABLE_END_TIMER_OR_MINIONS,

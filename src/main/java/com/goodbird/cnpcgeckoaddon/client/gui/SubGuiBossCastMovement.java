@@ -15,7 +15,7 @@ public final class SubGuiBossCastMovement extends GuiBasic {
     private static final int FIRST_HINT_LABEL = 40;
 
     /** Two columns, the way the warning and immunity screens list the same abilities. */
-    private static final int ROWS_PER_COLUMN = 5;
+    private static final int ROWS_PER_COLUMN = 6;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
     private static final int HINT_COLOR = 0xA0A0A0;
@@ -29,7 +29,7 @@ public final class SubGuiBossCastMovement extends GuiBasic {
         this.phaseIndex = phaseIndex;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 230;
+        imageHeight = 238;
         closeOnEsc = true;
     }
 
@@ -54,12 +54,12 @@ public final class SubGuiBossCastMovement extends GuiBasic {
 
         int y = addWrappedHint(FIRST_HINT_LABEL,
                 "+ " + I18n.get("cnpcgeckoaddon.boss.cast_move_rooted")
-                        + "   - " + I18n.get("cnpcgeckoaddon.boss.cast_move_free"), guiTop + 140);
+                        + "   - " + I18n.get("cnpcgeckoaddon.boss.cast_move_free"), guiTop + 160);
         y = addWrappedHint(FIRST_HINT_LABEL + 10,
                 I18n.get(BossAbilityKind.LABELS[BossAbilityKind.LEAP]) + ": "
                         + I18n.get("cnpcgeckoaddon.boss.cast_move_locked"), y + 2);
         addWrappedHint(FIRST_HINT_LABEL + 20, I18n.get("cnpcgeckoaddon.boss.cast_move_hint"), y + 2);
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 202, 60, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 212, 60, 20,
                 "gui.done", button -> close()));
     }
 

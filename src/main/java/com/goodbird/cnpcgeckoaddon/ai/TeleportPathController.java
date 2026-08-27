@@ -3708,6 +3708,15 @@ public final class TeleportPathController {
                             BossTelegraphUtil.fadedDust(ability));
                 }
             }
+            case BOULDER -> {
+                if (boulderAxis != null) {
+                    // As wide as the stone itself and with no softer flank: standing a step
+                    // outside this corridor really is standing clear.
+                    BossTelegraphUtil.corridor(level, npc.position(), boulderAxis,
+                            phase.getBoulderRange(), phase.getBoulderScale() / 10.0D,
+                            0.0D, dust, BossTelegraphUtil.fadedDust(ability));
+                }
+            }
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
                     phase.getMeleeAttackRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE ->

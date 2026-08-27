@@ -145,7 +145,7 @@ public final class TeleportPathData {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LEAP, BossAbilityKind.LINE,
-            BossAbilityKind.GEYSER
+            BossAbilityKind.GEYSER, BossAbilityKind.BOULDER
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -153,6 +153,9 @@ public final class TeleportPathData {
     private static final int TELEGRAPH_ABILITIES_BEFORE_LINE = (1 << BossAbilityKind.LINE) - 1;
     /** And before the geyser did, which is every bit up to and including the line strike. */
     private static final int TELEGRAPH_ABILITIES_BEFORE_GEYSER = (1 << (BossAbilityKind.LINE + 1)) - 1;
+    /** And before the boulder: everything through the geyser, minus the unwarnable blast. */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_BOULDER =
+            ((1 << (BossAbilityKind.GEYSER + 1)) - 1) & ~(1 << BossAbilityKind.BLAST);
 
     private static int telegraphMask() {
         int mask = 0;
@@ -1063,6 +1066,7 @@ public final class TeleportPathData {
      */
     private static int restoreTelegraphAbilities(int saved) {
         return saved == TELEGRAPH_ABILITIES_BEFORE_LINE || saved == TELEGRAPH_ABILITIES_BEFORE_GEYSER
+                || saved == TELEGRAPH_ABILITIES_BEFORE_BOULDER
                 ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 
