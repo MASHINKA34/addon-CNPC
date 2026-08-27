@@ -64,6 +64,11 @@ public class EntityBossBoulder extends Projectile {
     private static final double STEP_HEIGHT = 1.0D;
     private static final double ROLL_GRAVITY = 0.08D;
     private static final double MAX_FALL_SPEED = 1.5D;
+    /**
+     * Longest single collision step, well under the thinnest wall and the smallest stone:
+     * a move resolved in slices this short can never skip clean through a block.
+     */
+    private static final double COLLISION_SLICE = 0.4D;
     /** A roll that has dropped this far without floor has left the arena, not crossed it. */
     private static final double MAX_PIT_DEPTH = 16.0D;
     private static final double THROW_GRAVITY = 0.05D;
@@ -255,49 +260,64 @@ public class EntityBossBoulder extends Projectile {
     }
 
     private void tickRoll(EntityNPCInterface boss) {
-        double stepX = direction.x * speed;
-        double stepZ = direction.z * speed;
+        boolean wasAirborne = verticalSpeed > 0.0D;
+        verticalSpeed = Math.min(verticalSpeed + ROLL_GRAVITY, MAX_FALL_SPEED);
+        // Sub-sliced so neither axis ever moves further than a block is thick in one
+        // resolution step - a fast stone must break on a thin wall, not blink through it.
+        int slices = Math.max(1, Math.max(Mth.ceil(speed / COLLISION_SLICE),
+                Mth.ceil(verticalSpeed / COLLISION_SLICE)));
+        double sliceLength = speed / slices;
+        double fallSlice = verticalSpeed / slices;
         AABB before = getBoundingBox();
-        AABB moved = before.move(stepX, 0.0D, stepZ);
-        double lift = 0.0D;
-        if (!level().noCollision(this, moved)) {
-            AABB stepped = moved.move(0.0D, STEP_HEIGHT, 0.0D);
-            // Only a grounded boulder climbs; one mid-fall meeting an edge has hit a wall.
-            if (verticalSpeed <= 0.0D && level().noCollision(this, stepped)) {
+        AABB box = before;
+        AABB sweep = before;
+        boolean landed = false;
+        for (int i = 0; i < slices; i++) {
+            AABB moved = box.move(direction.x * sliceLength, 0.0D, direction.z * sliceLength);
+            if (!level().noCollision(this, moved)) {
+                AABB stepped = moved.move(0.0D, STEP_HEIGHT, 0.0D);
+                // Only a grounded boulder climbs; one mid-fall meeting an edge has hit a
+                // wall, and so has one whose stair is capped by more blocks above.
+                if (wasAirborne || !level().noCollision(this, stepped)) {
+                    settleAt(box);
+                    // Whoever the partial move already swept over still takes the hit; the
+                    // stone only breaks once, whichever of the two calls gets to do it.
+                    if (!runOver(boss, sweep)) {
+                        shatter(boss, position());
+                    }
+                    return;
+                }
                 moved = stepped;
-                lift = STEP_HEIGHT;
-            } else {
-                shatter(boss, position());
-                return;
+                // The climb ends this tick's fall: the stone rolls on the higher floor now.
+                fallSlice = 0.0D;
+                landed = true;
             }
-        }
-
-        double fall = 0.0D;
-        if (lift > 0.0D) {
-            verticalSpeed = 0.0D;
-            fallenDepth = 0.0D;
-        } else {
-            verticalSpeed = Math.min(verticalSpeed + ROLL_GRAVITY, MAX_FALL_SPEED);
-            fall = resolveFall(moved, verticalSpeed);
-            if (fall < verticalSpeed) {
-                // Something took the landing, so the next drop starts from rest again.
-                verticalSpeed = 0.0D;
-                fallenDepth = 0.0D;
-            } else {
-                fallenDepth += fall;
-                // A hole this deep is not part of any arena floor: the boulder is gone, not
-                // rolling, and must not keep ticking its way down for ever.
-                if (fallenDepth > MAX_PIT_DEPTH) {
+            if (fallSlice > 0.0D) {
+                double fell = resolveFall(moved, fallSlice);
+                moved = moved.move(0.0D, -fell, 0.0D);
+                fallenDepth += fell;
+                if (fell < fallSlice) {
+                    fallSlice = 0.0D;
+                    landed = true;
+                } else if (fallenDepth > MAX_PIT_DEPTH) {
+                    // A hole this deep is not part of any arena floor: the boulder is gone,
+                    // not rolling, and must not keep ticking its way down for ever.
+                    settleAt(moved);
                     vanish();
                     return;
                 }
             }
-            moved = moved.move(0.0D, -fall, 0.0D);
+            box = moved;
+            sweep = sweep.minmax(box);
+        }
+        if (landed) {
+            verticalSpeed = 0.0D;
+            fallenDepth = 0.0D;
         }
 
-        setPos((moved.minX + moved.maxX) * 0.5D, moved.minY, (moved.minZ + moved.maxZ) * 0.5D);
-        setDeltaMovement(stepX, lift - fall, stepZ);
-        if (runOver(boss, before.minmax(moved))) {
+        settleAt(box);
+        setDeltaMovement(direction.x * speed, box.minY - before.minY, direction.z * speed);
+        if (runOver(boss, sweep)) {
             return;
         }
         traveled += speed;
@@ -305,6 +325,11 @@ public class EntityBossBoulder extends Projectile {
             // Rolled the whole promised corridor: it breaks apart where the warning ended.
             shatter(boss, position());
         }
+    }
+
+    /** Commits a resolved box back onto the entity position. */
+    private void settleAt(AABB box) {
+        setPos((box.minX + box.maxX) * 0.5D, box.minY, (box.minZ + box.maxZ) * 0.5D);
     }
 
     /**
