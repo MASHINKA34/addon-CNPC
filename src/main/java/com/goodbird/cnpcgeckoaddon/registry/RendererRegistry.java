@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.registry;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.client.ManualAnimationClient;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossChestRenderer;
+import com.goodbird.cnpcgeckoaddon.client.renderer.RenderBossBoulder;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderCustomModel;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderTileCustomModel;
 import com.goodbird.cnpcgeckoaddon.utils.MobModelTextureResolver;
@@ -25,6 +26,7 @@ public class RendererRegistry {
         event.registerBlockEntityRenderer(TileEntityRegistry.tileEntityCustomModel, context -> new RenderTileCustomModel());
         // The fluid spit draws itself entirely out of block particles, so it needs no model.
         event.registerEntityRenderer(EntityRegistry.entityFluidSpit, NoopRenderer::new);
+        event.registerEntityRenderer(EntityRegistry.entityBossBoulder, RenderBossBoulder::new);
         event.registerBlockEntityRenderer(TileEntityRegistry.bossChest, BossChestRenderer::new);
     }
 

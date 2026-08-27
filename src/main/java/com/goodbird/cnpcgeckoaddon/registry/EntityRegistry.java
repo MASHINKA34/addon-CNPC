@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.registry;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import net.minecraft.core.Registry;
@@ -22,12 +23,16 @@ public class EntityRegistry {
 
     public static EntityType<? extends EntityCustomModel> entityCustomModel;
     public static EntityType<EntityFluidSpit> entityFluidSpit;
+    public static EntityType<EntityBossBoulder> entityBossBoulder;
 
     @SubscribeEvent
     public static void registerEntities(RegisterEvent event) {
         if(event.getRegistry() == BuiltInRegistries.ENTITY_TYPE) {
             entityCustomModel = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityCustomModel.class, "custommodelentity", EntityCustomModel::new, 64, 10, false, 0.7F, 2F);
             entityFluidSpit = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityFluidSpit.class, "fluidspit", EntityFluidSpit::new, 64, 2, true, 0.4F, 0.4F);
+            // The registered size is only the spawn-time default: the real box follows the
+            // per-cast scale through EntityBossBoulder#getDimensions.
+            entityBossBoulder = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityBossBoulder.class, "bossboulder", EntityBossBoulder::new, 64, 2, true, 1.5F, 1.5F);
         }
     }
 

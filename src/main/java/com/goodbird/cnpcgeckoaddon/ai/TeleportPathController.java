@@ -4311,6 +4311,21 @@ public final class TeleportPathController {
     }
 
     /**
+     * Whether a boulder this boss launched may run this one over.
+     *
+     * <p>Asked by {@link com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder} every tick of
+     * its flight, for the reason {@link #geyserVictims} exists: the hits land seconds after
+     * the cast, and the entity has no idea on its own who this boss counts as an enemy. The
+     * species filter is applied too, so a boss aimed only at players rolls straight through
+     * the cattle.</p>
+     */
+    public boolean isBoulderVictim(LivingEntity target) {
+        return target != npc && target.isAlive()
+                && matchesAbilityTargetKind(target, settings())
+                && isAbilityTarget(target, BossAbilityKind.BOULDER);
+    }
+
+    /**
      * Whether this candidate is a species the boss is configured to aim at.
      *
      * <p>Deliberately only the species filter: whether the boss may hit something at all
