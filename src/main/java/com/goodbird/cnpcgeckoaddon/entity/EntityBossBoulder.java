@@ -19,19 +19,18 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -179,9 +178,13 @@ public class EntityBossBoulder extends Projectile {
         yRotO = yaw;
     }
 
-    /** Twice the straight-line flight plus slack, so a snagged boulder still dies on its own. */
+    /**
+     * Twice the straight-line flight plus slack, so a snagged boulder still dies on its
+     * own. The ceiling still clears the slowest legal flight: 64 blocks at a tenth of a
+     * block per tick is 640 ticks before the doubling.
+     */
     private int travelBudgetTicks() {
-        return Mth.clamp(Mth.ceil(range / speed) * 2 + 60, 60, 600);
+        return Mth.clamp(Mth.ceil(range / speed) * 2 + 60, 60, 1500);
     }
 
     public BlockState getBlockState() {
@@ -356,22 +359,36 @@ public class EntityBossBoulder extends Projectile {
     }
 
     private void tickThrow(EntityNPCInterface boss) {
-        HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
-        if (hit.getType() == HitResult.Type.ENTITY) {
-            Entity victim = ((EntityHitResult) hit).getEntity();
-            if (victim instanceof LivingEntity living) {
-                strike(boss, living);
-            }
-            // A thrown stone has no second act: whatever it met first breaks it there.
-            shatter(boss, hit.getLocation());
-            return;
-        }
-        if (hit.getType() == HitResult.Type.BLOCK) {
-            shatter(boss, hit.getLocation());
-            return;
-        }
         Vec3 motion = getDeltaMovement();
-        setPos(getX() + motion.x, getY() + motion.y, getZ() + motion.z);
+        Vec3 from = position();
+        Vec3 to = from.add(motion);
+        // Blocks are clipped down the centre line, victims are swept with the whole box:
+        // a stone this big has to be able to hit with its face, not with a thread.
+        BlockHitResult blockHit = level().clip(new ClipContext(from, to,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+        Vec3 end = blockHit.getType() == HitResult.Type.MISS ? to : blockHit.getLocation();
+        AABB sweep = getBoundingBox().expandTowards(end.subtract(from)).inflate(0.1D);
+        LivingEntity firstVictim = null;
+        double firstDistance = Double.MAX_VALUE;
+        for (LivingEntity victim : level().getEntitiesOfClass(LivingEntity.class, sweep,
+                candidate -> isVictim(boss, candidate))) {
+            double distance = victim.position().distanceToSqr(from);
+            if (distance < firstDistance) {
+                firstVictim = victim;
+                firstDistance = distance;
+            }
+        }
+        // A thrown stone has no second act: whatever it meets first breaks it there.
+        if (firstVictim != null) {
+            strike(boss, firstVictim);
+            shatter(boss, firstVictim.position());
+            return;
+        }
+        if (blockHit.getType() != HitResult.Type.MISS) {
+            shatter(boss, blockHit.getLocation());
+            return;
+        }
+        setPos(to.x, to.y, to.z);
         traveled += Math.sqrt(motion.x * motion.x + motion.z * motion.z);
         setDeltaMovement(motion.x, motion.y - THROW_GRAVITY, motion.z);
         // Thrown over the arena's edge: nothing below will ever stop it.
@@ -421,12 +438,6 @@ public class EntityBossBoulder extends Projectile {
         TeleportPathController controller = boss instanceof IBossController holder
                 ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
         return controller != null && controller.isBoulderVictim(candidate);
-    }
-
-    @Override
-    protected boolean canHitEntity(Entity target) {
-        return super.canHitEntity(target) && target instanceof LivingEntity living
-                && getOwner() instanceof EntityNPCInterface boss && isVictim(boss, living);
     }
 
     /** Breaks the boulder against {@code centre}: the burst circle, the debris, the crack. */
