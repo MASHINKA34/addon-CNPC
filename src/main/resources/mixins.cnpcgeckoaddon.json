@@ -16,7 +16,6 @@
     "MixinEntityNPCInterfaceRanged",
     "MixinEntityNPCInterfaceSoundReaction",
     "MixinEntityNPCInterfaceTeleportPath",
-    "MixinEntityUtil",
     "MixinFlowingFluid",
     "MixinModelData",
     "MixinNpcWrapper",
@@ -26,6 +25,7 @@
   ],
   "client": [
     "MixinBlockScriptedRenderer",
+    "MixinEntityUtil",
     "MixinGuiCreationEntities",
     "MixinGuiNpcAI",
     "MixinRenderNPCInterface",
