@@ -286,6 +286,10 @@ public final class TeleportPathController {
     private boolean totemWaveActivated;
     private long totemActivationDeadline = NOT_SCHEDULED;
     private long nextTotemStructuralReconcileAt;
+    /** Game time the shared totem scan below was collected on. */
+    private long totemScanAt = NOT_SCHEDULED;
+    /** Every loaded totem of this boss, collected at most once per tick and shared. */
+    private List<Entity> totemScan = List.of();
 
     private static final class TotemRuntime {
         private UUID entityId;
@@ -602,8 +606,8 @@ public final class TeleportPathController {
         totemWaveActivated = false;
         totemActivationDeadline = NOT_SCHEDULED;
         nextTotemStructuralReconcileAt = 0L;
-        reconcileTotemStructure(level, data);
-        adoptLoadedTotems(level, data);
+        reconcileTotemStructure(level, gameTime, data);
+        adoptLoadedTotems(level, gameTime, data);
         if (data.isTotemsEnabled()
                 && data.getTotemActivationMode() == TeleportPathData.TOTEM_ACTIVATION_ALWAYS) {
             activateTotemWave(gameTime, data);
@@ -625,8 +629,8 @@ public final class TeleportPathController {
 
         if (gameTime >= nextTotemStructuralReconcileAt) {
             nextTotemStructuralReconcileAt = gameTime + TOTEM_RETRY_INTERVAL_TICKS;
-            reconcileTotemStructure(level, data);
-            adoptLoadedTotems(level, data);
+            reconcileTotemStructure(level, gameTime, data);
+            adoptLoadedTotems(level, gameTime, data);
         }
 
         if (!totemWaveActivated) {
@@ -702,7 +706,7 @@ public final class TeleportPathController {
         Entity totem = runtime == null || runtime.entityId == null
                 ? null : level.getEntity(runtime.entityId);
         if (!isUsableTotem(totem, slotId)) {
-            Entity adopted = BossTotemUtil.findAlive(level, npc, slotId);
+            Entity adopted = findAliveTotem(level, gameTime, slotId);
             if (adopted != null) {
                 runtime = totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(null));
                 runtime.entityId = adopted.getUUID();
@@ -853,9 +857,13 @@ public final class TeleportPathController {
         BossTotemUtil.writeDeadSlots(npc, deadTotemSlots);
     }
 
-    private void adoptLoadedTotems(ServerLevel level, TeleportPathData data) {
+    private void adoptLoadedTotems(ServerLevel level, long gameTime, TeleportPathData data) {
         Set<Integer> configured = configuredTotemSlotIds(data, true);
-        for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
+        for (Entity totem : loadedTotems(level, gameTime)) {
+            if (totem.isRemoved()) {
+                // Discarded earlier in this same tick, by the reconcile that shares the scan.
+                continue;
+            }
             int slotId = BossTotemUtil.slotId(totem);
             if (!configured.contains(slotId) || !totemWaveActivated && data.getTotemActivationMode()
                     != TeleportPathData.TOTEM_ACTIVATION_ALWAYS) {
@@ -879,13 +887,16 @@ public final class TeleportPathController {
         }
     }
 
-    private void reconcileTotemStructure(ServerLevel level, TeleportPathData data) {
+    private void reconcileTotemStructure(ServerLevel level, long gameTime, TeleportPathData data) {
         Set<Integer> allConfigured = configuredTotemSlotIds(data, false);
         Set<Integer> enabledConfigured = configuredTotemSlotIds(data, true);
         boolean changed = deadTotemSlots.retainAll(allConfigured);
         totemRuntime.keySet().removeIf(slotId -> !enabledConfigured.contains(slotId));
         resetTotemHealthSlots.retainAll(enabledConfigured);
-        for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
+        for (Entity totem : loadedTotems(level, gameTime)) {
+            if (totem.isRemoved()) {
+                continue;
+            }
             if (!enabledConfigured.contains(BossTotemUtil.slotId(totem))) {
                 dropTotemLink(totem, BossTotemUtil.slotId(totem));
                 totem.discard();
@@ -904,6 +915,33 @@ public final class TeleportPathController {
             }
         }
         return result;
+    }
+
+    /**
+     * Every loaded totem of this boss, scanned at most once per tick.
+     *
+     * <p>The scan walks every entity in the level. Without the memo it ran once per empty
+     * slot per tick, plus twice per structural reconcile - on a populated server that is
+     * most of what a totem boss cost. Entities discarded after the scan was taken are
+     * filtered out again wherever the list is read.</p>
+     */
+    private List<Entity> loadedTotems(ServerLevel level, long gameTime) {
+        if (totemScanAt != gameTime) {
+            totemScanAt = gameTime;
+            totemScan = BossTotemUtil.findAllLoaded(level, npc);
+        }
+        return totemScan;
+    }
+
+    /** The shared-scan form of {@link BossTotemUtil#findAlive}, with the same answer. */
+    private Entity findAliveTotem(ServerLevel level, long gameTime, int slotId) {
+        for (Entity entity : loadedTotems(level, gameTime)) {
+            if (entity.isAlive() && !entity.isRemoved()
+                    && BossTotemUtil.slotId(entity) == slotId && BossTotemUtil.isTotemOf(entity, npc)) {
+                return entity;
+            }
+        }
+        return null;
     }
 
     private void discardRuntimeTotem(ServerLevel level, int slotId) {
@@ -932,6 +970,9 @@ public final class TeleportPathController {
         totemWaveActivated = false;
         totemActivationDeadline = NOT_SCHEDULED;
         nextTotemStructuralReconcileAt = 0L;
+        // Dropped so the memo cannot keep entity references alive past the fight.
+        totemScanAt = NOT_SCHEDULED;
+        totemScan = List.of();
     }
 
     private void syncTotemLink(TeleportPathData data, BossTotemEntry entry, Entity totem,
