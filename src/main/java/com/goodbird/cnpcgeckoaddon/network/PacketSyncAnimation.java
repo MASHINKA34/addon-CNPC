@@ -1,12 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
-import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.world.entity.Entity;
-import noppes.npcs.entity.EntityCustomNpc;
 import software.bernie.geckolib.animation.RawAnimation;
 
 public class PacketSyncAnimation implements CustomPacketPayload {
@@ -35,16 +30,9 @@ public class PacketSyncAnimation implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncAnimation packet) {
-        ClientLevel level = Minecraft.getInstance().level;
-        if (level == null) {
-            return;
-        }
-        Entity entity = level.getEntity(packet.id);
-        if(!(entity instanceof EntityCustomNpc)) return;
-        EntityCustomNpc npc = (EntityCustomNpc) entity;
-        if(npc.modelData==null || !(npc.modelData.getEntity(npc) instanceof EntityCustomModel)) return;
-        EntityCustomModel entityCustomModel = (EntityCustomModel) npc.modelData.getEntity(npc);
-        entityCustomModel.manualAnim = packet.builder;
+        // Handed through the bridge so this class never mentions the client-only lookup:
+        // a packet class is loaded on the dedicated server too.
+        ManualAnimationClientBridge.acceptEntity(packet.id, packet.builder);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.registry;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.client.ManualAnimationClient;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossChestRenderer;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderCustomModel;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderTileCustomModel;
@@ -17,6 +18,9 @@ public class RendererRegistry {
 
     @SubscribeEvent
     public static void registerRenderers(final EntityRenderersEvent.RegisterRenderers event) {
+        // Piggybacks on renderer registration: a client-only moment that always runs before
+        // any server can send a manual animation.
+        ManualAnimationClient.register();
         event.registerEntityRenderer(EntityRegistry.entityCustomModel, RenderCustomModel::new);
         event.registerBlockEntityRenderer(TileEntityRegistry.tileEntityCustomModel, context -> new RenderTileCustomModel());
         // The fluid spit draws itself entirely out of block particles, so it needs no model.
