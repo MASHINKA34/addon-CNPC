@@ -67,6 +67,12 @@ public class BossDataRoundTripGameTest {
         NpcImmunityData immunity = new NpcImmunityData();
         immunity.setImmuneTo(BossAbilityKind.HOOK, true);
         immunity.setImmuneTo(BossAbilityKind.GEYSER, true);
+        immunity.getResist(0).setMatcher("scorchedguns:*");
+        immunity.getResist(0).setPercent(20);
+        // Left in a middle slot on purpose: saving keeps only the set rules, so it has to
+        // come back as the second rule rather than the fourth.
+        immunity.getResist(3).setMatcher("*");
+        immunity.getResist(3).setPercent(50);
         CompoundTag immunityOnce = immunity.writeToNBT(new CompoundTag());
         NpcImmunityData immunityReread = new NpcImmunityData();
         immunityReread.readFromNBT(immunityOnce);
@@ -75,6 +81,13 @@ public class BossDataRoundTripGameTest {
         helper.assertTrue(immunityReread.isImmuneTo(BossAbilityKind.HOOK)
                         && !immunityReread.isImmuneTo(BossAbilityKind.MELEE),
                 "exactly the bits that were set should come back set");
+        helper.assertTrue(immunityReread.getResist(0).getMatcher().equals("scorchedguns:*")
+                        && immunityReread.getResist(0).getPercent() == 20,
+                "the first damage resistance rule should come back as written");
+        helper.assertTrue(immunityReread.getResist(1).getMatcher().equals("*")
+                        && immunityReread.getResist(1).getPercent() == 50
+                        && !immunityReread.getResist(2).isSet(),
+                "set rules should come back packed in order, the rest empty");
         helper.succeed();
     }
 
