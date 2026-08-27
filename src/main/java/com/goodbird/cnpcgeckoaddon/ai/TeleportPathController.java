@@ -4029,12 +4029,12 @@ public final class TeleportPathController {
     }
 
     /**
-     * Whether one ability may pick this victim: the boss own idea of who counts as an enemy,
+     * Whether one ability may pick this victim: the boss' own idea of who counts as an enemy,
      * plus the victim's say in it.
      *
      * <p>An npc immune to an ability is never chosen by it, not merely left unhurt. A hook
      * that reels in somebody it cannot move, or a grab closing on somebody it cannot hold,
-     * would spend the boss turn on nothing and read as a bug.</p>
+     * would spend the boss' turn on nothing and read as a bug.</p>
      */
     private boolean isAbilityTarget(LivingEntity target, int ability) {
         return isAreaTarget(target) && !BossAbilityDamageUtil.isImmune(target, ability);
