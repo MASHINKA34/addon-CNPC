@@ -3,7 +3,6 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -11,7 +10,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Capture timing and target selection; visual and hold details live on a second page. */
-public final class SubGuiBossCapture extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossCapture extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int ACTION_DELAY_FIELD = 3;
@@ -93,14 +92,10 @@ public final class SubGuiBossCapture extends GuiBasic implements ITextfieldListe
                 "gui.done", button -> close()));
     }
 
-    private void addNumberField(int id, String label, int y, int value,
-                                int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20,
-                Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
+    @Override
+    protected int numberLabelX() {
+        // This screen family starts its labels a column tighter than the shared default.
+        return 6;
     }
 
     @Override

@@ -1,7 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -9,7 +8,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** What the boss shows and says before an ability lands, and how long it gives for it. */
-public final class SubGuiBossTelegraph extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossTelegraph extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int STYLE_BUTTON = 2;
     private static final int ANNOUNCE_BUTTON = 3;
@@ -74,13 +73,10 @@ public final class SubGuiBossTelegraph extends GuiBasic implements ITextfieldLis
         addButton(new GuiButtonYesNo(this, id, guiLeft + 196, y, 46, 20, value));
     }
 
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20,
-                Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
+    @Override
+    protected int numberLabelX() {
+        // This screen family starts its labels a column tighter than the shared default.
+        return 6;
     }
 
     @Override

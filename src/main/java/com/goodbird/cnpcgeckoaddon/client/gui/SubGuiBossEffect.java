@@ -1,7 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.BossEffectData;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -9,7 +8,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Editor for one potion effect slot of a boss attack. */
-public final class SubGuiBossEffect extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossEffect extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int EFFECT_FIELD = 2;
     private static final int DURATION_FIELD = 3;
@@ -53,14 +52,6 @@ public final class SubGuiBossEffect extends GuiBasic implements ITextfieldListen
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.effect_hint", guiLeft + 8, guiTop + 166, 0xA0A0A0));
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
                 "gui.done", button -> close()));
-    }
-
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20, Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
     }
 
     @Override

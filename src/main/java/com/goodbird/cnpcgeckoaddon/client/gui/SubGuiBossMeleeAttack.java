@@ -3,14 +3,13 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-public final class SubGuiBossMeleeAttack extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int DAMAGE_FIELD = 3;
@@ -73,20 +72,10 @@ public final class SubGuiBossMeleeAttack extends GuiBasic implements ITextfieldL
                 "gui.done", button -> close()));
     }
 
-
     private void addTargetModeRow(int id, int y, int mode) {
         addLabel(new GuiLabel(id, "cnpcgeckoaddon.boss.target_mode", guiLeft + 8, y + 6));
         addButton(new GuiButtonNop(this, id, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, mode));
-    }
-
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20,
-                Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
     }
 
     @Override

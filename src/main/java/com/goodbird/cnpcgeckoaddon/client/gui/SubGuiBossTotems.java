@@ -7,7 +7,6 @@ import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketRestoreBossTotems;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -15,7 +14,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Boss-wide protection, activation, respawn, and beam settings. */
-public final class SubGuiBossTotems extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int PROTECTION_BUTTON = 2;
     private static final int ACTIVATION_BUTTON = 3;
@@ -110,15 +109,6 @@ public final class SubGuiBossTotems extends GuiBasic implements ITextfieldListen
     private void addChoice(int id, String label, int y, String[] values, int selected) {
         addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
         addButton(new GuiButtonNop(this, id, guiLeft + 112, y, 130, 20, values, selected));
-    }
-
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20,
-                Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
     }
 
     private void addSmallNumber(int id, int x, int y, int value, int min, int max, int fallback) {

@@ -4,14 +4,13 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.data.DataAI;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldListener {
+public final class SubGuiTeleportPath extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int COMBAT_ONLY_BUTTON = 2;
     private static final int STATIONARY_BUTTON = 3;
@@ -88,15 +87,6 @@ public final class SubGuiTeleportPath extends GuiBasic implements ITextfieldList
     private void addYesNo(int id, String label, int y, boolean value) {
         addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, id, guiLeft + 142, y, 100, 20, value));
-    }
-
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20,
-                Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
     }
 
     @Override

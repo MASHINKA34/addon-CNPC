@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -13,7 +12,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Geyser: a mark burns on the floor under a victim, then the ground opens under it. */
-public final class SubGuiBossGeyser extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossGeyser extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int TARGET_MODE_BUTTON = 3;
@@ -157,13 +156,19 @@ public final class SubGuiBossGeyser extends GuiBasic implements ITextfieldListen
         addTextField(field);
     }
 
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 175, y, 67, 20,
-                Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
+    @Override
+    protected int numberLabelX() {
+        return 6;
+    }
+
+    @Override
+    protected int numberFieldX() {
+        return 175;
+    }
+
+    @Override
+    protected int numberFieldWidth() {
+        return 67;
     }
 
     @Override

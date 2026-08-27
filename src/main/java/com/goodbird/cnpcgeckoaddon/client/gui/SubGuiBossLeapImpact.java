@@ -2,7 +2,6 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -15,7 +14,7 @@ import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
  * <p>A second page for the same reason the capture has one - the jump itself already fills
  * a screen, and cramming ten more rows under it would leave nothing readable.</p>
  */
-public final class SubGuiBossLeapImpact extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossLeapImpact extends SubGuiFieldScreen implements ITextfieldListener {
     /** Read by the leap screen, which points a picked animation's length at this delay. */
     static final int ACTION_DELAY_FIELD = 1;
     private static final int COOLDOWN_FIELD = 2;
@@ -111,13 +110,10 @@ public final class SubGuiBossLeapImpact extends GuiBasic implements ITextfieldLi
         addTextField(field);
     }
 
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20,
-                Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
+    @Override
+    protected int numberLabelX() {
+        // This screen family starts its labels a column tighter than the shared default.
+        return 6;
     }
 
     @Override

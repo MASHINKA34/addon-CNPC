@@ -3,7 +3,6 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.BossChestStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.ContainerBlockUtil;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -13,7 +12,7 @@ import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 import java.util.List;
 
 /** Leaves a chest of loot behind when the boss dies. */
-public final class SubGuiBossChest extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossChest extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int BLOCK_FIELD = 2;
     private static final int DELAY_FIELD = 3;
@@ -104,14 +103,6 @@ public final class SubGuiBossChest extends GuiBasic implements ITextfieldListene
             }
         }
         return 0;
-    }
-
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20, Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
     }
 
     @Override
