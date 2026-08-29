@@ -1,0 +1,17 @@
+GIMP Palette
+Name: Boss Boulder - Bone
+Columns: 8
+# own palette, vanilla bone block value range
+#
+ 22  20  24	crack_deep
+ 38  33  34	crack
+ 56  48  44	rock_00
+ 79  69  58	rock_01
+103  91  74	rock_02
+128 114  92	rock_03
+152 138 113	rock_04
+177 163 135	rock_05
+202 190 160	rock_06
+225 215 187	rock_07
+ 90  74  52	stain_dark
+123 102  71	stain
