@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.gametest;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BoulderStyles;
 import com.goodbird.cnpcgeckoaddon.data.NpcCarryData;
 import com.goodbird.cnpcgeckoaddon.data.NpcImmunityData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -111,6 +112,7 @@ public class BossDataRoundTripGameTest {
         phase.setGeyserEnabled(true);
         phase.setBoulderEnabled(true);
         phase.setBoulderBlock("minecraft:deepslate");
+        phase.setBoulderStyle(BoulderStyles.MAGMA);
         phase.setBoulderMode(BossPhaseData.BOULDER_MODE_THROW);
         phase.setBoulderStopsOnHit(true);
         phase.setHookEnabled(true);

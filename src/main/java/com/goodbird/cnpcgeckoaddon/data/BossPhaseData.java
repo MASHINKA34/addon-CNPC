@@ -300,6 +300,8 @@ public final class BossPhaseData {
     private int boulderTargetMode = BossTargetMode.MAIN;
     /** Cosmetic only: what the stone is drawn as, never what it does to the arena. */
     private String boulderBlock = "minecraft:stone";
+    /** The drawn skin. Default keeps the plain scaled block the boulder started life as. */
+    private String boulderStyle = BoulderStyles.BLOCK;
     /** Diameter in tenths of a block, so 15 rolls a 1.5 block stone. */
     private int boulderScale = 15;
     /** Tenths of a block per tick, so 6 travels at 0.6 blocks a tick. */
@@ -486,6 +488,7 @@ public final class BossPhaseData {
         tag.putInt("BoulderMode", boulderMode);
         tag.putInt("BoulderTargetMode", boulderTargetMode);
         tag.putString("BoulderBlock", boulderBlock);
+        tag.putString("BoulderStyle", boulderStyle);
         tag.putInt("BoulderScale", boulderScale);
         tag.putInt("BoulderSpeed", boulderSpeed);
         tag.putInt("BoulderRange", boulderRange);
@@ -697,6 +700,9 @@ public final class BossPhaseData {
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         boulderBlock = tag.contains("BoulderBlock")
                 ? clean(tag.getString("BoulderBlock")) : "minecraft:stone";
+        // An absent key is a boss saved before the skins existed, and normalize maps it to
+        // the plain block - so nobody's boulder changes its look under them.
+        boulderStyle = BoulderStyles.normalize(tag.getString("BoulderStyle"));
         boulderScale = value(tag, "BoulderScale", 15, 5, 40);
         boulderSpeed = value(tag, "BoulderSpeed", 6, 1, 20);
         boulderRange = value(tag, "BoulderRange", 20, 4, 64);
@@ -1154,6 +1160,8 @@ public final class BossPhaseData {
     /** Block id the stone is drawn as, for example {@code minecraft:deepslate}. */
     public String getBoulderBlock() { return boulderBlock; }
     public void setBoulderBlock(String value) { boulderBlock = clean(value); }
+    public String getBoulderStyle() { return boulderStyle; }
+    public void setBoulderStyle(String value) { boulderStyle = BoulderStyles.normalize(value); }
     /** Diameter in tenths of a block. */
     public int getBoulderScale() { return boulderScale; }
     public void setBoulderScale(int value) { boulderScale = Mth.clamp(value, 5, 40); }
