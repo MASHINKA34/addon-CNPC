@@ -1,0 +1,18 @@
+GIMP Palette
+Name: Boss Boulder - Ghost
+Columns: 8
+# art/aseprite/hook/ghost.gpl
+#
+ 14  30  44	crack_deep
+ 26  52  70	crack
+ 40  82 102	rock_00
+ 54 116 137	rock_01
+ 66 142 165	rock_02
+ 76 153 174	rock_03
+104 184 201	rock_04
+148 217 228	rock_05
+182 232 238	rock_06
+207 244 245	rock_07
+ 90 206 226	ember_00
+164 240 250	ember_01
+245 255 250	ember_02
