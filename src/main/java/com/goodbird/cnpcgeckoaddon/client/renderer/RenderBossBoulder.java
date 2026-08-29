@@ -69,18 +69,19 @@ public class RenderBossBoulder extends EntityRenderer<EntityBossBoulder> {
      * keeps changing as it rolls. They are shrunk rather than resized, so all three still
      * carry the plain 16-cube unwrap and one drawing dresses the whole lump.</p>
      *
-     * <p>Every copy stays inside the box the plain block filled - a shrunk cube turned on
-     * the spot reaches less far than the full one it sits in - so a skin is never drawn
-     * bigger than the size the ability was set to.</p>
+     * <p>The three sizes and offsets are picked so that no corner of a turned copy reaches
+     * past the hitbox face at 8 units - the widest is 7.95 - while still standing a good
+     * unit and a third proud of the core. The stone therefore fills the size the ability
+     * was set to without ever being drawn outside the box that does the hitting.</p>
      */
     private static MeshDefinition stoneMesh() {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
-        addShell(root, "core", -1.0F, PartPose.ZERO);
-        addShell(root, "ridge", -2.0F,
-                PartPose.offsetAndRotation(1.5F, -1.0F, 1.0F, 0.30F, 0.42F, 0.18F));
-        addShell(root, "flank", -2.6F,
-                PartPose.offsetAndRotation(-1.6F, 1.2F, -1.3F, -0.38F, 0.66F, -0.25F));
+        addShell(root, "core", -1.4F, PartPose.ZERO);
+        addShell(root, "ridge", -3.0F,
+                PartPose.offsetAndRotation(0.9F, -0.7F, 0.3F, 0.28F, 0.40F, 0.16F));
+        addShell(root, "flank", -3.6F,
+                PartPose.offsetAndRotation(-0.9F, 0.8F, -0.7F, -0.34F, 0.60F, -0.22F));
         return mesh;
     }
 
