@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
+import com.goodbird.cnpcgeckoaddon.data.BoulderStyles;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -29,10 +30,15 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen implements ITextf
     private static final int ACTION_DELAY_FIELD = 14;
     private static final int COOLDOWN_FIELD = 15;
     private static final int VFX_STYLE_BUTTON = 16;
+    private static final int LOOK_BUTTON = 17;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
             .map(AreaVfxStyles.Style::translationKey)
+            .toArray(String[]::new);
+
+    private static final String[] LOOK_LABELS = BoulderStyles.values().stream()
+            .map(BoulderStyles.Style::translationKey)
             .toArray(String[]::new);
 
     private final EntityNPCInterface npc;
@@ -45,7 +51,7 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen implements ITextf
         this.phaseIndex = phaseIndex;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 320;
+        imageHeight = 352;
         closeOnEsc = true;
     }
 
@@ -80,6 +86,11 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen implements ITextf
                 phase.getBoulderBlock()));
         y += 21;
 
+        addLabel(new GuiLabel(LOOK_BUTTON, "cnpcgeckoaddon.boss.boulder_style", guiLeft + 6, y + 6));
+        addButton(new GuiButtonNop(this, LOOK_BUTTON, guiLeft + 112, y, 130, 20,
+                LOOK_LABELS, lookIndex()));
+        y += 21;
+
         addPairRow(SCALE_FIELD, SPEED_FIELD, "cnpcgeckoaddon.boss.boulder_size", y,
                 phase.getBoulderScale(), 5, 40, 15,
                 phase.getBoulderSpeed(), 1, 20, 6);
@@ -110,11 +121,22 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen implements ITextf
         addButton(new GuiButtonNop(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
 
-        addWrappedHint(31, "cnpcgeckoaddon.boss.boulder_hint", guiTop + 274);
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 296, 120, 20,
+        int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.boulder_hint", guiTop + 290);
+        addWrappedHint(40, "cnpcgeckoaddon.boss.boulder_style_hint", hintY);
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 328, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 296, 60, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 328, 60, 20,
                 "gui.done", button -> close()));
+    }
+
+    private int lookIndex() {
+        String id = phase.getBoulderStyle();
+        for (int i = 0; i < BoulderStyles.values().size(); i++) {
+            if (BoulderStyles.values().get(i).id().equals(id)) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     private int vfxStyleIndex() {
@@ -179,6 +201,8 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen implements ITextf
             phase.setBoulderMode(button.getValue());
         } else if (button.id == VFX_STYLE_BUTTON) {
             phase.setBoulderVfx(AreaVfxStyles.values().get(button.getValue()).id());
+        } else if (button.id == LOOK_BUTTON) {
+            phase.setBoulderStyle(BoulderStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting boulder animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
