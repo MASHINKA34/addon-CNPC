@@ -6,6 +6,7 @@ import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BoulderStyles;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -43,8 +44,8 @@ import java.util.Set;
  *
  * <p>The mechanic lives entirely here on the server: a fixed flat direction, a floor-hugging
  * roll or a plain arc, and one hit per victim per flight. The entity itself carries nothing
- * visual beyond a block id and a size, so the renderer can be swapped for a real model
- * without this class changing.</p>
+ * visual beyond a block id, a skin id and a size, so the renderer can be swapped for a real
+ * model without this class changing.</p>
  *
  * <p>It never touches the world: no blocks broken, no fire, no explosion - it breaks against
  * the arena, never the other way round.</p>
@@ -55,6 +56,9 @@ public class EntityBossBoulder extends Projectile {
     /** Diameter in tenths of a block; the hitbox and the drawn cube both read it. */
     private static final EntityDataAccessor<Integer> SCALE_TENTHS =
             SynchedEntityData.defineId(EntityBossBoulder.class, EntityDataSerializers.INT);
+    /** Which skin the renderer draws. Rides along with the block id: the client needs both. */
+    private static final EntityDataAccessor<String> STYLE =
+            SynchedEntityData.defineId(EntityBossBoulder.class, EntityDataSerializers.STRING);
 
     public static final int MIN_SCALE_TENTHS = 5;
     public static final int MAX_SCALE_TENTHS = 40;
@@ -73,6 +77,7 @@ public class EntityBossBoulder extends Projectile {
     private static final double THROW_GRAVITY = 0.05D;
 
     private static final String BLOCK_KEY = "GeckoBoulderBlock";
+    private static final String STYLE_KEY = "GeckoBoulderStyle";
     private static final String SCALE_KEY = "GeckoBoulderScale";
     private static final String ROLLS_KEY = "GeckoBoulderRolls";
     private static final String DIR_X_KEY = "GeckoBoulderDirX";
@@ -130,10 +135,11 @@ public class EntityBossBoulder extends Projectile {
         return block == null || block.defaultBlockState().isAir() ? null : block.defaultBlockState();
     }
 
-    public void configure(BlockState block, int scaleTenths, int damage, int knockback,
-                          boolean stops, int shatterRadiusBlocks, int shatterDamageAmount,
-                          String vfxStyle, BossEffectSet effectSet) {
+    public void configure(BlockState block, String lookStyle, int scaleTenths, int damage,
+                          int knockback, boolean stops, int shatterRadiusBlocks,
+                          int shatterDamageAmount, String vfxStyle, BossEffectSet effectSet) {
         this.entityData.set(BLOCK_STATE, Block.getId(block));
+        this.entityData.set(STYLE, BoulderStyles.normalize(lookStyle));
         this.entityData.set(SCALE_TENTHS, Mth.clamp(scaleTenths, MIN_SCALE_TENTHS, MAX_SCALE_TENTHS));
         refreshDimensions();
         hitDamage = Math.max(damage, 0);
@@ -192,6 +198,11 @@ public class EntityBossBoulder extends Projectile {
         return state.isAir() ? Blocks.STONE.defaultBlockState() : state;
     }
 
+    /** The skin the renderer draws; the debris keeps coming from {@link #getBlockState()}. */
+    public String styleId() {
+        return this.entityData.get(STYLE);
+    }
+
     /** Diameter in blocks: hitbox, drawn cube and spin radius all share it. */
     public float diameter() {
         return this.entityData.get(SCALE_TENTHS) / 10.0F;
@@ -205,6 +216,7 @@ public class EntityBossBoulder extends Projectile {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(BLOCK_STATE, Block.getId(Blocks.STONE.defaultBlockState()));
         builder.define(SCALE_TENTHS, 15);
+        builder.define(STYLE, BoulderStyles.BLOCK);
     }
 
     @Override
@@ -484,6 +496,7 @@ public class EntityBossBoulder extends Projectile {
         super.addAdditionalSaveData(tag);
         tag.putInt(BLOCK_KEY, this.entityData.get(BLOCK_STATE));
         tag.putInt(SCALE_KEY, this.entityData.get(SCALE_TENTHS));
+        tag.putString(STYLE_KEY, this.entityData.get(STYLE));
         tag.putBoolean(ROLLS_KEY, rolling);
         tag.putDouble(DIR_X_KEY, direction.x);
         tag.putDouble(DIR_Z_KEY, direction.z);
@@ -509,6 +522,7 @@ public class EntityBossBoulder extends Projectile {
                     Mth.clamp(tag.getInt(SCALE_KEY), MIN_SCALE_TENTHS, MAX_SCALE_TENTHS));
             refreshDimensions();
         }
+        this.entityData.set(STYLE, BoulderStyles.normalize(tag.getString(STYLE_KEY)));
         rolling = !tag.contains(ROLLS_KEY) || tag.getBoolean(ROLLS_KEY);
         Vec3 flat = new Vec3(tag.getDouble(DIR_X_KEY), 0.0D, tag.getDouble(DIR_Z_KEY));
         direction = flat.lengthSqr() < 1.0E-6D ? new Vec3(0.0D, 0.0D, 1.0D) : flat.normalize();

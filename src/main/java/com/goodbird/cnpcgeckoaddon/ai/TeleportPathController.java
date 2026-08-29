@@ -3170,10 +3170,11 @@ public final class TeleportPathController {
 
         EntityBossBoulder boulder = new EntityBossBoulder(EntityRegistry.entityBossBoulder, level);
         boulder.setOwner(npc);
-        boulder.configure(block, phase.getBoulderScale(), rageUp(phase.getBoulderDamage()),
-                rageUp(phase.getBoulderKnockback()), phase.isBoulderStopsOnHit(),
-                phase.getBoulderShatterRadius(), rageUp(phase.getBoulderShatterDamage()),
-                phase.getBoulderVfx(), phase.getBoulderEffects());
+        boulder.configure(block, phase.getBoulderStyle(), phase.getBoulderScale(),
+                rageUp(phase.getBoulderDamage()), rageUp(phase.getBoulderKnockback()),
+                phase.isBoulderStopsOnHit(), phase.getBoulderShatterRadius(),
+                rageUp(phase.getBoulderShatterDamage()), phase.getBoulderVfx(),
+                phase.getBoulderEffects());
         double offset = npc.getBbWidth() * 0.5D + phase.getBoulderScale() / 20.0D + 0.25D;
         boolean rolls = phase.getBoulderMode() == BossPhaseData.BOULDER_MODE_ROLL;
         boulder.setPos(npc.getX() + axis.x * offset,
