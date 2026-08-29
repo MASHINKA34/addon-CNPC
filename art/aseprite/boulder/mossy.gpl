@@ -1,0 +1,19 @@
+GIMP Palette
+Name: Boss Boulder - Mossy
+Columns: 8
+# art/gui/boss_bar_moss_cave.aseprite
+#
+ 12  24  21	crack_deep
+ 19  34  29	crack
+ 30  40  41	rock_00
+ 44  54  56	rock_01
+ 58  70  71	rock_02
+ 74  89  89	rock_03
+ 92 110 110	rock_04
+105 134 133	rock_05
+138 152 150	rock_06
+  3  91  46	moss_00
+  3 101  50	moss_01
+  8 151  70	moss_02
+ 21 202 100	moss_03
+ 71  87  39	stain
