@@ -42,6 +42,7 @@ PROJECTS = {
     "redev_edition_mobs": WORK_DIR / "donor_decompiled_round2" / "18_redev_mobs",
     "wroughtnights": WORK_DIR / "donor_decompiled_round2" / "19_wrought_nights",
     "dungeons_and_combat": WORK_DIR / "donor_decompiled_dnc",
+    "panascraftrpgmod": WORK_DIR / "donor_decompiled_apocalyptic",
 }
 
 MANUAL = {
@@ -267,6 +268,21 @@ MANUAL = {
     "dungeons_and_combat:geo/theaberrator.geo.json": "dungeons_and_combat:textures/entities/theaberrator.png",
     "dungeons_and_combat:geo/torture.geo.json": "dungeons_and_combat:textures/entities/torture.png",
     "dungeons_and_combat:geo/weak_aberration.geo.json": "dungeons_and_combat:textures/entities/weak_aberration.png",
+
+    # Apocalyptic Bosses ships archived geometry that no renderer references and
+    # leaves the MCreator default texture on two entities. These pairs were
+    # reviewed against the geometry UV size and the shared bone hierarchy.
+    # The cursed beast rig carries the fur atlas; aloc_main is the demonic king
+    # sheet that the cursed beast entity never had replaced.
+    "panascraftrpgmod:geo/cursed_beast_fixed.geo.json": "panascraftrpgmod:textures/entities/cursed_beast.png",
+    # bear and ice_bear are the same rig; "bear" otherwise matches soul_bearer.
+    "panascraftrpgmod:geo/bear.geo.json": "panascraftrpgmod:textures/entities/nocsy_icebear_boss.png",
+    # ice_golem shares 26 of 27 bones with frost_lord, lava_golem shares 26 of
+    # 27 with lava_lord. Name matching would send both to the lava god sheet.
+    "panascraftrpgmod:geo/ice_golem.geo.json": "panascraftrpgmod:textures/entities/frost_lord.png",
+    "panascraftrpgmod:geo/lava_golem.geo.json": "panascraftrpgmod:textures/entities/mso_lava_lord.png",
+    # The void dragon renderer draws the ender_dragon geometry and sheet.
+    "panascraftrpgmod:geo/void_dragon.geo.json": "panascraftrpgmod:textures/entities/ender_dragon.png",
 }
 for name in (
     "breacher",

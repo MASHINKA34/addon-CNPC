@@ -36,6 +36,43 @@ MANUAL_DROPS = {
     ("dungeons_and_combat", "failure"): {"bone2"},
     ("dungeons_and_combat", "skull"): {"weapon"},
     ("dungeons_and_combat", "sunleia"): {"center"},
+    # Apocalyptic Bosses animates hitboxes, capes, cloth, and spawned weapon or
+    # spell effects that the shipped geometry does not contain. Those channels
+    # belong to props the donor mod builds at runtime, so they cannot resolve
+    # in the standalone visual bundle.
+    ("panascraftrpgmod", "abyssal_knight"): {
+        "hitbox"
+    },
+    ("panascraftrpgmod", "basalt_guardian"): {
+        "belt", "belt2", "slash2_vfx", "slash3_vfx", "slash_vfx", "w_left",
+        "w_right"
+    },
+    ("panascraftrpgmod", "cursed_beast"): {
+        "Impact", "cloud1", "cloud2", "cloud3", "cloud4", "cloud5", "cloud6",
+        "spike1", "spike2", "spike3", "spike4", "spike5", "spike6", "spike7"
+    },
+    ("panascraftrpgmod", "cursed_beast_fixed"): {
+        "Impact", "cloud1", "cloud2", "cloud3", "cloud4", "cloud5", "cloud6",
+        "spike1", "spike2", "spike3", "spike4", "spike5", "spike6", "spike7"
+    },
+    ("panascraftrpgmod", "fixed_skeleton_boss"): {
+        "ring1", "ring2", "ring3", "ring4"
+    },
+    ("panascraftrpgmod", "sculk_sentinel"): {
+        "arrow", "arrow_projectile", "bow", "cloak1", "glow_arrow",
+        "glow_arrow_projectile", "glow_circle1", "glow_circle2", "h_head",
+        "hidden_blade", "hip_cloth", "left_cape1", "left_cape2", "left_cape3",
+        "right_cape", "right_cape1", "right_cape3"
+    },
+    ("panascraftrpgmod", "sintia_the_hydra"): {
+        "bone19", "bone20", "bone21", "bone22"
+    },
+    ("panascraftrpgmod", "tc_cyclops"): {
+        "arm_drape1", "arm_drape2", "arm_drape3", "arm_drape4", "arm_drape5",
+        "arm_drape6", "cape1", "cape2", "cheek_drape1", "cheek_drape2",
+        "cheek_drape3", "cheek_drape4", "ears", "effect", "left_forearm", "neck",
+        "pelvis_drape1", "pelvis_drape2", "right_forearm", "sphere", "staff"
+    },
 }
 
 
@@ -107,6 +144,11 @@ def main() -> None:
             "dungeons_and_combat",
             ROOT / "dungeons_and_combat" / "geo",
             ROOT / "dungeons_and_combat" / "animations",
+        ),
+        (
+            "panascraftrpgmod",
+            ROOT / "panascraftrpgmod" / "geo",
+            ROOT / "panascraftrpgmod" / "animations",
         ),
     ]
 
