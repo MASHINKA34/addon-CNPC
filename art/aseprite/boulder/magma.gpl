@@ -1,0 +1,18 @@
+GIMP Palette
+Name: Boss Boulder - Magma
+Columns: 8
+# art/boss_bar_infernal + art/aseprite/hook/chain_infernal.gpl
+#
+ 14  11  12	crack_deep
+ 25  20  19	crack
+ 37  28  25	rock_00
+ 52  38  31	rock_01
+ 71  50  39	rock_02
+ 96  74  60	rock_03
+ 85  20  14	ember_00
+133  19   9	ember_01
+188  31   8	ember_02
+232  62   6	ember_03
+255 103   7	ember_04
+255 190  31	ember_05
+255 226 137	ember_06
