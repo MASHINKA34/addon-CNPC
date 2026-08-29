@@ -1,0 +1,150 @@
+# Apocalyptic Bosses model import report
+
+## Source and scope
+
+- Source: CurseForge project `apocalypticbosses` ("Apocalyptic Bosses" / BossesRPG), version `3.6`.
+- Donor archive: `panascraftrpgmod-3.6-neoforge-1.21.1.jar`.
+- SHA-512: `fa6c35f4a25faba3622fb0562fd3b8b033ea7c957c46c0f9589d7e513a7f7ac29d2e80e7c06af38aa48f90fd5c75650988282b755447a4e2d952cf6f3e8d27cc`.
+- Donor platform: NeoForge 1.21.1. The donor code is not loaded or packaged.
+- License: the archive declares `license="Not specified"` in both `mods.toml` and
+  `neoforge.mods.toml`, the jar carries no license file, and the CurseForge project
+  metadata exposes no license either. Treated as All Rights Reserved.
+- Destination namespace: `panascraftrpgmod` (the donor's own namespace, no collision
+  with the 36 namespaces already in the bundle, so no remap was needed).
+
+The inventory in `scripts/inventory_apocalyptic_bosses.json` found a single asset
+namespace with 39 `.geo.json` files, 39 animation files, 41 textures under
+`textures/entities`, 30 entity language keys, and 30 model classes. Every model class
+is a GeckoLib `GeoModel`, so no Java `EntityModel` conversion was required and nothing
+had to be dropped for being unconvertible.
+
+Thirty of the 39 geometry files are referenced by a renderer in the shipped version.
+The remaining nine (`bear`, `cursed_beast`, `ice_golem`, `lava_golem`, `meg`,
+`modelfoundry_mutant_zombie_strenght`, `skeleton_boss`, `tc_cyclops`, `void_dragon`)
+are archived or superseded rigs that the donor still ships. They load and animate on
+their own, so they were imported as ordinary selectable models with reviewed textures.
+
+No class files, manifests, registries, data packs, sounds, recipes, language files,
+item/block/screen textures, or other donor metadata were imported.
+
+## Result
+
+- 39 selectable geometry files.
+- 39 paired animation files.
+- 32 texture files.
+- 39 exact model-to-texture mappings.
+- Idle: 39/39 models; walk: 38/39; attack: 13/39; death: 37/39.
+- Authored nonstandard clips such as summon, spawn, roar, cast, spell, and phase
+  transitions were retained.
+- `lavagod` was the only model without a clip named `idle`; it received a looping
+  `idle` alias from its authored `waiting` clip. It is also the only model that names
+  its combat and death clips `melee` and `dying`, which the attack and death columns
+  below do not count.
+- 82 animation bone channels were removed across eight models. They address hitboxes,
+  capes, cloth, belts, rings, and slash or projectile effects that the donor builds at
+  runtime and that the shipped geometry does not contain.
+- 16 donor particle, sound, and timeline event sections were stripped from six
+  animation files by `scripts/normalize_geckolib_animations.py`.
+- No bone renames were needed; every remaining animation channel resolves against its
+  geometry by exact name.
+
+## Excluded resources
+
+- Nine armor and projectile layer sheets that the donor stores next to its mob
+  textures were left out, because no imported geometry references them and they would
+  otherwise join the runtime texture search: `armor_leggings`,
+  `armor_leggings_layer_1`, `blueflame_armor_layer_2`, `dark_wither_armor_layer_2`,
+  `dragonstone_armor_layer_2`, `leather_layer_2`, `netherite_layer_2`,
+  `netherite_projectile_layer_2`, and `sculk_armor_layer_2`.
+- `textures/models/armor`, `textures/item`, `textures/block`, and `textures/screens`
+  were not imported at all.
+
+## Reviewed geometry repair
+
+`tc_cyclops.png` is a seven frame 512x3584 filmstrip shipped without an animation
+mcmeta, while `tc_cyclops.geo.json` still declares a 512x512 UV space. GeckoLib
+normalizes UVs against the declared size, so the model would have been stretched
+across the whole strip. The import script rewrites that one geometry's
+`texture_height` to 3584, which keeps every UV inside the first frame, the pose the
+donor itself renders. No other geometry was modified.
+
+## Reviewed texture pairs
+
+The donor leaves the MCreator default texture on two entities and ships archived rigs
+that name matching cannot resolve. These pairs are pinned in
+`scripts/generate_mob_texture_mappings.py`:
+
+- `cursed_beast_fixed` -> `cursed_beast.png`. Its renderer asks for `aloc_main.png`,
+  the same sheet the Demonic King uses. `aloc_main` is a sparse horned demon sheet and
+  `cursed_beast` is the dense fur atlas that matches the 73 bone beast rig, and it is
+  otherwise unreferenced by any renderer.
+- `bear` -> `nocsy_icebear_boss.png`. Same rig as `ice_bear`; the name alone matched
+  `soul_bearer`.
+- `ice_golem` -> `frost_lord.png`. Shares 26 of 27 bones with `frost_lord`.
+- `lava_golem` -> `mso_lava_lord.png`. Shares 26 of 27 bones with `lava_lord`; the
+  name alone matched the unrelated Lava God sheet.
+- `void_dragon` -> `ender_dragon.png`. The void dragon renderer draws the
+  `ender_dragon` geometry and sheet.
+
+Every other pair comes from the donor's own `getTextureResource` and entity texture
+default, and each was cross-checked against the geometry UV size.
+
+## Imported models
+
+`yes` means the animation file contains at least one clip whose name includes that
+standard action. Missing walk, attack, or death clips are non-blocking.
+
+| Model | Namespace | Animations | Default texture |
+|---|---|---|---|
+| `abyssal_knight` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (4 clips) | `panascraftrpgmod:textures/entities/abyssal_knight.png` |
+| `basalt_guardian` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (8 clips) | `panascraftrpgmod:textures/entities/basalt_guardian.png` |
+| `bear` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (18 clips) | `panascraftrpgmod:textures/entities/nocsy_icebear_boss.png` |
+| `cursed_beast` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (16 clips) | `panascraftrpgmod:textures/entities/cursed_beast.png` |
+| `cursed_beast_fixed` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (16 clips) | `panascraftrpgmod:textures/entities/cursed_beast.png` |
+| `deep_creature` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (18 clips) | `panascraftrpgmod:textures/entities/toro_deep_creature.png` |
+| `demonic` | `panascraftrpgmod` | idle yes, walk no, attack yes, death yes (18 clips) | `panascraftrpgmod:textures/entities/aloc_main.png` |
+| `echo_enshrouder` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (8 clips) | `panascraftrpgmod:textures/entities/echo_enshrouder.png` |
+| `endbeast` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (4 clips) | `panascraftrpgmod:textures/entities/emissivequ.png` |
+| `ender_dragon` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (23 clips) | `panascraftrpgmod:textures/entities/ender_dragon.png` |
+| `fixed_skeleton_boss` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (9 clips) | `panascraftrpgmod:textures/entities/skeleton_boss.png` |
+| `frost_lord` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (8 clips) | `panascraftrpgmod:textures/entities/frost_lord.png` |
+| `furacas` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (12 clips) | `panascraftrpgmod:textures/entities/furacas.png` |
+| `gargoyle` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (4 clips) | `panascraftrpgmod:textures/entities/lrd_gargoyle.png` |
+| `golem_king` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (17 clips) | `panascraftrpgmod:textures/entities/golemking_corrupted.png` |
+| `ice_bear` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (18 clips) | `panascraftrpgmod:textures/entities/nocsy_icebear_boss.png` |
+| `ice_golem` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (8 clips) | `panascraftrpgmod:textures/entities/frost_lord.png` |
+| `lava_golem` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (13 clips) | `panascraftrpgmod:textures/entities/mso_lava_lord.png` |
+| `lava_lord` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (13 clips) | `panascraftrpgmod:textures/entities/mso_lava_lord.png` |
+| `lavagod` | `panascraftrpgmod` | idle yes, walk yes, attack no, death no (5 clips) | `panascraftrpgmod:textures/entities/lavagolem.png` |
+| `meg` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (7 clips) | `panascraftrpgmod:textures/entities/meg.png` |
+| `minion` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (7 clips) | `panascraftrpgmod:textures/entities/skeletal_minion.png` |
+| `modelfoundry_mutant_zombie_speed` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (7 clips) | `panascraftrpgmod:textures/entities/modelfoundry_mutant_zombie_speed.png` |
+| `modelfoundry_mutant_zombie_strenght` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (7 clips) | `panascraftrpgmod:textures/entities/modelfoundry_mutant_zombie_strong.png` |
+| `modelfoundry_mutant_zombie_strenght_fixed` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (7 clips) | `panascraftrpgmod:textures/entities/modelfoundry_mutant_zombie_strong.png` |
+| `mso_demon_general` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (12 clips) | `panascraftrpgmod:textures/entities/mso_demon_general.png` |
+| `nightharrow_wendigo` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (12 clips) | `panascraftrpgmod:textures/entities/nightharrow_wendigo_texture.png` |
+| `parasitic_abomination` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (13 clips) | `panascraftrpgmod:textures/entities/parasitic_abomination.png` |
+| `pumpkin_boss` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (16 clips) | `panascraftrpgmod:textures/entities/pumpkin_boss.png` |
+| `sculk_crabby` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (5 clips) | `panascraftrpgmod:textures/entities/sculk_crabby.png` |
+| `sculk_screamer` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (6 clips) | `panascraftrpgmod:textures/entities/sculk_screamer.png` |
+| `sculk_sentinel` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (4 clips) | `panascraftrpgmod:textures/entities/sculk_sentinel.png` |
+| `sintia_the_hydra` | `panascraftrpgmod` | idle yes, walk yes, attack no, death no (7 clips) | `panascraftrpgmod:textures/entities/sintia_the_hydra.png` |
+| `skeleton_boss` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (9 clips) | `panascraftrpgmod:textures/entities/skeleton_boss.png` |
+| `soul_bearer` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (4 clips) | `panascraftrpgmod:textures/entities/soul_bearer.png` |
+| `tc_cyclops` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (10 clips) | `panascraftrpgmod:textures/entities/tc_cyclops.png` |
+| `trex` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (6 clips) | `panascraftrpgmod:textures/entities/trex.png` |
+| `void_dragon` | `panascraftrpgmod` | idle yes, walk yes, attack yes, death yes (5 clips) | `panascraftrpgmod:textures/entities/ender_dragon.png` |
+| `wither` | `panascraftrpgmod` | idle yes, walk yes, attack no, death yes (11 clips) | `panascraftrpgmod:textures/entities/toro_wither.png` |
+
+## Verification
+
+- `scripts/import_apocalyptic_bosses_resources.py`: 39 geo, 39 animation, 32 texture
+  files, 1 geometry UV space repair.
+- `scripts/ensure_apocalyptic_bosses_animations.py`: 39/39 paired animation files
+  contain `idle`; 1 idle alias added.
+- `scripts/validate_mob_bundle.py`: passed with 1,003 geometry files, 788 animation
+  files, 2,239 PNG files, and 538 exact texture mappings in the complete bundle.
+- `gradlew build`: BUILD SUCCESSFUL. The packaged jar carries 115 `panascraftrpgmod`
+  entries, all under `assets/`, and no donor class or metadata entry.
+- In-game selection and rendering remain a manual verification step; no Minecraft
+  client was launched during this import.
