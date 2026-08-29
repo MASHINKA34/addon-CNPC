@@ -1,0 +1,20 @@
+GIMP Palette
+Name: Boss Boulder - Sculk
+Columns: 8
+# table C of art/aseprite/boss_bar/sculk/build_runtime_layers.lua
+#
+  2   5   9	crack_deep
+  4   9  16	crack
+  5  18  30	rock_00
+ 13  20  28	rock_01
+ 24  35  44	rock_02
+ 31  45  55	rock_03
+ 39  54  64	rock_04
+ 56  74  86	rock_05
+  3  22  29	growth_00
+  7  31  48	growth_01
+  5  58  74	growth_02
+  6  79  96	growth_03
+  8 133 145	ember_00
+ 20 211 222	ember_01
+118 246 238	ember_02
