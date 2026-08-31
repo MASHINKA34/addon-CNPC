@@ -2153,6 +2153,16 @@ public final class TeleportPathController {
         return settings().isTotemHoldBoss() && isTotemWardStanding();
     }
 
+    /** True while a standing formation keeps the boss from starting anything of its own. */
+    public boolean isTotemSilenced() {
+        return settings().isTotemSuppressAbilities() && isTotemWardStanding();
+    }
+
+    /** True while a standing formation keeps the boss off everyone else's aiming list. */
+    public boolean isTotemHidden() {
+        return settings().isTotemUntargetable() && isTotemWardStanding();
+    }
+
     public int aliveTotemCount() {
         if (!totemWaveActivated) {
             return 0;
@@ -2591,6 +2601,13 @@ public final class TeleportPathController {
     /** Rotates ability priority so short cooldowns cannot permanently starve another attack. */
     private boolean tryStartDueAbility(ServerLevel level, TeleportPathData data,
                                        BossPhaseData phase, long gameTime) {
+        // New casts only, and every kind of them - the call for help an immune boss would
+        // still make included. A wind-up already under way was resolved above this, and the
+        // cooldowns keep running down underneath, so a boss whose last totem falls after two
+        // hours of silence swings on the very tick it comes loose.
+        if (isTotemSilenced()) {
+            return false;
+        }
         if (isInvulnerable()) {
             // An immune boss only calls for help. The other attacks keep their timers and
             // pick up where they left off once it can be hurt again.
@@ -4612,13 +4629,18 @@ public final class TeleportPathController {
      * <p>{@code searchRange} is that ability's own maximum reach, so the box is only a
      * cheap pre-filter for the range and sight tests {@code canHit} runs anyway - it is
      * what keeps the boss from sweeping the whole world every time it wants to attack.</p>
+     *
+     * <p>Somebody hidden by their own totems drops out here rather than inside {@code canHit},
+     * because this is the aiming list: an area sweep asks {@link #isAbilityTarget} instead
+     * and is meant to catch them anyway.</p>
      */
     private List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange,
                                                  Predicate<LivingEntity> canHit) {
         TeleportPathData data = settings();
         AABB box = new AABB(npc.position(), npc.position()).inflate(searchRange + 1.0D);
         return level.getEntitiesOfClass(LivingEntity.class, box, candidate -> candidate != npc
-                && matchesAbilityTargetKind(candidate, data) && canHit.test(candidate));
+                && matchesAbilityTargetKind(candidate, data)
+                && !BossMechanicUtil.hiddenByTotems(candidate) && canHit.test(candidate));
     }
 
     private boolean isAreaTarget(LivingEntity target) {
@@ -4771,7 +4793,10 @@ public final class TeleportPathController {
     private LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange,
                                              Predicate<LivingEntity> canHit) {
         LivingEntity main = npc.getTarget();
-        LivingEntity fallback = main != null && canHit.test(main) ? main : null;
+        // The main target goes through the same hiding check every mode's candidates do, or
+        // MAIN would be the one way an ability could still settle on a shielded statue.
+        LivingEntity fallback = main != null && !BossMechanicUtil.hiddenByTotems(main)
+                && canHit.test(main) ? main : null;
         if (mode == BossTargetMode.MAIN) {
             return fallback;
         }

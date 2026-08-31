@@ -82,6 +82,8 @@ public class GeckoAddonCommand {
                 int alive = controller == null ? 0 : controller.aliveTotemCount();
                 boolean protectedNow = controller != null && controller.isTotemProtected();
                 boolean heldNow = controller != null && controller.isTotemHeld();
+                boolean silencedNow = controller != null && controller.isTotemSilenced();
+                boolean hiddenNow = controller != null && controller.isTotemHidden();
                 // The mode is only worth naming while the formation still wards at all.
                 String protection = !data.isTotemsEnabled() ? "disabled"
                         : !data.isTotemGrantInvulnerability() ? "off"
@@ -89,6 +91,10 @@ public class GeckoAddonCommand {
                         ? "full immunity" : "lethal guard";
                 String hold = !data.isTotemsEnabled() || !data.isTotemHoldBoss() ? "off"
                         : heldNow ? "on (holding)" : "on (idle)";
+                String silence = !data.isTotemsEnabled() || !data.isTotemSuppressAbilities() ? "off"
+                        : silencedNow ? "on (silenced)" : "on (idle)";
+                String hidden = !data.isTotemsEnabled() || !data.isTotemUntargetable() ? "off"
+                        : hiddenNow ? "on (hidden)" : "on (idle)";
                 String respawn = switch (data.getTotemRespawnMode()) {
                     case TeleportPathData.TOTEM_RESPAWN_NEVER -> "never";
                     case TeleportPathData.TOTEM_RESPAWN_DELAYED -> "delayed";
@@ -97,7 +103,8 @@ public class GeckoAddonCommand {
                 String bossLine = describe(npc, "boss status");
                 String totemLine = "Totems: " + alive + "/" + configured + ", protection="
                         + protection + (protectedNow ? " (active)" : " (inactive)")
-                        + ", hold=" + hold + ", respawn=" + respawn;
+                        + ", hold=" + hold + ", silence=" + silence + ", hidden=" + hidden
+                        + ", respawn=" + respawn;
                 String captureLine = controller == null ? "Capture: ready"
                         : controller.captureStatus(level.getGameTime());
                 String leashLine = controller == null
