@@ -24,7 +24,8 @@ public final class BossAbilityKind {
     public static final int BLAST = 9;
     public static final int GEYSER = 10;
     public static final int BOULDER = 11;
-    public static final int COUNT = 12;
+    public static final int BOULDER_RAIN = 12;
+    public static final int COUNT = 13;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -38,7 +39,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.line",
             "cnpcgeckoaddon.boss.ability.blast",
             "cnpcgeckoaddon.boss.ability.geyser",
-            "cnpcgeckoaddon.boss.ability.boulder"
+            "cnpcgeckoaddon.boss.ability.boulder",
+            "cnpcgeckoaddon.boss.ability.boulder_rain"
     };
 
     /**
@@ -48,7 +50,8 @@ public final class BossAbilityKind {
      * spawns helpers rather than touching a victim, so there is nothing for it to pass by.</p>
      */
     public static final int[] IMMUNITY_ABILITIES = {
-            AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER
+            AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
+            BOULDER_RAIN
     };
 
     private BossAbilityKind() {

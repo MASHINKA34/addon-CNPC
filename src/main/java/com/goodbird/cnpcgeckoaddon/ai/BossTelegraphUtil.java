@@ -35,7 +35,8 @@ public final class BossTelegraphUtil {
             0xFF3355, // line strike - crimson
             0xFF8C1A, // death blast - ember; never painted, the boss is already dead
             0x3355FF, // geyser - deep blue, the column coming up out of the floor
-            0x9999A6  // boulder - stone grey, the colour of the thing about to arrive
+            0x9999A6, // boulder - stone grey, the colour of the thing about to arrive
+            0xC2703D  // boulder rain - dust brown, the same stone seen from underneath
     };
 
     /** How much of an ability's colour its faded half keeps. */

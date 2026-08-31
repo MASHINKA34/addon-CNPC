@@ -111,7 +111,7 @@ public final class BossPhaseData {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
-            BossAbilityKind.BOULDER
+            BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN
     };
     /**
      * Every ability is cast standing still until a builder frees it, existing bosses
@@ -315,6 +315,30 @@ public final class BossPhaseData {
     private int boulderShatterDamage = 4;
     private String boulderVfx = AreaVfxStyles.NONE;
 
+    private boolean boulderRainEnabled;
+    private String boulderRainAnimation = "";
+    private int boulderRainActionDelayTicks = 16;
+    private int boulderRainCooldownTicks = 240;
+    /** Outer edge of the ring the volley falls in, measured from where the boss cast it. */
+    private int boulderRainRadius = 12;
+    /** Inner edge, the dead zone at the boss' own feet. Held under the outer one. */
+    private int boulderRainMinRadius;
+    private int boulderRainCount = 8;
+    /** Ticks between one stone and the next; 0 drops the whole volley on one tick. */
+    private int boulderRainIntervalTicks = 4;
+    /** How high above the floor a stone starts, which is also how long its mark burns. */
+    private int boulderRainFallHeight = 16;
+    /** Cosmetic only, exactly as the corridor boulder's block is. */
+    private String boulderRainBlock = "minecraft:stone";
+    private String boulderRainStyle = BoulderStyles.BLOCK;
+    /** Diameter in tenths of a block, so 12 drops a 1.2 block stone. */
+    private int boulderRainScale = 12;
+    private int boulderRainDamage = 10;
+    private int boulderRainKnockback = 2;
+    private int boulderRainShatterRadius = 2;
+    private int boulderRainShatterDamage = 4;
+    private String boulderRainVfx = AreaVfxStyles.NONE;
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -334,6 +358,7 @@ public final class BossPhaseData {
     private final BossEffectSet leapEffects = new BossEffectSet();
     private final BossEffectSet geyserEffects = new BossEffectSet();
     private final BossEffectSet boulderEffects = new BossEffectSet();
+    private final BossEffectSet boulderRainEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -498,6 +523,23 @@ public final class BossPhaseData {
         tag.putInt("BoulderShatterRadius", boulderShatterRadius);
         tag.putInt("BoulderShatterDamage", boulderShatterDamage);
         tag.putString("BoulderVfx", boulderVfx);
+        tag.putBoolean("BoulderRainEnabled", boulderRainEnabled);
+        tag.putString("BoulderRainAnimation", boulderRainAnimation);
+        tag.putInt("BoulderRainActionDelayTicks", boulderRainActionDelayTicks);
+        tag.putInt("BoulderRainCooldownTicks", boulderRainCooldownTicks);
+        tag.putInt("BoulderRainRadius", boulderRainRadius);
+        tag.putInt("BoulderRainMinRadius", boulderRainMinRadius);
+        tag.putInt("BoulderRainCount", boulderRainCount);
+        tag.putInt("BoulderRainIntervalTicks", boulderRainIntervalTicks);
+        tag.putInt("BoulderRainFallHeight", boulderRainFallHeight);
+        tag.putString("BoulderRainBlock", boulderRainBlock);
+        tag.putString("BoulderRainStyle", boulderRainStyle);
+        tag.putInt("BoulderRainScale", boulderRainScale);
+        tag.putInt("BoulderRainDamage", boulderRainDamage);
+        tag.putInt("BoulderRainKnockback", boulderRainKnockback);
+        tag.putInt("BoulderRainShatterRadius", boulderRainShatterRadius);
+        tag.putInt("BoulderRainShatterDamage", boulderRainShatterDamage);
+        tag.putString("BoulderRainVfx", boulderRainVfx);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -514,6 +556,7 @@ public final class BossPhaseData {
         tag.put("LeapEffects", leapEffects.writeToNBT());
         tag.put("GeyserEffects", geyserEffects.writeToNBT());
         tag.put("BoulderEffects", boulderEffects.writeToNBT());
+        tag.put("BoulderRainEffects", boulderRainEffects.writeToNBT());
         return tag;
     }
 
@@ -713,6 +756,26 @@ public final class BossPhaseData {
         boulderShatterDamage = value(tag, "BoulderShatterDamage", 4, 0, 1000);
         boulderVfx = AreaVfxStyles.normalize(tag.getString("BoulderVfx"));
 
+        boulderRainEnabled = tag.getBoolean("BoulderRainEnabled");
+        boulderRainAnimation = clean(tag.getString("BoulderRainAnimation"));
+        boulderRainActionDelayTicks = value(tag, "BoulderRainActionDelayTicks", 16, 0, 1200);
+        boulderRainCooldownTicks = value(tag, "BoulderRainCooldownTicks", 240, 1, 12000);
+        setBoulderRainRing(
+                value(tag, "BoulderRainRadius", 12, 2, 48),
+                value(tag, "BoulderRainMinRadius", 0, 0, 47));
+        boulderRainCount = value(tag, "BoulderRainCount", 8, 1, 32);
+        boulderRainIntervalTicks = value(tag, "BoulderRainIntervalTicks", 4, 0, 100);
+        boulderRainFallHeight = value(tag, "BoulderRainFallHeight", 16, 4, 48);
+        boulderRainBlock = tag.contains("BoulderRainBlock")
+                ? clean(tag.getString("BoulderRainBlock")) : "minecraft:stone";
+        boulderRainStyle = BoulderStyles.normalize(tag.getString("BoulderRainStyle"));
+        boulderRainScale = value(tag, "BoulderRainScale", 12, 5, 40);
+        boulderRainDamage = value(tag, "BoulderRainDamage", 10, 0, 1000);
+        boulderRainKnockback = value(tag, "BoulderRainKnockback", 2, 0, 10);
+        boulderRainShatterRadius = value(tag, "BoulderRainShatterRadius", 2, 0, 16);
+        boulderRainShatterDamage = value(tag, "BoulderRainShatterDamage", 4, 0, 1000);
+        boulderRainVfx = AreaVfxStyles.normalize(tag.getString("BoulderRainVfx"));
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -722,6 +785,10 @@ public final class BossPhaseData {
         // Saves that know the boulder always carry its enabled key.
         if (!tag.contains("BoulderEnabled")) {
             castRootMask |= 1 << BossAbilityKind.BOULDER;
+        }
+        // The same again for the boulder rain, whose bit is newer still.
+        if (!tag.contains("BoulderRainEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.BOULDER_RAIN;
         }
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
@@ -742,6 +809,7 @@ public final class BossPhaseData {
         leapEffects.readFromNBT(tag, "LeapEffects");
         geyserEffects.readFromNBT(tag, "GeyserEffects");
         boulderEffects.readFromNBT(tag, "BoulderEffects");
+        boulderRainEffects.readFromNBT(tag, "BoulderRainEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -1187,6 +1255,61 @@ public final class BossPhaseData {
     /** Whether the ability is worth scheduling: on, and with a block to be made of. */
     public boolean canLaunchBoulder() { return boulderEnabled && !boulderBlock.isEmpty(); }
 
+    public boolean isBoulderRainEnabled() { return boulderRainEnabled; }
+    public void setBoulderRainEnabled(boolean value) { boulderRainEnabled = value; }
+    public String getBoulderRainAnimation() { return boulderRainAnimation; }
+    public void setBoulderRainAnimation(String value) { boulderRainAnimation = clean(value); }
+    public int getBoulderRainActionDelayTicks() { return boulderRainActionDelayTicks; }
+    public void setBoulderRainActionDelayTicks(int value) {
+        boulderRainActionDelayTicks = Mth.clamp(value, 0, 1200);
+    }
+    public int getBoulderRainCooldownTicks() { return boulderRainCooldownTicks; }
+    public void setBoulderRainCooldownTicks(int value) {
+        boulderRainCooldownTicks = Mth.clamp(value, 1, 12000);
+    }
+    public int getBoulderRainRadius() { return boulderRainRadius; }
+    public int getBoulderRainMinRadius() { return boulderRainMinRadius; }
+    /**
+     * The ring the volley falls in, set as the pair it is read as.
+     *
+     * <p>The inner edge is held under the outer one: a dead zone as wide as the ring would
+     * leave the cast with nowhere left to drop a stone.</p>
+     */
+    public void setBoulderRainRing(int radius, int minRadius) {
+        boulderRainRadius = Mth.clamp(radius, 2, 48);
+        boulderRainMinRadius = Mth.clamp(minRadius, 0, boulderRainRadius - 1);
+    }
+    public int getBoulderRainCount() { return boulderRainCount; }
+    public void setBoulderRainCount(int value) { boulderRainCount = Mth.clamp(value, 1, 32); }
+    public int getBoulderRainIntervalTicks() { return boulderRainIntervalTicks; }
+    public void setBoulderRainIntervalTicks(int value) {
+        boulderRainIntervalTicks = Mth.clamp(value, 0, 100);
+    }
+    public int getBoulderRainFallHeight() { return boulderRainFallHeight; }
+    public void setBoulderRainFallHeight(int value) { boulderRainFallHeight = Mth.clamp(value, 4, 48); }
+    public String getBoulderRainBlock() { return boulderRainBlock; }
+    public void setBoulderRainBlock(String value) { boulderRainBlock = clean(value); }
+    public String getBoulderRainStyle() { return boulderRainStyle; }
+    public void setBoulderRainStyle(String value) { boulderRainStyle = BoulderStyles.normalize(value); }
+    public int getBoulderRainScale() { return boulderRainScale; }
+    public void setBoulderRainScale(int value) { boulderRainScale = Mth.clamp(value, 5, 40); }
+    public int getBoulderRainDamage() { return boulderRainDamage; }
+    public void setBoulderRainDamage(int value) { boulderRainDamage = Mth.clamp(value, 0, 1000); }
+    public int getBoulderRainKnockback() { return boulderRainKnockback; }
+    public void setBoulderRainKnockback(int value) { boulderRainKnockback = Mth.clamp(value, 0, 10); }
+    public int getBoulderRainShatterRadius() { return boulderRainShatterRadius; }
+    public void setBoulderRainShatterRadius(int value) {
+        boulderRainShatterRadius = Mth.clamp(value, 0, 16);
+    }
+    public int getBoulderRainShatterDamage() { return boulderRainShatterDamage; }
+    public void setBoulderRainShatterDamage(int value) {
+        boulderRainShatterDamage = Mth.clamp(value, 0, 1000);
+    }
+    public String getBoulderRainVfx() { return boulderRainVfx; }
+    public void setBoulderRainVfx(String value) { boulderRainVfx = AreaVfxStyles.normalize(value); }
+
+    public boolean canLaunchBoulderRain() { return boulderRainEnabled && !boulderRainBlock.isEmpty(); }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -1245,6 +1368,7 @@ public final class BossPhaseData {
     public BossEffectSet getLeapEffects() { return leapEffects; }
     public BossEffectSet getGeyserEffects() { return geyserEffects; }
     public BossEffectSet getBoulderEffects() { return boulderEffects; }
+    public BossEffectSet getBoulderRainEffects() { return boulderRainEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();
