@@ -14,7 +14,7 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
     private static final int FIRST_HINT_LABEL = 40;
     private static final int RESIST_BUTTON = 67;
 
-    /** Two columns, because eleven rows and two hints do not share one panel comfortably. */
+    /** Two columns, because a dozen rows and two hints do not share one panel comfortably. */
     private static final int ROWS_PER_COLUMN = 6;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
