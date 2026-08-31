@@ -14,7 +14,25 @@ import noppes.npcs.entity.EntityNPCInterface;
  * once, then damage, apply and push - or do none of it.</p>
  */
 public final class BossAbilityDamageUtil {
+    /** No ability is landing right now, so whatever is being hurt is plain damage. */
+    public static final int NO_ABILITY = -1;
+
+    /**
+     * The ability whose hit is being dealt at this instant, for whoever is downstream of it.
+     *
+     * <p>A damage listener is handed a {@link net.minecraft.world.damagesource.DamageSource}
+     * and nothing else - by then "this was the geyser" is gone, and the totem filter needs it
+     * back. A plain static holds it because the server tick is one thread; the save-and-restore
+     * below is what keeps the answer honest when one ability's hit sets another one off.</p>
+     */
+    private static int currentAbility = NO_ABILITY;
+
     private BossAbilityDamageUtil() {
+    }
+
+    /** The ability landing right now, or {@link #NO_ABILITY} outside any ability's hit. */
+    public static int currentAbility() {
+        return currentAbility;
     }
 
     /** Whether one ability passes this entity by entirely. Only npcs can ever say yes. */
@@ -34,32 +52,59 @@ public final class BossAbilityDamageUtil {
      */
     public static boolean hit(LivingEntity target, int ability, EntityNPCInterface boss, int damage,
                               BossEffectSet effects, int knockback, double pushX, double pushZ) {
-        if (target == null || isImmune(target, ability)) {
+        if (target == null || turnedAway(target, ability)) {
             return false;
         }
-        // A zero is "this ability does not hurt, it only does its other half"; handing that to
-        // vanilla anyway would still burn the victim's invulnerability frames on nothing.
-        boolean damaged = damage > 0
-                && target.hurt(boss.level().damageSources().mobAttack(boss), damage);
-        // Applied even when the hit was absorbed by invulnerability frames or armour: a plague
-        // aura that stops working because the victim was briefly immune would feel broken
-        // rather than fair.
-        if (effects != null) {
-            effects.applyAll(target, boss);
+        int outerAbility = currentAbility;
+        currentAbility = ability;
+        try {
+            // A zero is "this ability does not hurt, it only does its other half"; handing that to
+            // vanilla anyway would still burn the victim's invulnerability frames on nothing.
+            boolean damaged = damage > 0
+                    && target.hurt(boss.level().damageSources().mobAttack(boss), damage);
+            // Applied even when the hit was absorbed by invulnerability frames or armour: a plague
+            // aura that stops working because the victim was briefly immune would feel broken
+            // rather than fair.
+            if (effects != null) {
+                effects.applyAll(target, boss);
+            }
+            if (damaged && knockback > 0) {
+                target.knockback(knockback, pushX, pushZ);
+            }
+            return damaged;
+        } finally {
+            // Restored on every road out. A mark left standing would sign the next plain sword
+            // swing as this ability, and a totem that only the geyser may break would fall to it.
+            currentAbility = outerAbility;
         }
-        if (damaged && knockback > 0) {
-            target.knockback(knockback, pushX, pushZ);
-        }
-        return damaged;
     }
 
     /** The potion half on its own, for an ability that deals its damage somewhere else. */
     public static boolean applyEffects(LivingEntity target, int ability, EntityNPCInterface boss,
                                        BossEffectSet effects) {
-        if (target == null || isImmune(target, ability)) {
+        if (target == null || turnedAway(target, ability)) {
             return false;
         }
-        effects.applyAll(target, boss);
+        int outerAbility = currentAbility;
+        currentAbility = ability;
+        try {
+            // Marked as well as hurting does: a potion of harming is damage arriving under this
+            // ability's name, and the totem filter has to read it as such.
+            effects.applyAll(target, boss);
+        } finally {
+            currentAbility = outerAbility;
+        }
         return true;
+    }
+
+    /**
+     * Everyone this ability simply does not reach: an immune npc, or a totem whose slot does
+     * not list this ability among the ones that may break it.
+     *
+     * <p>The totem half is asked here rather than only on the incoming damage, because a hit
+     * that bounces off must leave no potions and no shove behind either.</p>
+     */
+    private static boolean turnedAway(Entity target, int ability) {
+        return isImmune(target, ability) || BossTotemUtil.rejects(target, ability);
     }
 }
