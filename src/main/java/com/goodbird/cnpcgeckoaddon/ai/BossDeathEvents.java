@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.EntityHitResult;
@@ -134,6 +135,62 @@ public final class BossDeathEvents {
             controller.playInvulnerableHitFeedback();
         }
         event.setCanceled(true);
+    }
+
+    /**
+     * Turns away everything a totem's slot does not list as able to break it.
+     *
+     * <p>Registered at the ordinary priority, above the resistance list below: a hit this
+     * drops whole never reaches a mere percentage, and whatever it lets by is then handled
+     * exactly as any other hit on an npc would be.</p>
+     *
+     * <p>The list is read off the totem itself rather than out of its owner's settings,
+     * because the owner may be standing in an unloaded chunk while its totem is being
+     * swung at.</p>
+     */
+    @SubscribeEvent
+    public static void onTotemVulnerability(final LivingIncomingDamageEvent event) {
+        // The same escape hatch the protections above leave: /kill and the void have to keep
+        // working, or a totem with an empty list could never be got rid of again.
+        if (!BossTotemUtil.isTotem(event.getEntity())
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return;
+        }
+        int ability = incomingAbility(event.getSource());
+        if (!BossTotemUtil.rejects(event.getEntity(), ability)) {
+            return;
+        }
+        float before = event.getAmount();
+        event.setCanceled(true);
+        // Reported from here for the same reason the resistances report from their own
+        // listener: nothing downstream is told this hit existed, let alone why it stopped.
+        NpcDamageInfoManager.reportTotemBlock(event, before, ability);
+    }
+
+    /**
+     * Which ability is behind one hit, or {@link BossAbilityDamageUtil#NO_ABILITY} for damage
+     * that belongs to none.
+     *
+     * <p>Most abilities say so themselves while they land. The two that cannot are read off
+     * the hit instead: a projectile carries its own damage rather than going through the
+     * ability door, and an explosion arrives after the boss that armed it is gone - so, the
+     * same compromise the blast immunity makes, listing the death blast lets any explosion
+     * break the totem.</p>
+     */
+    private static int incomingAbility(DamageSource source) {
+        int landing = BossAbilityDamageUtil.currentAbility();
+        if (landing != BossAbilityDamageUtil.NO_ABILITY) {
+            return landing;
+        }
+        if (source.getDirectEntity() instanceof Projectile projectile
+                && projectile.getOwner() instanceof EntityNPCInterface) {
+            return projectile instanceof EntityFluidSpit
+                    ? BossAbilityKind.FLUID : BossAbilityKind.RANGED;
+        }
+        if (source.is(DamageTypeTags.IS_EXPLOSION)) {
+            return BossAbilityKind.BLAST;
+        }
+        return BossAbilityDamageUtil.NO_ABILITY;
     }
 
     /**

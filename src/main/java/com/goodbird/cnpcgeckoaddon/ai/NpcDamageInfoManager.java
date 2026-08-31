@@ -1,15 +1,20 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.NpcDamageResistEntry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -26,6 +31,9 @@ import java.util.stream.Collectors;
  */
 public final class NpcDamageInfoManager {
     private static final Set<UUID> ENABLED = new HashSet<>();
+
+    /** How far from a bouncing totem a breakdown listener may stand and still be told, in blocks. */
+    private static final double TOTEM_REPORT_RANGE = 48.0D;
 
     private NpcDamageInfoManager() {
     }
@@ -45,7 +53,65 @@ public final class NpcDamageInfoManager {
                 || !ENABLED.contains(player.getUUID())) {
             return;
         }
-        DamageSource source = event.getSource();
+        StringBuilder text = describe(event.getSource());
+        float after = event.isCanceled() ? 0.0F : event.getAmount();
+        text.append("\ndamage=").append(format(before));
+        if (resist == null) {
+            text.append(" (no matching rule)");
+        } else {
+            text.append(" -> ").append(format(after))
+                    .append(" (").append(resist.getMatcher())
+                    .append(" ").append(resist.getPercent()).append("%)");
+        }
+        player.sendSystemMessage(Component.literal(text.toString()).withStyle(ChatFormatting.GRAY));
+    }
+
+    /**
+     * Chats why a totem refused a hit: the same breakdown, ending in the ability that was
+     * behind it and is not on that slot's list.
+     *
+     * <p>Told to anyone standing near the totem rather than only to whoever swung, because
+     * the hits worth explaining most - the lava the builder poured, a fire, the boss' own
+     * ability - have no player behind them to answer.</p>
+     */
+    public static void reportTotemBlock(LivingIncomingDamageEvent event, float before, int ability) {
+        if (ENABLED.isEmpty()) {
+            return;
+        }
+        MutableComponent message = Component.literal(describe(event.getSource())
+                        .append("\ndamage=").append(format(before)).append(" -> 0.0 (totem: ")
+                        .toString())
+                .append(ability >= 0 && ability < BossAbilityKind.COUNT
+                        ? Component.translatable(BossAbilityKind.LABELS[ability])
+                        : Component.literal("plain damage"))
+                .append(" not on its list)")
+                .withStyle(ChatFormatting.GRAY);
+        for (ServerPlayer player : listeners(event)) {
+            player.sendSystemMessage(message);
+        }
+    }
+
+    /** The attacker when there is one, plus every listener within sight of the totem. */
+    private static List<ServerPlayer> listeners(LivingIncomingDamageEvent event) {
+        List<ServerPlayer> result = new ArrayList<>();
+        if (event.getSource().getEntity() instanceof ServerPlayer attacker
+                && ENABLED.contains(attacker.getUUID())) {
+            result.add(attacker);
+        }
+        Entity totem = event.getEntity();
+        if (totem.level() instanceof ServerLevel level) {
+            for (ServerPlayer player : level.players()) {
+                if (!result.contains(player) && ENABLED.contains(player.getUUID())
+                        && player.distanceToSqr(totem) <= TOTEM_REPORT_RANGE * TOTEM_REPORT_RANGE) {
+                    result.add(player);
+                }
+            }
+        }
+        return result;
+    }
+
+    /** The half of the breakdown that is only about the hit: its type, its carrier, its tags. */
+    private static StringBuilder describe(DamageSource source) {
         StringBuilder text = new StringBuilder("type=");
         text.append(source.typeHolder().unwrapKey()
                 .map(key -> key.location().toString()).orElse("(unregistered)"));
@@ -59,16 +125,7 @@ public final class NpcDamageInfoManager {
         if (!tags.isEmpty()) {
             text.append("\ntags=").append(tags);
         }
-        float after = event.isCanceled() ? 0.0F : event.getAmount();
-        text.append("\ndamage=").append(format(before));
-        if (resist == null) {
-            text.append(" (no matching rule)");
-        } else {
-            text.append(" -> ").append(format(after))
-                    .append(" (").append(resist.getMatcher())
-                    .append(" ").append(resist.getPercent()).append("%)");
-        }
-        player.sendSystemMessage(Component.literal(text.toString()).withStyle(ChatFormatting.GRAY));
+        return text;
     }
 
     private static String format(float damage) {
