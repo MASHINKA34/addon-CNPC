@@ -81,7 +81,7 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 11;
+    private static final int ABILITY_COUNT = 12;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -152,7 +152,7 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER
+        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN
     }
 
     private final EntityNPCInterface npc;
@@ -217,6 +217,7 @@ public final class TeleportPathController {
     private long nextLineAttackAt = NOT_SCHEDULED;
     private long nextGeyserAt = NOT_SCHEDULED;
     private long nextBoulderAt = NOT_SCHEDULED;
+    private long nextBoulderRainAt = NOT_SCHEDULED;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -289,6 +290,7 @@ public final class TeleportPathController {
     private String reportedBrokenFluid = "";
     private String reportedBrokenGeyserFluid = "";
     private String reportedBrokenBoulderBlock = "";
+    private String reportedBrokenBoulderRainBlock = "";
     private final Map<Integer, TotemRuntime> totemRuntime = new HashMap<>();
     private final Set<Integer> deadTotemSlots = new HashSet<>();
     private final Set<Integer> resetTotemHealthSlots = new HashSet<>();
@@ -1246,6 +1248,7 @@ public final class TeleportPathController {
         cancelPendingAndSchedules();
         clearHookPulls();
         BossGeyserScheduler.clearBoss(npc);
+        BossBoulderRainScheduler.clearBoss(npc);
         // Before the return below: clearing the leap re-pins the boss where it stands, and
         // the return then moves that pin home rather than the other way round.
         clearLeap();
@@ -2189,6 +2192,7 @@ public final class TeleportPathController {
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
+        BossBoulderRainScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             removeTotemsOnBossDeath(level, settings());
         }
@@ -2214,6 +2218,7 @@ public final class TeleportPathController {
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
+        BossBoulderRainScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
                 dropTotemLink(totem, BossTotemUtil.slotId(totem));
@@ -2521,6 +2526,13 @@ public final class TeleportPathController {
         } else {
             nextBoulderAt = NOT_SCHEDULED;
         }
+        if (phase.canLaunchBoulderRain()) {
+            if (nextBoulderRainAt == NOT_SCHEDULED) {
+                nextBoulderRainAt = gameTime + rageDown(phase.getBoulderRainCooldownTicks());
+            }
+        } else {
+            nextBoulderRainAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2551,6 +2563,7 @@ public final class TeleportPathController {
                 case 7 -> tryStartLineAttack(level, data, phase, gameTime);
                 case 8 -> tryStartGeyser(level, data, phase, gameTime);
                 case 9 -> tryStartBoulder(level, data, phase, gameTime);
+                case 10 -> tryStartBoulderRain(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -3195,6 +3208,71 @@ public final class TeleportPathController {
                 block.getSoundType().getPlaceSound(), SoundSource.HOSTILE, 1.5F, 0.6F);
     }
 
+    /**
+     * A ring of stones dropped out of the sky around wherever the boss is standing.
+     *
+     * <p>Nothing is aimed: the ring is the shape, and the cast only asks whether there is
+     * anybody inside it worth spending a cooldown on. Where each stone comes down is settled
+     * by {@link BossBoulderRainScheduler} on the tick the cast lands, because the boss is
+     * back on its rotation long before the last of them arrives.</p>
+     */
+    private boolean tryStartBoulderRain(ServerLevel level, TeleportPathData data,
+                                        BossPhaseData phase, long gameTime) {
+        if (!phase.canLaunchBoulderRain() || gameTime < nextBoulderRainAt) return false;
+        if (EntityBossBoulder.resolveBlock(phase.getBoulderRainBlock()) == null
+                || !hasBoulderRainTargets(level, phase)) {
+            nextBoulderRainAt = gameTime + 20;
+            return false;
+        }
+        beginAction(PendingAction.BOULDER_RAIN, phase.getBoulderRainAnimation(),
+                phase.getBoulderRainActionDelayTicks(), gameTime, null, data, phase);
+        // Only the cooldown is scaled: the action delay is measured against the attack
+        // animation, and shortening it would start the volley before the swing does.
+        nextBoulderRainAt = gameTime + phase.getBoulderRainActionDelayTicks()
+                + rageDown(phase.getBoulderRainCooldownTicks());
+        return true;
+    }
+
+    /**
+     * Whether the ring has anybody in it.
+     *
+     * <p>Swept to the outer edge and no further: somebody standing in the dead zone at the
+     * boss' feet is not a reason to rain, because not one stone can reach them there.</p>
+     */
+    private boolean hasBoulderRainTargets(ServerLevel level, BossPhaseData phase) {
+        double min = phase.getBoulderRainMinRadius();
+        for (LivingEntity target : getTargetsAround(level, npc.position(),
+                phase.getBoulderRainRadius(), BossAbilityKind.BOULDER_RAIN)) {
+            if (target.position().distanceToSqr(npc.position()) >= min * min) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Hands the whole volley over, and nothing else.
+     *
+     * <p>Not one stone falls here: the points, the damage and the enrage bonus are snapshotted
+     * on this tick and the scheduler drops them on its own clock, which is what lets the boss
+     * carry on fighting while its rain is still in the air.</p>
+     */
+    private void performBoulderRain(ServerLevel level, BossPhaseData phase, long gameTime) {
+        BlockState block = EntityBossBoulder.resolveBlock(phase.getBoulderRainBlock());
+        if (block == null) {
+            if (!phase.getBoulderRainBlock().equals(reportedBrokenBoulderRainBlock)) {
+                reportedBrokenBoulderRainBlock = phase.getBoulderRainBlock();
+                LOGGER.warn("Boss {} cannot rain boulders of {}: no such block",
+                        npc.getName().getString(), phase.getBoulderRainBlock());
+            }
+            return;
+        }
+        reportedBrokenBoulderRainBlock = "";
+        BossBoulderRainScheduler.schedule(level, npc, phase, npc.position(), block,
+                rageUp(phase.getBoulderRainDamage()), rageUp(phase.getBoulderRainKnockback()),
+                rageUp(phase.getBoulderRainShatterDamage()), gameTime);
+    }
+
     private boolean tryStartLeap(ServerLevel level, TeleportPathData data,
                                  BossPhaseData phase, long gameTime) {
         if (!phase.isLeapEnabled() || gameTime < nextLeapAt || leapAirborne) return false;
@@ -3832,6 +3910,7 @@ public final class TeleportPathController {
             case LINE_ATTACK -> BossAbilityKind.LINE;
             case GEYSER -> BossAbilityKind.GEYSER;
             case BOULDER -> BossAbilityKind.BOULDER;
+            case BOULDER_RAIN -> BossAbilityKind.BOULDER_RAIN;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -3904,7 +3983,9 @@ public final class TeleportPathController {
             // The corridor was committed to when the warning went up, so there is nothing
             // left to call off: walking out of it already is the dodge, and cancelling
             // would only bring the same strike back round in two seconds.
-            case LINE_ATTACK, BOULDER -> true;
+            // The ring is centred on the boss and covers the ground rather than a victim,
+            // so there is nobody in particular who could have stepped out of it.
+            case LINE_ATTACK, BOULDER, BOULDER_RAIN -> true;
             // Nobody to dodge a summon, a teleport, or an action that is not running.
             case NONE, SUMMON, TELEPORT -> true;
         };
@@ -3942,6 +4023,7 @@ public final class TeleportPathController {
             case LEAP -> nextLeapAt;
             case GEYSER -> nextGeyserAt;
             case BOULDER -> nextBoulderAt;
+            case BOULDER_RAIN -> nextBoulderRainAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -3960,6 +4042,7 @@ public final class TeleportPathController {
             case LEAP -> nextLeapAt = at;
             case GEYSER -> nextGeyserAt = at;
             case BOULDER -> nextBoulderAt = at;
+            case BOULDER_RAIN -> nextBoulderRainAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -4007,6 +4090,8 @@ public final class TeleportPathController {
             performGeyser(level, phase, gameTime);
         } else if (pendingAction == PendingAction.BOULDER) {
             performBoulder(level, phase);
+        } else if (pendingAction == PendingAction.BOULDER_RAIN) {
+            performBoulderRain(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -4444,11 +4529,14 @@ public final class TeleportPathController {
      * the cast, and the entity has no idea on its own who this boss counts as an enemy. The
      * species filter is applied too, so a boss aimed only at players rolls straight through
      * the cattle.</p>
+     *
+     * <p>The ability is handed in rather than assumed: the same stone falls for the boulder
+     * rain, and an npc made immune to one of the two must not be passed over by the other.</p>
      */
-    public boolean isBoulderVictim(LivingEntity target) {
+    public boolean isBoulderVictim(LivingEntity target, int ability) {
         return target != npc && target.isAlive()
                 && matchesAbilityTargetKind(target, settings())
-                && isAbilityTarget(target, BossAbilityKind.BOULDER);
+                && isAbilityTarget(target, ability);
     }
 
     /**
@@ -4784,6 +4872,7 @@ public final class TeleportPathController {
         nextLeapAt = NOT_SCHEDULED;
         nextGeyserAt = NOT_SCHEDULED;
         nextBoulderAt = NOT_SCHEDULED;
+        nextBoulderRainAt = NOT_SCHEDULED;
     }
 
     private void reset() {
@@ -4800,6 +4889,7 @@ public final class TeleportPathController {
         encounterResetDone = false;
         clearHookPulls();
         BossGeyserScheduler.clearBoss(npc);
+        BossBoulderRainScheduler.clearBoss(npc);
         clearLeap();
         BossCaptureManager.releaseByBoss(npc);
         busyUntil = 0L;
@@ -4817,5 +4907,6 @@ public final class TeleportPathController {
         reportedBrokenFluid = "";
         reportedBrokenGeyserFluid = "";
         reportedBrokenBoulderBlock = "";
+        reportedBrokenBoulderRainBlock = "";
     }
 }

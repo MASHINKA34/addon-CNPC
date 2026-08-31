@@ -43,9 +43,10 @@ import java.util.Set;
  * The stone a boss rolls or throws down a committed corridor.
  *
  * <p>The mechanic lives entirely here on the server: a fixed flat direction, a floor-hugging
- * roll or a plain arc, and one hit per victim per flight. The entity itself carries nothing
- * visual beyond a block id, a skin id and a size, so the renderer can be swapped for a real
- * model without this class changing.</p>
+ * roll or a plain arc - or, for the boulder rain, no direction at all and a straight drop -
+ * and one hit per victim per flight. The entity itself carries nothing visual beyond a block
+ * id, a skin id and a size, so the renderer can be swapped for a real model without this
+ * class changing.</p>
  *
  * <p>It never touches the world: no blocks broken, no fire, no explosion - it breaks against
  * the arena, never the other way round.</p>
@@ -63,6 +64,13 @@ public class EntityBossBoulder extends Projectile {
     public static final int MIN_SCALE_TENTHS = 5;
     public static final int MAX_SCALE_TENTHS = 40;
 
+    /** Hugs the floor down a flat corridor. */
+    private static final int MODE_ROLL = 0;
+    /** Lobbed in an arc down the same corridor. */
+    private static final int MODE_THROW = 1;
+    /** Dropped from above with no corridor at all: the boulder rain's stone. */
+    private static final int MODE_FALL = 2;
+
     /** How exactly one stair a rolling boulder climbs; anything taller is a wall. */
     private static final double STEP_HEIGHT = 1.0D;
     private static final double ROLL_GRAVITY = 0.08D;
@@ -79,7 +87,9 @@ public class EntityBossBoulder extends Projectile {
     private static final String BLOCK_KEY = "GeckoBoulderBlock";
     private static final String STYLE_KEY = "GeckoBoulderStyle";
     private static final String SCALE_KEY = "GeckoBoulderScale";
+    /** Pre-drop saves carry only this: true rolled, false or absent was the arc. */
     private static final String ROLLS_KEY = "GeckoBoulderRolls";
+    private static final String MODE_KEY = "GeckoBoulderMode";
     private static final String DIR_X_KEY = "GeckoBoulderDirX";
     private static final String DIR_Z_KEY = "GeckoBoulderDirZ";
     private static final String SPEED_KEY = "GeckoBoulderSpeed";
@@ -92,7 +102,7 @@ public class EntityBossBoulder extends Projectile {
     private static final String SHATTER_DAMAGE_KEY = "GeckoBoulderShatterDamage";
     private static final String VFX_KEY = "GeckoBoulderVfx";
 
-    private boolean rolling = true;
+    private int mode = MODE_ROLL;
     private Vec3 direction = new Vec3(0.0D, 0.0D, 1.0D);
     /** Blocks per tick along {@link #direction}. */
     private double speed = 0.6D;
@@ -153,7 +163,7 @@ public class EntityBossBoulder extends Projectile {
 
     /** Sends the boulder rolling flat along {@code axis} for at most {@code rangeBlocks}. */
     public void launchRoll(Vec3 axis, int speedTenths, double rangeBlocks) {
-        rolling = true;
+        mode = MODE_ROLL;
         aim(axis, speedTenths, rangeBlocks);
         setDeltaMovement(direction.scale(speed));
         maxAgeTicks = travelBudgetTicks();
@@ -164,7 +174,7 @@ public class EntityBossBoulder extends Projectile {
      * flat ground; whatever it meets earlier breaks it there instead.
      */
     public void launchThrow(Vec3 axis, int speedTenths, double rangeBlocks) {
-        rolling = false;
+        mode = MODE_THROW;
         aim(axis, speedTenths, rangeBlocks);
         int flightTicks = Math.max(2, Mth.ceil(range / speed));
         // Discrete ballistics: the arc loses THROW_GRAVITY each tick, so this starting rise
@@ -172,6 +182,35 @@ public class EntityBossBoulder extends Projectile {
         verticalSpeed = THROW_GRAVITY * (flightTicks - 1) / 2.0D;
         setDeltaMovement(direction.x * speed, verticalSpeed, direction.z * speed);
         maxAgeTicks = travelBudgetTicks();
+    }
+
+    /**
+     * Drops the boulder straight down through {@code heightBlocks}, with nothing pushing it
+     * sideways: whatever is under it - somebody caught in the air, or the floor - is what
+     * breaks it, and it breaks the same way a throw does.
+     */
+    public void launchFall(double heightBlocks) {
+        mode = MODE_FALL;
+        range = Math.max(heightBlocks, 1.0D);
+        // From rest, so the drop takes exactly the fallTicks the mark on the floor below is
+        // being burned for.
+        verticalSpeed = 0.0D;
+        setDeltaMovement(Vec3.ZERO);
+        maxAgeTicks = travelBudgetTicks();
+    }
+
+    /**
+     * How many ticks a stone dropped from rest needs to fall {@code height} blocks.
+     *
+     * <p>Solved against the discrete fall {@link #tickThrow} really runs - it moves by the
+     * current speed and only then loses {@link #THROW_GRAVITY}, so after n ticks it has
+     * covered {@code g * n * (n - 1) / 2}. The scheduler burns its mark for exactly this,
+     * which is why the two must not each have their own idea of the answer.</p>
+     */
+    public static int fallTicks(double height) {
+        double blocks = Math.max(height, 0.0D);
+        int ticks = Mth.ceil((1.0D + Math.sqrt(1.0D + 8.0D * blocks / THROW_GRAVITY)) / 2.0D);
+        return Mth.clamp(ticks, 1, 400);
     }
 
     private void aim(Vec3 axis, int speedTenths, double rangeBlocks) {
@@ -190,6 +229,11 @@ public class EntityBossBoulder extends Projectile {
      * block per tick is 640 ticks before the doubling.
      */
     private int travelBudgetTicks() {
+        // A drop has no corridor to measure itself against, so its budget comes off the fall
+        // instead - with the same slack, for a stone that finds a hole under its mark.
+        if (mode == MODE_FALL) {
+            return Mth.clamp(fallTicks(range) * 3 + 60, 60, 1500);
+        }
         return Mth.clamp(Mth.ceil(range / speed) * 2 + 60, 60, 1500);
     }
 
@@ -251,9 +295,11 @@ public class EntityBossBoulder extends Projectile {
             vanish();
             return;
         }
-        if (rolling) {
+        if (mode == MODE_ROLL) {
             tickRoll(boss);
         } else {
+            // A drop is a throw with nothing pushing it sideways: same clip, same first
+            // thing it meets, same break.
             tickThrow(boss);
         }
     }
@@ -429,12 +475,26 @@ public class EntityBossBoulder extends Projectile {
         return false;
     }
 
+    /**
+     * Which ability of the shared list this stone belongs to.
+     *
+     * <p>Read off the mode rather than carried as a field of its own: a dropped stone is the
+     * boulder rain by definition, and the immunity an npc was given has to be the one the
+     * builder ticked on the screen the stone was configured on.</p>
+     */
+    private int abilityKind() {
+        return mode == MODE_FALL ? BossAbilityKind.BOULDER_RAIN : BossAbilityKind.BOULDER;
+    }
+
     /** The path hit: damage, potions, and the shove straight down the boulder's own line. */
     private void strike(EntityNPCInterface boss, LivingEntity victim) {
         // Vanilla shoves against the vector it is handed, so the direction goes in negated
-        // to throw the victim the way the boulder is moving.
-        BossAbilityDamageUtil.hit(victim, BossAbilityKind.BOULDER, boss, hitDamage, effects,
-                hitKnockback, -direction.x, -direction.z);
+        // to throw the victim the way the boulder is moving. A stone coming straight down
+        // has no line to shove along, so it shoves the victim off itself instead.
+        double pushX = mode == MODE_FALL ? getX() - victim.getX() : -direction.x;
+        double pushZ = mode == MODE_FALL ? getZ() - victim.getZ() : -direction.z;
+        BossAbilityDamageUtil.hit(victim, abilityKind(), boss, hitDamage, effects,
+                hitKnockback, pushX, pushZ);
     }
 
     /**
@@ -449,7 +509,7 @@ public class EntityBossBoulder extends Projectile {
         }
         TeleportPathController controller = boss instanceof IBossController holder
                 ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
-        return controller != null && controller.isBoulderVictim(candidate);
+        return controller != null && controller.isBoulderVictim(candidate, abilityKind());
     }
 
     /** Breaks the boulder against {@code centre}: the burst circle, the debris, the crack. */
@@ -468,7 +528,7 @@ public class EntityBossBoulder extends Projectile {
             for (LivingEntity victim : server.getEntitiesOfClass(LivingEntity.class, box,
                     candidate -> isVictim(boss, candidate)
                             && candidate.position().distanceToSqr(centre) <= radiusSquared)) {
-                BossAbilityDamageUtil.hit(victim, BossAbilityKind.BOULDER, boss, shatterDamage,
+                BossAbilityDamageUtil.hit(victim, abilityKind(), boss, shatterDamage,
                         null, 0, 0.0D, 0.0D);
             }
             BossAreaVfxScheduler.schedule(server, centre, vfx, shatterRadius, 20, false);
@@ -497,7 +557,7 @@ public class EntityBossBoulder extends Projectile {
         tag.putInt(BLOCK_KEY, this.entityData.get(BLOCK_STATE));
         tag.putInt(SCALE_KEY, this.entityData.get(SCALE_TENTHS));
         tag.putString(STYLE_KEY, this.entityData.get(STYLE));
-        tag.putBoolean(ROLLS_KEY, rolling);
+        tag.putInt(MODE_KEY, mode);
         tag.putDouble(DIR_X_KEY, direction.x);
         tag.putDouble(DIR_Z_KEY, direction.z);
         tag.putDouble(SPEED_KEY, speed);
@@ -523,7 +583,11 @@ public class EntityBossBoulder extends Projectile {
             refreshDimensions();
         }
         this.entityData.set(STYLE, BoulderStyles.normalize(tag.getString(STYLE_KEY)));
-        rolling = !tag.contains(ROLLS_KEY) || tag.getBoolean(ROLLS_KEY);
+        // A stone saved before the drop existed has only the old boolean, and no key at all
+        // meant the roll: both have to come back in the mode they were launched in.
+        mode = tag.contains(MODE_KEY)
+                ? Mth.clamp(tag.getInt(MODE_KEY), MODE_ROLL, MODE_FALL)
+                : (!tag.contains(ROLLS_KEY) || tag.getBoolean(ROLLS_KEY) ? MODE_ROLL : MODE_THROW);
         Vec3 flat = new Vec3(tag.getDouble(DIR_X_KEY), 0.0D, tag.getDouble(DIR_Z_KEY));
         direction = flat.lengthSqr() < 1.0E-6D ? new Vec3(0.0D, 0.0D, 1.0D) : flat.normalize();
         speed = Mth.clamp(tag.getDouble(SPEED_KEY), 0.1D, 2.0D);
