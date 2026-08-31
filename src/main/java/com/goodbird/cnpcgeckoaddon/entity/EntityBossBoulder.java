@@ -40,7 +40,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * The stone a boss rolls or throws down a committed corridor.
+ * The stone a boss rolls or throws down a committed corridor, or drops out of the sky.
  *
  * <p>The mechanic lives entirely here on the server: a fixed flat direction, a floor-hugging
  * roll or a plain arc - or, for the boulder rain, no direction at all and a straight drop -

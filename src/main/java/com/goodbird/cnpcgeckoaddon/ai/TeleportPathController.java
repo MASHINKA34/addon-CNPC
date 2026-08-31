@@ -3983,9 +3983,10 @@ public final class TeleportPathController {
             // The corridor was committed to when the warning went up, so there is nothing
             // left to call off: walking out of it already is the dodge, and cancelling
             // would only bring the same strike back round in two seconds.
-            // The ring is centred on the boss and covers the ground rather than a victim,
-            // so there is nobody in particular who could have stepped out of it.
-            case LINE_ATTACK, BOULDER, BOULDER_RAIN -> true;
+            case LINE_ATTACK, BOULDER -> true;
+            // And the rain is not aimed at anybody at all: the ring is centred on the boss
+            // and lands on ground, so there is nobody in particular who could have left it.
+            case BOULDER_RAIN -> true;
             // Nobody to dodge a summon, a teleport, or an action that is not running.
             case NONE, SUMMON, TELEPORT -> true;
         };
