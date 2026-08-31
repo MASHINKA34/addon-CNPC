@@ -81,9 +81,14 @@ public class GeckoAddonCommand {
                         : controller.configuredTotemCount();
                 int alive = controller == null ? 0 : controller.aliveTotemCount();
                 boolean protectedNow = controller != null && controller.isTotemProtected();
+                boolean heldNow = controller != null && controller.isTotemHeld();
+                // The mode is only worth naming while the formation still wards at all.
                 String protection = !data.isTotemsEnabled() ? "disabled"
+                        : !data.isTotemGrantInvulnerability() ? "off"
                         : data.getTotemProtectionMode() == TeleportPathData.TOTEM_PROTECTION_FULL_IMMUNITY
                         ? "full immunity" : "lethal guard";
+                String hold = !data.isTotemsEnabled() || !data.isTotemHoldBoss() ? "off"
+                        : heldNow ? "on (holding)" : "on (idle)";
                 String respawn = switch (data.getTotemRespawnMode()) {
                     case TeleportPathData.TOTEM_RESPAWN_NEVER -> "never";
                     case TeleportPathData.TOTEM_RESPAWN_DELAYED -> "delayed";
@@ -92,7 +97,7 @@ public class GeckoAddonCommand {
                 String bossLine = describe(npc, "boss status");
                 String totemLine = "Totems: " + alive + "/" + configured + ", protection="
                         + protection + (protectedNow ? " (active)" : " (inactive)")
-                        + ", respawn=" + respawn;
+                        + ", hold=" + hold + ", respawn=" + respawn;
                 String captureLine = controller == null ? "Capture: ready"
                         : controller.captureStatus(level.getGameTime());
                 String leashLine = controller == null
