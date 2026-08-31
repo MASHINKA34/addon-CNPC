@@ -150,8 +150,9 @@ public final class BossDeathEvents {
      */
     @SubscribeEvent
     public static void onTotemVulnerability(final LivingIncomingDamageEvent event) {
-        // The same escape hatch the protections above leave: /kill and the void have to keep
-        // working, or a totem with an empty list could never be got rid of again.
+        // Leaving the bypass tag alone is the escape hatch the protections above also leave:
+        // /kill and the void keep working, or a totem with an empty list could never be got
+        // rid of again.
         if (!BossTotemUtil.isTotem(event.getEntity())
                 || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
             return;
@@ -171,7 +172,7 @@ public final class BossDeathEvents {
      * Which ability is behind one hit, or {@link BossAbilityDamageUtil#NO_ABILITY} for damage
      * that belongs to none.
      *
-     * <p>Most abilities say so themselves while they land. The two that cannot are read off
+     * <p>Most abilities say so themselves while they land. The ones that cannot are read off
      * the hit instead: a projectile carries its own damage rather than going through the
      * ability door, and an explosion arrives after the boss that armed it is gone - so, the
      * same compromise the blast immunity makes, listing the death blast lets any explosion
