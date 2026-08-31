@@ -31,6 +31,9 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfi
     private static final int RESTORE_BUTTON = 14;
     private static final int GRANT_INVULN_BUTTON = 15;
     private static final int HOLD_BUTTON = 16;
+    private static final int SILENCE_BUTTON = 17;
+    private static final int UNTARGETABLE_BUTTON = 18;
+    private static final int SHACKLE_HINT_LABEL = 40;
 
     private static final String[] BEAM_STYLE_LABELS = HookCordStyles.values().stream()
             .map(HookCordStyles.Style::translationKey).toArray(String[]::new);
@@ -43,7 +46,10 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfi
         this.data = data;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 336;
+        // Two more formation flags and the three-line hint explaining them; the shackles
+        // belong beside the ward and the hold, and there is nowhere on this screen that was
+        // free to put them in.
+        imageHeight = 406;
         closeOnEsc = true;
     }
 
@@ -63,6 +69,12 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfi
                 TeleportPathData.TOTEM_PROTECTION_LABELS, data.getTotemProtectionMode());
         y += 21;
         addWideYesNo(HOLD_BUTTON, "cnpcgeckoaddon.boss.totem_hold", y, data.isTotemHoldBoss());
+        y += 21;
+        addWideYesNo(SILENCE_BUTTON, "cnpcgeckoaddon.boss.totem_silence", y,
+                data.isTotemSuppressAbilities());
+        y += 21;
+        addWideYesNo(UNTARGETABLE_BUTTON, "cnpcgeckoaddon.boss.totem_untargetable", y,
+                data.isTotemUntargetable());
         y += 21;
         addChoice(ACTIVATION_BUTTON, "cnpcgeckoaddon.boss.totem_activation", y,
                 TeleportPathData.TOTEM_ACTIVATION_LABELS, data.getTotemActivationMode());
@@ -99,14 +111,17 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfi
         addSmallNumber(BEAM_WIDTH_FIELD, guiLeft + 154, y, data.getTotemBeamWidthPercent(), 25, 400, 100);
         addSmallNumber(BEAM_SAG_FIELD, guiLeft + 200, y, data.getTotemBeamSagPercent(), 0, 200, 0);
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.totem_hint", guiLeft + 8, guiTop + 277, 0xA0A0A0));
-        addLabel(new GuiLabel(33, "cnpcgeckoaddon.boss.totem_hold_hint", guiLeft + 8, guiTop + 289, 0xA0A0A0));
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 301, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, LIST_BUTTON, guiLeft + 8, guiTop + 312, 92, 20,
+        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.totem_hint", guiLeft + 8, guiTop + 316, 0xA0A0A0));
+        addLabel(new GuiLabel(33, "cnpcgeckoaddon.boss.totem_hold_hint", guiLeft + 8, guiTop + 328, 0xA0A0A0));
+        // Wrapped rather than placed by hand: it is the one hint here too long for a line,
+        // and the three lines it takes in both locales are the room reserved below it.
+        addWrappedHint(SHACKLE_HINT_LABEL, "cnpcgeckoaddon.boss.totem_silence_hint", guiTop + 340);
+        addLabel(new GuiLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 369, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, LIST_BUTTON, guiLeft + 8, guiTop + 382, 92, 20,
                 "cnpcgeckoaddon.boss.totem_list"));
-        addButton(new GuiButtonNop(this, RESTORE_BUTTON, guiLeft + 104, guiTop + 312, 88, 20,
+        addButton(new GuiButtonNop(this, RESTORE_BUTTON, guiLeft + 104, guiTop + 382, 88, 20,
                 "cnpcgeckoaddon.boss.totem_restore"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 196, guiTop + 312, 46, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 196, guiTop + 382, 46, 20,
                 "gui.done", button -> close()));
         updateConditionalFields();
     }
@@ -169,6 +184,10 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfi
             data.setTotemGrantInvulnerability(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == HOLD_BUTTON) {
             data.setTotemHoldBoss(((GuiButtonYesNo) button).getBoolean());
+        } else if (button.id == SILENCE_BUTTON) {
+            data.setTotemSuppressAbilities(((GuiButtonYesNo) button).getBoolean());
+        } else if (button.id == UNTARGETABLE_BUTTON) {
+            data.setTotemUntargetable(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == PROTECTION_BUTTON) {
             data.setTotemProtectionMode(button.getValue());
         } else if (button.id == ACTIVATION_BUTTON) {
