@@ -60,6 +60,19 @@ Texture behavior:
 - Textures stored by mods under both textures/entity and textures/entities
   are supported.
 
+Hitbox behavior:
+- Every bundled model records its own hitbox size in
+  META-INF/MOBMODEL_HITBOXES.tsv, derived from the model geometry itself.
+  Models used to share one humanoid 0.7 by 2.0 box regardless of their size.
+- The box is square in plan and cannot rotate, so the width is taken from the
+  model's narrower horizontal span. The longer axis of an elongated creature is
+  therefore not covered; that needs separate hit parts, not a wider box.
+- Width is capped at 8 blocks and height at 16, because the same box also
+  drives collision, pathfinding, and entity pushing.
+- "Hitbox From Model" turns the derived size off in favor of manual values, and
+  "Hitbox Scale" multiplies whichever size is in use. NPCs saved with a hand
+  tuned box keep it.
+
 Bosses'Rise integration:
 - Entity geometry is bundled from assets/block_factorys_bosses/geo/entity.
 - The mod's nonstandard anim_bosses_rise/entity resources are exposed under

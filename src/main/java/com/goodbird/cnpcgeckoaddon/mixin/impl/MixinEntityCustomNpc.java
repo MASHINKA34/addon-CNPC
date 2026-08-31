@@ -31,8 +31,10 @@ public class MixinEntityCustomNpc extends EntityNPCInterface {
         Entity entity = this.modelData.getEntity(this);
         if (!(entity instanceof EntityCustomModel)) return;
         EntityCustomModel modelEntity = (EntityCustomModel) entity;
-        if (display.getCustomModelData().getHeight() != modelEntity.getBbHeight() || display.getCustomModelData().getWidth() != modelEntity.getBbWidth()) {
-            modelEntity.setSize(display.getCustomModelData().getWidth(), display.getCustomModelData().getHeight());
+        float width = display.getCustomModelData().getEffectiveWidth();
+        float height = display.getCustomModelData().getEffectiveHeight();
+        if (height != modelEntity.getBbHeight() || width != modelEntity.getBbWidth()) {
+            modelEntity.setSize(width, height);
             this.refreshDimensions();
         }
     }

@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.utils.MobModelHitboxResolver;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -21,7 +22,18 @@ public class CustomModelData {
     private int transitionLengthTicks = 10;
     private float width = 0.7f;
     private float height = 2f;
+    private boolean autoHitbox = true;
+    private float hitboxScale = 1f;
     private boolean hurtTintEnabled = false;
+
+    /** The box every model used before sizes were derived from the geometry. */
+    private static final float LEGACY_WIDTH = 0.7f;
+    private static final float LEGACY_HEIGHT = 2f;
+    private static final float MIN_SCALE = 0.05f;
+    private static final float MAX_SCALE = 16f;
+
+    private String derivedModel;
+    private float[] derivedSize;
     public CompoundTag writeToNBT(CompoundTag nbttagcompound) {
         nbttagcompound.putString("Model", model);
         nbttagcompound.putString("AnimFile", animFile);
@@ -38,6 +50,8 @@ public class CustomModelData {
         nbttagcompound.putInt("TransitionLengthTicks", transitionLengthTicks);
         nbttagcompound.putFloat("Width",width);
         nbttagcompound.putFloat("Height",height);
+        nbttagcompound.putBoolean("AutoHitbox",autoHitbox);
+        nbttagcompound.putFloat("HitboxScale",hitboxScale);
         nbttagcompound.putBoolean("HurtTintEnabled",hurtTintEnabled);
         return nbttagcompound;
     }
@@ -63,6 +77,18 @@ public class CustomModelData {
 
             if (nbttagcompound.contains("Height"))
                 height = nbttagcompound.getFloat("Height");
+
+            // NPCs saved before the derived sizes existed carry the old 0.7 by 2.0
+            // box. Those were never chosen, they were simply the only default, so
+            // they move to the derived size. A box someone actually tuned is left
+            // exactly as it was.
+            if (nbttagcompound.contains("AutoHitbox"))
+                autoHitbox = nbttagcompound.getBoolean("AutoHitbox");
+            else
+                autoHitbox = width == LEGACY_WIDTH && height == LEGACY_HEIGHT;
+
+            if (nbttagcompound.contains("HitboxScale"))
+                hitboxScale = nbttagcompound.getFloat("HitboxScale");
 
             if (nbttagcompound.contains("TransitionLengthTicks"))
                 transitionLengthTicks = nbttagcompound.getInt("TransitionLengthTicks");
@@ -174,6 +200,71 @@ public class CustomModelData {
 
     public void setHeight(float height) {
         this.height = height;
+    }
+
+    public boolean isAutoHitbox() {
+        return autoHitbox;
+    }
+
+    /**
+     * Turning automatic sizing off seeds the manual box from the derived size, so
+     * tuning starts at the model's own size rather than at the humanoid default.
+     * A box that was already tuned by hand is left alone.
+     */
+    public void setAutoHitbox(boolean autoHitbox) {
+        if (!autoHitbox && this.autoHitbox && width == LEGACY_WIDTH && height == LEGACY_HEIGHT) {
+            float[] derived = derived();
+            if (derived != null) {
+                width = derived[0];
+                height = derived[1];
+            }
+        }
+        this.autoHitbox = autoHitbox;
+    }
+
+    public float getHitboxScale() {
+        return hitboxScale;
+    }
+
+    public void setHitboxScale(float hitboxScale) {
+        this.hitboxScale = hitboxScale;
+    }
+
+    /** The size the model records for itself, or null for a non-bundled model. */
+    public float[] getDerivedHitbox() {
+        float[] derived = derived();
+        return derived == null ? null : new float[]{derived[0], derived[1]};
+    }
+
+    public float getEffectiveWidth() {
+        float[] derived = autoHitbox ? derived() : null;
+        return (derived == null ? width : derived[0]) * clampedScale();
+    }
+
+    public float getEffectiveHeight() {
+        float[] derived = autoHitbox ? derived() : null;
+        return (derived == null ? height : derived[1]) * clampedScale();
+    }
+
+    /**
+     * Both effective sizes are read every tick for every NPC, so the table lookup
+     * is kept until the model itself changes. The array is never handed out
+     * without copying, so caching it cannot leak a mutable size.
+     */
+    private float[] derived() {
+        if (derivedModel == null || !derivedModel.equals(model)) {
+            derivedModel = model;
+            derivedSize = MobModelHitboxResolver.resolve(model);
+        }
+        return derivedSize;
+    }
+
+    /** A scale of zero would leave an entity that cannot be seen or clicked. */
+    private float clampedScale() {
+        if (!(hitboxScale > MIN_SCALE)) {
+            return MIN_SCALE;
+        }
+        return Math.min(hitboxScale, MAX_SCALE);
     }
 
     public boolean isHurtTintEnabled() {

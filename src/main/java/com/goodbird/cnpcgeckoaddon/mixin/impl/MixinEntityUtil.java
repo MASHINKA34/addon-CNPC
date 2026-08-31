@@ -55,8 +55,10 @@ public class MixinEntityUtil {
                 AnimationController controller = (AnimationController) obj;
                 controller.transitionLength(display.getCustomModelData().getTransitionLengthTicks());
             }
-            if(display.getCustomModelData().getHeight()!=modelEntity.getBbHeight() || display.getCustomModelData().getWidth() != modelEntity.getBbWidth()){
-                modelEntity.setSize(display.getCustomModelData().getWidth(), display.getCustomModelData().getHeight());
+            float width = display.getCustomModelData().getEffectiveWidth();
+            float height = display.getCustomModelData().getEffectiveHeight();
+            if(height!=modelEntity.getBbHeight() || width != modelEntity.getBbWidth()){
+                modelEntity.setSize(width, height);
                 npc.refreshDimensions();
             }
         }

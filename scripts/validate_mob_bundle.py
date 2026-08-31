@@ -77,6 +77,35 @@ def main() -> None:
         if not resource_path(texture).is_file() and not texture.startswith("minecraft:"):
             failures.append(f"mapped texture missing: {texture}")
 
+    hitbox_path = RESOURCE_ROOT / "META-INF" / "MOBMODEL_HITBOXES.tsv"
+    hitboxes: dict[str, tuple[float, float]] = {}
+    for line_number, line in enumerate(hitbox_path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 3:
+            failures.append(f"invalid hitbox line {line_number}")
+            continue
+        model, raw_width, raw_height = fields
+        if model in hitboxes:
+            failures.append(f"duplicate model hitbox: {model}")
+        try:
+            width, height = float(raw_width), float(raw_height)
+        except ValueError:
+            failures.append(f"non numeric hitbox on line {line_number}: {model}")
+            continue
+        hitboxes[model] = (width, height)
+        if not 0.0 < width <= 16.0 or not 0.0 < height <= 32.0:
+            failures.append(f"hitbox out of range: {model} ({width} x {height})")
+        if not resource_path(model).is_file():
+            failures.append(f"sized model missing: {model}")
+
+    for path in ASSET_ROOT.rglob("*.geo.json"):
+        relative = path.relative_to(ASSET_ROOT).as_posix()
+        namespace, resource = relative.split("/", 1)
+        if f"{namespace}:{resource}" not in hitboxes:
+            failures.append(f"missing hitbox size: {namespace}:{resource}")
+
     for namespace in STRICT_PAIRED_NAMESPACES:
         namespace_root = ASSET_ROOT / namespace
         for model in sorted((namespace_root / "geo").glob("*.geo.json")):
@@ -115,7 +144,8 @@ def main() -> None:
 
     print(
         f"Validated {json_count} JSON files ({geo_count} geometry, {animation_count} animation), "
-        f"{png_count} PNG files, and {len(mappings)} model-texture mappings."
+        f"{png_count} PNG files, {len(mappings)} model-texture mappings, "
+        f"and {len(hitboxes)} model hitbox sizes."
     )
     if failures:
         for failure in failures:
