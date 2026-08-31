@@ -1,5 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 
@@ -13,6 +16,8 @@ public final class BossTotemUtil {
     public static final String TOTEM_OWNER_KEY = "CNPCGeckoBossTotemOwner";
     public static final String TOTEM_SLOT_KEY = "CNPCGeckoBossTotemSlot";
     public static final String DEAD_SLOTS_KEY = "CNPCGeckoBossTotemDeadSlots";
+    public static final String VULNERABILITY_MODE_KEY = "CNPCGeckoBossTotemVulnMode";
+    public static final String VULNERABILITY_MASK_KEY = "CNPCGeckoBossTotemVulnMask";
 
     private BossTotemUtil() {
     }
@@ -39,6 +44,38 @@ public final class BossTotemUtil {
 
     public static int slotId(Entity entity) {
         return entity.getPersistentData().getInt(TOTEM_SLOT_KEY);
+    }
+
+    /**
+     * Copies one slot's vulnerability setting onto the totem standing in it.
+     *
+     * <p>The damage filter runs wherever the totem is being hit, and the boss that owns the
+     * settings may well be sitting in an unloaded chunk at that moment. Keeping a copy on the
+     * totem is what lets the filter answer without going looking for its owner.</p>
+     */
+    public static void cacheVulnerability(Entity totem, BossTotemEntry entry) {
+        totem.getPersistentData().putInt(VULNERABILITY_MODE_KEY, entry.getVulnerabilityMode());
+        totem.getPersistentData().putInt(VULNERABILITY_MASK_KEY, entry.getVulnerabilityMask());
+    }
+
+    /**
+     * Whether this totem turns away the hit it was just dealt.
+     *
+     * @param ability the ability behind the hit, or a negative number for plain damage that
+     *                belongs to no ability at all
+     */
+    public static boolean rejects(Entity totem, int ability) {
+        if (!isTotem(totem)) {
+            return false;
+        }
+        CompoundTag tag = totem.getPersistentData();
+        // A totem saved before this setting existed carries no copy, and getInt answers 0 for
+        // a missing key: that is mode "any damage", so an old world keeps its old fights.
+        if (tag.getInt(VULNERABILITY_MODE_KEY) != BossTotemEntry.VULNERABILITY_LISTED_ABILITIES) {
+            return false;
+        }
+        return ability < 0 || ability >= BossAbilityKind.COUNT
+                || (tag.getInt(VULNERABILITY_MASK_KEY) & 1 << ability) == 0;
     }
 
     /** Searches loaded entities only and never asks the target chunk to load. */

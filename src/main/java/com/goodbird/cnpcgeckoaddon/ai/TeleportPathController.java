@@ -808,6 +808,7 @@ public final class TeleportPathController {
             }
             Entity spawned = wrapper.getMCEntity();
             BossTotemUtil.markAsTotem(spawned, npc, slotId);
+            BossTotemUtil.cacheVulnerability(spawned, entry);
             BossCloneRespawnGuard.suppressSelfRespawn(spawned);
             pinTotem(spawned, entry, anchor);
             reportedBlockedTotemSlots.remove(slotId);
@@ -916,14 +917,31 @@ public final class TeleportPathController {
             if (totem.isRemoved()) {
                 continue;
             }
-            if (!enabledConfigured.contains(BossTotemUtil.slotId(totem))) {
-                dropTotemLink(totem, BossTotemUtil.slotId(totem));
+            int slotId = BossTotemUtil.slotId(totem);
+            if (!enabledConfigured.contains(slotId)) {
+                dropTotemLink(totem, slotId);
                 totem.discard();
+                continue;
+            }
+            // Refreshed here rather than only at spawn, so an edited vulnerability list is
+            // obeyed by the totems already standing instead of only by the next wave.
+            BossTotemEntry entry = totemEntry(data, slotId);
+            if (entry != null) {
+                BossTotemUtil.cacheVulnerability(totem, entry);
             }
         }
         if (changed) {
             saveDeadTotemSlots();
         }
+    }
+
+    private BossTotemEntry totemEntry(TeleportPathData data, int slotId) {
+        for (BossTotemEntry entry : data.getTotems().entries()) {
+            if (entry.getSlotId() == slotId) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     private Set<Integer> configuredTotemSlotIds(TeleportPathData data, boolean enabledOnly) {

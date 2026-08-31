@@ -9,6 +9,13 @@ public final class BossTotemEntry {
     public static final int COORDINATE_FIXED = 1;
     public static final int MAX_COORDINATE = 30000000;
 
+    /** Anything that hurts breaks this totem, the way every totem behaved before the setting. */
+    public static final int VULNERABILITY_ANY = 0;
+    /** Only the abilities ticked in the mask below get through; everything else bounces. */
+    public static final int VULNERABILITY_LISTED_ABILITIES = 1;
+
+    private static final int ALL_ABILITIES = (1 << BossAbilityKind.COUNT) - 1;
+
     private static final String ENABLED_KEY = "Enabled";
     private static final String CLONE_TAB_KEY = "CloneTab";
     private static final String CLONE_NAME_KEY = "CloneName";
@@ -20,6 +27,8 @@ public final class BossTotemEntry {
     private static final String BEAM_STYLE_KEY = "BeamStyle";
     private static final String BEAM_WIDTH_KEY = "BeamWidth";
     private static final String SLOT_KEY = "Slot";
+    private static final String VULNERABILITY_MODE_KEY = "VulnerabilityMode";
+    private static final String VULNERABILITY_MASK_KEY = "VulnerabilityMask";
 
     private boolean enabled = true;
     private int cloneTab = 1;
@@ -32,6 +41,8 @@ public final class BossTotemEntry {
     private String beamStyleOverride = "";
     private int beamWidthPercentOverride;
     private int slotId;
+    private int vulnerabilityMode = VULNERABILITY_ANY;
+    private int vulnerabilityMask;
 
     BossTotemEntry(int slotId) {
         this.slotId = Math.max(1, slotId);
@@ -50,6 +61,8 @@ public final class BossTotemEntry {
         tag.putString(BEAM_STYLE_KEY, beamStyleOverride);
         tag.putInt(BEAM_WIDTH_KEY, beamWidthPercentOverride);
         tag.putInt(SLOT_KEY, slotId);
+        tag.putInt(VULNERABILITY_MODE_KEY, vulnerabilityMode);
+        tag.putInt(VULNERABILITY_MASK_KEY, vulnerabilityMask);
         return tag;
     }
 
@@ -64,6 +77,10 @@ public final class BossTotemEntry {
         entry.setYaw(tag.getFloat(YAW_KEY));
         entry.setBeamStyleOverride(tag.getString(BEAM_STYLE_KEY));
         entry.setBeamWidthPercentOverride(tag.getInt(BEAM_WIDTH_KEY));
+        // A missing pair reads back as mode 0 with an empty mask, which is the old behaviour:
+        // the mask is only ever asked for once the mode says to.
+        entry.setVulnerabilityMode(tag.getInt(VULNERABILITY_MODE_KEY));
+        entry.setVulnerabilityMask(tag.getInt(VULNERABILITY_MASK_KEY));
         return entry;
     }
 
@@ -101,4 +118,29 @@ public final class BossTotemEntry {
         beamWidthPercentOverride = value == 0 ? 0 : Mth.clamp(value, 25, 400);
     }
     public int getSlotId() { return slotId; }
+
+    public int getVulnerabilityMode() { return vulnerabilityMode; }
+    public void setVulnerabilityMode(int value) {
+        vulnerabilityMode = Mth.clamp(value, VULNERABILITY_ANY, VULNERABILITY_LISTED_ABILITIES);
+    }
+
+    /** The whole list, one bit per {@link BossAbilityKind}, read only in the listed mode. */
+    public int getVulnerabilityMask() { return vulnerabilityMask; }
+    public void setVulnerabilityMask(int value) { vulnerabilityMask = value & ALL_ABILITIES; }
+
+    public boolean isVulnerableTo(int ability) {
+        return ability >= 0 && ability < BossAbilityKind.COUNT
+                && (vulnerabilityMask & 1 << ability) != 0;
+    }
+
+    public void setVulnerableTo(int ability, boolean value) {
+        if (ability < 0 || ability >= BossAbilityKind.COUNT) {
+            return;
+        }
+        if (value) {
+            vulnerabilityMask |= 1 << ability;
+        } else {
+            vulnerabilityMask &= ~(1 << ability);
+        }
+    }
 }
