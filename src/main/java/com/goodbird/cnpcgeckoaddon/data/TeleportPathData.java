@@ -327,6 +327,8 @@ public final class TeleportPathData {
     private static final String TOTEM_PROTECTION_KEY = "GeckoBossTotemProtection";
     private static final String TOTEM_GRANT_INVULN_KEY = "GeckoTotemGrantInvuln";
     private static final String TOTEM_HOLD_BOSS_KEY = "GeckoTotemHoldBoss";
+    private static final String TOTEM_SILENCE_KEY = "GeckoTotemSuppressAbilities";
+    private static final String TOTEM_UNTARGETABLE_KEY = "GeckoTotemUntargetable";
     private static final String TOTEM_ACTIVATION_KEY = "GeckoBossTotemActivation";
     private static final String TOTEM_PHASE_KEY = "GeckoBossTotemPhase";
     private static final String TOTEM_DELAY_KEY = "GeckoBossTotemDelay";
@@ -399,9 +401,11 @@ public final class TeleportPathData {
     private int minionRemovalMode = MINION_REMOVAL_VANISH;
 
     private boolean totemsEnabled;
-    /** What a standing formation does to the boss; both may be off, leaving only the beams. */
+    /** What a standing formation does to the boss; all four may be off, leaving only the beams. */
     private boolean totemGrantInvulnerability = true;
     private boolean totemHoldBoss;
+    private boolean totemSuppressAbilities;
+    private boolean totemUntargetable;
     private int totemProtectionMode = TOTEM_PROTECTION_FULL_IMMUNITY;
     private int totemActivationMode = TOTEM_ACTIVATION_ALWAYS;
     private int totemActivationPhase = 1;
@@ -524,6 +528,8 @@ public final class TeleportPathData {
         tag.putInt(TOTEM_PROTECTION_KEY, totemProtectionMode);
         tag.putBoolean(TOTEM_GRANT_INVULN_KEY, totemGrantInvulnerability);
         tag.putBoolean(TOTEM_HOLD_BOSS_KEY, totemHoldBoss);
+        tag.putBoolean(TOTEM_SILENCE_KEY, totemSuppressAbilities);
+        tag.putBoolean(TOTEM_UNTARGETABLE_KEY, totemUntargetable);
         tag.putInt(TOTEM_ACTIVATION_KEY, totemActivationMode);
         tag.putInt(TOTEM_PHASE_KEY, totemActivationPhase);
         tag.putInt(TOTEM_DELAY_KEY, totemActivationDelayTicks);
@@ -662,10 +668,13 @@ public final class TeleportPathData {
         totemsEnabled = tag.getBoolean(TOTEMS_ENABLED_KEY);
         setTotemProtectionMode(tag.contains(TOTEM_PROTECTION_KEY) ? tag.getInt(TOTEM_PROTECTION_KEY)
                 : TOTEM_PROTECTION_FULL_IMMUNITY);
-        // A boss saved before the two flags existed only ever warded, so that is what it keeps.
+        // A boss saved before the flags existed only ever warded, so that is what it keeps:
+        // the ward defaults on where a missing key exists, the other three default off.
         totemGrantInvulnerability = !tag.contains(TOTEM_GRANT_INVULN_KEY)
                 || tag.getBoolean(TOTEM_GRANT_INVULN_KEY);
         totemHoldBoss = tag.getBoolean(TOTEM_HOLD_BOSS_KEY);
+        totemSuppressAbilities = tag.getBoolean(TOTEM_SILENCE_KEY);
+        totemUntargetable = tag.getBoolean(TOTEM_UNTARGETABLE_KEY);
         setTotemActivationMode(tag.contains(TOTEM_ACTIVATION_KEY) ? tag.getInt(TOTEM_ACTIVATION_KEY)
                 : TOTEM_ACTIVATION_ALWAYS);
         setTotemActivationPhase(tag.contains(TOTEM_PHASE_KEY) ? tag.getInt(TOTEM_PHASE_KEY) : 1);
@@ -997,6 +1006,24 @@ public final class TeleportPathData {
     public void setTotemGrantInvulnerability(boolean value) { totemGrantInvulnerability = value; }
     public boolean isTotemHoldBoss() { return totemHoldBoss; }
     public void setTotemHoldBoss(boolean value) { totemHoldBoss = value; }
+    /**
+     * Whether a standing formation stops the boss starting anything of its own.
+     *
+     * <p>The addon's rotation and nothing else. The melee and ranged swings CustomNPCs' own
+     * ai makes are outside this flag on purpose: they are not the boss' cast list, and a
+     * silenced statue that still punches whoever walks into it is the wanted shape.</p>
+     */
+    public boolean isTotemSuppressAbilities() { return totemSuppressAbilities; }
+    public void setTotemSuppressAbilities(boolean value) { totemSuppressAbilities = value; }
+    /**
+     * Whether a standing formation keeps this boss off everyone else's aiming list.
+     *
+     * <p>The choosing only. An area slam, a corridor or a random boulder that happens to
+     * cover the spot still lands - going unhurt is what {@link #isTotemGrantInvulnerability()}
+     * is for, and the two are meant to be switched on together.</p>
+     */
+    public boolean isTotemUntargetable() { return totemUntargetable; }
+    public void setTotemUntargetable(boolean value) { totemUntargetable = value; }
     public int getTotemProtectionMode() { return totemProtectionMode; }
     public void setTotemProtectionMode(int value) {
         totemProtectionMode = Mth.clamp(value, TOTEM_PROTECTION_FULL_IMMUNITY,
