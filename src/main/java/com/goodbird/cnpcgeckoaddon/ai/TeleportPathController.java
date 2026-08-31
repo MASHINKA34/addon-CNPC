@@ -2108,7 +2108,7 @@ public final class TeleportPathController {
     /**
      * True only while at least one configured wave entity is known to be alive.
      *
-     * <p>What a standing formation is worth is left to the two flags below - it may ward,
+     * <p>What a standing formation is worth is left to the two formation flags - it may ward,
      * hold, do both, or nothing but draw its beams - so this is only the condition they
      * share. It counts adopted runtime entries rather than a world scan on purpose: a totem
      * in an unloaded chunk is still standing.</p>
