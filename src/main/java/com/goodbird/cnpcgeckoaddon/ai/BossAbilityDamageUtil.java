@@ -52,7 +52,7 @@ public final class BossAbilityDamageUtil {
      */
     public static boolean hit(LivingEntity target, int ability, EntityNPCInterface boss, int damage,
                               BossEffectSet effects, int knockback, double pushX, double pushZ) {
-        if (target == null || turnedAway(target, ability)) {
+        if (target == null || passesBy(target, ability)) {
             return false;
         }
         int outerAbility = currentAbility;
@@ -82,7 +82,7 @@ public final class BossAbilityDamageUtil {
     /** The potion half on its own, for an ability that deals its damage somewhere else. */
     public static boolean applyEffects(LivingEntity target, int ability, EntityNPCInterface boss,
                                        BossEffectSet effects) {
-        if (target == null || turnedAway(target, ability)) {
+        if (target == null || passesBy(target, ability)) {
             return false;
         }
         int outerAbility = currentAbility;
@@ -103,8 +103,12 @@ public final class BossAbilityDamageUtil {
      *
      * <p>The totem half is asked here rather than only on the incoming damage, because a hit
      * that bounces off must leave no potions and no shove behind either.</p>
+     *
+     * <p>Public because two abilities move their victim outside this door - the geyser throws
+     * with its launch and the hook with its drag - and both have to throw around exactly the
+     * set this lets through, not a wider one.</p>
      */
-    private static boolean turnedAway(Entity target, int ability) {
+    public static boolean passesBy(Entity target, int ability) {
         return isImmune(target, ability) || BossTotemUtil.rejects(target, ability);
     }
 }

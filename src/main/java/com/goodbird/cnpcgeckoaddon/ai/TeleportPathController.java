@@ -3049,8 +3049,9 @@ public final class TeleportPathController {
 
     private void applyPull(LivingEntity victim, double strength, Vec3 gatherPoint) {
         // The drag is the hook rather than a side effect of it, so it asks for itself: a pull
-        // already in flight when the mask changes must not keep tugging.
-        if (BossAbilityDamageUtil.isImmune(victim, BossAbilityKind.HOOK)) {
+        // already in flight when the mask - or a totem's ability list - changes must not keep
+        // tugging.
+        if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.HOOK)) {
             return;
         }
         Vec3 destination = gatherPoint != null ? gatherPoint : npc.position();

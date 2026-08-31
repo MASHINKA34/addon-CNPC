@@ -251,6 +251,12 @@ public final class BossGeyserScheduler {
                 SoundSource.HOSTILE, 3.0F, 0.5F);
 
         for (LivingEntity victim : victims(level, pending)) {
+            // The launch is this eruption's knockback rather than something on top of it, so
+            // it goes with the hit rather than after it: a totem whose list this geyser is not
+            // on has to be left standing, not thrown while taking nothing.
+            if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.GEYSER)) {
+                continue;
+            }
             // No knockback asked for: what this throws with is the launch below, and vanilla
             // only ever shoves along the ground.
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.GEYSER, pending.boss, pending.damage,
