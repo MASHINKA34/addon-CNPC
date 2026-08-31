@@ -386,7 +386,10 @@ public final class TeleportPathController {
             return;
         }
         tickCastRoot(gameTime);
-        if (data.isStationary() && !leapAirborne) {
+        // Held and rooted are read in this order, not merged: the root has to keep its own
+        // deadline so the last totem falling mid wind-up cannot cut the swing short, and the
+        // hold has to outlive that deadline so the end of a cast cannot set the boss loose.
+        if ((data.isStationary() || isTotemHeld()) && !leapAirborne) {
             keepStationary();
         } else if (castRootActive) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
@@ -444,7 +447,9 @@ public final class TeleportPathController {
         preparePath(points);
         scheduleMissingAbilities(gameTime, phase, points.size() >= 2);
 
-        if (points.size() >= 2 && gameTime >= nextTeleportAt
+        // A held boss is barred from the path as well as from walking it: leaving the spot the
+        // totems pin it to is exactly what the hold is there to stop, however it is done.
+        if (points.size() >= 2 && gameTime >= nextTeleportAt && !isTotemHeld()
                 && (!isInvulnerable() || phase.isInvulnerableAllowTeleport())) {
             nextTeleportAt = NOT_SCHEDULED;
             beginAction(PendingAction.TELEPORT, phase.getTeleportPreparationAnimation(),
@@ -2100,11 +2105,28 @@ public final class TeleportPathController {
         nextTotemStructuralReconcileAt = 0L;
     }
 
-    /** True only while at least one configured wave entity is known to be alive. */
-    public boolean isTotemProtected() {
+    /**
+     * True only while at least one configured wave entity is known to be alive.
+     *
+     * <p>What a standing formation is worth is left to the two flags below - it may ward,
+     * hold, do both, or nothing but draw its beams - so this is only the condition they
+     * share. It counts adopted runtime entries rather than a world scan on purpose: a totem
+     * in an unloaded chunk is still standing.</p>
+     */
+    public boolean isTotemWardStanding() {
         TeleportPathData data = settings();
         return active && npc.isAlive() && data.isEnabled() && data.isTotemsEnabled()
                 && totemWaveActivated && aliveTotemCount() > 0;
+    }
+
+    /** True while a standing formation is the reason the boss cannot be hurt. */
+    public boolean isTotemProtected() {
+        return isTotemWardStanding() && settings().isTotemGrantInvulnerability();
+    }
+
+    /** True while a standing formation nails the boss to the spot it is fighting on. */
+    public boolean isTotemHeld() {
+        return isTotemWardStanding() && settings().isTotemHoldBoss();
     }
 
     public int aliveTotemCount() {
