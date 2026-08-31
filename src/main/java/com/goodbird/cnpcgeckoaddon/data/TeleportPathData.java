@@ -325,6 +325,8 @@ public final class TeleportPathData {
     private static final String RAGE_LOCK_KEY = "GeckoBossRageLock";
     private static final String TOTEMS_ENABLED_KEY = "GeckoBossTotemsEnabled";
     private static final String TOTEM_PROTECTION_KEY = "GeckoBossTotemProtection";
+    private static final String TOTEM_GRANT_INVULN_KEY = "GeckoTotemGrantInvuln";
+    private static final String TOTEM_HOLD_BOSS_KEY = "GeckoTotemHoldBoss";
     private static final String TOTEM_ACTIVATION_KEY = "GeckoBossTotemActivation";
     private static final String TOTEM_PHASE_KEY = "GeckoBossTotemPhase";
     private static final String TOTEM_DELAY_KEY = "GeckoBossTotemDelay";
@@ -397,6 +399,9 @@ public final class TeleportPathData {
     private int minionRemovalMode = MINION_REMOVAL_VANISH;
 
     private boolean totemsEnabled;
+    /** What a standing formation does to the boss; both may be off, leaving only the beams. */
+    private boolean totemGrantInvulnerability = true;
+    private boolean totemHoldBoss;
     private int totemProtectionMode = TOTEM_PROTECTION_FULL_IMMUNITY;
     private int totemActivationMode = TOTEM_ACTIVATION_ALWAYS;
     private int totemActivationPhase = 1;
@@ -517,6 +522,8 @@ public final class TeleportPathData {
         tag.putInt(MINIONS_REMOVAL_KEY, minionRemovalMode);
         tag.putBoolean(TOTEMS_ENABLED_KEY, totemsEnabled);
         tag.putInt(TOTEM_PROTECTION_KEY, totemProtectionMode);
+        tag.putBoolean(TOTEM_GRANT_INVULN_KEY, totemGrantInvulnerability);
+        tag.putBoolean(TOTEM_HOLD_BOSS_KEY, totemHoldBoss);
         tag.putInt(TOTEM_ACTIVATION_KEY, totemActivationMode);
         tag.putInt(TOTEM_PHASE_KEY, totemActivationPhase);
         tag.putInt(TOTEM_DELAY_KEY, totemActivationDelayTicks);
@@ -655,6 +662,10 @@ public final class TeleportPathData {
         totemsEnabled = tag.getBoolean(TOTEMS_ENABLED_KEY);
         setTotemProtectionMode(tag.contains(TOTEM_PROTECTION_KEY) ? tag.getInt(TOTEM_PROTECTION_KEY)
                 : TOTEM_PROTECTION_FULL_IMMUNITY);
+        // A boss saved before the two flags existed only ever warded, so that is what it keeps.
+        totemGrantInvulnerability = !tag.contains(TOTEM_GRANT_INVULN_KEY)
+                || tag.getBoolean(TOTEM_GRANT_INVULN_KEY);
+        totemHoldBoss = tag.getBoolean(TOTEM_HOLD_BOSS_KEY);
         setTotemActivationMode(tag.contains(TOTEM_ACTIVATION_KEY) ? tag.getInt(TOTEM_ACTIVATION_KEY)
                 : TOTEM_ACTIVATION_ALWAYS);
         setTotemActivationPhase(tag.contains(TOTEM_PHASE_KEY) ? tag.getInt(TOTEM_PHASE_KEY) : 1);
@@ -982,6 +993,10 @@ public final class TeleportPathData {
 
     public boolean isTotemsEnabled() { return totemsEnabled; }
     public void setTotemsEnabled(boolean value) { totemsEnabled = value; }
+    public boolean isTotemGrantInvulnerability() { return totemGrantInvulnerability; }
+    public void setTotemGrantInvulnerability(boolean value) { totemGrantInvulnerability = value; }
+    public boolean isTotemHoldBoss() { return totemHoldBoss; }
+    public void setTotemHoldBoss(boolean value) { totemHoldBoss = value; }
     public int getTotemProtectionMode() { return totemProtectionMode; }
     public void setTotemProtectionMode(int value) {
         totemProtectionMode = Mth.clamp(value, TOTEM_PROTECTION_FULL_IMMUNITY,
