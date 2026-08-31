@@ -28,10 +28,16 @@ public final class SubGuiBossTotemEntry extends GuiBasic implements ITextfieldLi
     private static final int BEAM_WIDTH_FIELD = 10;
     private static final int HERE_BUTTON = 11;
     private static final int DELETE_BUTTON = 12;
+    private static final int VULNERABILITY_BUTTON = 13;
+    private static final int VULNERABILITY_PICK_BUTTON = 14;
 
     private static final String[] COORDINATE_LABELS = {
             "cnpcgeckoaddon.boss.totem_arena_offset",
             "cnpcgeckoaddon.boss.totem_fixed"
+    };
+    private static final String[] VULNERABILITY_LABELS = {
+            "cnpcgeckoaddon.boss.totem_vuln.any",
+            "cnpcgeckoaddon.boss.totem_vuln.abilities"
     };
     private static final String[] BEAM_OVERRIDE_LABELS;
 
@@ -55,7 +61,7 @@ public final class SubGuiBossTotemEntry extends GuiBasic implements ITextfieldLi
         this.entry = data.getTotems().get(index);
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 216;
+        imageHeight = 239;
         closeOnEsc = true;
     }
 
@@ -106,13 +112,34 @@ public final class SubGuiBossTotemEntry extends GuiBasic implements ITextfieldLi
                 guiLeft + 8, y + 6));
         addTextField(numberField(BEAM_WIDTH_FIELD, guiLeft + 172, y, 70,
                 entry.getBeamWidthPercentOverride(), 0, 400, 0));
+        y += 23;
 
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 190, 92, 20,
+        addLabel(new GuiLabel(VULNERABILITY_BUTTON, "cnpcgeckoaddon.boss.totem_vuln",
+                guiLeft + 8, y + 6));
+        addButton(new GuiButtonNop(this, VULNERABILITY_BUTTON, guiLeft + 74, y, 104, 20,
+                VULNERABILITY_LABELS, entry.getVulnerabilityMode()));
+        addButton(new GuiButtonNop(this, VULNERABILITY_PICK_BUTTON, guiLeft + 182, y, 60, 20,
+                "cnpcgeckoaddon.boss.totem_vuln_pick",
+                button -> setSubGui(new SubGuiBossTotemVulnerability(entry))));
+        showVulnerabilityPicker();
+
+        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 213, 92, 20,
                 "cnpcgeckoaddon.boss.totem_here"));
-        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + 190, 72, 20,
+        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + 213, 72, 20,
                 "cnpcgeckoaddon.boss.totem_delete"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 213, 60, 20,
                 "gui.done", button -> close()));
+    }
+
+    /** The ability list is only ever read in the listed mode, so it only shows up there. */
+    private void showVulnerabilityPicker() {
+        GuiButtonNop picker = getButton(VULNERABILITY_PICK_BUTTON);
+        if (picker == null) {
+            return;
+        }
+        boolean listed = entry.getVulnerabilityMode() == BossTotemEntry.VULNERABILITY_LISTED_ABILITIES;
+        picker.shown = listed;
+        picker.setEnabled(listed);
     }
 
     private GuiTextFieldNop numberField(int id, int x, int y, int width, int value,
@@ -142,6 +169,9 @@ public final class SubGuiBossTotemEntry extends GuiBasic implements ITextfieldLi
         } else if (button.id == COORDINATE_BUTTON) {
             applyFields();
             entry.setCoordinateMode(button.getValue());
+        } else if (button.id == VULNERABILITY_BUTTON) {
+            entry.setVulnerabilityMode(button.getValue());
+            showVulnerabilityPicker();
         } else if (button.id == BEAM_STYLE_BUTTON) {
             int selected = button.getValue();
             entry.setBeamStyleOverride(selected == 0 ? "" : HookCordStyles.values().get(selected - 1).id());
