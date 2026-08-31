@@ -2121,12 +2121,18 @@ public final class TeleportPathController {
 
     /** True while a standing formation is the reason the boss cannot be hurt. */
     public boolean isTotemProtected() {
-        return isTotemWardStanding() && settings().isTotemGrantInvulnerability();
+        return settings().isTotemGrantInvulnerability() && isTotemWardStanding();
     }
 
-    /** True while a standing formation nails the boss to the spot it is fighting on. */
+    /**
+     * True while a standing formation nails the boss to the spot it is fighting on.
+     *
+     * <p>The flag is read before the formation, not after: this is asked twice a tick and
+     * again by the pounce ai, and a boss whose totems only ward should not be counting them
+     * over and over to be told the same no.</p>
+     */
     public boolean isTotemHeld() {
-        return isTotemWardStanding() && settings().isTotemHoldBoss();
+        return settings().isTotemHoldBoss() && isTotemWardStanding();
     }
 
     public int aliveTotemCount() {
