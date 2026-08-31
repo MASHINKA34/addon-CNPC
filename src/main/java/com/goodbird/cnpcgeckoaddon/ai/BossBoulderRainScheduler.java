@@ -45,11 +45,12 @@ import noppes.npcs.entity.EntityNPCInterface;
 public final class BossBoulderRainScheduler {
 
     /**
-     * How many drops one level tick works on. A single cast is capped at 32 points, so this
-     * is here to keep two bosses raining at once from spending a whole tick between them
-     * rather than to shape the mechanic; the rest keeps its place and waits for the next.
+     * How many stones already in the air one level tick paints and lands. Two full volleys
+     * at once, which is well past anything an arena asks for - a stone still waiting for its
+     * turn in the interval costs nothing here, because it is not ready yet. Anything over
+     * the cap keeps its place and is picked up next tick.
      */
-    private static final int MAX_PER_TICK = 32;
+    private static final int MAX_PER_TICK = 64;
     /** Beyond this nobody can see the mark, so it burns down without costing anything. */
     private static final double AUDIENCE_RANGE = 64.0D;
     /** How often the mark is repainted. Every other tick reads as a steady shape. */
@@ -135,7 +136,7 @@ public final class BossBoulderRainScheduler {
                 continue;
             }
             double spawnY = spawnHeight(level, point, phase.getBoulderRainFallHeight(), diameter);
-            if (spawnY < 0.0D) {
+            if (Double.isNaN(spawnY)) {
                 continue;
             }
             // Its own drop, not the volley's: a stone stopped short by a low roof falls for
@@ -157,7 +158,11 @@ public final class BossBoulderRainScheduler {
 
     public static void tick(ServerLevel level) {
         long gameTime = level.getGameTime();
-        PENDING.sweep(pending -> pending.dimension.equals(level.dimension()),
+        // A stone whose turn in the interval has not come round yet is deliberately not
+        // ready: it has nothing to paint and nothing to drop, and pulling it every tick
+        // would spend the tick budget on stones that are only waiting.
+        PENDING.sweep(pending -> pending.dimension.equals(level.dimension())
+                        && gameTime >= pending.dropsAt,
                 pending -> tickDrop(level, pending, gameTime));
     }
 
@@ -184,9 +189,6 @@ public final class BossBoulderRainScheduler {
     private static boolean tickDrop(ServerLevel level, Pending pending, long gameTime) {
         if (!pending.boss.isAlive() || pending.boss.isRemoved()) {
             return false;
-        }
-        if (gameTime < pending.dropsAt) {
-            return true;
         }
         if (!pending.dropped) {
             pending.dropped = true;
@@ -263,7 +265,7 @@ public final class BossBoulderRainScheduler {
      * fall under it at all takes the point out of the volley: a mark nothing can reach would
      * be a lie about where the danger is.</p>
      *
-     * @return the spawn height, or -1 when this point has no headroom worth dropping into
+     * @return the spawn height, or NaN when this point has no headroom worth dropping into
      */
     private static double spawnHeight(ServerLevel level, Vec3 floor, int wanted, double diameter) {
         int limit = wanted + Mth.ceil(diameter);
@@ -282,7 +284,9 @@ public final class BossBoulderRainScheduler {
             pos.move(Direction.UP);
         }
         if (headroom < MIN_DROP_BLOCKS + diameter) {
-            return -1.0D;
+            // Not a height at all: a world floor sits below zero often enough that no real
+            // coordinate can be borrowed as the "nowhere to fall" answer.
+            return Double.NaN;
         }
         return Math.min(floor.y + wanted, floor.y + headroom - diameter);
     }
