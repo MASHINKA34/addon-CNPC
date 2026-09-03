@@ -81,7 +81,13 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 12;
+    private static final int ABILITY_COUNT = 13;
+    /**
+     * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
+     * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
+     * leashed already standing outside the ring.
+     */
+    private static final double TETHER_REACH = 32.0D;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -152,7 +158,7 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN
+        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER
     }
 
     private final EntityNPCInterface npc;
@@ -218,6 +224,7 @@ public final class TeleportPathController {
     private long nextGeyserAt = NOT_SCHEDULED;
     private long nextBoulderAt = NOT_SCHEDULED;
     private long nextBoulderRainAt = NOT_SCHEDULED;
+    private long nextTetherAt = NOT_SCHEDULED;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -1286,6 +1293,7 @@ public final class TeleportPathController {
         // the return then moves that pin home rather than the other way round.
         clearLeap();
         BossCaptureManager.releaseByBoss(npc);
+        BossTetherManager.releaseByBoss(npc);
         busyUntil = 0L;
 
         if (data.isClearMinionsOnReset()) {
@@ -2208,6 +2216,19 @@ public final class TeleportPathController {
         return remaining > 0L ? "Capture: cooldown " + remaining : "Capture: ready";
     }
 
+    public String tetherStatus(long gameTime) {
+        int held = BossTetherManager.countForBoss(npc.getUUID());
+        if (held > 0) {
+            return "Tether: holding " + held;
+        }
+        BossPhaseData phase = activePhase();
+        if (phase == null || !phase.isTetherEnabled()) {
+            return "Tether: disabled";
+        }
+        long remaining = nextTetherAt == NOT_SCHEDULED ? 0L : nextTetherAt - gameTime;
+        return remaining > 0L ? "Tether: cooldown " + remaining : "Tether: ready";
+    }
+
     /** Gives a viewer an immediate snapshot when either endpoint starts being tracked. */
     public void syncTotemLinksTo(ServerPlayer player) {
         if (!totemWaveActivated || player.level() != npc.level()
@@ -2257,6 +2278,7 @@ public final class TeleportPathController {
         clearHealthScaling(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
+        BossTetherManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
@@ -2283,6 +2305,7 @@ public final class TeleportPathController {
         clearHealthScaling(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
+        BossTetherManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
@@ -2599,6 +2622,13 @@ public final class TeleportPathController {
         } else {
             nextBoulderRainAt = NOT_SCHEDULED;
         }
+        if (phase.isTetherEnabled()) {
+            if (nextTetherAt == NOT_SCHEDULED) {
+                nextTetherAt = gameTime + rageDown(phase.getTetherCooldownTicks());
+            }
+        } else {
+            nextTetherAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2637,6 +2667,7 @@ public final class TeleportPathController {
                 case 8 -> tryStartGeyser(level, data, phase, gameTime);
                 case 9 -> tryStartBoulder(level, data, phase, gameTime);
                 case 10 -> tryStartBoulderRain(level, data, phase, gameTime);
+                case 11 -> tryStartTether(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -3194,6 +3225,82 @@ public final class TeleportPathController {
         }
         reportedBrokenGeyserFluid = "";
         return fluid;
+    }
+
+    private boolean tryStartTether(ServerLevel level, TeleportPathData data,
+                                   BossPhaseData phase, long gameTime) {
+        if (!phase.isTetherEnabled() || gameTime < nextTetherAt) return false;
+        List<LivingEntity> targets = selectAbilityTargets(level, phase.getTetherTargetMode(),
+                tetherReach(phase), candidate -> isValidTetherTarget(candidate, phase),
+                phase.getTetherTargetCount());
+        if (targets.isEmpty()) {
+            nextTetherAt = gameTime + 10;
+            return false;
+        }
+        pendingExtraTargets.clear();
+        for (int i = 1; i < targets.size(); i++) {
+            pendingExtraTargets.add(targets.get(i).getId());
+        }
+        beginAction(PendingAction.TETHER, phase.getTetherAnimation(),
+                phase.getTetherActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        nextTetherAt = gameTime + phase.getTetherActionDelayTicks()
+                + rageDown(phase.getTetherCooldownTicks());
+        return true;
+    }
+
+    /** How far this cast picks its victims from; see {@link #TETHER_REACH}. */
+    private static double tetherReach(BossPhaseData phase) {
+        return phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS
+                ? phase.getTetherBreakDistance() : TETHER_REACH;
+    }
+
+    private boolean isValidTetherTarget(LivingEntity target, BossPhaseData phase) {
+        if (target == null || target.level() != npc.level() || !target.isAlive()
+                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.TETHER)
+                || BossTetherManager.isTethered(target.getUUID())) {
+            return false;
+        }
+        double reach = tetherReach(phase);
+        if (npc.distanceToSqr(target) > reach * reach) {
+            return false;
+        }
+        // A leash that reaches through a wall looks broken, so honour the NPC line-of-sight flag.
+        return !npc.ais.directLOS || npc.canNpcSee(target);
+    }
+
+    /**
+     * Leashes everyone this cast wound up on.
+     *
+     * <p>Nothing is measured here. The leashes go to {@link BossTetherManager}, which owns
+     * them from now on, because the boss is back on its rotation long before anyone has run
+     * far enough - or failed to - which is the whole point of the ability.</p>
+     */
+    private void performTether(ServerLevel level, BossPhaseData phase, long gameTime) {
+        List<LivingEntity> victims = new ArrayList<>();
+        LivingEntity primary = pendingTarget(level);
+        if (primary != null && isValidTetherTarget(primary, phase)) {
+            victims.add(primary);
+        }
+        for (int id : pendingExtraTargets) {
+            if (level.getEntity(id) instanceof LivingEntity extra
+                    && isValidTetherTarget(extra, phase) && !victims.contains(extra)) {
+                victims.add(extra);
+            }
+        }
+        if (victims.isEmpty()) {
+            return;
+        }
+        // The break distance and the timer are deliberately left alone by the enrage: they
+        // are the window a player gets to run, not a number the fight is allowed to turn down.
+        if (BossTetherManager.start(level, npc, victims, phase, currentPhase,
+                rageUp(phase.getTetherFailDamage()), gameTime) == 0) {
+            return;
+        }
+        for (LivingEntity victim : victims) {
+            if (victim instanceof ServerPlayer player) {
+                trackParticipant(player);
+            }
+        }
     }
 
     /**
@@ -3883,6 +3990,16 @@ public final class TeleportPathController {
                 }
             }
             case SUMMON -> drawTelegraphSpawnRings(level, phase, dust);
+            case TETHER -> {
+                if (phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS) {
+                    // The ring is the leash's length: get past it and the leash is broken.
+                    BossTelegraphUtil.ring(level, npc.position(), phase.getTetherBreakDistance(), dust);
+                } else if (!data.isTelegraphAura()) {
+                    // A leash to a spot or to a partner has no ground to mark, so the boss
+                    // itself lights up instead - here only when the style is not doing it anyway.
+                    BossTelegraphUtil.aura(level, npc, dust);
+                }
+            }
             case LEAP -> {
                 BossPhaseData leaping = leapPhase(data);
                 if (leaping != null && leapDestination != null) {
@@ -3985,6 +4102,7 @@ public final class TeleportPathController {
             case GEYSER -> BossAbilityKind.GEYSER;
             case BOULDER -> BossAbilityKind.BOULDER;
             case BOULDER_RAIN -> BossAbilityKind.BOULDER_RAIN;
+            case TETHER -> BossAbilityKind.TETHER;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -4050,6 +4168,7 @@ public final class TeleportPathController {
             case FLUID_SPIT -> isValidFluidSpitTarget(target, phase);
             case HOOK -> hasWoundUpVictim(level, candidate -> isValidHookTarget(candidate, phase));
             case GEYSER -> hasWoundUpVictim(level, candidate -> isValidGeyserTarget(candidate, phase));
+            case TETHER -> hasWoundUpVictim(level, candidate -> isValidTetherTarget(candidate, phase));
             case CAPTURE -> isValidCaptureTarget(target, phase);
             // A leap at a fixed spot lands there whoever is standing on it.
             case LEAP -> phase.getLeapMode() != BossPhaseData.LEAP_MODE_TARGET
@@ -4099,6 +4218,7 @@ public final class TeleportPathController {
             case GEYSER -> nextGeyserAt;
             case BOULDER -> nextBoulderAt;
             case BOULDER_RAIN -> nextBoulderRainAt;
+            case TETHER -> nextTetherAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -4118,6 +4238,7 @@ public final class TeleportPathController {
             case GEYSER -> nextGeyserAt = at;
             case BOULDER -> nextBoulderAt = at;
             case BOULDER_RAIN -> nextBoulderRainAt = at;
+            case TETHER -> nextTetherAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -4167,6 +4288,8 @@ public final class TeleportPathController {
             performBoulder(level, phase);
         } else if (pendingAction == PendingAction.BOULDER_RAIN) {
             performBoulderRain(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.TETHER) {
+            performTether(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -4956,6 +5079,7 @@ public final class TeleportPathController {
         nextGeyserAt = NOT_SCHEDULED;
         nextBoulderAt = NOT_SCHEDULED;
         nextBoulderRainAt = NOT_SCHEDULED;
+        nextTetherAt = NOT_SCHEDULED;
     }
 
     private void reset() {
@@ -4975,6 +5099,7 @@ public final class TeleportPathController {
         BossBoulderRainScheduler.clearBoss(npc);
         clearLeap();
         BossCaptureManager.releaseByBoss(npc);
+        BossTetherManager.releaseByBoss(npc);
         busyUntil = 0L;
         cancelPendingAndSchedules();
         lastPathIndex = -1;
