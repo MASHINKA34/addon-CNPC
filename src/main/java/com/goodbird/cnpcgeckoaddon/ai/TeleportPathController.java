@@ -482,6 +482,16 @@ public final class TeleportPathController {
                 && data.getPhase(phaseIndex).isCaptureEnabled();
     }
 
+    /** Keeps a leash tied to the phase configuration that threw it, the way a capture is. */
+    boolean isTetherEnabledForPhase(int phaseIndex) {
+        if (!active || !encounterRunning) {
+            return false;
+        }
+        TeleportPathData data = settings();
+        return data.isEnabled() && phaseIndex >= 0 && phaseIndex < data.getPhaseCount()
+                && data.getPhase(phaseIndex).isTetherEnabled();
+    }
+
     private TeleportPathData settings() {
         return ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData();
     }

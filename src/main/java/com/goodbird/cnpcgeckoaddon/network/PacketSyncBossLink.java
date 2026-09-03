@@ -9,6 +9,8 @@ import net.minecraft.util.Mth;
 public final class PacketSyncBossLink implements CustomPacketPayload {
     public static final byte KIND_PROTECTION_TOTEM = 0;
     public static final byte KIND_CAPTURE = 1;
+    /** A leash: boss to victim, stake to victim, or victim to victim. */
+    public static final byte KIND_TETHER = 2;
     public static final Type<PacketSyncBossLink> TYPE = NetworkWrapper.typeOf(PacketSyncBossLink.class);
 
     private final byte linkKind;
@@ -24,7 +26,7 @@ public final class PacketSyncBossLink implements CustomPacketPayload {
     public PacketSyncBossLink(byte linkKind, int sourceEntityId, int targetEntityId,
                               int slotOrChannel, String styleId, int durationTicks,
                               int widthPercent, int sagPercent, boolean drawHead) {
-        this.linkKind = (byte) Mth.clamp(linkKind, KIND_PROTECTION_TOTEM, KIND_CAPTURE);
+        this.linkKind = (byte) Mth.clamp(linkKind, KIND_PROTECTION_TOTEM, KIND_TETHER);
         this.sourceEntityId = sourceEntityId;
         this.targetEntityId = targetEntityId;
         this.slotOrChannel = slotOrChannel;

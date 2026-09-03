@@ -27,6 +27,8 @@ public class RendererRegistry {
         // The fluid spit draws itself entirely out of block particles, so it needs no model.
         event.registerEntityRenderer(EntityRegistry.entityFluidSpit, NoopRenderer::new);
         event.registerEntityRenderer(EntityRegistry.entityBossBoulder, RenderBossBoulder::new);
+        // The tether stake is only ever the far end of a beam; the beam is what gets drawn.
+        event.registerEntityRenderer(EntityRegistry.entityBossTetherAnchor, NoopRenderer::new);
         event.registerBlockEntityRenderer(TileEntityRegistry.bossChest, BossChestRenderer::new);
     }
 

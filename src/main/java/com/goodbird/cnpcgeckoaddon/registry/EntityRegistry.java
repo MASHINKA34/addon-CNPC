@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.registry;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
+import com.goodbird.cnpcgeckoaddon.entity.EntityBossTetherAnchor;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import net.minecraft.core.Registry;
@@ -24,6 +25,7 @@ public class EntityRegistry {
     public static EntityType<? extends EntityCustomModel> entityCustomModel;
     public static EntityType<EntityFluidSpit> entityFluidSpit;
     public static EntityType<EntityBossBoulder> entityBossBoulder;
+    public static EntityType<EntityBossTetherAnchor> entityBossTetherAnchor;
 
     @SubscribeEvent
     public static void registerEntities(RegisterEvent event) {
@@ -33,6 +35,9 @@ public class EntityRegistry {
             // The registered size is only the spawn-time default: the real box follows the
             // per-cast scale through EntityBossBoulder#getDimensions.
             entityBossBoulder = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityBossBoulder.class, "bossboulder", EntityBossBoulder::new, 64, 2, true, 1.5F, 1.5F);
+            // The stake a spot tether is tied to never moves, so it is synced as rarely as the
+            // tracker allows; its size only sets where the beam ends, low over the spot.
+            entityBossTetherAnchor = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityBossTetherAnchor.class, "bosstetheranchor", EntityBossTetherAnchor::new, 64, 20, false, 0.5F, 0.5F);
         }
     }
 

@@ -50,6 +50,7 @@ public final class BossDeathEvents {
     public static void onBossDeath(final LivingDeathEvent event) {
         // Any captured victim, player or npc, has to be let go before it stops existing.
         BossCaptureManager.releaseVictim(event.getEntity());
+        BossTetherManager.releaseVictim(event.getEntity());
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.removePlayerFromEncounters(player);
         }
@@ -326,6 +327,7 @@ public final class BossDeathEvents {
     public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             BossCaptureManager.releaseVictim(player);
+            BossTetherManager.releaseVictim(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
     }
@@ -334,6 +336,7 @@ public final class BossDeathEvents {
     public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             BossCaptureManager.releaseVictim(player);
+            BossTetherManager.releaseVictim(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
     }
@@ -343,6 +346,7 @@ public final class BossDeathEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.syncTotemLinksForTracking(player, event.getTarget());
             BossCaptureManager.syncLinkForTracking(player, event.getTarget());
+            BossTetherManager.syncLinkForTracking(player, event.getTarget());
         }
     }
 
@@ -437,6 +441,7 @@ public final class BossDeathEvents {
             BossCloneRespawnGuard.tick(level);
         }
         BossCaptureManager.tick(level);
+        BossTetherManager.tick(level);
     }
 
     @SubscribeEvent
@@ -449,6 +454,7 @@ public final class BossDeathEvents {
             BossBoulderRainScheduler.clear(level);
             BossCloneRespawnGuard.clear(level);
             BossCaptureManager.clearLevel(level);
+            BossTetherManager.clearLevel(level);
             TeleportPathController.shutdownLevel(level);
         }
     }
