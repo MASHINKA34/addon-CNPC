@@ -75,6 +75,19 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.boulder_mode_throw"
     };
 
+    /** Tied to the boss: the way out is away from it. */
+    public static final int TETHER_ANCHOR_BOSS = 0;
+    /** Tied to the ground the victim was standing on when the cast landed. */
+    public static final int TETHER_ANCHOR_SPOT = 1;
+    /** Tied to another victim, so the two have to run apart. An odd one out goes to the boss. */
+    public static final int TETHER_ANCHOR_PAIR = 2;
+
+    public static final String[] TETHER_ANCHOR_LABELS = {
+            "cnpcgeckoaddon.boss.tether_anchor.boss",
+            "cnpcgeckoaddon.boss.tether_anchor.spot",
+            "cnpcgeckoaddon.boss.tether_anchor.pair"
+    };
+
     public static final int CAPTURE_MODE_HOLD = 0;
     public static final int CAPTURE_MODE_LIFT = 1;
     public static final int CAPTURE_EFFECT_PLAYER = 0;
@@ -111,7 +124,7 @@ public final class BossPhaseData {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
-            BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN
+            BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER
     };
     /**
      * Every ability is cast standing still until a builder frees it, existing bosses
@@ -339,6 +352,23 @@ public final class BossPhaseData {
     private int boulderRainShatterDamage = 4;
     private String boulderRainVfx = AreaVfxStyles.NONE;
 
+    private boolean tetherEnabled;
+    private String tetherAnimation = "";
+    private int tetherActionDelayTicks = 16;
+    private int tetherCooldownTicks = 300;
+    private int tetherTargetMode = BossTargetMode.RANDOM;
+    private int tetherTargetCount = 2;
+    private int tetherAnchor = TETHER_ANCHOR_BOSS;
+    /** How far from its anchor a victim has to get for the leash to snap. */
+    private int tetherBreakDistance = 10;
+    /** How long they get to do it before the leash punishes them instead. */
+    private int tetherDurationTicks = 120;
+    /** Drag toward the anchor, 0 to 10; zero leaves the victim free to walk until the timer runs out. */
+    private int tetherPull;
+    private int tetherFailDamage = 12;
+    private String tetherStyle = HookCordStyles.PARTICLES;
+    private int tetherWidthPercent = 100;
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -359,6 +389,10 @@ public final class BossPhaseData {
     private final BossEffectSet geyserEffects = new BossEffectSet();
     private final BossEffectSet boulderEffects = new BossEffectSet();
     private final BossEffectSet boulderRainEffects = new BossEffectSet();
+    /** Dosed every second for as long as the leash holds. */
+    private final BossEffectSet tetherEffects = new BossEffectSet();
+    /** Landed once, on whoever was still leashed when the time ran out. */
+    private final BossEffectSet tetherFailEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -540,6 +574,19 @@ public final class BossPhaseData {
         tag.putInt("BoulderRainShatterRadius", boulderRainShatterRadius);
         tag.putInt("BoulderRainShatterDamage", boulderRainShatterDamage);
         tag.putString("BoulderRainVfx", boulderRainVfx);
+        tag.putBoolean("TetherEnabled", tetherEnabled);
+        tag.putString("TetherAnimation", tetherAnimation);
+        tag.putInt("TetherActionDelayTicks", tetherActionDelayTicks);
+        tag.putInt("TetherCooldownTicks", tetherCooldownTicks);
+        tag.putInt("TetherTargetMode", tetherTargetMode);
+        tag.putInt("TetherTargetCount", tetherTargetCount);
+        tag.putInt("TetherAnchor", tetherAnchor);
+        tag.putInt("TetherBreakDistance", tetherBreakDistance);
+        tag.putInt("TetherDurationTicks", tetherDurationTicks);
+        tag.putInt("TetherPull", tetherPull);
+        tag.putInt("TetherFailDamage", tetherFailDamage);
+        tag.putString("TetherStyle", tetherStyle);
+        tag.putInt("TetherWidthPercent", tetherWidthPercent);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -557,6 +604,8 @@ public final class BossPhaseData {
         tag.put("GeyserEffects", geyserEffects.writeToNBT());
         tag.put("BoulderEffects", boulderEffects.writeToNBT());
         tag.put("BoulderRainEffects", boulderRainEffects.writeToNBT());
+        tag.put("TetherEffects", tetherEffects.writeToNBT());
+        tag.put("TetherFailEffects", tetherFailEffects.writeToNBT());
         return tag;
     }
 
@@ -776,6 +825,22 @@ public final class BossPhaseData {
         boulderRainShatterDamage = value(tag, "BoulderRainShatterDamage", 4, 0, 1000);
         boulderRainVfx = AreaVfxStyles.normalize(tag.getString("BoulderRainVfx"));
 
+        tetherEnabled = tag.getBoolean("TetherEnabled");
+        tetherAnimation = clean(tag.getString("TetherAnimation"));
+        tetherActionDelayTicks = value(tag, "TetherActionDelayTicks", 16, 0, 1200);
+        tetherCooldownTicks = value(tag, "TetherCooldownTicks", 300, 1, 12000);
+        tetherTargetMode = value(tag, "TetherTargetMode",
+                BossTargetMode.RANDOM, BossTargetMode.MAIN, BossTargetMode.RANDOM);
+        tetherTargetCount = value(tag, "TetherTargetCount", 2, 1, 8);
+        tetherAnchor = value(tag, "TetherAnchor", TETHER_ANCHOR_BOSS, TETHER_ANCHOR_BOSS, TETHER_ANCHOR_PAIR);
+        tetherBreakDistance = value(tag, "TetherBreakDistance", 10, 3, 48);
+        tetherDurationTicks = value(tag, "TetherDurationTicks", 120, 20, 1200);
+        tetherPull = value(tag, "TetherPull", 0, 0, 10);
+        tetherFailDamage = value(tag, "TetherFailDamage", 12, 0, 1000);
+        // An absent key reads as an empty string, which normalizes back to the plain sparks.
+        tetherStyle = HookCordStyles.normalize(tag.getString("TetherStyle"));
+        tetherWidthPercent = value(tag, "TetherWidthPercent", 100, 25, 400);
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -789,6 +854,10 @@ public final class BossPhaseData {
         // The same again for the boulder rain, whose bit is newer still.
         if (!tag.contains("BoulderRainEnabled")) {
             castRootMask |= 1 << BossAbilityKind.BOULDER_RAIN;
+        }
+        // And for the tether, the newest bit of all.
+        if (!tag.contains("TetherEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.TETHER;
         }
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
@@ -810,6 +879,8 @@ public final class BossPhaseData {
         geyserEffects.readFromNBT(tag, "GeyserEffects");
         boulderEffects.readFromNBT(tag, "BoulderEffects");
         boulderRainEffects.readFromNBT(tag, "BoulderRainEffects");
+        tetherEffects.readFromNBT(tag, "TetherEffects");
+        tetherFailEffects.readFromNBT(tag, "TetherFailEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -1310,6 +1381,38 @@ public final class BossPhaseData {
 
     public boolean canLaunchBoulderRain() { return boulderRainEnabled && !boulderRainBlock.isEmpty(); }
 
+    public boolean isTetherEnabled() { return tetherEnabled; }
+    public void setTetherEnabled(boolean value) { tetherEnabled = value; }
+    public String getTetherAnimation() { return tetherAnimation; }
+    public void setTetherAnimation(String value) { tetherAnimation = clean(value); }
+    public int getTetherActionDelayTicks() { return tetherActionDelayTicks; }
+    public void setTetherActionDelayTicks(int value) { tetherActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getTetherCooldownTicks() { return tetherCooldownTicks; }
+    public void setTetherCooldownTicks(int value) { tetherCooldownTicks = Mth.clamp(value, 1, 12000); }
+    public int getTetherTargetMode() { return tetherTargetMode; }
+    public void setTetherTargetMode(int value) { tetherTargetMode = BossTargetMode.clamp(value); }
+    /** How many victims one cast leashes; in the pair mode they are leashed two by two. */
+    public int getTetherTargetCount() { return tetherTargetCount; }
+    public void setTetherTargetCount(int value) { tetherTargetCount = Mth.clamp(value, 1, 8); }
+    /** What the leash is tied to: the boss, the ground under the victim, or another victim. */
+    public int getTetherAnchor() { return tetherAnchor; }
+    public void setTetherAnchor(int value) {
+        tetherAnchor = Mth.clamp(value, TETHER_ANCHOR_BOSS, TETHER_ANCHOR_PAIR);
+    }
+    public int getTetherBreakDistance() { return tetherBreakDistance; }
+    public void setTetherBreakDistance(int value) { tetherBreakDistance = Mth.clamp(value, 3, 48); }
+    public int getTetherDurationTicks() { return tetherDurationTicks; }
+    public void setTetherDurationTicks(int value) { tetherDurationTicks = Mth.clamp(value, 20, 1200); }
+    /** Drag toward the anchor, 0 to 10. Zero only times the victim out; it never moves them. */
+    public int getTetherPull() { return tetherPull; }
+    public void setTetherPull(int value) { tetherPull = Mth.clamp(value, 0, 10); }
+    public int getTetherFailDamage() { return tetherFailDamage; }
+    public void setTetherFailDamage(int value) { tetherFailDamage = Mth.clamp(value, 0, 1000); }
+    public String getTetherStyle() { return tetherStyle; }
+    public void setTetherStyle(String value) { tetherStyle = HookCordStyles.normalize(value); }
+    public int getTetherWidthPercent() { return tetherWidthPercent; }
+    public void setTetherWidthPercent(int value) { tetherWidthPercent = Mth.clamp(value, 25, 400); }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -1369,6 +1472,8 @@ public final class BossPhaseData {
     public BossEffectSet getGeyserEffects() { return geyserEffects; }
     public BossEffectSet getBoulderEffects() { return boulderEffects; }
     public BossEffectSet getBoulderRainEffects() { return boulderRainEffects; }
+    public BossEffectSet getTetherEffects() { return tetherEffects; }
+    public BossEffectSet getTetherFailEffects() { return tetherFailEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();

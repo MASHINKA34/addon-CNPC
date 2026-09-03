@@ -25,7 +25,9 @@ public final class BossAbilityKind {
     public static final int GEYSER = 10;
     public static final int BOULDER = 11;
     public static final int BOULDER_RAIN = 12;
-    public static final int COUNT = 13;
+    /** A leash the victim has to break by running: off the boss, off a spot, or off each other. */
+    public static final int TETHER = 13;
+    public static final int COUNT = 14;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -40,7 +42,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.blast",
             "cnpcgeckoaddon.boss.ability.geyser",
             "cnpcgeckoaddon.boss.ability.boulder",
-            "cnpcgeckoaddon.boss.ability.boulder_rain"
+            "cnpcgeckoaddon.boss.ability.boulder_rain",
+            "cnpcgeckoaddon.boss.ability.tether"
     };
 
     /**
@@ -51,7 +54,7 @@ public final class BossAbilityKind {
      */
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
-            BOULDER_RAIN
+            BOULDER_RAIN, TETHER
     };
 
     private BossAbilityKind() {

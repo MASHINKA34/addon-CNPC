@@ -145,7 +145,7 @@ public final class TeleportPathData {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LEAP, BossAbilityKind.LINE,
-            BossAbilityKind.GEYSER, BossAbilityKind.BOULDER
+            BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -156,6 +156,12 @@ public final class TeleportPathData {
     /** And before the boulder: everything through the geyser, minus the unwarnable blast. */
     private static final int TELEGRAPH_ABILITIES_BEFORE_BOULDER =
             ((1 << (BossAbilityKind.GEYSER + 1)) - 1) & ~(1 << BossAbilityKind.BLAST);
+    /**
+     * And before the tether: everything through the boulder, minus the blast. The boulder
+     * rain never joined the mask - it is aimed at nobody - so its bit is not in here either.
+     */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_TETHER =
+            ((1 << (BossAbilityKind.BOULDER + 1)) - 1) & ~(1 << BossAbilityKind.BLAST);
 
     private static int telegraphMask() {
         int mask = 0;
@@ -1109,6 +1115,7 @@ public final class TeleportPathData {
     private static int restoreTelegraphAbilities(int saved) {
         return saved == TELEGRAPH_ABILITIES_BEFORE_LINE || saved == TELEGRAPH_ABILITIES_BEFORE_GEYSER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_BOULDER
+                || saved == TELEGRAPH_ABILITIES_BEFORE_TETHER
                 ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 
