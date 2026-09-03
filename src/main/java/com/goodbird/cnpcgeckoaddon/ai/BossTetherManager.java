@@ -49,13 +49,20 @@ public final class BossTetherManager {
     /** Ticks between one dose of the held effects and the next. */
     private static final int EFFECT_INTERVAL_TICKS = 20;
     /**
-     * Blocks per tick of drag for each level of pull.
+     * Blocks per tick of drag for each level of pull, applied as a steady force.
      *
      * <p>Pitched against what a player can put in per tick on plain ground - 0.098 walking,
-     * 0.127 sprinting. Level 5 pulls at 0.11, so a walker loses ground and a sprinter gains
-     * it: the way out is to run, not to stroll. Level 10 outpulls a sprint outright.</p>
+     * 0.127 sprinting. Level 5 pulls at 0.10, which holds a walker where they are and still
+     * lets a sprinter gain about a block every sixteen ticks: the way out is to run, not to
+     * stroll. Level 10 outpulls a sprint outright.</p>
      */
-    private static final double PULL_PER_LEVEL = 0.022D;
+    private static final double PULL_PER_LEVEL = 0.02D;
+    /**
+     * What a client keeps of its last tick's movement on plain ground: block friction times
+     * the air drag every entity gets. The pull is added on top of exactly this, so that with
+     * no pull at all the speed sent back is the one the client was about to work out itself.
+     */
+    private static final double CLIENT_GROUND_DRAG = 0.6D * 0.91D;
     /** Inside this the pull lets go, or a victim standing on the spot would twitch about it. */
     private static final double PULL_SLACK = 1.0D;
     /** The beam hangs by its style's own sag; the tether has no setting of its own for it. */
@@ -329,12 +336,15 @@ public final class BossTetherManager {
     /**
      * Drags every victim one tick toward whatever it is tied to.
      *
-     * <p>The sideways speed is set outright rather than added to: a player's own client is
-     * what moves them, and each tick it takes this speed as its starting point and puts its
-     * own input on top - which is exactly the tug of war {@link #PULL_PER_LEVEL} is pitched
-     * for. Only while they stand on the ground, and only sideways, so the height they are
-     * already moving at is left alone: the server's idea of a player's fall runs a tick or
-     * two behind, and sending it back would cut every jump short.</p>
+     * <p>A player's own client is what moves them, and each tick it starts from the speed
+     * the server last sent and puts its own input on top. So what is sent is the movement
+     * the client itself reported, worn down by the ground drag it would have applied anyway,
+     * plus the pull: with no pull that reproduces plain walking, and with one it reads as a
+     * steady force the victim has to out-run - which is the tug of war
+     * {@link #PULL_PER_LEVEL} is pitched for. Only while they stand on the ground, and only
+     * sideways, so the height they are already moving at is left alone: the server's idea of
+     * a player's fall runs a tick or two behind, and sending it back would cut every jump
+     * short.</p>
      */
     private static void pull(EntityNPCInterface boss, Tether tether, List<LivingEntity> victims) {
         for (int i = 0; i < victims.size(); i++) {
@@ -350,7 +360,11 @@ public final class BossTetherManager {
             if (distance <= PULL_SLACK) {
                 continue;
             }
-            Vec3 velocity = flat.scale(tether.pullSpeed / distance);
+            // For a player this is the last step their client reported; a mob's is simply its
+            // own speed, which the same drag leaves a little heavier than it would be alone.
+            Vec3 carried = victim.getKnownMovement();
+            Vec3 velocity = flat.scale(tether.pullSpeed / distance)
+                    .add(carried.x * CLIENT_GROUND_DRAG, 0.0D, carried.z * CLIENT_GROUND_DRAG);
             victim.setDeltaMovement(velocity.x, victim.getDeltaMovement().y, velocity.z);
             // Players simulate their own movement, so the server has to push the new velocity
             // to them explicitly. hurtMarked is what makes ServerEntity send it.
