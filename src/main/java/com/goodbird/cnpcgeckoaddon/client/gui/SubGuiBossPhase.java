@@ -71,6 +71,7 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
         addAbilityButton(26, 0, 8, "cnpcgeckoaddon.boss.gravity_settings");
         addAbilityButton(27, 1, 8, "cnpcgeckoaddon.boss.mark_settings");
         addAbilityButton(28, 0, 9, "cnpcgeckoaddon.boss.cover_settings");
+        addAbilityButton(29, 1, 9, "cnpcgeckoaddon.boss.hazard_settings");
         // The grid runs to ten rows now, so Done gets a line of its own below it.
         addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 317, 60, 20,
                 "gui.done", button -> close()));
@@ -121,6 +122,8 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
             setSubGui(new SubGuiBossMark(npc, phase, phaseIndex));
         } else if (button.id == 28) {
             setSubGui(new SubGuiBossCover(npc, phase, phaseIndex));
+        } else if (button.id == 29) {
+            setSubGui(new SubGuiBossHazard(phase, phaseIndex));
         }
     }
 
