@@ -48,7 +48,12 @@ public final class BossAbilityKind {
      * the cast and burn whoever they catch up with.
      */
     public static final int BEAM = 19;
-    public static final int COUNT = 20;
+    /**
+     * A victim locked inside a clone spawned on the spot they stood on: the rest of the
+     * party has to come and break them out, or they pay for it when the time runs out.
+     */
+    public static final int COCOON = 20;
+    public static final int COUNT = 21;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -70,7 +75,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.cover",
             "cnpcgeckoaddon.boss.ability.hazard",
             "cnpcgeckoaddon.boss.ability.hunt",
-            "cnpcgeckoaddon.boss.ability.beam"
+            "cnpcgeckoaddon.boss.ability.beam",
+            "cnpcgeckoaddon.boss.ability.cocoon"
     };
 
     /**
@@ -81,7 +87,7 @@ public final class BossAbilityKind {
      */
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON
     };
 
     private BossAbilityKind() {

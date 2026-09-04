@@ -199,6 +199,16 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.beam_start.random"
     };
 
+    /** The cocoon has to be killed: the clone's own health is the lock. */
+    public static final int COCOON_RESCUE_KILL = 0;
+    /** Rescuers have to stand beside it for long enough between them: tearing it open by hand. */
+    public static final int COCOON_RESCUE_STAND = 1;
+
+    public static final String[] COCOON_RESCUE_LABELS = {
+            "cnpcgeckoaddon.boss.cocoon_rescue.kill",
+            "cnpcgeckoaddon.boss.cocoon_rescue.stand"
+    };
+
     /**
      * The abilities whose wind-up can pin a walking boss to the spot it started on, in
      * {@link BossAbilityKind} order. One mask rather than a boolean per ability: there are
@@ -215,7 +225,7 @@ public final class BossPhaseData {
             BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
             BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
-            BossAbilityKind.HUNT, BossAbilityKind.BEAM
+            BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON
     };
     /**
      * Every ability is cast standing still until a builder frees it, existing bosses
@@ -609,6 +619,32 @@ public final class BossPhaseData {
     /** Sideways, off the beam's line, rather than away from the boss. */
     private int beamKnockback = 1;
 
+    /**
+     * The cocoon: each victim is locked inside a clone spawned on the spot they stood on,
+     * and only the rest of the party can let them out. Only the wind-up is a cast; the
+     * lock itself runs on the level tick, which is why it has a time limit and a rescue
+     * rule rather than a range.
+     */
+    private boolean cocoonEnabled;
+    private String cocoonAnimation = "";
+    private int cocoonActionDelayTicks = 16;
+    private int cocoonCooldownTicks = 400;
+    private int cocoonTargetMode = BossTargetMode.RANDOM;
+    private int cocoonTargetCount = 1;
+    /** The clone that stands on the victim. An empty name leaves the ability silent. */
+    private int cocoonCloneTab = 1;
+    private String cocoonCloneName = "";
+    private int cocoonRescueMode = COCOON_RESCUE_KILL;
+    /** Stand rule: how close a rescuer has to be, and how many ticks they put in between them. */
+    private int cocoonRescueRadius = 3;
+    private int cocoonRescueTicks = 60;
+    /** How long the party gets before the cocoon bursts on its victim. */
+    private int cocoonDurationTicks = 300;
+    private int cocoonFailDamage = 40;
+    /** The clone posted beside each cocoon. An empty name posts nobody. */
+    private int cocoonGuardTab = 1;
+    private String cocoonGuardName = "";
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -673,6 +709,12 @@ public final class BossPhaseData {
     private final BossEffectSet huntEffects = new BossEffectSet();
     /** Landed with every hit of a beam, on whoever it caught up with. */
     private final BossEffectSet beamEffects = new BossEffectSet();
+    /** Dosed every second to a cocooned victim for as long as they are inside. */
+    private final BossEffectSet cocoonVictimEffects = new BossEffectSet();
+    /** Landed once, on a victim nobody came for in time. */
+    private final BossEffectSet cocoonFailEffects = new BossEffectSet();
+    /** Landed once, on a victim the party let out. */
+    private final BossEffectSet cocoonFreeEffects = new BossEffectSet();
     /** Landed on everyone in the fight when a barrier is not broken in time, whatever the rule. */
     private final BossEffectSet barrierFailEffects = new BossEffectSet();
 
@@ -953,6 +995,21 @@ public final class BossPhaseData {
         tag.putInt("BeamDamage", beamDamage);
         tag.putInt("BeamHitIntervalTicks", beamHitIntervalTicks);
         tag.putInt("BeamKnockback", beamKnockback);
+        tag.putBoolean("CocoonEnabled", cocoonEnabled);
+        tag.putString("CocoonAnimation", cocoonAnimation);
+        tag.putInt("CocoonActionDelayTicks", cocoonActionDelayTicks);
+        tag.putInt("CocoonCooldownTicks", cocoonCooldownTicks);
+        tag.putInt("CocoonTargetMode", cocoonTargetMode);
+        tag.putInt("CocoonTargetCount", cocoonTargetCount);
+        tag.putInt("CocoonCloneTab", cocoonCloneTab);
+        tag.putString("CocoonCloneName", cocoonCloneName);
+        tag.putInt("CocoonRescueMode", cocoonRescueMode);
+        tag.putInt("CocoonRescueRadius", cocoonRescueRadius);
+        tag.putInt("CocoonRescueTicks", cocoonRescueTicks);
+        tag.putInt("CocoonDurationTicks", cocoonDurationTicks);
+        tag.putInt("CocoonFailDamage", cocoonFailDamage);
+        tag.putInt("CocoonGuardTab", cocoonGuardTab);
+        tag.putString("CocoonGuardName", cocoonGuardName);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -992,6 +1049,9 @@ public final class BossPhaseData {
         tag.put("HazardEffects", hazardEffects.writeToNBT());
         tag.put("HuntEffects", huntEffects.writeToNBT());
         tag.put("BeamEffects", beamEffects.writeToNBT());
+        tag.put("CocoonVictimEffects", cocoonVictimEffects.writeToNBT());
+        tag.put("CocoonFailEffects", cocoonFailEffects.writeToNBT());
+        tag.put("CocoonFreeEffects", cocoonFreeEffects.writeToNBT());
         tag.put("BarrierFailEffects", barrierFailEffects.writeToNBT());
         return tag;
     }
@@ -1330,6 +1390,25 @@ public final class BossPhaseData {
         beamHitIntervalTicks = value(tag, "BeamHitIntervalTicks", 10, 1, 100);
         beamKnockback = value(tag, "BeamKnockback", 1, 0, 10);
 
+        // A boss saved before the cocoon existed carries no key and reads as off.
+        cocoonEnabled = tag.getBoolean("CocoonEnabled");
+        cocoonAnimation = clean(tag.getString("CocoonAnimation"));
+        cocoonActionDelayTicks = value(tag, "CocoonActionDelayTicks", 16, 0, 1200);
+        cocoonCooldownTicks = value(tag, "CocoonCooldownTicks", 400, 1, 12000);
+        cocoonTargetMode = value(tag, "CocoonTargetMode",
+                BossTargetMode.RANDOM, BossTargetMode.MAIN, BossTargetMode.RANDOM);
+        cocoonTargetCount = value(tag, "CocoonTargetCount", 1, 1, 4);
+        cocoonCloneTab = value(tag, "CocoonCloneTab", 1, 1, 9);
+        cocoonCloneName = clean(tag.getString("CocoonCloneName"));
+        cocoonRescueMode = value(tag, "CocoonRescueMode", COCOON_RESCUE_KILL,
+                COCOON_RESCUE_KILL, COCOON_RESCUE_STAND);
+        cocoonRescueRadius = value(tag, "CocoonRescueRadius", 3, 1, 8);
+        cocoonRescueTicks = value(tag, "CocoonRescueTicks", 60, 10, 1200);
+        cocoonDurationTicks = value(tag, "CocoonDurationTicks", 300, 20, 2400);
+        cocoonFailDamage = value(tag, "CocoonFailDamage", 40, 0, 1000);
+        cocoonGuardTab = value(tag, "CocoonGuardTab", 1, 1, 9);
+        cocoonGuardName = clean(tag.getString("CocoonGuardName"));
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -1366,6 +1445,11 @@ public final class BossPhaseData {
         // turns round the boss wherever it walks.
         if (!tag.contains("BeamEnabled")) {
             castRootMask |= 1 << BossAbilityKind.BEAM;
+        }
+        // And for the cocoon, whose bit likewise only pins the wind-up: the lock after it
+        // stands wherever its victims stood, whatever the boss does next.
+        if (!tag.contains("CocoonEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.COCOON;
         }
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
@@ -1413,6 +1497,9 @@ public final class BossPhaseData {
         hazardEffects.readFromNBT(tag, "HazardEffects");
         huntEffects.readFromNBT(tag, "HuntEffects");
         beamEffects.readFromNBT(tag, "BeamEffects");
+        cocoonVictimEffects.readFromNBT(tag, "CocoonVictimEffects");
+        cocoonFailEffects.readFromNBT(tag, "CocoonFailEffects");
+        cocoonFreeEffects.readFromNBT(tag, "CocoonFreeEffects");
         barrierFailEffects.readFromNBT(tag, "BarrierFailEffects");
     }
 
@@ -2197,6 +2284,49 @@ public final class BossPhaseData {
     public int getBeamKnockback() { return beamKnockback; }
     public void setBeamKnockback(int value) { beamKnockback = Mth.clamp(value, 0, 10); }
 
+    /** Whether the boss ever locks victims inside cocoons in this phase. */
+    public boolean isCocoonEnabled() { return cocoonEnabled; }
+    public void setCocoonEnabled(boolean value) { cocoonEnabled = value; }
+    public String getCocoonAnimation() { return cocoonAnimation; }
+    public void setCocoonAnimation(String value) { cocoonAnimation = clean(value); }
+    /** The wind-up: the spinning before the cocoons close. */
+    public int getCocoonActionDelayTicks() { return cocoonActionDelayTicks; }
+    public void setCocoonActionDelayTicks(int value) { cocoonActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getCocoonCooldownTicks() { return cocoonCooldownTicks; }
+    public void setCocoonCooldownTicks(int value) { cocoonCooldownTicks = Mth.clamp(value, 1, 12000); }
+    public int getCocoonTargetMode() { return cocoonTargetMode; }
+    public void setCocoonTargetMode(int value) { cocoonTargetMode = BossTargetMode.clamp(value); }
+    /** How many victims one cast locks up, each in a cocoon of their own. */
+    public int getCocoonTargetCount() { return cocoonTargetCount; }
+    public void setCocoonTargetCount(int value) { cocoonTargetCount = Mth.clamp(value, 1, 4); }
+    public int getCocoonCloneTab() { return cocoonCloneTab; }
+    public void setCocoonCloneTab(int value) { cocoonCloneTab = Mth.clamp(value, 1, 9); }
+    public String getCocoonCloneName() { return cocoonCloneName; }
+    public void setCocoonCloneName(String value) { cocoonCloneName = clean(value); }
+    /** How the party lets a victim out: by killing the cocoon, or by standing beside it. */
+    public int getCocoonRescueMode() { return cocoonRescueMode; }
+    public void setCocoonRescueMode(int value) {
+        cocoonRescueMode = Mth.clamp(value, COCOON_RESCUE_KILL, COCOON_RESCUE_STAND);
+    }
+    /** Stand rule: how close to the cocoon a rescuer has to be for their time to count. */
+    public int getCocoonRescueRadius() { return cocoonRescueRadius; }
+    public void setCocoonRescueRadius(int value) { cocoonRescueRadius = Mth.clamp(value, 1, 8); }
+    /** Stand rule: the ticks the rescuers have to put in between them, two beside it counting double. */
+    public int getCocoonRescueTicks() { return cocoonRescueTicks; }
+    public void setCocoonRescueTicks(int value) { cocoonRescueTicks = Mth.clamp(value, 10, 1200); }
+    /** How long the party gets before the cocoon bursts on whoever is still inside. */
+    public int getCocoonDurationTicks() { return cocoonDurationTicks; }
+    public void setCocoonDurationTicks(int value) { cocoonDurationTicks = Mth.clamp(value, 20, 2400); }
+    /** What the burst hits the victim for; zero leaves only the effects. */
+    public int getCocoonFailDamage() { return cocoonFailDamage; }
+    public void setCocoonFailDamage(int value) { cocoonFailDamage = Mth.clamp(value, 0, 1000); }
+    public int getCocoonGuardTab() { return cocoonGuardTab; }
+    public void setCocoonGuardTab(int value) { cocoonGuardTab = Mth.clamp(value, 1, 9); }
+    public String getCocoonGuardName() { return cocoonGuardName; }
+    public void setCocoonGuardName(String value) { cocoonGuardName = clean(value); }
+    /** Whether the cocoon can fire at all: switched on, and with a clone to close round somebody. */
+    public boolean canCocoon() { return cocoonEnabled && !cocoonCloneName.isEmpty(); }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -2311,6 +2441,9 @@ public final class BossPhaseData {
     public BossEffectSet getHazardEffects() { return hazardEffects; }
     public BossEffectSet getHuntEffects() { return huntEffects; }
     public BossEffectSet getBeamEffects() { return beamEffects; }
+    public BossEffectSet getCocoonVictimEffects() { return cocoonVictimEffects; }
+    public BossEffectSet getCocoonFailEffects() { return cocoonFailEffects; }
+    public BossEffectSet getCocoonFreeEffects() { return cocoonFreeEffects; }
     public BossEffectSet getBarrierFailEffects() { return barrierFailEffects; }
 
     private static String clean(String value) {

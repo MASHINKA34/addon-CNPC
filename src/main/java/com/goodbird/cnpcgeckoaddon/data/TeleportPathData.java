@@ -147,7 +147,7 @@ public final class TeleportPathData {
             BossAbilityKind.SUMMON, BossAbilityKind.LEAP, BossAbilityKind.LINE,
             BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
-            BossAbilityKind.HUNT, BossAbilityKind.BEAM
+            BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -190,6 +190,11 @@ public final class TeleportPathData {
      */
     private static final int TELEGRAPH_ABILITIES_BEFORE_BEAM =
             ((1 << (BossAbilityKind.HUNT + 1)) - 1)
+                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1 << BossAbilityKind.HAZARD);
+    /** And before the cocoon: everything through the sweeping beam, minus the same three. */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_COCOON =
+            ((1 << (BossAbilityKind.BEAM + 1)) - 1)
                     & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
                     & ~(1 << BossAbilityKind.HAZARD);
 
@@ -1151,6 +1156,7 @@ public final class TeleportPathData {
                 || saved == TELEGRAPH_ABILITIES_BEFORE_COVER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_HUNT
                 || saved == TELEGRAPH_ABILITIES_BEFORE_BEAM
+                || saved == TELEGRAPH_ABILITIES_BEFORE_COCOON
                 ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 
