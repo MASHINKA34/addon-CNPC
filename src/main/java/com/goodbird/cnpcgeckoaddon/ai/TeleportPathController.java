@@ -188,6 +188,11 @@ public final class TeleportPathController {
     /** The hunt's stride, hung on the boss the way the enrage bonus is and taken off the same way. */
     private static final ResourceLocation HUNT_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_hunt");
+    /**
+     * Ticks between one catch and the next when catching does not end the hunt. A prey the
+     * boss is standing on is hit once a second, not twenty times.
+     */
+    private static final int HUNT_CATCH_INTERVAL_TICKS = 20;
     /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
     private static final List<Holder<Attribute>> RAGE_ATTRIBUTES =
             List.of(Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE);
@@ -220,6 +225,8 @@ public final class TeleportPathController {
         private final boolean silence;
         /** Whether the glow on the prey is this hunt's to take off again. */
         private final boolean glowing;
+        /** Game time the boss may next count the prey as caught. */
+        private long nextCatchAt;
 
         private Hunt(LivingEntity prey, BossPhaseData phase, long gameTime) {
             preyId = prey.getId();
@@ -230,6 +237,7 @@ public final class TeleportPathController {
             catchEnds = phase.isHuntCatchEnds();
             silence = phase.isHuntSilence();
             glowing = phase.isHuntGlow();
+            nextCatchAt = gameTime;
         }
     }
 
@@ -3819,6 +3827,40 @@ public final class TeleportPathController {
             return;
         }
         setTargetIfChanged(prey);
+        if (gameTime >= current.nextCatchAt && isWithinCatch(prey, current.catchRadius)) {
+            catchPrey(level, current, prey, gameTime);
+        }
+    }
+
+    /**
+     * Whether the boss has reached its prey, judged the way a melee swing is: from edge to
+     * edge rather than centre to centre, because a boss three blocks wide could never bring
+     * its centre within two of anyone.
+     */
+    private boolean isWithinCatch(LivingEntity prey, double catchRadius) {
+        double reach = catchRadius + (npc.getBbWidth() + prey.getBbWidth()) * 0.5D;
+        return npc.distanceToSqr(prey) <= reach * reach;
+    }
+
+    /**
+     * The boss has caught up with its prey.
+     *
+     * <p>The catch is the moment of reaching, not the damage landing: a hit swallowed by
+     * invulnerability frames still counts, or a prey caught a tick after a stray arrow
+     * would be caught again and again. The vanilla contact swing CustomNPCs makes is left
+     * exactly as it was, so this is the hunt's own hit and nothing more.</p>
+     */
+    private void catchPrey(ServerLevel level, Hunt current, LivingEntity prey, long gameTime) {
+        BossAbilityDamageUtil.hit(prey, BossAbilityKind.HUNT, npc, rageUp(current.damage),
+                current.effects, 0, 0.0D, 0.0D);
+        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.HUNT), prey.getX(),
+                prey.getY() + prey.getBbHeight() * 0.5D, prey.getZ(), 12,
+                prey.getBbWidth() * 0.5D, prey.getBbHeight() * 0.3D, prey.getBbWidth() * 0.5D, 0.0D);
+        if (current.catchEnds) {
+            endHunt();
+            return;
+        }
+        current.nextCatchAt = gameTime + HUNT_CATCH_INTERVAL_TICKS;
     }
 
     /**
@@ -3899,6 +3941,28 @@ public final class TeleportPathController {
     /** Whether a running hunt keeps the rest of the rotation, the teleport included, quiet. */
     private boolean isHuntSilenced() {
         return hunt != null && hunt.silence;
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    public String huntStatus(long gameTime) {
+        AttributeInstance speed = npc.getAttribute(Attributes.MOVEMENT_SPEED);
+        boolean stride = speed != null && speed.hasModifier(HUNT_MODIFIER_ID);
+        Hunt current = hunt;
+        if (current != null) {
+            String prey = npc.level().getEntity(current.preyId) instanceof LivingEntity living
+                    ? living.getName().getString() : "?";
+            return "Hunt: chasing " + prey + ", " + Math.max(0L, current.endsAt - gameTime)
+                    + " ticks left, speed modifier " + (stride ? "on" : "MISSING");
+        }
+        // Named loudly: a stride still on with no hunt to own it is exactly the leak every
+        // way out of a hunt is meant to rule out.
+        String leak = stride ? " (speed modifier still on!)" : "";
+        BossPhaseData phase = activePhase();
+        if (phase == null || !phase.isHuntEnabled()) {
+            return "Hunt: disabled" + leak;
+        }
+        long remaining = nextHuntAt == NOT_SCHEDULED ? 0L : nextHuntAt - gameTime;
+        return (remaining > 0L ? "Hunt: cooldown " + remaining : "Hunt: ready") + leak;
     }
 
     private boolean tryStartTether(ServerLevel level, TeleportPathData data,
