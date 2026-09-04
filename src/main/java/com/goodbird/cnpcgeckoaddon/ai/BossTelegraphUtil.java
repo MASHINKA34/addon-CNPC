@@ -105,6 +105,15 @@ public final class BossTelegraphUtil {
         return ABILITY_COLORS[Mth.clamp(ability, 0, ABILITY_COLORS.length - 1)];
     }
 
+    /**
+     * Dust of one packed colour that belongs to no ability: the barrier borrows its boss'
+     * bar colour rather than having a hue of its own in the list above.
+     */
+    public static DustParticleOptions dustOf(int rgb) {
+        return new DustParticleOptions(new Vector3f(
+                (rgb >> 16 & 0xFF) / 255.0F, (rgb >> 8 & 0xFF) / 255.0F, (rgb & 0xFF) / 255.0F), 1.0F);
+    }
+
     /** A full circle lying on the floor, walked the way the area attack's wave is. */
     public static void ring(ServerLevel level, Vec3 centre, double radius, DustParticleOptions dust) {
         int points = shapePoints(Mth.TWO_PI * radius);

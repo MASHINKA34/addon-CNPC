@@ -67,6 +67,39 @@ public final class NpcDamageInfoManager {
     }
 
     /**
+     * Chats what the boss' barrier did with a hit: how much of it the shield took, and how
+     * much shield is left after it. A hit inside the barrier's hurt cooldown takes nothing,
+     * and says so rather than leaving a zero to puzzle over.
+     *
+     * <p>One line under the breakdown the resistance listener already sent, rather than a
+     * whole second breakdown: the hit has been described once by then.</p>
+     */
+    public static void reportBarrier(LivingIncomingDamageEvent event, float before, float absorbed, float left) {
+        if (ENABLED.isEmpty() || !(event.getSource().getEntity() instanceof ServerPlayer player)
+                || !ENABLED.contains(player.getUUID())) {
+            return;
+        }
+        StringBuilder text = new StringBuilder("barrier: absorbed ").append(format(absorbed))
+                .append(" of ").append(format(before)).append(", ").append(format(left)).append(" left");
+        if (absorbed <= 0.0F && before > 0.0F) {
+            text.append(" (inside the hurt cooldown)");
+        } else if (left <= 0.0F) {
+            text.append(" (broken)");
+        }
+        player.sendSystemMessage(Component.literal(text.toString()).withStyle(ChatFormatting.GRAY));
+    }
+
+    /** Chats the window's multiplier, the same way: one line under the breakdown. */
+    public static void reportExposed(LivingIncomingDamageEvent event, float before, int percent) {
+        if (ENABLED.isEmpty() || !(event.getSource().getEntity() instanceof ServerPlayer player)
+                || !ENABLED.contains(player.getUUID())) {
+            return;
+        }
+        player.sendSystemMessage(Component.literal("barrier: exposed, " + format(before) + " -> "
+                + format(event.getAmount()) + " (" + percent + "%)").withStyle(ChatFormatting.GRAY));
+    }
+
+    /**
      * Chats why a totem refused a hit: the same breakdown, ending in the ability that was
      * behind it and is not on that slot's list.
      *

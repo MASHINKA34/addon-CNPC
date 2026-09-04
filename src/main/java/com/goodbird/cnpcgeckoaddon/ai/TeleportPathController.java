@@ -193,6 +193,18 @@ public final class TeleportPathController {
      * boss is standing on is hit once a second, not twenty times.
      */
     private static final int HUNT_CATCH_INTERVAL_TICKS = 20;
+    /** How often a standing barrier's aura is painted and its count told to the party. */
+    private static final int BARRIER_PAINT_INTERVAL_TICKS = 5;
+    /**
+     * Vanilla's hurt cooldown, kept by the barrier for itself.
+     *
+     * <p>A hit the barrier pays for is cancelled before vanilla sees it, so vanilla never
+     * arms the ten ticks after a hit in which only the excess over the last one lands. The
+     * barrier is meant to be the boss' health standing still, not a softer target than it,
+     * so it keeps that rule: a barrier that took every spam click in full would fall to a
+     * held button faster than the health behind it ever could.</p>
+     */
+    private static final int BARRIER_HURT_COOLDOWN_TICKS = 10;
     /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
     private static final List<Holder<Attribute>> RAGE_ATTRIBUTES =
             List.of(Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE);
@@ -238,6 +250,51 @@ public final class TeleportPathController {
             silence = phase.isHuntSilence();
             glowing = phase.isHuntGlow();
             nextCatchAt = gameTime;
+        }
+    }
+
+    /**
+     * The barrier standing right now, frozen on the tick it went up.
+     *
+     * <p>Read back from here rather than off the phase again, the way a hunt keeps its
+     * settings: the absorb is a count that has to live somewhere, and the outcome the party
+     * was set to play for must not change under them halfway through. Nothing of this is
+     * saved - a server that goes down mid barrier owes nobody the rest of it, and the next
+     * one goes up by its own trigger once the boss is pulled again.</p>
+     */
+    private static final class Barrier {
+        private final float total;
+        private float left;
+        /** Game time the party's chance runs out at, or NOT_SCHEDULED for a barrier with no clock. */
+        private final long expiresAt;
+        private final int breakWindowTicks;
+        private final int breakDamagePercent;
+        private final int failMode;
+        private final int failDamage;
+        private final int failHealPercent;
+        private final BossEffectSet failEffects;
+        private final String breakAnimation;
+        /** Ticks after either outcome until the next barrier, or 0 for a barrier that goes up once. */
+        private final int repeatTicks;
+        /** Game time vanilla's hurt cooldown, kept by the barrier itself, runs out at. */
+        private long cooldownUntil = NOT_SCHEDULED;
+        /** The last hit inside that cooldown, which a later one only lands its excess over. */
+        private float lastHurt;
+
+        private Barrier(BossPhaseData phase, float absorb, long gameTime) {
+            total = absorb;
+            left = absorb;
+            expiresAt = phase.getBarrierTimeoutTicks() > 0
+                    ? gameTime + phase.getBarrierTimeoutTicks() : NOT_SCHEDULED;
+            breakWindowTicks = phase.getBarrierBreakWindowTicks();
+            breakDamagePercent = phase.getBarrierBreakDamageTakenPercent();
+            failMode = phase.getBarrierFailMode();
+            failDamage = phase.getBarrierFailDamage();
+            failHealPercent = phase.getBarrierFailHealPercent();
+            failEffects = phase.getBarrierFailEffects();
+            breakAnimation = phase.getBarrierBreakAnimation();
+            repeatTicks = phase.getBarrierTrigger() == BossPhaseData.BARRIER_TRIGGER_TIMER
+                    ? phase.getBarrierIntervalTicks() : 0;
         }
     }
 
@@ -403,6 +460,14 @@ public final class TeleportPathController {
     private Hunt hunt;
     /** The arena hazard of the phase being fought, or null while the arena is safe. */
     private ArenaHazard hazard;
+    /** The barrier standing right now, or null while hits reach the boss' own health. */
+    private Barrier barrier;
+    /** Game time the window a broken barrier opened closes at, or NOT_SCHEDULED outside one. */
+    private long barrierExposedUntil = NOT_SCHEDULED;
+    /** What the boss takes inside that window, as a percentage. Only read while it is open. */
+    private int barrierExposedPercent = 100;
+    /** Game time a timer rule's next barrier goes up at, or NOT_SCHEDULED while none is owed. */
+    private long nextBarrierAt = NOT_SCHEDULED;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -577,7 +642,9 @@ public final class TeleportPathController {
         // Held and rooted are read in this order, not merged: the root has to keep its own
         // deadline so the last totem falling mid wind-up cannot cut the swing short, and the
         // hold has to outlive that deadline so the end of a cast cannot set the boss loose.
-        if ((data.isStationary() || isTotemHeld()) && !leapAirborne) {
+        // A boss stunned by its broken barrier is pinned the way a held one is, and for as
+        // long: the pin is the stun.
+        if ((data.isStationary() || isTotemHeld() || isBarrierStunned()) && !leapAirborne) {
             keepStationary();
         } else if (castRootActive) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
@@ -606,6 +673,9 @@ public final class TeleportPathController {
         // marked through a lock, and the mark has to stop on the tick the ability goes off.
         tickTelegraph(level, data, gameTime);
         tickHazard(level, data, gameTime);
+        // Above the gates for the hazard's reason: the party's clock does not stop because
+        // the boss is held in an animation or lost sight of its target for a moment.
+        tickBarrier(level, data, gameTime);
 
         if (data.isCombatOnly() && !hasCombatTarget()) {
             cancelPendingAndSchedules();
@@ -639,8 +709,9 @@ public final class TeleportPathController {
         // A held boss is barred from the path as well as from walking it: leaving the spot the
         // totems pin it to is exactly what the hold is there to stop, however it is done. A
         // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
+        // And a stun: a boss that cannot walk cannot blink out of the window either.
         if (points.size() >= 2 && gameTime >= nextTeleportAt && !isTotemHeld() && !isHuntSilenced()
-                && (!isInvulnerable() || phase.isInvulnerableAllowTeleport())) {
+                && !isBarrierStunned() && (!isInvulnerable() || phase.isInvulnerableAllowTeleport())) {
             nextTeleportAt = NOT_SCHEDULED;
             beginAction(PendingAction.TELEPORT, phase.getTeleportPreparationAnimation(),
                     phase.getTeleportPreparationTicks(), gameTime, null, data, phase);
@@ -724,6 +795,8 @@ public final class TeleportPathController {
         // The phase the fight opens in was entered long before anyone pulled - on load, or
         // at the end of the last fight - so its hazard is armed from here instead.
         armHazard(level, gameTime, data.getPhase(currentPhase));
+        // The barrier for the same reason: a shield with nobody to break it is not a check.
+        armBarrier(level, gameTime, data.getPhase(currentPhase));
         lockedPlayerCount = countEligibleHealthScalingPlayers(level, data, false);
         scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
         lastHealthScalingUpdateMode = data.getHealthScalingUpdateMode();
@@ -1295,6 +1368,9 @@ public final class TeleportPathController {
         if (encounterRunning) {
             armHazard(level, gameTime, phase);
         }
+        // Asked outside a fight too: it only drops the last phase's barrier then, and a
+        // window or a count left over from the last fight must not survive into this one.
+        armBarrier(level, gameTime, phase);
         if (encounterRunning && data.isTotemsEnabled() && !totemWaveActivated
                 && data.getTotemActivationMode() == TeleportPathData.TOTEM_ACTIVATION_PHASE_ENTER
                 && currentPhase + 1 == data.getTotemActivationPhase()) {
@@ -1481,6 +1557,7 @@ public final class TeleportPathController {
         cancelPendingAndSchedules();
         clearHookPulls();
         hazard = null;
+        clearBarrier();
         BossGeyserScheduler.clearBoss(npc);
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
@@ -2495,6 +2572,7 @@ public final class TeleportPathController {
         stopBossBar();
         clearRage();
         endHunt();
+        clearBarrier();
         clearHealthScaling(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
@@ -2525,6 +2603,7 @@ public final class TeleportPathController {
         // taken off here rather than left for a tick that may never come.
         clearRage();
         endHunt();
+        clearBarrier();
         clearHealthScaling(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
@@ -2897,8 +2976,9 @@ public final class TeleportPathController {
         // New casts only, and every kind of them - the call for help an immune boss would
         // still make included. A wind-up already under way was resolved above this, and the
         // cooldowns keep running down underneath, so a boss whose last totem falls after two
-        // hours of silence swings on the very tick it comes loose.
-        if (isTotemSilenced() || isHuntSilenced()) {
+        // hours of silence swings on the very tick it comes loose. A stunned boss is quiet
+        // the same way, and its wind-up was already dropped when the stun landed.
+        if (isTotemSilenced() || isHuntSilenced() || isBarrierStunned()) {
             return false;
         }
         if (isInvulnerable()) {
@@ -3963,6 +4043,29 @@ public final class TeleportPathController {
         }
         long remaining = nextHuntAt == NOT_SCHEDULED ? 0L : nextHuntAt - gameTime;
         return (remaining > 0L ? "Hunt: cooldown " + remaining : "Hunt: ready") + leak;
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    public String barrierStatus(long gameTime) {
+        Barrier standing = barrier;
+        if (standing != null) {
+            String clock = standing.expiresAt == NOT_SCHEDULED ? "no timer"
+                    : Math.max(0L, standing.expiresAt - gameTime) + " ticks left";
+            return "Barrier: up, " + formatHealth(standing.left) + "/" + formatHealth(standing.total)
+                    + " absorb left, " + clock;
+        }
+        if (isBarrierExposed()) {
+            return "Barrier: broken, exposed " + Math.max(0L, barrierExposedUntil - gameTime)
+                    + " ticks left, damage taken " + barrierExposedPercent + "%";
+        }
+        BossPhaseData phase = activePhase();
+        if (phase == null || !phase.isBarrierEnabled()) {
+            return "Barrier: disabled";
+        }
+        if (nextBarrierAt != NOT_SCHEDULED) {
+            return "Barrier: down, next in " + Math.max(0L, nextBarrierAt - gameTime) + " ticks";
+        }
+        return "Barrier: down";
     }
 
     private boolean tryStartTether(ServerLevel level, TeleportPathData data,
@@ -5846,6 +5949,338 @@ public final class TeleportPathController {
     }
 
     /**
+     * Arms the barrier of the phase the boss is fighting in, and drops the last one's:
+     * the shield, the window it opened and the next one it owed.
+     *
+     * <p>Whatever the new phase brings, the old barrier goes, the way the hazard does: a
+     * phase change resets the check. Only inside a fight does a new one go up - the boss
+     * enters its first phase when it merely loads, and the pull arms that one instead.</p>
+     */
+    private void armBarrier(ServerLevel level, long gameTime, BossPhaseData phase) {
+        clearBarrier();
+        if (encounterRunning && phase.isBarrierEnabled()) {
+            raiseBarrier(level, gameTime, phase);
+        }
+    }
+
+    private void raiseBarrier(ServerLevel level, long gameTime, BossPhaseData phase) {
+        nextBarrierAt = NOT_SCHEDULED;
+        barrier = new Barrier(phase, phase.barrierAbsorb(npc.getMaxHealth()), gameTime);
+        playAnimation(phase.getBarrierAnimation());
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.BEACON_ACTIVATE,
+                SoundSource.HOSTILE, 1.0F, 1.3F);
+        level.sendParticles(barrierDust(), npc.getX(), npc.getY(0.5D), npc.getZ(), 40,
+                npc.getBbWidth() * 0.8D, npc.getBbHeight() * 0.5D, npc.getBbWidth() * 0.8D, 0.0D);
+        announceBarrier(level, gameTime);
+    }
+
+    /**
+     * Runs the barrier of the phase being fought: the clock while it stands, the window
+     * after it breaks, and the next one a timer rule owes.
+     *
+     * <p>The hits themselves come in through the damage handler, not through here.</p>
+     */
+    private void tickBarrier(ServerLevel level, TeleportPathData data, long gameTime) {
+        if (barrier == null && barrierExposedUntil == NOT_SCHEDULED && nextBarrierAt == NOT_SCHEDULED) {
+            return;
+        }
+        BossPhaseData phase = data.getPhase(currentPhase);
+        // Switched off mid-fight, everything goes at once rather than running on until the
+        // phase ends; a window is taken back with it, multiplier and stun included.
+        if (!encounterRunning || !phase.isBarrierEnabled()) {
+            clearBarrier();
+            return;
+        }
+        Barrier standing = barrier;
+        if (standing != null) {
+            if (standing.expiresAt != NOT_SCHEDULED && gameTime >= standing.expiresAt) {
+                failBarrier(level, data, standing, gameTime);
+                return;
+            }
+            if (gameTime % BARRIER_PAINT_INTERVAL_TICKS == 0L) {
+                paintBarrier(level);
+                announceBarrier(level, gameTime);
+            }
+            return;
+        }
+        if (barrierExposedUntil != NOT_SCHEDULED) {
+            if (gameTime < barrierExposedUntil) {
+                if (gameTime % BARRIER_PAINT_INTERVAL_TICKS == 0L) {
+                    announceExposed(level);
+                }
+                return;
+            }
+            endBarrierExposure();
+        }
+        // Only once the window is shut: a shield going up over an exposed boss would take
+        // the window's promise back early.
+        if (nextBarrierAt != NOT_SCHEDULED && gameTime >= nextBarrierAt) {
+            raiseBarrier(level, gameTime, phase);
+        }
+    }
+
+    /** Whether a barrier stands right now. Read by the damage handler and the status line. */
+    public boolean isBarrierUp() {
+        return active && barrier != null;
+    }
+
+    /** What the standing barrier still absorbs, or 0 when none stands. */
+    public float barrierLeft() {
+        return isBarrierUp() ? barrier.left : 0.0F;
+    }
+
+    /**
+     * Pays one hit out of the barrier, and breaks it when the hit is the last it can take.
+     *
+     * <p>Called from inside the hit, the way the immune phase's feedback is: the handler
+     * has already cancelled it, so nothing here reaches the boss' health. A hit inside the
+     * barrier's own hurt cooldown only lands its excess over the last one, exactly as
+     * vanilla would have let it; the excess of the breaking hit is dropped rather than
+     * passed on - the shield holds the whole of the last blow.</p>
+     *
+     * @param bypassesCooldown whether the source is one vanilla lets straight through the cooldown
+     * @return how much the barrier took; 0 for a hit the cooldown dropped whole
+     */
+    public float absorbIntoBarrier(float amount, boolean bypassesCooldown) {
+        Barrier standing = barrier;
+        if (!isBarrierUp() || amount <= 0.0F || !(npc.level() instanceof ServerLevel level)) {
+            return 0.0F;
+        }
+        long gameTime = level.getGameTime();
+        float landing = amount;
+        if (gameTime < standing.cooldownUntil && !bypassesCooldown) {
+            if (amount <= standing.lastHurt) {
+                return 0.0F;
+            }
+            landing = amount - standing.lastHurt;
+            standing.lastHurt = amount;
+        } else {
+            standing.lastHurt = amount;
+            standing.cooldownUntil = gameTime + BARRIER_HURT_COOLDOWN_TICKS;
+        }
+        float absorbed = Math.min(landing, standing.left);
+        standing.left -= absorbed;
+        if (standing.left <= 0.0F) {
+            breakBarrier(level, standing, gameTime);
+        } else {
+            playBarrierHitFeedback(level, gameTime);
+        }
+        return absorbed;
+    }
+
+    /**
+     * The party got through in time: the shield shatters and, when the phase gives one,
+     * the window opens - the boss stands stunned and takes more for as long as it lasts.
+     */
+    private void breakBarrier(ServerLevel level, Barrier broken, long gameTime) {
+        barrier = null;
+        playAnimation(broken.breakAnimation);
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.SHIELD_BREAK,
+                SoundSource.HOSTILE, 1.5F, 0.6F);
+        level.sendParticles(ParticleTypes.END_ROD, npc.getX(), npc.getY(0.6D), npc.getZ(), 40,
+                npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.15D);
+        scheduleNextBarrier(broken, gameTime);
+        if (broken.breakWindowTicks <= 0) {
+            return;
+        }
+        barrierExposedUntil = gameTime + broken.breakWindowTicks;
+        barrierExposedPercent = broken.breakDamagePercent;
+        interruptForBarrierStun();
+        announceExposed(level);
+    }
+
+    /**
+     * The stagger: whatever the boss was winding up is dropped where it stands, and comes
+     * back round as soon as the window shuts rather than after its whole cooldown. A leap
+     * already in the air is physics and keeps flying, the way every cancel leaves it.
+     */
+    private void interruptForBarrierStun() {
+        if (pendingAction == PendingAction.NONE) {
+            return;
+        }
+        PendingAction interrupted = pendingAction;
+        endCastRoot();
+        clearPendingAction();
+        bringAbilityScheduleForward(interrupted, barrierExposedUntil);
+    }
+
+    /**
+     * The clock ran out with the shield still up: the party pays, by the phase's rule.
+     *
+     * <p>The enrage rule sets the boss' own enrage off early and never a second one; a boss
+     * with no enrage to set off falls back to hitting everyone, so the rule always costs
+     * something. The potions land on everyone whichever rule it was.</p>
+     */
+    private void failBarrier(ServerLevel level, TeleportPathData data, Barrier failed, long gameTime) {
+        barrier = null;
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.BEACON_DEACTIVATE,
+                SoundSource.HOSTILE, 1.5F, 0.6F);
+        int mode = failed.failMode;
+        if (mode == BossPhaseData.BARRIER_FAIL_RAGE && !data.isRageEnabled()) {
+            mode = BossPhaseData.BARRIER_FAIL_DAMAGE;
+        }
+        if (mode == BossPhaseData.BARRIER_FAIL_RAGE) {
+            // Already enraged, there is nothing left to set off: the timer beat the barrier to it.
+            if (!rageActive) {
+                beginRage(level, gameTime, data);
+            }
+        } else if (mode == BossPhaseData.BARRIER_FAIL_HEAL) {
+            npc.heal(npc.getMaxHealth() * failed.failHealPercent / 100.0F);
+            level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.TOTEM_USE,
+                    SoundSource.HOSTILE, 1.0F, 1.0F);
+            level.sendParticles(ParticleTypes.HEART, npc.getX(), npc.getY(0.7D), npc.getZ(), 20,
+                    npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.0D);
+        } else {
+            level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ELDER_GUARDIAN_CURSE,
+                    SoundSource.HOSTILE, 1.0F, 0.8F);
+        }
+        int damage = mode == BossPhaseData.BARRIER_FAIL_DAMAGE ? rageUp(failed.failDamage) : 0;
+        for (ServerPlayer player : barrierAudience(level)) {
+            // The bar's other viewers are watching, not fighting, and somebody who has gone
+            // creative or died since they signed in is out of the fight: the party pays.
+            if (!isEncounterParticipant(player) || !isParticipant(player)) {
+                continue;
+            }
+            // No knockback: the price is the hit, not a shove. Under no ability's name, so
+            // the immunity list has nothing to say - and nothing else the fail lands on can
+            // be immune, because it lands on players alone.
+            BossAbilityDamageUtil.hit(player, BossAbilityDamageUtil.NO_ABILITY, npc, damage,
+                    failed.failEffects, 0, 0.0D, 0.0D);
+        }
+        scheduleNextBarrier(failed, gameTime);
+    }
+
+    /** A timer rule owes the next barrier this long after either outcome; a one-off owes nothing. */
+    private void scheduleNextBarrier(Barrier ended, long gameTime) {
+        nextBarrierAt = ended.repeatTicks > 0 ? gameTime + ended.repeatTicks : NOT_SCHEDULED;
+    }
+
+    private void endBarrierExposure() {
+        barrierExposedUntil = NOT_SCHEDULED;
+        barrierExposedPercent = 100;
+    }
+
+    /**
+     * Takes the whole barrier down: the shield, the window and the next one owed.
+     *
+     * <p>Idempotent and the one road out, so every ending - a phase change, a reset, the
+     * boss dying, the level unloading, the setting switched off - shuts the window with
+     * it. A multiplier or a stun left standing here would outlive the fight it belonged to.</p>
+     */
+    private void clearBarrier() {
+        barrier = null;
+        nextBarrierAt = NOT_SCHEDULED;
+        endBarrierExposure();
+    }
+
+    /** True while a broken barrier's window keeps the boss on its spot and off its abilities. */
+    public boolean isBarrierStunned() {
+        return isBarrierExposed();
+    }
+
+    /** True while a broken barrier's window has the boss taking more than it usually does. */
+    public boolean isBarrierExposed() {
+        return active && barrierExposedUntil != NOT_SCHEDULED;
+    }
+
+    /** What the boss takes inside the window, as a percentage; 100 outside one. */
+    public int barrierExposedPercent() {
+        return isBarrierExposed() ? barrierExposedPercent : 100;
+    }
+
+    /**
+     * The shield made visible: a loose ring of dust round the boss' body, in the bar's colour.
+     *
+     * <p>Decoration, so a barrier nobody is near enough to see costs nothing. Scattered up
+     * the body rather than laid on the floor, because the shield is on the boss and not on
+     * the arena.</p>
+     */
+    private void paintBarrier(ServerLevel level) {
+        if (level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(), TELEGRAPH_AUDIENCE_RANGE, false) == null) {
+            return;
+        }
+        DustParticleOptions dust = barrierDust();
+        RandomSource random = npc.getRandom();
+        double radius = npc.getBbWidth() * 0.75D + 0.3D;
+        double turn = random.nextDouble() * Mth.TWO_PI;
+        for (int i = 0; i < 8; i++) {
+            double angle = turn + i * Mth.TWO_PI / 8;
+            level.sendParticles(dust, npc.getX() + Math.cos(angle) * radius,
+                    npc.getY() + random.nextDouble() * npc.getBbHeight(),
+                    npc.getZ() + Math.sin(angle) * radius, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+    }
+
+    /** The barrier's colour: the styled bar's accent when the boss has one, a white-blue otherwise. */
+    private int barrierColor() {
+        return BossBarStyles.get(settings().getBossBarStyle()).accent();
+    }
+
+    private DustParticleOptions barrierDust() {
+        return BossTelegraphUtil.dustOf(barrierColor());
+    }
+
+    /** A chime and a few sparks for a hit the barrier took, throttled the way the immune clang is. */
+    private void playBarrierHitFeedback(ServerLevel level, long gameTime) {
+        if (gameTime < nextBlockFeedbackAt) {
+            return;
+        }
+        nextBlockFeedbackAt = gameTime + BLOCK_FEEDBACK_INTERVAL_TICKS;
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME,
+                SoundSource.HOSTILE, 1.0F, 1.0F + npc.getRandom().nextFloat() * 0.3F);
+        level.sendParticles(barrierDust(), npc.getX(), npc.getY(0.6D), npc.getZ(), 8,
+                npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.0D);
+    }
+
+    /**
+     * What is left and how long there is, in the action bar of everyone this fight belongs to.
+     *
+     * <p>Sent on every repaint rather than once, the way the hazard countdown is: the line
+     * is the count the party is racing. The numbers go in through %s, which is the one
+     * placeholder vanilla's translation formatter takes.</p>
+     */
+    private void announceBarrier(ServerLevel level, long gameTime) {
+        Barrier standing = barrier;
+        if (standing == null) {
+            return;
+        }
+        int left = (int) Math.ceil(standing.left);
+        Component line;
+        if (standing.expiresAt == NOT_SCHEDULED) {
+            line = Component.translatable("cnpcgeckoaddon.boss.barrier_status_open", left);
+        } else {
+            // Rounded up, so the last second reads as one rather than as none.
+            int seconds = (int) Math.max(1L, (standing.expiresAt - gameTime + 19L) / 20L);
+            line = Component.translatable("cnpcgeckoaddon.boss.barrier_status", left, seconds);
+        }
+        int color = barrierColor();
+        Component styled = line.copy().withStyle(style -> style.withColor(color));
+        for (ServerPlayer player : barrierAudience(level)) {
+            player.displayClientMessage(styled, true);
+        }
+    }
+
+    /** The window's one word, loud: this is the moment the whole check was for. */
+    private void announceExposed(ServerLevel level) {
+        Component line = Component.translatable("cnpcgeckoaddon.boss.barrier_exposed")
+                .withStyle(style -> style.withColor(0xFFD23A).withBold(true));
+        for (ServerPlayer player : barrierAudience(level)) {
+            player.displayClientMessage(line, true);
+        }
+    }
+
+    /** Everyone with a bar up plus everyone signed into the fight, the hazard's audience. */
+    private Set<ServerPlayer> barrierAudience(ServerLevel level) {
+        Set<ServerPlayer> audience = new LinkedHashSet<>(timerBossEvent().getPlayers());
+        for (UUID playerId : encounterParticipants) {
+            if (level.getPlayerByUUID(playerId) instanceof ServerPlayer player) {
+                audience.add(player);
+            }
+        }
+        return audience;
+    }
+
+    /**
      * Whether a boulder this boss launched may run this one over.
      *
      * <p>Asked by {@link com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder} every tick of
@@ -6230,6 +6665,7 @@ public final class TeleportPathController {
         encounterResetDone = false;
         clearHookPulls();
         hazard = null;
+        clearBarrier();
         BossGeyserScheduler.clearBoss(npc);
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);

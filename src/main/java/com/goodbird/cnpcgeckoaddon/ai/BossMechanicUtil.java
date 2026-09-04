@@ -22,9 +22,10 @@ public final class BossMechanicUtil {
         }
         // A boss held by its totems is pinned by the same tick-by-tick lock, and the pounce is
         // the one movement that would fight it: the leap commits before the lock can answer.
+        // A boss stunned by its broken barrier is held the same way.
         TeleportPathController controller = npc instanceof IBossController holder
                 ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
-        return controller != null && controller.isTotemHeld();
+        return controller != null && (controller.isTotemHeld() || controller.isBarrierStunned());
     }
 
     /**

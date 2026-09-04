@@ -230,6 +230,49 @@ public final class BossDeathEvents {
     }
 
     /**
+     * Pays a hit on a boss out of its barrier, or scales one up while the boss is exposed.
+     *
+     * <p>Registered LOWEST, under the resistance list: the barrier stands beside the totem
+     * shield and the resistances rather than in place of them, so it takes what those let
+     * through - the totem shield drops a hit whole before either, and a resisted hit reaches
+     * the barrier already reduced. Cancelled rather than zeroed for the immune phase's
+     * reason: nothing downstream should see a damage number, a hurt flinch or a knockback
+     * for a hit the shield held. The window's multiplier is the other half of the same
+     * mechanic, and lives here for the same reason.</p>
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onBossBarrier(final LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)
+                // The same escape hatch every protection leaves: /kill has to keep working.
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null) {
+            return;
+        }
+        float before = event.getAmount();
+        if (controller.isBarrierUp()) {
+            float absorbed = controller.absorbIntoBarrier(before,
+                    event.getSource().is(DamageTypeTags.BYPASSES_COOLDOWN));
+            // Cancelling means LivingDamageEvent.Post never runs, so whoever swung still has
+            // to be signed up for the fight here.
+            if (event.getSource().getEntity() instanceof ServerPlayer player) {
+                trackParticipant(npc, player);
+            }
+            event.setCanceled(true);
+            NpcDamageInfoManager.reportBarrier(event, before, absorbed, controller.barrierLeft());
+            return;
+        }
+        if (controller.isBarrierExposed()) {
+            int percent = controller.barrierExposedPercent();
+            event.setAmount(before * percent / 100.0F);
+            NpcDamageInfoManager.reportExposed(event, before, percent);
+        }
+    }
+
+    /**
      * Lets an npc marked immune to the death blast stand in the crater.
      *
      * <p>The explosion is a vanilla one going off after the boss is gone, so there is no
