@@ -146,7 +146,8 @@ public final class TeleportPathData {
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LEAP, BossAbilityKind.LINE,
             BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER,
-            BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER
+            BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
+            BossAbilityKind.HUNT
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -174,6 +175,14 @@ public final class TeleportPathData {
     /** And before the take cover strike: everything through the marks, minus the same two. */
     private static final int TELEGRAPH_ABILITIES_BEFORE_COVER =
             ((1 << (BossAbilityKind.MARK + 1)) - 1)
+                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
+    /**
+     * And before the hunt: everything through the take cover strike, minus the same two.
+     * The arena hazard never joined the mask - it is armed by the phase, not aimed - so its
+     * bit is not in here either.
+     */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_HUNT =
+            ((1 << (BossAbilityKind.COVER + 1)) - 1)
                     & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
 
     private static int telegraphMask() {
@@ -1132,6 +1141,7 @@ public final class TeleportPathData {
                 || saved == TELEGRAPH_ABILITIES_BEFORE_GRAVITY
                 || saved == TELEGRAPH_ABILITIES_BEFORE_MARK
                 || saved == TELEGRAPH_ABILITIES_BEFORE_COVER
+                || saved == TELEGRAPH_ABILITIES_BEFORE_HUNT
                 ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 

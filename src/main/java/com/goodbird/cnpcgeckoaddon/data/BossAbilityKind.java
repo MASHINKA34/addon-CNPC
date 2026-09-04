@@ -38,7 +38,12 @@ public final class BossAbilityKind {
      * safe circle closing in or a box that starts to burn.
      */
     public static final int HAZARD = 17;
-    public static final int COUNT = 18;
+    /**
+     * A chase: the boss picks one victim and goes after nobody else until it catches them
+     * or the time runs out.
+     */
+    public static final int HUNT = 18;
+    public static final int COUNT = 19;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -58,7 +63,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.gravity",
             "cnpcgeckoaddon.boss.ability.mark",
             "cnpcgeckoaddon.boss.ability.cover",
-            "cnpcgeckoaddon.boss.ability.hazard"
+            "cnpcgeckoaddon.boss.ability.hazard",
+            "cnpcgeckoaddon.boss.ability.hunt"
     };
 
     /**
@@ -69,7 +75,7 @@ public final class BossAbilityKind {
      */
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT
     };
 
     private BossAbilityKind() {

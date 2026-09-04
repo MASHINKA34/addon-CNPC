@@ -41,7 +41,8 @@ public final class BossTelegraphUtil {
             0xE040FB, // gravity - magenta, the one hue between the summon and the capture
             0xFFE14D, // mark - pale yellow, a lit fuse read against the geyser's blue
             0xB4FF3C, // take cover - lime, the one green left between the spit and the mark
-            0xFF1A1A  // arena hazard - plain red, between the slam's orange and the strike's crimson
+            0xFF1A1A, // arena hazard - plain red, between the slam's orange and the strike's crimson
+            0x2E8B57  // hunt - hunter green, well darker than the spit's mint and the lime of take cover
     };
 
     /** How much of an ability's colour its faded half keeps. */
