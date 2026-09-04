@@ -505,6 +505,9 @@ public final class BossDeathEvents {
         if (BossGravityScheduler.hasPending()) {
             BossGravityScheduler.tick(level);
         }
+        if (BossBeamScheduler.hasPending()) {
+            BossBeamScheduler.tick(level);
+        }
         BossCaptureManager.tick(level);
         BossTetherManager.tick(level);
     }
@@ -519,6 +522,7 @@ public final class BossDeathEvents {
             BossMarkScheduler.clear(level);
             BossBoulderRainScheduler.clear(level);
             BossGravityScheduler.clear(level);
+            BossBeamScheduler.clear(level);
             BossCloneRespawnGuard.clear(level);
             BossCaptureManager.clearLevel(level);
             BossTetherManager.clearLevel(level);

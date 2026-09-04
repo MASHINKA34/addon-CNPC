@@ -88,7 +88,7 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 17;
+    private static final int ABILITY_COUNT = 18;
     /**
      * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
      * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
@@ -213,7 +213,7 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT
+        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM
     }
 
     /**
@@ -453,6 +453,7 @@ public final class TeleportPathController {
     private long nextMarkAt = NOT_SCHEDULED;
     private long nextCoverAt = NOT_SCHEDULED;
     private long nextHuntAt = NOT_SCHEDULED;
+    private long nextBeamAt = NOT_SCHEDULED;
 
     /** The take cover strike being wound up, or null outside one. */
     private CoverCast coverCast;
@@ -483,6 +484,15 @@ public final class TeleportPathController {
      * corridor on the floor is a promise.
      */
     private Vec3 boulderAxis;
+
+    /**
+     * The Minecraft yaw the first beam being wound up leaves at, in degrees.
+     *
+     * <p>Committed the same way the line strike's axis is, and for the same reason: the
+     * lines the wind-up draws promise where the beams start, and a boss that went on
+     * turning after its target would break that promise on the sweep's first tick.</p>
+     */
+    private float beamStartYaw;
 
     /** Where the leap being wound up or flown right now is meant to come down. */
     private Vec3 leapDestination;
@@ -2581,6 +2591,7 @@ public final class TeleportPathController {
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
+        BossBeamScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             removeTotemsOnBossDeath(level, settings());
         }
@@ -2612,6 +2623,7 @@ public final class TeleportPathController {
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
+        BossBeamScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
                 dropTotemLink(totem, BossTotemUtil.slotId(totem));
@@ -2961,6 +2973,13 @@ public final class TeleportPathController {
         } else {
             nextHuntAt = NOT_SCHEDULED;
         }
+        if (phase.isBeamEnabled()) {
+            if (nextBeamAt == NOT_SCHEDULED) {
+                nextBeamAt = gameTime + rageDown(phase.getBeamCooldownTicks());
+            }
+        } else {
+            nextBeamAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -3005,6 +3024,7 @@ public final class TeleportPathController {
                 case 13 -> tryStartMark(level, data, phase, gameTime);
                 case 14 -> tryStartCover(level, data, phase, gameTime);
                 case 15 -> tryStartHunt(level, data, phase, gameTime);
+                case 16 -> tryStartBeam(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -4045,6 +4065,71 @@ public final class TeleportPathController {
         return (remaining > 0L ? "Hunt: cooldown " + remaining : "Hunt: ready") + leak;
     }
 
+    /**
+     * Beams swept round the boss for a while after the cast.
+     *
+     * <p>Nothing is aimed, exactly as the gravity field is not: the length is the shape,
+     * and the cast only asks whether anybody is inside it worth spending a cooldown on.
+     * Where the first beam starts is settled here rather than when the sweep begins, for
+     * the reason the line strike's corridor is: the lines the wind-up draws are a promise.
+     * What the beams do from then on belongs to {@link BossBeamScheduler}, because a sweep
+     * lasts seconds and the boss is back on its rotation the moment the cast lands.</p>
+     */
+    private boolean tryStartBeam(ServerLevel level, TeleportPathData data,
+                                 BossPhaseData phase, long gameTime) {
+        if (!phase.isBeamEnabled() || gameTime < nextBeamAt) return false;
+        // One sweep at a time: a second set of beams on top of the first would double the
+        // hits and leave nowhere to walk to.
+        if (BossBeamScheduler.isSweeping(npc)) {
+            nextBeamAt = gameTime + 20;
+            return false;
+        }
+        if (!hasBeamTargets(level, phase)) {
+            nextBeamAt = gameTime + 20;
+            return false;
+        }
+        beamStartYaw = phase.getBeamStartMode() == BossPhaseData.BEAM_START_RANDOM
+                ? npc.getRandom().nextFloat() * 360.0F : npc.getYRot();
+        beginAction(PendingAction.BEAM, phase.getBeamAnimation(),
+                phase.getBeamActionDelayTicks(), gameTime, null, data, phase);
+        // Only the cooldown is scaled: the action delay is measured against the attack
+        // animation, and shortening it would switch the beams on before the charge does.
+        nextBeamAt = gameTime + phase.getBeamActionDelayTicks()
+                + rageDown(phase.getBeamCooldownTicks());
+        return true;
+    }
+
+    private boolean hasBeamTargets(ServerLevel level, BossPhaseData phase) {
+        return !beamVictims(level, BossBeamScheduler.centreOf(npc), phase.getBeamLength()).isEmpty();
+    }
+
+    /**
+     * Hands the sweep over, and nothing else.
+     *
+     * <p>Nobody is hurt here: the shape, the turn and the damage - with the enrage bonus on
+     * it - are snapshotted on this tick and the scheduler drives the beams on its own
+     * clock, following the boss wherever it walks in the meantime if it was told to.</p>
+     */
+    private void performBeam(ServerLevel level, BossPhaseData phase, long gameTime) {
+        // The length, the speed and the timer are deliberately left alone by the enrage:
+        // they are the room a player gets to walk, not a number the fight may turn down.
+        BossBeamScheduler.start(level, npc, phase, beamStartYaw, gameTime);
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    public String beamStatus(long gameTime) {
+        long left = BossBeamScheduler.remainingTicks(npc, gameTime);
+        if (left > 0L) {
+            return "Beam: sweeping " + left;
+        }
+        BossPhaseData phase = activePhase();
+        if (phase == null || !phase.isBeamEnabled()) {
+            return "Beam: disabled";
+        }
+        long remaining = nextBeamAt == NOT_SCHEDULED ? 0L : nextBeamAt - gameTime;
+        return remaining > 0L ? "Beam: cooldown " + remaining : "Beam: ready";
+    }
+
     /** Read-only status used by the boss diagnostic command. */
     public String barrierStatus(long gameTime) {
         Barrier standing = barrier;
@@ -4933,6 +5018,13 @@ public final class TeleportPathController {
             // The field is centred on the boss and the ring is its edge: out of it for the
             // pull and the throw, into it for nobody.
             case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.getGravityRadius(), dust);
+            // The ring is how far the beams reach, and the lines are where they start: a
+            // player has to know which way round they will come.
+            case BEAM -> {
+                BossTelegraphUtil.ring(level, npc.position(), phase.getBeamLength(), dust);
+                BossBeamScheduler.paintStart(level, npc, beamStartYaw, phase.getBeamCount(),
+                        phase.getBeamLength(), phase.isBeamStopsAtWalls());
+            }
             // The shelters, where the wind-up put them; under the sight rule there are none,
             // and the cover is whatever the arena was built with.
             case COVER -> drawCoverShelters(level, dust);
@@ -5071,6 +5163,7 @@ public final class TeleportPathController {
             case MARK -> BossAbilityKind.MARK;
             case COVER -> BossAbilityKind.COVER;
             case HUNT -> BossAbilityKind.HUNT;
+            case BEAM -> BossAbilityKind.BEAM;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -5131,6 +5224,8 @@ public final class TeleportPathController {
         return switch (pendingAction) {
             case GROUND_ATTACK -> hasAreaTargets(level, phase);
             case GRAVITY -> hasGravityTargets(level, phase);
+            // Nobody left inside the beams' reach is a sweep not worth switching on.
+            case BEAM -> hasBeamTargets(level, phase);
             case RANGED_ATTACK -> isValidRangedTarget(target, phase)
                     && npc.inventory.getProjectile() != null;
             case MELEE_ATTACK -> isValidMeleeTarget(target, phase);
@@ -5199,6 +5294,7 @@ public final class TeleportPathController {
             case MARK -> nextMarkAt;
             case COVER -> nextCoverAt;
             case HUNT -> nextHuntAt;
+            case BEAM -> nextBeamAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -5223,6 +5319,7 @@ public final class TeleportPathController {
             case MARK -> nextMarkAt = at;
             case COVER -> nextCoverAt = at;
             case HUNT -> nextHuntAt = at;
+            case BEAM -> nextBeamAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -5282,6 +5379,8 @@ public final class TeleportPathController {
             performCover(level);
         } else if (pendingAction == PendingAction.HUNT) {
             performHunt(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.BEAM) {
+            performBeam(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -5729,6 +5828,25 @@ public final class TeleportPathController {
                         && matchesAbilityTargetKind(target, data)
                         && !BossMechanicUtil.hiddenByTotems(target)
                         && isAbilityTarget(target, BossAbilityKind.GRAVITY));
+    }
+
+    /**
+     * Everyone the beams turning round {@code centre} may catch, judged by this boss.
+     *
+     * <p>Asked for by {@link BossBeamScheduler} on every tick the sweep runs, and by the
+     * cast before it spends a cooldown. The gravity field's list, for the reason it has one:
+     * the whole reach is swept, so it keeps to the species the boss is set to fight and
+     * passes over anyone hidden by their own totems.</p>
+     */
+    List<LivingEntity> beamVictims(ServerLevel level, Vec3 centre, double reach) {
+        TeleportPathData data = settings();
+        double reachSquared = reach * reach;
+        AABB box = new AABB(centre, centre).inflate(reach + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= reachSquared
+                        && matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target)
+                        && isAbilityTarget(target, BossAbilityKind.BEAM));
     }
 
     /**
@@ -6614,6 +6732,7 @@ public final class TeleportPathController {
         pendingExtraTargets.clear();
         lineAttackAxis = null;
         boulderAxis = null;
+        beamStartYaw = 0.0F;
         coverCast = null;
         // A leap still in the air is physics and keeps going; only a plan that has not been
         // pushed off yet dies with the windup that was just thrown away.
@@ -6646,9 +6765,11 @@ public final class TeleportPathController {
         nextMarkAt = NOT_SCHEDULED;
         nextCoverAt = NOT_SCHEDULED;
         nextHuntAt = NOT_SCHEDULED;
+        nextBeamAt = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and
-        // every one of those ends up here.
+        // every one of those ends up here. Nor does a sweep.
         endHunt();
+        BossBeamScheduler.clearBoss(npc);
     }
 
     private void reset() {
