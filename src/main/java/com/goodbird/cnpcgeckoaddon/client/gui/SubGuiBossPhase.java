@@ -25,7 +25,7 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
         this.phase = data.getPhase(phaseIndex);
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 316;
+        imageHeight = 343;
         closeOnEsc = true;
     }
 
@@ -70,8 +70,9 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
         addAbilityButton(25, 1, 7, "cnpcgeckoaddon.boss.tether_settings");
         addAbilityButton(26, 0, 8, "cnpcgeckoaddon.boss.gravity_settings");
         addAbilityButton(27, 1, 8, "cnpcgeckoaddon.boss.mark_settings");
-        // The grid runs to nine rows now, so Done gets a line of its own below it.
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 290, 60, 20,
+        addAbilityButton(28, 0, 9, "cnpcgeckoaddon.boss.cover_settings");
+        // The grid runs to ten rows now, so Done gets a line of its own below it.
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 317, 60, 20,
                 "gui.done", button -> close()));
     }
 
@@ -118,6 +119,8 @@ public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListene
             setSubGui(new SubGuiBossGravity(npc, phase, phaseIndex));
         } else if (button.id == 27) {
             setSubGui(new SubGuiBossMark(npc, phase, phaseIndex));
+        } else if (button.id == 28) {
+            setSubGui(new SubGuiBossCover(npc, phase, phaseIndex));
         }
     }
 
