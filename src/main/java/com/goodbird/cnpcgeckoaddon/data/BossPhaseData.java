@@ -121,6 +121,29 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.cover_mode.shelter"
     };
 
+    /** A safe circle that closes in over the phase; everything outside it burns. */
+    public static final int HAZARD_MODE_RING = 0;
+    /** One box on the arena that turns dangerous after the delay; everything inside it burns. */
+    public static final int HAZARD_MODE_BOX = 1;
+
+    public static final String[] HAZARD_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.hazard_mode.ring",
+            "cnpcgeckoaddon.boss.hazard_mode.box"
+    };
+
+    /** The ring closes in on wherever the boss stood when the phase began. */
+    public static final int HAZARD_CENTER_BOSS = 0;
+    /** The ring closes in on one spot in the world, wherever the boss went. */
+    public static final int HAZARD_CENTER_POINT = 1;
+
+    public static final String[] HAZARD_CENTER_LABELS = {
+            "cnpcgeckoaddon.boss.hazard_center.boss",
+            "cnpcgeckoaddon.boss.hazard_center.point"
+    };
+
+    /** Hazard coordinates share the world limit the aggro zone's corners use. */
+    public static final int MAX_HAZARD_COORDINATE = 30000000;
+
     public static final int CAPTURE_MODE_HOLD = 0;
     public static final int CAPTURE_MODE_LIFT = 1;
     public static final int CAPTURE_EFFECT_PLAYER = 0;
@@ -470,6 +493,36 @@ public final class BossPhaseData {
     private int coverShelterMaxRange = 14;
     private String coverVfx = AreaVfxStyles.NONE;
 
+    /**
+     * The arena hazard: not a cast but the ground itself, armed when the phase is entered
+     * and gone when the phase is. Ten seconds of grace by default, so a party does not walk
+     * into a phase change already standing in the fire.
+     */
+    private boolean hazardEnabled;
+    private int hazardMode = HAZARD_MODE_RING;
+    /** How long after the phase begins the arena turns dangerous. */
+    private int hazardDelayTicks = 200;
+    /** How long before that the edge flashes and the countdown runs. */
+    private int hazardWarnTicks = 60;
+    private int hazardCenterMode = HAZARD_CENTER_BOSS;
+    /** Ring, fixed point rule: the block the safe circle closes in on. */
+    private int hazardCenterX;
+    private int hazardCenterZ;
+    /** Ring: where the safe circle starts and where it stops closing. Held with end under start. */
+    private int hazardStartRadius = 30;
+    private int hazardEndRadius = 6;
+    private int hazardShrinkTicks = 1200;
+    /** Box: two corners, the way the aggro zone is measured. */
+    private int hazardX1;
+    private int hazardY1;
+    private int hazardZ1;
+    private int hazardX2;
+    private int hazardY2;
+    private int hazardZ2;
+    /** What one dose hits for, and how often a dose goes out. */
+    private int hazardDamage = 4;
+    private int hazardIntervalTicks = 20;
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -502,6 +555,8 @@ public final class BossPhaseData {
     private final BossEffectSet markFailEffects = new BossEffectSet();
     /** Landed on everyone the strike caught out in the open. */
     private final BossEffectSet coverEffects = new BossEffectSet();
+    /** Dosed with every hit of the hazard, on everyone standing in the fire. */
+    private final BossEffectSet hazardEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -735,6 +790,24 @@ public final class BossPhaseData {
         tag.putInt("CoverShelterMinRange", coverShelterMinRange);
         tag.putInt("CoverShelterMaxRange", coverShelterMaxRange);
         tag.putString("CoverVfx", coverVfx);
+        tag.putBoolean("HazardEnabled", hazardEnabled);
+        tag.putInt("HazardMode", hazardMode);
+        tag.putInt("HazardDelayTicks", hazardDelayTicks);
+        tag.putInt("HazardWarnTicks", hazardWarnTicks);
+        tag.putInt("HazardCenterMode", hazardCenterMode);
+        tag.putInt("HazardCenterX", hazardCenterX);
+        tag.putInt("HazardCenterZ", hazardCenterZ);
+        tag.putInt("HazardStartRadius", hazardStartRadius);
+        tag.putInt("HazardEndRadius", hazardEndRadius);
+        tag.putInt("HazardShrinkTicks", hazardShrinkTicks);
+        tag.putInt("HazardX1", hazardX1);
+        tag.putInt("HazardY1", hazardY1);
+        tag.putInt("HazardZ1", hazardZ1);
+        tag.putInt("HazardX2", hazardX2);
+        tag.putInt("HazardY2", hazardY2);
+        tag.putInt("HazardZ2", hazardZ2);
+        tag.putInt("HazardDamage", hazardDamage);
+        tag.putInt("HazardIntervalTicks", hazardIntervalTicks);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -758,6 +831,7 @@ public final class BossPhaseData {
         tag.put("MarkEffects", markEffects.writeToNBT());
         tag.put("MarkFailEffects", markFailEffects.writeToNBT());
         tag.put("CoverEffects", coverEffects.writeToNBT());
+        tag.put("HazardEffects", hazardEffects.writeToNBT());
         return tag;
     }
 
@@ -1037,6 +1111,30 @@ public final class BossPhaseData {
                 value(tag, "CoverShelterMaxRange", 14, 2, 64));
         coverVfx = AreaVfxStyles.normalize(tag.getString("CoverVfx"));
 
+        hazardEnabled = tag.getBoolean("HazardEnabled");
+        hazardMode = value(tag, "HazardMode", HAZARD_MODE_RING, HAZARD_MODE_RING, HAZARD_MODE_BOX);
+        hazardDelayTicks = value(tag, "HazardDelayTicks", 200, 0, 12000);
+        hazardWarnTicks = value(tag, "HazardWarnTicks", 60, 0, 600);
+        hazardCenterMode = value(tag, "HazardCenterMode", HAZARD_CENTER_BOSS,
+                HAZARD_CENTER_BOSS, HAZARD_CENTER_POINT);
+        setHazardCenter(
+                value(tag, "HazardCenterX", 0, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE),
+                value(tag, "HazardCenterZ", 0, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE));
+        setHazardRadii(
+                value(tag, "HazardStartRadius", 30, 2, 128),
+                value(tag, "HazardEndRadius", 6, 1, 127));
+        hazardShrinkTicks = value(tag, "HazardShrinkTicks", 1200, 20, 24000);
+        setHazardCorner1(
+                value(tag, "HazardX1", 0, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE),
+                value(tag, "HazardY1", 0, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE),
+                value(tag, "HazardZ1", 0, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE));
+        setHazardCorner2(
+                value(tag, "HazardX2", 0, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE),
+                value(tag, "HazardY2", 0, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE),
+                value(tag, "HazardZ2", 0, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE));
+        hazardDamage = value(tag, "HazardDamage", 4, 0, 1000);
+        hazardIntervalTicks = value(tag, "HazardIntervalTicks", 20, 1, 200);
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -1091,6 +1189,7 @@ public final class BossPhaseData {
         markEffects.readFromNBT(tag, "MarkEffects");
         markFailEffects.readFromNBT(tag, "MarkFailEffects");
         coverEffects.readFromNBT(tag, "CoverEffects");
+        hazardEffects.readFromNBT(tag, "HazardEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -1728,6 +1827,73 @@ public final class BossPhaseData {
     public String getCoverVfx() { return coverVfx; }
     public void setCoverVfx(String value) { coverVfx = AreaVfxStyles.normalize(value); }
 
+    /** Whether the arena turns dangerous in this phase at all. */
+    public boolean isHazardEnabled() { return hazardEnabled; }
+    public void setHazardEnabled(boolean value) { hazardEnabled = value; }
+    /** Which shape the danger takes: a ring closing in, or a box switching on. */
+    public int getHazardMode() { return hazardMode; }
+    public void setHazardMode(int value) {
+        hazardMode = Mth.clamp(value, HAZARD_MODE_RING, HAZARD_MODE_BOX);
+    }
+    /** Ticks after the phase begins before the arena starts to hurt. */
+    public int getHazardDelayTicks() { return hazardDelayTicks; }
+    public void setHazardDelayTicks(int value) { hazardDelayTicks = Mth.clamp(value, 0, 12000); }
+    /** Ticks of flashing edge and countdown in front of that. */
+    public int getHazardWarnTicks() { return hazardWarnTicks; }
+    public void setHazardWarnTicks(int value) { hazardWarnTicks = Mth.clamp(value, 0, 600); }
+    /** Ring: whether the circle closes in on the boss' spot at phase entry or on a fixed point. */
+    public int getHazardCenterMode() { return hazardCenterMode; }
+    public void setHazardCenterMode(int value) {
+        hazardCenterMode = Mth.clamp(value, HAZARD_CENTER_BOSS, HAZARD_CENTER_POINT);
+    }
+    public int getHazardCenterX() { return hazardCenterX; }
+    public int getHazardCenterZ() { return hazardCenterZ; }
+    public void setHazardCenter(int x, int z) {
+        hazardCenterX = hazardCoordinate(x);
+        hazardCenterZ = hazardCoordinate(z);
+    }
+    public int getHazardStartRadius() { return hazardStartRadius; }
+    public int getHazardEndRadius() { return hazardEndRadius; }
+    /**
+     * Where the safe circle starts and where it stops, set as the pair they are read as.
+     *
+     * <p>The end is held under the start, the way the boulder rain's inner edge is held under
+     * its outer one: a circle that closes to where it began, or grows, is not a ring closing
+     * in, and the shrink would have nothing to do.</p>
+     */
+    public void setHazardRadii(int start, int end) {
+        hazardStartRadius = Mth.clamp(start, 2, 128);
+        hazardEndRadius = Mth.clamp(end, 1, hazardStartRadius - 1);
+    }
+    /** Ring: how long the circle takes to close from the start radius to the end one. */
+    public int getHazardShrinkTicks() { return hazardShrinkTicks; }
+    public void setHazardShrinkTicks(int value) { hazardShrinkTicks = Mth.clamp(value, 20, 24000); }
+    public int getHazardX1() { return hazardX1; }
+    public int getHazardY1() { return hazardY1; }
+    public int getHazardZ1() { return hazardZ1; }
+    public int getHazardX2() { return hazardX2; }
+    public int getHazardY2() { return hazardY2; }
+    public int getHazardZ2() { return hazardZ2; }
+    public void setHazardCorner1(int x, int y, int z) {
+        hazardX1 = hazardCoordinate(x);
+        hazardY1 = hazardCoordinate(y);
+        hazardZ1 = hazardCoordinate(z);
+    }
+    public void setHazardCorner2(int x, int y, int z) {
+        hazardX2 = hazardCoordinate(x);
+        hazardY2 = hazardCoordinate(y);
+        hazardZ2 = hazardCoordinate(z);
+    }
+    /** What one dose of the hazard hits for; zero leaves only the effects. */
+    public int getHazardDamage() { return hazardDamage; }
+    public void setHazardDamage(int value) { hazardDamage = Mth.clamp(value, 0, 1000); }
+    /** Ticks between one dose and the next. */
+    public int getHazardIntervalTicks() { return hazardIntervalTicks; }
+    public void setHazardIntervalTicks(int value) { hazardIntervalTicks = Mth.clamp(value, 1, 200); }
+    private static int hazardCoordinate(int value) {
+        return Mth.clamp(value, -MAX_HAZARD_COORDINATE, MAX_HAZARD_COORDINATE);
+    }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -1793,6 +1959,7 @@ public final class BossPhaseData {
     public BossEffectSet getMarkEffects() { return markEffects; }
     public BossEffectSet getMarkFailEffects() { return markFailEffects; }
     public BossEffectSet getCoverEffects() { return coverEffects; }
+    public BossEffectSet getHazardEffects() { return hazardEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();

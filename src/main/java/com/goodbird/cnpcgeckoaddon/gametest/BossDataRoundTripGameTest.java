@@ -138,6 +138,14 @@ public class BossDataRoundTripGameTest {
         phase.setCoverShelterCount(3);
         phase.setCoverShelterRing(6, 20);
         phase.setCastRooted(BossAbilityKind.COVER, false);
+        phase.setHazardEnabled(true);
+        phase.setHazardMode(BossPhaseData.HAZARD_MODE_BOX);
+        phase.setHazardCenterMode(BossPhaseData.HAZARD_CENTER_POINT);
+        phase.setHazardCenter(-120, 45);
+        phase.setHazardRadii(40, 5);
+        phase.setHazardCorner1(-10, 60, -10);
+        phase.setHazardCorner2(10, 70, 10);
+        phase.setHazardIntervalTicks(10);
         phase.setMinionSpawnMode(BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM);
         phase.getMinionSpawnPoints().add();
         phase.getMinionSpawnPoints().add();

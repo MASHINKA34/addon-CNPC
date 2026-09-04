@@ -33,7 +33,12 @@ public final class BossAbilityKind {
     public static final int MARK = 15;
     /** A hit on the whole arena that only spares whoever got out of sight or into a shelter. */
     public static final int COVER = 16;
-    public static final int COUNT = 17;
+    /**
+     * Not something the boss aims: the arena itself turning dangerous for a phase, as a
+     * safe circle closing in or a box that starts to burn.
+     */
+    public static final int HAZARD = 17;
+    public static final int COUNT = 18;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -52,7 +57,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.tether",
             "cnpcgeckoaddon.boss.ability.gravity",
             "cnpcgeckoaddon.boss.ability.mark",
-            "cnpcgeckoaddon.boss.ability.cover"
+            "cnpcgeckoaddon.boss.ability.cover",
+            "cnpcgeckoaddon.boss.ability.hazard"
     };
 
     /**
@@ -63,7 +69,7 @@ public final class BossAbilityKind {
      */
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD
     };
 
     private BossAbilityKind() {
