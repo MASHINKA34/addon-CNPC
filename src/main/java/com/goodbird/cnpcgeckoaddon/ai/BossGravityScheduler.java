@@ -66,12 +66,21 @@ public final class BossGravityScheduler {
     /** How long the opening wave runs for; the field has no length setting of its own. */
     private static final int VFX_DURATION_TICKS = 20;
     /**
-     * What a client keeps of its last tick's movement on plain ground: block friction times
-     * the air drag every entity gets. The force is added on top of exactly this, so that
-     * with no force at all the speed sent back is the one the client was about to work out
-     * itself; the same constant the tether pulls with.
+     * What an entity keeps of its last tick's movement on plain ground: block friction times
+     * the air drag every entity gets.
+     *
+     * <p>Two things are measured in it. A player's own client applies it to the step it last
+     * reported before putting its input on top, which is the speed the force has to sit on;
+     * and the server applies it once more to a player between this scheduler and the tracker
+     * that sends the speed on, so what is set for a player is the step as reported plus the
+     * force over this drag - worn once by the server, that arrives as exactly the sum the
+     * client would have made itself, plus the force. A mob has had its own tick, drag and
+     * all, before this runs, and moves on the next by exactly what it holds now.</p>
      */
     private static final double CLIENT_GROUND_DRAG = 0.6D * 0.91D;
+    /** What every tick takes off a vertical speed, and what it takes off before that: vanilla's own two numbers. */
+    private static final double VERTICAL_DRAG = 0.98D;
+    private static final double GRAVITY = 0.08D;
     /** Inside this the pull lets go, or a victim already at the boss would twitch about it. */
     private static final double PULL_SLACK = 1.0D;
     /**
@@ -189,10 +198,9 @@ public final class BossGravityScheduler {
             if (skips(victim)) {
                 continue;
             }
-            Vec3 carried = carried(victim);
             // Their own run is kept, so somebody sprinting through the field flies on in an
             // arc rather than stopping dead in the air above where they were.
-            victim.setDeltaMovement(carried.x, up, carried.z);
+            victim.setDeltaMovement(launch(victim, up));
             // Wipes the fall they were already in, so the landing is measured from the top of
             // this throw and the ride up cannot be what kills them.
             victim.fallDistance = 0.0F;
@@ -333,9 +341,20 @@ public final class BossGravityScheduler {
             if (victim.hurtMarked) {
                 continue;
             }
-            Vec3 carried = carried(victim);
             Vec3 force = entry.getValue();
-            victim.setDeltaMovement(carried.x + force.x, victim.getDeltaMovement().y, carried.z + force.z);
+            Vec3 velocity;
+            if (victim instanceof ServerPlayer player) {
+                // The step as the client reported it, plus the force over the drag the server
+                // is about to apply to both; see CLIENT_GROUND_DRAG for why that is the sum
+                // the client ends up with.
+                Vec3 step = player.getKnownMovement();
+                velocity = new Vec3(step.x + force.x / CLIENT_GROUND_DRAG, victim.getDeltaMovement().y,
+                        step.z + force.z / CLIENT_GROUND_DRAG);
+            } else {
+                Vec3 own = victim.getDeltaMovement();
+                velocity = new Vec3(own.x + force.x, own.y, own.z + force.z);
+            }
+            victim.setDeltaMovement(velocity);
             // Players simulate their own movement, so the server has to push the new velocity
             // to them explicitly. hurtMarked is what makes ServerEntity send it.
             victim.hurtMarked = true;
@@ -343,17 +362,20 @@ public final class BossGravityScheduler {
     }
 
     /**
-     * The sideways speed a victim is going to start its next tick with on its own, before
-     * anything here is added: a player's last reported step under the client's ground drag,
-     * a mob's speed as its own tick already left it.
+     * The throw as it has to be set so that it arrives as {@code up} straight up, on top of
+     * whatever run the victim had.
+     *
+     * <p>For a player the server's own pass runs before the send here too, and takes one
+     * tick of gravity off the height, so that tick is put back in advance. A mob moves by
+     * exactly what it is handed.</p>
      */
-    private static Vec3 carried(LivingEntity victim) {
+    private static Vec3 launch(LivingEntity victim, double up) {
         if (victim instanceof ServerPlayer player) {
             Vec3 step = player.getKnownMovement();
-            return new Vec3(step.x * CLIENT_GROUND_DRAG, 0.0D, step.z * CLIENT_GROUND_DRAG);
+            return new Vec3(step.x, up / VERTICAL_DRAG + GRAVITY, step.z);
         }
         Vec3 own = victim.getDeltaMovement();
-        return new Vec3(own.x, 0.0D, own.z);
+        return new Vec3(own.x, up, own.z);
     }
 
     /**
