@@ -37,6 +37,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
@@ -86,7 +88,7 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 16;
+    private static final int ABILITY_COUNT = 17;
     /**
      * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
      * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
@@ -183,6 +185,9 @@ public final class TeleportPathController {
     private static final int TOTEM_LINK_REFRESH_TICKS = 160;
     private static final ResourceLocation RAGE_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_rage");
+    /** The hunt's stride, hung on the boss the way the enrage bonus is and taken off the same way. */
+    private static final ResourceLocation HUNT_MODIFIER_ID =
+            ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_hunt");
     /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
     private static final List<Holder<Attribute>> RAGE_ATTRIBUTES =
             List.of(Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE);
@@ -191,7 +196,41 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER
+        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT
+    }
+
+    /**
+     * The hunt being run right now, frozen on the tick the boss set off.
+     *
+     * <p>Read back from here rather than off the phase again, the way a take cover strike
+     * keeps its settings: a chase can run for a minute, and the rule the prey was told must
+     * not change under them. Nothing of this is saved - a server that goes down mid chase
+     * owes nobody the rest of it, and a hunt is over the moment its boss is reloaded.</p>
+     */
+    private static final class Hunt {
+        private final int preyId;
+        /** Game time the boss gives the chase up at. */
+        private final long endsAt;
+        private final double catchRadius;
+        /** What a catch hits for before the enrage bonus, which is read fresh on every catch. */
+        private final int damage;
+        private final BossEffectSet effects;
+        private final boolean catchEnds;
+        /** Whether the rest of the rotation waits for this chase to end. */
+        private final boolean silence;
+        /** Whether the glow on the prey is this hunt's to take off again. */
+        private final boolean glowing;
+
+        private Hunt(LivingEntity prey, BossPhaseData phase, long gameTime) {
+            preyId = prey.getId();
+            endsAt = gameTime + phase.getHuntDurationTicks();
+            catchRadius = phase.getHuntCatchRadius();
+            damage = phase.getHuntDamage();
+            effects = phase.getHuntEffects();
+            catchEnds = phase.isHuntCatchEnds();
+            silence = phase.isHuntSilence();
+            glowing = phase.isHuntGlow();
+        }
     }
 
     /**
@@ -348,9 +387,12 @@ public final class TeleportPathController {
     private long nextGravityAt = NOT_SCHEDULED;
     private long nextMarkAt = NOT_SCHEDULED;
     private long nextCoverAt = NOT_SCHEDULED;
+    private long nextHuntAt = NOT_SCHEDULED;
 
     /** The take cover strike being wound up, or null outside one. */
     private CoverCast coverCast;
+    /** The chase being run, or null while the boss is on nobody in particular. */
+    private Hunt hunt;
     /** The arena hazard of the phase being fought, or null while the arena is safe. */
     private ArenaHazard hazard;
 
@@ -511,6 +553,9 @@ public final class TeleportPathController {
         }
         updateAggroZone(level, data, gameTime);
         updateNearestTarget(level, data, gameTime);
+        // After the two above and before anything reads the target: whatever they, the
+        // vanilla aggro or a script did to it since the last tick is put back here.
+        tickHunt(level, data, gameTime);
         if (hasCombatTarget()) {
             beginEncounter(level, gameTime, data);
         }
@@ -584,8 +629,9 @@ public final class TeleportPathController {
         scheduleMissingAbilities(gameTime, phase, points.size() >= 2);
 
         // A held boss is barred from the path as well as from walking it: leaving the spot the
-        // totems pin it to is exactly what the hold is there to stop, however it is done.
-        if (points.size() >= 2 && gameTime >= nextTeleportAt && !isTotemHeld()
+        // totems pin it to is exactly what the hold is there to stop, however it is done. A
+        // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
+        if (points.size() >= 2 && gameTime >= nextTeleportAt && !isTotemHeld() && !isHuntSilenced()
                 && (!isInvulnerable() || phase.isInvulnerableAllowTeleport())) {
             nextTeleportAt = NOT_SCHEDULED;
             beginAction(PendingAction.TELEPORT, phase.getTeleportPreparationAnimation(),
@@ -1725,6 +1771,11 @@ public final class TeleportPathController {
             trackParticipant(player);
         }
 
+        // Membership was still taken above; only the choice is the hunt's for as long as it
+        // runs, and a prey who leaves the zone ends it rather than being swapped out here.
+        if (isHunting()) {
+            return;
+        }
         LivingEntity current = npc.getTarget();
         boolean currentIsCandidate = current instanceof ServerPlayer player && candidates.contains(player);
         if (data.isAggroZoneKeepInside() && current instanceof Player && !currentIsCandidate) {
@@ -1809,6 +1860,11 @@ public final class TeleportPathController {
     private void updateNearestTarget(ServerLevel level, TeleportPathData data, long gameTime) {
         if (!data.isTargetNearestPlayer()) {
             nextRetargetAt = NOT_SCHEDULED;
+            return;
+        }
+        // The hunt owns the target for as long as it runs, and the nearest player is exactly
+        // who the boss is meant to be ignoring.
+        if (isHunting()) {
             return;
         }
         if (nextRetargetAt != NOT_SCHEDULED && gameTime < nextRetargetAt) {
@@ -2430,6 +2486,7 @@ public final class TeleportPathController {
     public void onDeath() {
         stopBossBar();
         clearRage();
+        endHunt();
         clearHealthScaling(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
@@ -2459,6 +2516,7 @@ public final class TeleportPathController {
         // never reaches the save file, but the entity object outlives an unload, so it is
         // taken off here rather than left for a tick that may never come.
         clearRage();
+        endHunt();
         clearHealthScaling(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
@@ -2809,6 +2867,13 @@ public final class TeleportPathController {
         } else {
             nextCoverAt = NOT_SCHEDULED;
         }
+        if (phase.isHuntEnabled()) {
+            if (nextHuntAt == NOT_SCHEDULED) {
+                nextHuntAt = gameTime + rageDown(phase.getHuntCooldownTicks());
+            }
+        } else {
+            nextHuntAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2825,7 +2890,7 @@ public final class TeleportPathController {
         // still make included. A wind-up already under way was resolved above this, and the
         // cooldowns keep running down underneath, so a boss whose last totem falls after two
         // hours of silence swings on the very tick it comes loose.
-        if (isTotemSilenced()) {
+        if (isTotemSilenced() || isHuntSilenced()) {
             return false;
         }
         if (isInvulnerable()) {
@@ -2851,6 +2916,7 @@ public final class TeleportPathController {
                 case 12 -> tryStartGravity(level, data, phase, gameTime);
                 case 13 -> tryStartMark(level, data, phase, gameTime);
                 case 14 -> tryStartCover(level, data, phase, gameTime);
+                case 15 -> tryStartHunt(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -3646,6 +3712,195 @@ public final class TeleportPathController {
         return false;
     }
 
+    /**
+     * Singles one victim out and winds up to go after them.
+     *
+     * <p>Who it is gets settled here and never again: the whole ability is the promise that
+     * the boss ignores everyone else, and a chase that could switch prey halfway would be
+     * an ordinary fight with extra steps. The pick reaches as far as the boss looks for a
+     * target at all, because that is the one range this ability has - it has no shape on
+     * the floor, only somebody to run at.</p>
+     */
+    private boolean tryStartHunt(ServerLevel level, TeleportPathData data,
+                                 BossPhaseData phase, long gameTime) {
+        if (!phase.isHuntEnabled() || gameTime < nextHuntAt) return false;
+        if (isHunting()) {
+            // One prey at a time. A cooldown shorter than the chase looks again once it is over.
+            nextHuntAt = gameTime + 20;
+            return false;
+        }
+        LivingEntity prey = selectAbilityTarget(level, phase.getHuntTargetMode(),
+                data.getTargetSearchRadius(), candidate -> isValidHuntTarget(candidate, data));
+        if (prey == null) {
+            nextHuntAt = gameTime + 10;
+            return false;
+        }
+        beginAction(PendingAction.HUNT, phase.getHuntAnimation(),
+                phase.getHuntActionDelayTicks(), gameTime, prey, data, phase);
+        // Only the cooldown is scaled: the wind-up is measured against the roar it plays.
+        nextHuntAt = gameTime + phase.getHuntActionDelayTicks()
+                + rageDown(phase.getHuntCooldownTicks());
+        return true;
+    }
+
+    /**
+     * Whether this candidate can be hunted, or - once the chase is on - still can be.
+     *
+     * <p>The rule the boss keeps its ordinary target by, with the ability's own immunity on
+     * top and without the sight line: the prey is picked to be run down, not shot at, and
+     * going round a corner is how one is supposed to run. The slack past the search radius
+     * is the one {@link #hasCombatTarget} allows, so a prey the boss would still be
+     * fighting is one it is still hunting; inside an arena that keeps its fight in, leaving
+     * the arena is leaving the hunt.</p>
+     */
+    private boolean isValidHuntTarget(LivingEntity target, TeleportPathData data) {
+        if (target == null || target.level() != npc.level() || !target.isAlive()
+                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.HUNT)) {
+            return false;
+        }
+        if (data.isAggroZoneEnabled() && data.isAggroZoneKeepInside()
+                && npc.level() instanceof ServerLevel level) {
+            AABB zone = aggroZoneBounds(level, data);
+            if (zone == null || !zone.contains(target.position())) {
+                return false;
+            }
+        }
+        double leash = data.getTargetSearchRadius() * 1.5D;
+        return npc.distanceToSqr(target) <= leash * leash;
+    }
+
+    /**
+     * Sets the boss off after the prey it wound up on.
+     *
+     * <p>Nothing here moves the boss. From this tick the vanilla chase is what runs it, and
+     * this only makes sure the chase has one target and a longer stride: a stationary or
+     * totem-held boss never gets to walk anyway, so for one of those the hunt is a change of
+     * target and a glow, and nothing else. The wind-up's root is let go at once rather than
+     * held through the after-pause, because the chase is the ability - a boss that roared
+     * and then stood there for half a second would have handed its prey the head start the
+     * roar was meant to be.</p>
+     */
+    private void performHunt(ServerLevel level, BossPhaseData phase, long gameTime) {
+        LivingEntity prey = pendingTarget(level);
+        if (!isValidHuntTarget(prey, settings())) {
+            return;
+        }
+        hunt = new Hunt(prey, phase, gameTime);
+        if (hunt.glowing) {
+            // Not ambient and no particles: the outline is the mark, and a cloud of swirls
+            // round the prey would only hide who it is on. As long as the chase, so the glow
+            // goes out with the hunt even if nothing gets to take it off.
+            prey.addEffect(new MobEffectInstance(MobEffects.GLOWING, phase.getHuntDurationTicks(),
+                    0, false, false, true), npc);
+        }
+        applyHuntSpeed(phase.getHuntSpeedPercent() / 100.0D);
+        setTargetIfChanged(prey);
+        announceHunt(prey);
+        endCastRoot();
+    }
+
+    /**
+     * Keeps the chase on its prey, and calls it off when it is over.
+     *
+     * <p>Every tick, so nothing that touched the target since the last one - the vanilla
+     * aggro picking whoever hit hardest, a script, another player's swing - lasts past the
+     * tick it happened in. The prey is judged by the rule that picked them, so the chase
+     * ends the moment they are gone: dead, logged out, out of the arena, or off in
+     * creative.</p>
+     */
+    private void tickHunt(ServerLevel level, TeleportPathData data, long gameTime) {
+        Hunt current = hunt;
+        if (current == null) {
+            return;
+        }
+        LivingEntity prey = level.getEntity(current.preyId) instanceof LivingEntity living ? living : null;
+        if (gameTime >= current.endsAt || !isValidHuntTarget(prey, data)) {
+            endHunt();
+            return;
+        }
+        setTargetIfChanged(prey);
+    }
+
+    /**
+     * Calls the chase off, whichever way it ended.
+     *
+     * <p>Idempotent and the one road out, so every ending - the clock, a catch, the prey
+     * gone, a phase change, a reset, the boss dying or the level unloading - takes the
+     * stride and the glow off with it. A modifier left behind here would turn the boss into
+     * a sprinter for the rest of its life. The target is left alone: the boss keeps fighting
+     * whoever it was on, and the ordinary retargeting picks up from there.</p>
+     */
+    private void endHunt() {
+        // The stride comes off whether or not a hunt is on record: it is the one part of a
+        // hunt that could outlive the record, and taking off a modifier that is not there
+        // is free.
+        clearHuntSpeed();
+        Hunt ended = hunt;
+        if (ended == null) {
+            return;
+        }
+        hunt = null;
+        // Only the glow this hunt put on; a builder who switched it off may be using the
+        // effect for something of their own.
+        if (ended.glowing && npc.level() instanceof ServerLevel level
+                && level.getEntity(ended.preyId) instanceof LivingEntity prey) {
+            prey.removeEffect(MobEffects.GLOWING);
+        }
+    }
+
+    /**
+     * Hangs the chase's stride on the entity itself, the way the enrage bonus is hung.
+     *
+     * <p>Transient on purpose: a permanent modifier is written into the entity NBT, and a
+     * boss that went down mid chase would come back from the reload still sprinting. Scaled
+     * on top of the finished value, so it stacks with the enrage rather than replacing it.</p>
+     */
+    private void applyHuntSpeed(double multiplier) {
+        AttributeInstance speed = npc.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed == null) {
+            return;
+        }
+        speed.removeModifier(HUNT_MODIFIER_ID);
+        speed.addTransientModifier(new AttributeModifier(HUNT_MODIFIER_ID, multiplier - 1.0D,
+                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+    }
+
+    private void clearHuntSpeed() {
+        AttributeInstance speed = npc.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed != null) {
+            // Removing a modifier that is not there is a no-op, not an error.
+            speed.removeModifier(HUNT_MODIFIER_ID);
+        }
+    }
+
+    /**
+     * Tells the prey it has been picked: the boss' name, in the action bar and in the
+     * hunt's colour.
+     *
+     * <p>Unconditional, the way the take cover countdown is: being told is the mechanic,
+     * and the ordinary warning settings only decide whether everyone else hears the name.
+     * Sent through the wind-up and once more as the boss sets off, because the action bar
+     * fades and the wind-up may run longer than it stays up.</p>
+     */
+    private void announceHunt(LivingEntity prey) {
+        if (!(prey instanceof ServerPlayer player)) {
+            return;
+        }
+        Component line = Component.translatable("cnpcgeckoaddon.boss.hunt_marked", npc.getDisplayName())
+                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.HUNT)));
+        player.displayClientMessage(line, true);
+    }
+
+    /** Whether the boss is on one prey right now. */
+    private boolean isHunting() {
+        return hunt != null;
+    }
+
+    /** Whether a running hunt keeps the rest of the rotation, the teleport included, quiet. */
+    private boolean isHuntSilenced() {
+        return hunt != null && hunt.silence;
+    }
+
     private boolean tryStartTether(ServerLevel level, TeleportPathData data,
                                    BossPhaseData phase, long gameTime) {
         if (!phase.isTetherEnabled() || gameTime < nextTetherAt) return false;
@@ -4388,6 +4643,11 @@ public final class TeleportPathController {
             // strike reaches further than a mark on the floor can be seen from.
             announceCoverCountdown(level);
         }
+        if (pendingAction == PendingAction.HUNT) {
+            // Before the audience check as well, and whatever the warning settings say: the
+            // prey has to know it was picked, or the chase is only a boss that suddenly runs.
+            announceHunt(pendingTarget(level));
+        }
         if (!warns && !fieldEdge && !cover) {
             return;
         }
@@ -4490,7 +4750,9 @@ public final class TeleportPathController {
             }
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
                     phase.getMeleeAttackRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
-            case RANGED_ATTACK, FLUID_SPIT, CAPTURE ->
+            // The hunt marks its prey the way the aimed abilities do: the line says who was
+            // picked, which is the one thing everybody else needs to know.
+            case RANGED_ATTACK, FLUID_SPIT, CAPTURE, HUNT ->
                     drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
             case HOOK, GEYSER, MARK -> {
                 drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
@@ -4641,6 +4903,7 @@ public final class TeleportPathController {
             case GRAVITY -> BossAbilityKind.GRAVITY;
             case MARK -> BossAbilityKind.MARK;
             case COVER -> BossAbilityKind.COVER;
+            case HUNT -> BossAbilityKind.HUNT;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -4710,6 +4973,9 @@ public final class TeleportPathController {
             case TETHER -> hasWoundUpVictim(level, candidate -> isValidTetherTarget(candidate, phase));
             case MARK -> hasWoundUpVictim(level, this::isValidMarkTarget);
             case CAPTURE -> isValidCaptureTarget(target, phase);
+            // A prey that got out of reach before the boss even set off is a hunt not worth
+            // starting; one that got out afterwards ends it on its own.
+            case HUNT -> isValidHuntTarget(target, settings());
             // A leap at a fixed spot lands there whoever is standing on it.
             case LEAP -> phase.getLeapMode() != BossPhaseData.LEAP_MODE_TARGET
                     || isValidLeapTarget(target, phase);
@@ -4765,6 +5031,7 @@ public final class TeleportPathController {
             case GRAVITY -> nextGravityAt;
             case MARK -> nextMarkAt;
             case COVER -> nextCoverAt;
+            case HUNT -> nextHuntAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -4788,6 +5055,7 @@ public final class TeleportPathController {
             case GRAVITY -> nextGravityAt = at;
             case MARK -> nextMarkAt = at;
             case COVER -> nextCoverAt = at;
+            case HUNT -> nextHuntAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -4845,6 +5113,8 @@ public final class TeleportPathController {
             performMark(level, phase, gameTime);
         } else if (pendingAction == PendingAction.COVER) {
             performCover(level);
+        } else if (pendingAction == PendingAction.HUNT) {
+            performHunt(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -5876,6 +6146,10 @@ public final class TeleportPathController {
         nextGravityAt = NOT_SCHEDULED;
         nextMarkAt = NOT_SCHEDULED;
         nextCoverAt = NOT_SCHEDULED;
+        nextHuntAt = NOT_SCHEDULED;
+        // A chase does not outlive the phase, the fight or the boss that started it, and
+        // every one of those ends up here.
+        endHunt();
     }
 
     private void reset() {
