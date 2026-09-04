@@ -367,6 +367,7 @@
   "cnpcgeckoaddon.boss.effects_cover": "Take cover effects",
   "cnpcgeckoaddon.boss.cover_countdown": "%s in %s",
   "cnpcgeckoaddon.boss.cover_hint": "The wind-up is the only warning: make it long enough to run.",
+  "cnpcgeckoaddon.boss.hazard_countdown": "%s in %s",
   "cnpcgeckoaddon.boss.cast_move_settings": "Movement while casting...",
   "cnpcgeckoaddon.boss.cast_move_title": "Movement while casting",
   "cnpcgeckoaddon.boss.cast_move_rooted": "Stands still",

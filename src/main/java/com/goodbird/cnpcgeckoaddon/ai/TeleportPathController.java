@@ -119,6 +119,8 @@ public final class TeleportPathController {
      * boss gets round to resetting.
      */
     private static final double HAZARD_RING_REACH = 32.0D;
+    /** Half a flash: the warning edge is painted for this many ticks, then not for as many. */
+    private static final int HAZARD_BLINK_TICKS = 4;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -5402,7 +5404,17 @@ public final class TeleportPathController {
             this.hazard = null;
             return;
         }
-        if (gameTime < hazard.opensAt || gameTime < hazard.nextHitAt) {
+        if (gameTime < hazard.warnsAt) {
+            return;
+        }
+        boolean open = gameTime >= hazard.opensAt;
+        if (gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
+            if (!open) {
+                announceHazardCountdown(level, hazard, gameTime);
+            }
+            paintHazard(level, hazard, gameTime, open);
+        }
+        if (!open || gameTime < hazard.nextHitAt) {
             return;
         }
         hazard.nextHitAt = gameTime + hazard.intervalTicks;
@@ -5410,6 +5422,66 @@ public final class TeleportPathController {
             // No knockback: the fire is the ground, and the ground does not shove.
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.HAZARD, npc, rageUp(hazard.damage),
                     hazard.effects, 0, 0.0D, 0.0D);
+        }
+    }
+
+    /**
+     * The edge of the fire, painted whatever the warning settings say.
+     *
+     * <p>It is the mechanic rather than a warning about one - where to be standing, or not -
+     * so it goes down the way the gravity field's edge does: an edge nobody can see is not a
+     * warning left off, it is a trap. Flashing until the hazard opens, painted in bursts
+     * with gaps as long between them, and steady from then on.</p>
+     */
+    private void paintHazard(ServerLevel level, ArenaHazard hazard, long gameTime, boolean open) {
+        if (!open && (gameTime / HAZARD_BLINK_TICKS) % 2L != 0L) {
+            return;
+        }
+        DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.HAZARD);
+        if (hazard.mode == BossPhaseData.HAZARD_MODE_BOX) {
+            AABB box = hazard.box;
+            if (box != null && hasHazardAudience(level, box.getCenter(),
+                    Math.max(box.getXsize(), box.getZsize()) * 0.5D)) {
+                BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ,
+                        hazard.floorY, dust);
+            }
+        } else if (hasHazardAudience(level, hazard.centre, hazard.startRadius)) {
+            BossTelegraphUtil.edgeRing(level, hazard.centre, hazard.ringRadius(gameTime), dust);
+        }
+    }
+
+    /**
+     * Decoration only, so a hazard with nobody near enough to see its edge costs nothing.
+     * The shape's own reach is added on: its edge can be a long way from its middle.
+     */
+    private static boolean hasHazardAudience(ServerLevel level, Vec3 centre, double reach) {
+        return level.getNearestPlayer(centre.x, centre.y, centre.z,
+                TELEGRAPH_AUDIENCE_RANGE + reach, false) != null;
+    }
+
+    /**
+     * The name and the time left, in the action bar of everyone this fight belongs to.
+     *
+     * <p>Sent on every repaint rather than once, the way the take cover countdown is: the
+     * line is what says how long there is to get clear. It goes to every participant and
+     * not only to whoever has a bar up, because the fire reaches them wherever they stand.</p>
+     */
+    private void announceHazardCountdown(ServerLevel level, ArenaHazard hazard, long gameTime) {
+        // Rounded up, so the last second reads as one rather than as none. The numbers go
+        // in through %s: vanilla's translation formatter takes that one placeholder and
+        // nothing else, and a %d would leave the raw template on the screen.
+        int seconds = (int) Math.max(1L, (hazard.opensAt - gameTime + 19L) / 20L);
+        Component line = Component.translatable("cnpcgeckoaddon.boss.hazard_countdown",
+                        Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.HAZARD]), seconds)
+                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.HAZARD)));
+        Set<ServerPlayer> audience = new LinkedHashSet<>(timerBossEvent().getPlayers());
+        for (UUID playerId : encounterParticipants) {
+            if (level.getPlayerByUUID(playerId) instanceof ServerPlayer player) {
+                audience.add(player);
+            }
+        }
+        for (ServerPlayer player : audience) {
+            player.displayClientMessage(line, true);
         }
     }
 

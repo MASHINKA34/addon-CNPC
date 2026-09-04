@@ -68,6 +68,18 @@ public final class BossTelegraphUtil {
     private static final int MAX_CORRIDOR_EDGE_POINTS = 24;
     /** Rare on purpose: the aura only has to catch the eye, not hide the boss behind dust. */
     private static final int AURA_PARTICLES = 6;
+    /**
+     * Spacing and ceiling for an edge that stays up for a whole phase rather than a wind-up.
+     *
+     * <p>Wider apart than a wind-up mark's points, and far more of them. The shapes above
+     * cap their points so a wide ring costs no more than a narrow one, and an arena hazard's
+     * ring is wide by nature: forty-eight points round a circle sixty blocks across are dots
+     * four blocks apart, which nobody can stand just inside of. The count is affordable
+     * because vanilla only hands a particle to players within thirty-two blocks of it, so
+     * each player pays for the arc near them and never for the whole circle.</p>
+     */
+    private static final double EDGE_EMIT_SPACING = 1.0D;
+    private static final int MAX_EDGE_POINTS = 256;
 
     private BossTelegraphUtil() {
     }
@@ -98,6 +110,46 @@ public final class BossTelegraphUtil {
         for (int i = 0; i < points; i++) {
             double angle = i * Mth.TWO_PI / points;
             emitOnFloor(level, centre, Math.cos(angle) * radius, Math.sin(angle) * radius, dust);
+        }
+    }
+
+    /** A ring that has to be read exactly, not merely noticed: the edge of an arena hazard. */
+    public static void edgeRing(ServerLevel level, Vec3 centre, double radius, DustParticleOptions dust) {
+        int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / EDGE_EMIT_SPACING),
+                MIN_SHAPE_POINTS, MAX_EDGE_POINTS);
+        for (int i = 0; i < points; i++) {
+            double angle = i * Mth.TWO_PI / points;
+            emitOnFloor(level, centre, Math.cos(angle) * radius, Math.sin(angle) * radius, dust);
+        }
+    }
+
+    /**
+     * The flat outline of a box, on the floor found under {@code y}, for an arena hazard
+     * that burns inside it.
+     *
+     * <p>Walked edge by edge at the hazard ring's spacing. Each edge keeps its first corner
+     * and leaves its last to the edge after it, so no corner is painted twice.</p>
+     */
+    public static void rectangle(ServerLevel level, double minX, double minZ, double maxX, double maxZ,
+                                 double y, DustParticleOptions dust) {
+        Vec3 origin = new Vec3(minX, y, minZ);
+        double width = maxX - minX;
+        double depth = maxZ - minZ;
+        edgeRun(level, origin, dust, 0.0D, 0.0D, width, 0.0D);
+        edgeRun(level, origin, dust, width, 0.0D, width, depth);
+        edgeRun(level, origin, dust, width, depth, 0.0D, depth);
+        edgeRun(level, origin, dust, 0.0D, depth, 0.0D, 0.0D);
+    }
+
+    /** One side of a rectangle, from one corner up to but not including the next. */
+    private static void edgeRun(ServerLevel level, Vec3 origin, DustParticleOptions dust,
+                                double fromX, double fromZ, double toX, double toZ) {
+        double stepX = toX - fromX;
+        double stepZ = toZ - fromZ;
+        double length = Math.sqrt(stepX * stepX + stepZ * stepZ);
+        int points = Mth.clamp((int) Math.round(length / EDGE_EMIT_SPACING), 1, MAX_EDGE_POINTS);
+        for (int i = 0; i < points; i++) {
+            emitOnFloor(level, origin, fromX + stepX * i / points, fromZ + stepZ * i / points, dust);
         }
     }
 
