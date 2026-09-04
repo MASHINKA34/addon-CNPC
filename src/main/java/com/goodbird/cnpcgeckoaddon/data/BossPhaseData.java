@@ -189,6 +189,16 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.barrier_fail.rage"
     };
 
+    /** The first beam leaves along the boss' own gaze; the rest are spaced evenly after it. */
+    public static final int BEAM_START_FACING = 0;
+    /** The first beam leaves at a random angle. */
+    public static final int BEAM_START_RANDOM = 1;
+
+    public static final String[] BEAM_START_LABELS = {
+            "cnpcgeckoaddon.boss.beam_start.facing",
+            "cnpcgeckoaddon.boss.beam_start.random"
+    };
+
     /**
      * The abilities whose wind-up can pin a walking boss to the spot it started on, in
      * {@link BossAbilityKind} order. One mask rather than a boolean per ability: there are
@@ -205,7 +215,7 @@ public final class BossPhaseData {
             BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
             BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
-            BossAbilityKind.HUNT
+            BossAbilityKind.HUNT, BossAbilityKind.BEAM
     };
     /**
      * Every ability is cast standing still until a builder frees it, existing bosses
@@ -571,6 +581,34 @@ public final class BossPhaseData {
     /** On, the prey glows for the length of the chase, so the whole party can see who was picked. */
     private boolean huntGlow = true;
 
+    /**
+     * The sweeping beam: lines that keep turning round the boss after the cast. Only the
+     * wind-up is a cast; the sweep itself runs on the level tick, which is why it has a
+     * length of time and a turning speed rather than a range.
+     */
+    private boolean beamEnabled;
+    private String beamAnimation = "";
+    private int beamActionDelayTicks = 20;
+    private int beamCooldownTicks = 360;
+    /** How many beams leave the boss, spaced evenly round it. */
+    private int beamCount = 1;
+    private int beamLength = 20;
+    /** The full width of a beam, so it reaches half of this to either side of its line. */
+    private int beamWidth = 1;
+    private int beamDurationTicks = 120;
+    /** Degrees a second. The sign is the direction: positive turns anticlockwise seen from above. */
+    private int beamDegreesPerSecond = 30;
+    private int beamStartMode = BEAM_START_FACING;
+    /** On, the beams turn round wherever the boss is; off, round the spot it cast them from. */
+    private boolean beamFollowsBoss = true;
+    /** On, a beam ends at the first solid block on its line; off, it burns through walls. */
+    private boolean beamStopsAtWalls = true;
+    private int beamDamage = 6;
+    /** Ticks between one hit on the same victim and the next, however long they stay in it. */
+    private int beamHitIntervalTicks = 10;
+    /** Sideways, off the beam's line, rather than away from the boss. */
+    private int beamKnockback = 1;
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -633,6 +671,8 @@ public final class BossPhaseData {
     private final BossEffectSet hazardEffects = new BossEffectSet();
     /** Landed on the prey each time the hunt catches it. */
     private final BossEffectSet huntEffects = new BossEffectSet();
+    /** Landed with every hit of a beam, on whoever it caught up with. */
+    private final BossEffectSet beamEffects = new BossEffectSet();
     /** Landed on everyone in the fight when a barrier is not broken in time, whatever the rule. */
     private final BossEffectSet barrierFailEffects = new BossEffectSet();
 
@@ -898,6 +938,21 @@ public final class BossPhaseData {
         tag.putBoolean("HuntCatchEnds", huntCatchEnds);
         tag.putBoolean("HuntSilence", huntSilence);
         tag.putBoolean("HuntGlow", huntGlow);
+        tag.putBoolean("BeamEnabled", beamEnabled);
+        tag.putString("BeamAnimation", beamAnimation);
+        tag.putInt("BeamActionDelayTicks", beamActionDelayTicks);
+        tag.putInt("BeamCooldownTicks", beamCooldownTicks);
+        tag.putInt("BeamCount", beamCount);
+        tag.putInt("BeamLength", beamLength);
+        tag.putInt("BeamWidth", beamWidth);
+        tag.putInt("BeamDurationTicks", beamDurationTicks);
+        tag.putInt("BeamDegreesPerSecond", beamDegreesPerSecond);
+        tag.putInt("BeamStartMode", beamStartMode);
+        tag.putBoolean("BeamFollowsBoss", beamFollowsBoss);
+        tag.putBoolean("BeamStopsAtWalls", beamStopsAtWalls);
+        tag.putInt("BeamDamage", beamDamage);
+        tag.putInt("BeamHitIntervalTicks", beamHitIntervalTicks);
+        tag.putInt("BeamKnockback", beamKnockback);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -936,6 +991,7 @@ public final class BossPhaseData {
         tag.put("CoverEffects", coverEffects.writeToNBT());
         tag.put("HazardEffects", hazardEffects.writeToNBT());
         tag.put("HuntEffects", huntEffects.writeToNBT());
+        tag.put("BeamEffects", beamEffects.writeToNBT());
         tag.put("BarrierFailEffects", barrierFailEffects.writeToNBT());
         return tag;
     }
@@ -1256,6 +1312,24 @@ public final class BossPhaseData {
         huntSilence = tag.getBoolean("HuntSilence");
         huntGlow = !tag.contains("HuntGlow") || tag.getBoolean("HuntGlow");
 
+        // A boss saved before the beam existed carries no key and reads as off.
+        beamEnabled = tag.getBoolean("BeamEnabled");
+        beamAnimation = clean(tag.getString("BeamAnimation"));
+        beamActionDelayTicks = value(tag, "BeamActionDelayTicks", 20, 0, 1200);
+        beamCooldownTicks = value(tag, "BeamCooldownTicks", 360, 1, 12000);
+        beamCount = value(tag, "BeamCount", 1, 1, 4);
+        beamLength = value(tag, "BeamLength", 20, 3, 64);
+        beamWidth = value(tag, "BeamWidth", 1, 1, 6);
+        beamDurationTicks = value(tag, "BeamDurationTicks", 120, 10, 1200);
+        beamDegreesPerSecond = value(tag, "BeamDegreesPerSecond", 30, -360, 360);
+        beamStartMode = value(tag, "BeamStartMode", BEAM_START_FACING, BEAM_START_FACING, BEAM_START_RANDOM);
+        // The two that default to on read an absent key as on, the way the hunt's glow does.
+        beamFollowsBoss = !tag.contains("BeamFollowsBoss") || tag.getBoolean("BeamFollowsBoss");
+        beamStopsAtWalls = !tag.contains("BeamStopsAtWalls") || tag.getBoolean("BeamStopsAtWalls");
+        beamDamage = value(tag, "BeamDamage", 6, 0, 1000);
+        beamHitIntervalTicks = value(tag, "BeamHitIntervalTicks", 10, 1, 100);
+        beamKnockback = value(tag, "BeamKnockback", 1, 0, 10);
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -1287,6 +1361,11 @@ public final class BossPhaseData {
         // And for the hunt, whose bit only pins the wind-up: the chase after it walks anyway.
         if (!tag.contains("HuntEnabled")) {
             castRootMask |= 1 << BossAbilityKind.HUNT;
+        }
+        // And for the beam, whose bit likewise only pins the wind-up: the sweep after it
+        // turns round the boss wherever it walks.
+        if (!tag.contains("BeamEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.BEAM;
         }
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
@@ -1333,6 +1412,7 @@ public final class BossPhaseData {
         coverEffects.readFromNBT(tag, "CoverEffects");
         hazardEffects.readFromNBT(tag, "HazardEffects");
         huntEffects.readFromNBT(tag, "HuntEffects");
+        beamEffects.readFromNBT(tag, "BeamEffects");
         barrierFailEffects.readFromNBT(tag, "BarrierFailEffects");
     }
 
@@ -2072,6 +2152,51 @@ public final class BossPhaseData {
     public boolean isHuntGlow() { return huntGlow; }
     public void setHuntGlow(boolean value) { huntGlow = value; }
 
+    /** Whether the boss ever sweeps beams round itself in this phase. */
+    public boolean isBeamEnabled() { return beamEnabled; }
+    public void setBeamEnabled(boolean value) { beamEnabled = value; }
+    public String getBeamAnimation() { return beamAnimation; }
+    public void setBeamAnimation(String value) { beamAnimation = clean(value); }
+    /** The wind-up: the charge before the beams come on. */
+    public int getBeamActionDelayTicks() { return beamActionDelayTicks; }
+    public void setBeamActionDelayTicks(int value) { beamActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getBeamCooldownTicks() { return beamCooldownTicks; }
+    public void setBeamCooldownTicks(int value) { beamCooldownTicks = Mth.clamp(value, 1, 12000); }
+    /** How many beams leave the boss at once, spaced evenly round it. */
+    public int getBeamCount() { return beamCount; }
+    public void setBeamCount(int value) { beamCount = Mth.clamp(value, 1, 4); }
+    /** How far from its centre a beam reaches, before any wall cuts it short. */
+    public int getBeamLength() { return beamLength; }
+    public void setBeamLength(int value) { beamLength = Mth.clamp(value, 3, 64); }
+    /** The full width of a beam, so it reaches half of this to either side of its line. */
+    public int getBeamWidth() { return beamWidth; }
+    public void setBeamWidth(int value) { beamWidth = Mth.clamp(value, 1, 6); }
+    /** How long the beams keep turning after the cast. */
+    public int getBeamDurationTicks() { return beamDurationTicks; }
+    public void setBeamDurationTicks(int value) { beamDurationTicks = Mth.clamp(value, 10, 1200); }
+    /** Degrees a second; positive turns anticlockwise seen from above, negative the other way. */
+    public int getBeamDegreesPerSecond() { return beamDegreesPerSecond; }
+    public void setBeamDegreesPerSecond(int value) { beamDegreesPerSecond = Mth.clamp(value, -360, 360); }
+    /** Whether the first beam leaves along the boss' gaze or at a random angle. */
+    public int getBeamStartMode() { return beamStartMode; }
+    public void setBeamStartMode(int value) {
+        beamStartMode = Mth.clamp(value, BEAM_START_FACING, BEAM_START_RANDOM);
+    }
+    /** Whether the beams turn round the boss wherever it walks, or round the spot it cast from. */
+    public boolean isBeamFollowsBoss() { return beamFollowsBoss; }
+    public void setBeamFollowsBoss(boolean value) { beamFollowsBoss = value; }
+    /** Whether a beam ends at the first solid block on its line, so a pillar is cover. */
+    public boolean isBeamStopsAtWalls() { return beamStopsAtWalls; }
+    public void setBeamStopsAtWalls(boolean value) { beamStopsAtWalls = value; }
+    /** What one hit of a beam does; zero leaves only the effects and the shove. */
+    public int getBeamDamage() { return beamDamage; }
+    public void setBeamDamage(int value) { beamDamage = Mth.clamp(value, 0, 1000); }
+    /** The least a victim gets between one hit of a beam and the next. */
+    public int getBeamHitIntervalTicks() { return beamHitIntervalTicks; }
+    public void setBeamHitIntervalTicks(int value) { beamHitIntervalTicks = Mth.clamp(value, 1, 100); }
+    public int getBeamKnockback() { return beamKnockback; }
+    public void setBeamKnockback(int value) { beamKnockback = Mth.clamp(value, 0, 10); }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -2185,6 +2310,7 @@ public final class BossPhaseData {
     public BossEffectSet getCoverEffects() { return coverEffects; }
     public BossEffectSet getHazardEffects() { return hazardEffects; }
     public BossEffectSet getHuntEffects() { return huntEffects; }
+    public BossEffectSet getBeamEffects() { return beamEffects; }
     public BossEffectSet getBarrierFailEffects() { return barrierFailEffects; }
 
     private static String clean(String value) {

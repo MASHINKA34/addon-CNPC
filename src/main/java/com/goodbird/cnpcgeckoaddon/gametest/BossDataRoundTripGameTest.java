@@ -155,6 +155,15 @@ public class BossDataRoundTripGameTest {
         phase.setHuntSilence(true);
         phase.setHuntGlow(false);
         phase.setCastRooted(BossAbilityKind.HUNT, false);
+        phase.setBeamEnabled(true);
+        phase.setBeamCount(3);
+        phase.setBeamLength(30);
+        phase.setBeamWidth(2);
+        phase.setBeamDegreesPerSecond(-45);
+        phase.setBeamStartMode(BossPhaseData.BEAM_START_RANDOM);
+        phase.setBeamFollowsBoss(false);
+        phase.setBeamStopsAtWalls(false);
+        phase.setCastRooted(BossAbilityKind.BEAM, false);
         phase.setMinionSpawnMode(BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM);
         phase.getMinionSpawnPoints().add();
         phase.getMinionSpawnPoints().add();

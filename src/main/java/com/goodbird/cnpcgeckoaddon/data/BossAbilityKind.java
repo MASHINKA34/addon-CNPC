@@ -43,7 +43,12 @@ public final class BossAbilityKind {
      * or the time runs out.
      */
     public static final int HUNT = 18;
-    public static final int COUNT = 19;
+    /**
+     * A beam swept round the boss: one or more lines that keep turning for a while after
+     * the cast and burn whoever they catch up with.
+     */
+    public static final int BEAM = 19;
+    public static final int COUNT = 20;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -64,7 +69,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.mark",
             "cnpcgeckoaddon.boss.ability.cover",
             "cnpcgeckoaddon.boss.ability.hazard",
-            "cnpcgeckoaddon.boss.ability.hunt"
+            "cnpcgeckoaddon.boss.ability.hunt",
+            "cnpcgeckoaddon.boss.ability.beam"
     };
 
     /**
@@ -75,7 +81,7 @@ public final class BossAbilityKind {
      */
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM
     };
 
     private BossAbilityKind() {

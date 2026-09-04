@@ -147,7 +147,7 @@ public final class TeleportPathData {
             BossAbilityKind.SUMMON, BossAbilityKind.LEAP, BossAbilityKind.LINE,
             BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
-            BossAbilityKind.HUNT
+            BossAbilityKind.HUNT, BossAbilityKind.BEAM
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -184,6 +184,14 @@ public final class TeleportPathData {
     private static final int TELEGRAPH_ABILITIES_BEFORE_HUNT =
             ((1 << (BossAbilityKind.COVER + 1)) - 1)
                     & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
+    /**
+     * And before the sweeping beam: everything through the hunt, minus the same two and the
+     * arena hazard, which sits between the take cover strike and the hunt without a bit.
+     */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_BEAM =
+            ((1 << (BossAbilityKind.HUNT + 1)) - 1)
+                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1 << BossAbilityKind.HAZARD);
 
     private static int telegraphMask() {
         int mask = 0;
@@ -1142,6 +1150,7 @@ public final class TeleportPathData {
                 || saved == TELEGRAPH_ABILITIES_BEFORE_MARK
                 || saved == TELEGRAPH_ABILITIES_BEFORE_COVER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_HUNT
+                || saved == TELEGRAPH_ABILITIES_BEFORE_BEAM
                 ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 

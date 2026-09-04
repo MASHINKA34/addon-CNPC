@@ -16,9 +16,9 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
 
     /**
      * Two columns, because a dozen rows and two hints do not share one panel comfortably;
-     * nine rows each since the arena hazard made it seventeen.
+     * ten rows each since the sweeping beam made it nineteen.
      */
-    private static final int ROWS_PER_COLUMN = 9;
+    private static final int ROWS_PER_COLUMN = 10;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
 
@@ -28,7 +28,7 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
         data = ((INpcImmunityData) ai).cnpcgeckoaddon$getNpcImmunityData();
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 302;
+        imageHeight = 324;
         closeOnEsc = true;
     }
 
@@ -44,12 +44,12 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
                     abilityLabel(i)));
         }
 
-        int y = addWrappedHint(FIRST_HINT_LABEL, "cnpcgeckoaddon.npc.immunity_hint", guiTop + 226);
+        int y = addWrappedHint(FIRST_HINT_LABEL, "cnpcgeckoaddon.npc.immunity_hint", guiTop + 248);
         addWrappedHint(FIRST_HINT_LABEL + 10, "cnpcgeckoaddon.npc.immunity_blast_hint", y + 4);
-        addButton(new GuiButtonNop(this, RESIST_BUTTON, guiLeft + 8, guiTop + 276, 140, 20,
+        addButton(new GuiButtonNop(this, RESIST_BUTTON, guiLeft + 8, guiTop + 298, 140, 20,
                 "cnpcgeckoaddon.npc.resist_open",
                 button -> setSubGui(new SubGuiNpcDamageResistList(data))));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 276, 60, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 298, 60, 20,
                 "gui.done", button -> close()));
     }
 
