@@ -277,6 +277,8 @@ public final class BossMarkScheduler {
      * read at a glance in the middle of a fight, and nobody reacts in twentieths.
      */
     private static void announce(Pending pending, ServerPlayer carrier, int inside, long gameTime) {
+        // The numbers go in through %s: vanilla's translation formatter takes that one
+        // placeholder and nothing else, and a %d would leave the raw template on the screen.
         // Rounded up, so the last second of a fuse is shown as one rather than as none.
         int seconds = (int) Math.max(1L, (pending.explodesAt - gameTime + 19L) / 20L);
         MutableComponent line = Component.translatable("cnpcgeckoaddon.boss.mark_countdown",
