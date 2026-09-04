@@ -18,10 +18,10 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
     private static final int FIRST_ABILITY_BUTTON = 100;
 
     /**
-     * Two columns, the way the npc immunity screen lists the same abilities. Seven rows
-     * since the gravity field made it thirteen.
+     * Two columns, the way the npc immunity screen lists the same abilities. Eight rows
+     * since the take cover strike made it fifteen.
      */
-    private static final int ROWS_PER_COLUMN = 7;
+    private static final int ROWS_PER_COLUMN = 8;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
 
@@ -31,7 +31,7 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
         this.data = data;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 208;
+        imageHeight = 230;
         closeOnEsc = true;
     }
 
@@ -46,7 +46,7 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
             addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
                     abilityLabel(i)));
         }
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 182, 60, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 204, 60, 20,
                 "gui.done", button -> close()));
     }
 

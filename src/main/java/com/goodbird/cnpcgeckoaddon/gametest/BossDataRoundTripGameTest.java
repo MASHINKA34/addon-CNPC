@@ -132,6 +132,12 @@ public class BossDataRoundTripGameTest {
         phase.setMarkMinPlayers(4);
         phase.setMarkSelfDamage(7);
         phase.setCastRooted(BossAbilityKind.MARK, false);
+        phase.setCoverEnabled(true);
+        phase.setCoverMode(BossPhaseData.COVER_MODE_SHELTER);
+        phase.setCoverRange(60);
+        phase.setCoverShelterCount(3);
+        phase.setCoverShelterRing(6, 20);
+        phase.setCastRooted(BossAbilityKind.COVER, false);
         phase.setMinionSpawnMode(BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM);
         phase.getMinionSpawnPoints().add();
         phase.getMinionSpawnPoints().add();

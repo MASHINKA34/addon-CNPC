@@ -39,7 +39,8 @@ public final class BossTelegraphUtil {
             0xC2703D, // boulder rain - dust brown, the same stone seen from underneath
             0x2EE6B8, // tether - teal, a leash of light that has to be run through
             0xE040FB, // gravity - magenta, the one hue between the summon and the capture
-            0xFFE14D  // mark - pale yellow, a lit fuse read against the geyser's blue
+            0xFFE14D, // mark - pale yellow, a lit fuse read against the geyser's blue
+            0xB4FF3C  // take cover - lime, the one green left between the spit and the mark
     };
 
     /** How much of an ability's colour its faded half keeps. */

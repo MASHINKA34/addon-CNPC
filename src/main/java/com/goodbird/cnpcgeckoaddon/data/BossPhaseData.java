@@ -111,6 +111,16 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.mark_mode.spread"
     };
 
+    /** Whoever the boss can no longer see - a solid block between its eyes and them - is spared. */
+    public static final int COVER_MODE_SIGHT = 0;
+    /** Whoever is standing inside one of the shelters the wind-up drew on the floor is spared. */
+    public static final int COVER_MODE_SHELTER = 1;
+
+    public static final String[] COVER_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.cover_mode.los",
+            "cnpcgeckoaddon.boss.cover_mode.shelter"
+    };
+
     public static final int CAPTURE_MODE_HOLD = 0;
     public static final int CAPTURE_MODE_LIFT = 1;
     public static final int CAPTURE_EFFECT_PLAYER = 0;
@@ -148,7 +158,7 @@ public final class BossPhaseData {
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
             BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
-            BossAbilityKind.GRAVITY, BossAbilityKind.MARK
+            BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER
     };
     /**
      * Every ability is cast standing still until a builder frees it, existing bosses
@@ -438,6 +448,28 @@ public final class BossPhaseData {
     private int markSelfDamage;
     private String markVfx = AreaVfxStyles.NONE;
 
+    private boolean coverEnabled;
+    private String coverAnimation = "";
+    /**
+     * The wind-up is the whole mechanic: it is the time everyone gets to hide, and the one
+     * warning there is. Held at a second at the least, because a strike nobody could have
+     * got out of is not a mechanic, it is a trap.
+     */
+    private int coverActionDelayTicks = 80;
+    private int coverCooldownTicks = 500;
+    private int coverMode = COVER_MODE_SIGHT;
+    /** How far from the boss the strike reaches: the arena, not one shape on its floor. */
+    private int coverRange = 40;
+    private int coverDamage = 40;
+    private int coverKnockback = 2;
+    /** Shelter rule: how many circles the wind-up puts down, and how wide each one is. */
+    private int coverShelterCount = 2;
+    private int coverShelterRadius = 3;
+    /** The ring around the boss the shelters are scattered in. Held with min under max. */
+    private int coverShelterMinRange = 4;
+    private int coverShelterMaxRange = 14;
+    private String coverVfx = AreaVfxStyles.NONE;
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -468,6 +500,8 @@ public final class BossPhaseData {
     private final BossEffectSet markEffects = new BossEffectSet();
     /** Gather up: landed instead on everyone inside when there were not enough of them. */
     private final BossEffectSet markFailEffects = new BossEffectSet();
+    /** Landed on everyone the strike caught out in the open. */
+    private final BossEffectSet coverEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -688,6 +722,19 @@ public final class BossPhaseData {
         tag.putInt("MarkFailDamage", markFailDamage);
         tag.putInt("MarkSelfDamage", markSelfDamage);
         tag.putString("MarkVfx", markVfx);
+        tag.putBoolean("CoverEnabled", coverEnabled);
+        tag.putString("CoverAnimation", coverAnimation);
+        tag.putInt("CoverActionDelayTicks", coverActionDelayTicks);
+        tag.putInt("CoverCooldownTicks", coverCooldownTicks);
+        tag.putInt("CoverMode", coverMode);
+        tag.putInt("CoverRange", coverRange);
+        tag.putInt("CoverDamage", coverDamage);
+        tag.putInt("CoverKnockback", coverKnockback);
+        tag.putInt("CoverShelterCount", coverShelterCount);
+        tag.putInt("CoverShelterRadius", coverShelterRadius);
+        tag.putInt("CoverShelterMinRange", coverShelterMinRange);
+        tag.putInt("CoverShelterMaxRange", coverShelterMaxRange);
+        tag.putString("CoverVfx", coverVfx);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -710,6 +757,7 @@ public final class BossPhaseData {
         tag.put("GravityEffects", gravityEffects.writeToNBT());
         tag.put("MarkEffects", markEffects.writeToNBT());
         tag.put("MarkFailEffects", markFailEffects.writeToNBT());
+        tag.put("CoverEffects", coverEffects.writeToNBT());
         return tag;
     }
 
@@ -974,6 +1022,21 @@ public final class BossPhaseData {
         markSelfDamage = value(tag, "MarkSelfDamage", 0, 0, 1000);
         markVfx = AreaVfxStyles.normalize(tag.getString("MarkVfx"));
 
+        coverEnabled = tag.getBoolean("CoverEnabled");
+        coverAnimation = clean(tag.getString("CoverAnimation"));
+        coverActionDelayTicks = value(tag, "CoverActionDelayTicks", 80, 20, 1200);
+        coverCooldownTicks = value(tag, "CoverCooldownTicks", 500, 1, 12000);
+        coverMode = value(tag, "CoverMode", COVER_MODE_SIGHT, COVER_MODE_SIGHT, COVER_MODE_SHELTER);
+        coverRange = value(tag, "CoverRange", 40, 4, 96);
+        coverDamage = value(tag, "CoverDamage", 40, 0, 1000);
+        coverKnockback = value(tag, "CoverKnockback", 2, 0, 10);
+        coverShelterCount = value(tag, "CoverShelterCount", 2, 1, 6);
+        coverShelterRadius = value(tag, "CoverShelterRadius", 3, 1, 16);
+        setCoverShelterRing(
+                value(tag, "CoverShelterMinRange", 4, 1, 48),
+                value(tag, "CoverShelterMaxRange", 14, 2, 64));
+        coverVfx = AreaVfxStyles.normalize(tag.getString("CoverVfx"));
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -995,9 +1058,12 @@ public final class BossPhaseData {
         if (!tag.contains("GravityEnabled")) {
             castRootMask |= 1 << BossAbilityKind.GRAVITY;
         }
-        // And for the marks, newest of the lot.
+        // And for the marks, and then the take cover strike, newest of the lot.
         if (!tag.contains("MarkEnabled")) {
             castRootMask |= 1 << BossAbilityKind.MARK;
+        }
+        if (!tag.contains("CoverEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.COVER;
         }
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
@@ -1024,6 +1090,7 @@ public final class BossPhaseData {
         gravityEffects.readFromNBT(tag, "GravityEffects");
         markEffects.readFromNBT(tag, "MarkEffects");
         markFailEffects.readFromNBT(tag, "MarkFailEffects");
+        coverEffects.readFromNBT(tag, "CoverEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -1622,6 +1689,45 @@ public final class BossPhaseData {
     public String getMarkVfx() { return markVfx; }
     public void setMarkVfx(String value) { markVfx = AreaVfxStyles.normalize(value); }
 
+    public boolean isCoverEnabled() { return coverEnabled; }
+    public void setCoverEnabled(boolean value) { coverEnabled = value; }
+    public String getCoverAnimation() { return coverAnimation; }
+    public void setCoverAnimation(String value) { coverAnimation = clean(value); }
+    /** The time everyone gets to hide, which is also the only warning: never under a second. */
+    public int getCoverActionDelayTicks() { return coverActionDelayTicks; }
+    public void setCoverActionDelayTicks(int value) { coverActionDelayTicks = Mth.clamp(value, 20, 1200); }
+    public int getCoverCooldownTicks() { return coverCooldownTicks; }
+    public void setCoverCooldownTicks(int value) { coverCooldownTicks = Mth.clamp(value, 1, 12000); }
+    /** Which of the two ways out spares somebody: out of sight, or inside a shelter. */
+    public int getCoverMode() { return coverMode; }
+    public void setCoverMode(int value) {
+        coverMode = Mth.clamp(value, COVER_MODE_SIGHT, COVER_MODE_SHELTER);
+    }
+    public int getCoverRange() { return coverRange; }
+    public void setCoverRange(int value) { coverRange = Mth.clamp(value, 4, 96); }
+    public int getCoverDamage() { return coverDamage; }
+    public void setCoverDamage(int value) { coverDamage = Mth.clamp(value, 0, 1000); }
+    public int getCoverKnockback() { return coverKnockback; }
+    public void setCoverKnockback(int value) { coverKnockback = Mth.clamp(value, 0, 10); }
+    public int getCoverShelterCount() { return coverShelterCount; }
+    public void setCoverShelterCount(int value) { coverShelterCount = Mth.clamp(value, 1, 6); }
+    public int getCoverShelterRadius() { return coverShelterRadius; }
+    public void setCoverShelterRadius(int value) { coverShelterRadius = Mth.clamp(value, 1, 16); }
+    public int getCoverShelterMinRange() { return coverShelterMinRange; }
+    public int getCoverShelterMaxRange() { return coverShelterMaxRange; }
+    /**
+     * The ring the shelters are scattered in, set as the pair it is read as.
+     *
+     * <p>The inner edge is held under the outer one, the way the boulder rain's is: a ring
+     * with no width would leave the wind-up with nowhere to put a shelter down.</p>
+     */
+    public void setCoverShelterRing(int min, int max) {
+        coverShelterMaxRange = Mth.clamp(max, 2, 64);
+        coverShelterMinRange = Mth.clamp(min, 1, Math.min(48, coverShelterMaxRange - 1));
+    }
+    public String getCoverVfx() { return coverVfx; }
+    public void setCoverVfx(String value) { coverVfx = AreaVfxStyles.normalize(value); }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -1686,6 +1792,7 @@ public final class BossPhaseData {
     public BossEffectSet getGravityEffects() { return gravityEffects; }
     public BossEffectSet getMarkEffects() { return markEffects; }
     public BossEffectSet getMarkFailEffects() { return markFailEffects; }
+    public BossEffectSet getCoverEffects() { return coverEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();

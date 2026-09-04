@@ -146,7 +146,7 @@ public final class TeleportPathData {
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LEAP, BossAbilityKind.LINE,
             BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER,
-            BossAbilityKind.GRAVITY, BossAbilityKind.MARK
+            BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -170,6 +170,10 @@ public final class TeleportPathData {
     /** And before the marks: everything through the gravity field, minus the same two. */
     private static final int TELEGRAPH_ABILITIES_BEFORE_MARK =
             ((1 << (BossAbilityKind.GRAVITY + 1)) - 1)
+                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
+    /** And before the take cover strike: everything through the marks, minus the same two. */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_COVER =
+            ((1 << (BossAbilityKind.MARK + 1)) - 1)
                     & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
 
     private static int telegraphMask() {
@@ -1127,6 +1131,7 @@ public final class TeleportPathData {
                 || saved == TELEGRAPH_ABILITIES_BEFORE_TETHER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_GRAVITY
                 || saved == TELEGRAPH_ABILITIES_BEFORE_MARK
+                || saved == TELEGRAPH_ABILITIES_BEFORE_COVER
                 ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 
