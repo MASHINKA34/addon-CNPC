@@ -81,7 +81,7 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 13;
+    private static final int ABILITY_COUNT = 14;
     /**
      * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
      * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
@@ -158,7 +158,7 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER
+        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY
     }
 
     private final EntityNPCInterface npc;
@@ -225,6 +225,7 @@ public final class TeleportPathController {
     private long nextBoulderAt = NOT_SCHEDULED;
     private long nextBoulderRainAt = NOT_SCHEDULED;
     private long nextTetherAt = NOT_SCHEDULED;
+    private long nextGravityAt = NOT_SCHEDULED;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -2230,6 +2231,19 @@ public final class TeleportPathController {
         return remaining > 0L ? "Tether: cooldown " + remaining : "Tether: ready";
     }
 
+    public String gravityStatus(long gameTime) {
+        long open = BossGravityScheduler.remainingTicks(npc, gameTime);
+        if (open > 0L) {
+            return "Gravity: field open " + open;
+        }
+        BossPhaseData phase = activePhase();
+        if (phase == null || !phase.isGravityEnabled()) {
+            return "Gravity: disabled";
+        }
+        long remaining = nextGravityAt == NOT_SCHEDULED ? 0L : nextGravityAt - gameTime;
+        return remaining > 0L ? "Gravity: cooldown " + remaining : "Gravity: ready";
+    }
+
     /** Gives a viewer an immediate snapshot when either endpoint starts being tracked. */
     public void syncTotemLinksTo(ServerPlayer player) {
         if (!totemWaveActivated || player.level() != npc.level()
@@ -2632,6 +2646,13 @@ public final class TeleportPathController {
         } else {
             nextTetherAt = NOT_SCHEDULED;
         }
+        if (phase.isGravityEnabled()) {
+            if (nextGravityAt == NOT_SCHEDULED) {
+                nextGravityAt = gameTime + rageDown(phase.getGravityCooldownTicks());
+            }
+        } else {
+            nextGravityAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2671,6 +2692,7 @@ public final class TeleportPathController {
                 case 9 -> tryStartBoulder(level, data, phase, gameTime);
                 case 10 -> tryStartBoulderRain(level, data, phase, gameTime);
                 case 11 -> tryStartTether(level, data, phase, gameTime);
+                case 12 -> tryStartGravity(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -3307,6 +3329,47 @@ public final class TeleportPathController {
     }
 
     /**
+     * A field around wherever the boss is standing: a pull, a push or a throw.
+     *
+     * <p>Nothing is aimed, exactly as the boulder rain is not: the radius is the shape, and
+     * the cast only asks whether anybody is inside it worth spending a cooldown on. What the
+     * field does from then on belongs to {@link BossGravityScheduler}, because a pull lasts
+     * seconds and the boss is back on its rotation the moment the cast lands.</p>
+     */
+    private boolean tryStartGravity(ServerLevel level, TeleportPathData data,
+                                    BossPhaseData phase, long gameTime) {
+        if (!phase.isGravityEnabled() || gameTime < nextGravityAt) return false;
+        if (!hasGravityTargets(level, phase)) {
+            nextGravityAt = gameTime + 20;
+            return false;
+        }
+        beginAction(PendingAction.GRAVITY, phase.getGravityAnimation(),
+                phase.getGravityActionDelayTicks(), gameTime, null, data, phase);
+        // Only the cooldown is scaled: the action delay is measured against the attack
+        // animation, and shortening it would open the field before the swing does.
+        nextGravityAt = gameTime + phase.getGravityActionDelayTicks()
+                + rageDown(phase.getGravityCooldownTicks());
+        return true;
+    }
+
+    private boolean hasGravityTargets(ServerLevel level, BossPhaseData phase) {
+        return !gravityVictims(level, npc.position(), phase.getGravityRadius()).isEmpty();
+    }
+
+    /**
+     * Hands the field over, and nothing else.
+     *
+     * <p>Nobody is moved here: the radius, the force and the damage - with the enrage bonus
+     * on it - are snapshotted on this tick and the scheduler drives the field on its own
+     * clock, following the boss wherever it walks in the meantime.</p>
+     */
+    private void performGravity(ServerLevel level, BossPhaseData phase, long gameTime) {
+        // The radius, the force and the timer are deliberately left alone by the enrage:
+        // they are the room a player gets to run, not a number the fight may turn down.
+        BossGravityScheduler.start(level, npc, phase, rageUp(phase.getGravityDamage()), gameTime);
+    }
+
+    /**
      * A stone sent rolling or thrown down a corridor in front of the boss.
      *
      * <p>Where it goes is settled here, exactly as the line strike's corridor is: the
@@ -3912,7 +3975,16 @@ public final class TeleportPathController {
 
     private void paintTelegraph(ServerLevel level, TeleportPathData data) {
         int ability = abilityKind(pendingAction);
-        if (ability < 0 || !telegraphs(data, ability)) {
+        if (ability < 0) {
+            return;
+        }
+        boolean warns = telegraphs(data, ability);
+        // The gravity ring is the mechanic - where to be standing, or not, when the field
+        // opens - so it is painted whatever the warning settings say, the way a geyser's fuse
+        // is: an edge nobody can see is not a warning left off, it is a trap. The name, the
+        // note and the aura still go through the settings like everyone else's.
+        boolean fieldEdge = pendingAction == PendingAction.GRAVITY;
+        if (!warns && !fieldEdge) {
             return;
         }
         // Decoration only, so an arena with nobody in it costs nothing to warn.
@@ -3921,10 +3993,10 @@ public final class TeleportPathController {
             return;
         }
         DustParticleOptions dust = BossTelegraphUtil.dust(ability);
-        if (data.isTelegraphZone()) {
+        if (fieldEdge || data.isTelegraphZone()) {
             drawTelegraphZone(level, data, ability, dust);
         }
-        if (data.isTelegraphAura()) {
+        if (warns && data.isTelegraphAura()) {
             BossTelegraphUtil.aura(level, npc, dust);
         }
     }
@@ -3993,6 +4065,9 @@ public final class TeleportPathController {
                 }
             }
             case SUMMON -> drawTelegraphSpawnRings(level, phase, dust);
+            // The field is centred on the boss and the ring is its edge: out of it for the
+            // pull and the throw, into it for nobody.
+            case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.getGravityRadius(), dust);
             case TETHER -> {
                 if (phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS) {
                     // The ring is the leash's length: get past it and the leash is broken.
@@ -4106,6 +4181,7 @@ public final class TeleportPathController {
             case BOULDER -> BossAbilityKind.BOULDER;
             case BOULDER_RAIN -> BossAbilityKind.BOULDER_RAIN;
             case TETHER -> BossAbilityKind.TETHER;
+            case GRAVITY -> BossAbilityKind.GRAVITY;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -4165,6 +4241,7 @@ public final class TeleportPathController {
         LivingEntity target = pendingTarget(level);
         return switch (pendingAction) {
             case GROUND_ATTACK -> hasAreaTargets(level, phase);
+            case GRAVITY -> hasGravityTargets(level, phase);
             case RANGED_ATTACK -> isValidRangedTarget(target, phase)
                     && npc.inventory.getProjectile() != null;
             case MELEE_ATTACK -> isValidMeleeTarget(target, phase);
@@ -4222,6 +4299,7 @@ public final class TeleportPathController {
             case BOULDER -> nextBoulderAt;
             case BOULDER_RAIN -> nextBoulderRainAt;
             case TETHER -> nextTetherAt;
+            case GRAVITY -> nextGravityAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -4242,6 +4320,7 @@ public final class TeleportPathController {
             case BOULDER -> nextBoulderAt = at;
             case BOULDER_RAIN -> nextBoulderRainAt = at;
             case TETHER -> nextTetherAt = at;
+            case GRAVITY -> nextGravityAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -4293,6 +4372,8 @@ public final class TeleportPathController {
             performBoulderRain(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TETHER) {
             performTether(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.GRAVITY) {
+            performGravity(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -5103,6 +5184,7 @@ public final class TeleportPathController {
         nextBoulderAt = NOT_SCHEDULED;
         nextBoulderRainAt = NOT_SCHEDULED;
         nextTetherAt = NOT_SCHEDULED;
+        nextGravityAt = NOT_SCHEDULED;
     }
 
     private void reset() {

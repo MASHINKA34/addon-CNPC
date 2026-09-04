@@ -109,6 +109,8 @@ public class GeckoAddonCommand {
                         : controller.captureStatus(level.getGameTime());
                 String tetherLine = controller == null ? "Tether: ready"
                         : controller.tetherStatus(level.getGameTime());
+                String gravityLine = controller == null ? "Gravity: ready"
+                        : controller.gravityStatus(level.getGameTime());
                 String leashLine = controller == null
                         ? (data.isHomeLeashEnabled() ? "Home leash: awaiting controller" : "Home leash: off")
                         : controller.homeLeashStatus(level.getGameTime(), data);
@@ -120,6 +122,7 @@ public class GeckoAddonCommand {
                 source.sendSuccess(() -> Component.literal(totemLine), false);
                 source.sendSuccess(() -> Component.literal(captureLine), false);
                 source.sendSuccess(() -> Component.literal(tetherLine), false);
+                source.sendSuccess(() -> Component.literal(gravityLine), false);
                 source.sendSuccess(() -> Component.literal(leashLine), false);
                 source.sendSuccess(() -> Component.literal(partyHealthLine), false);
             }
