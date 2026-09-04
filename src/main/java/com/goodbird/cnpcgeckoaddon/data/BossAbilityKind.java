@@ -29,7 +29,9 @@ public final class BossAbilityKind {
     public static final int TETHER = 13;
     /** A field around the boss that drags everyone in, shoves them out or throws them up. */
     public static final int GRAVITY = 14;
-    public static final int COUNT = 15;
+    /** A mark on a victim that goes off on its own: share the hit, or carry it clear. */
+    public static final int MARK = 15;
+    public static final int COUNT = 16;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -46,7 +48,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.boulder",
             "cnpcgeckoaddon.boss.ability.boulder_rain",
             "cnpcgeckoaddon.boss.ability.tether",
-            "cnpcgeckoaddon.boss.ability.gravity"
+            "cnpcgeckoaddon.boss.ability.gravity",
+            "cnpcgeckoaddon.boss.ability.mark"
     };
 
     /**
@@ -57,7 +60,7 @@ public final class BossAbilityKind {
      */
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY
+            BOULDER_RAIN, TETHER, GRAVITY, MARK
     };
 
     private BossAbilityKind() {

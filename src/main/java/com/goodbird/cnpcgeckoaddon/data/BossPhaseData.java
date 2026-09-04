@@ -101,6 +101,16 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.gravity_mode.lift"
     };
 
+    /** Enough of the party has to be standing in the circle, and the hit is split between them. */
+    public static final int MARK_MODE_SOAK = 0;
+    /** Nobody else may be standing in it, and everyone who is takes the hit in full. */
+    public static final int MARK_MODE_SPREAD = 1;
+
+    public static final String[] MARK_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.mark_mode.soak",
+            "cnpcgeckoaddon.boss.mark_mode.spread"
+    };
+
     public static final int CAPTURE_MODE_HOLD = 0;
     public static final int CAPTURE_MODE_LIFT = 1;
     public static final int CAPTURE_EFFECT_PLAYER = 0;
@@ -138,7 +148,7 @@ public final class BossPhaseData {
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
             BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
-            BossAbilityKind.GRAVITY
+            BossAbilityKind.GRAVITY, BossAbilityKind.MARK
     };
     /**
      * Every ability is cast standing still until a builder frees it, existing bosses
@@ -406,6 +416,28 @@ public final class BossPhaseData {
     private int gravityDamage = 8;
     private String gravityVfx = AreaVfxStyles.NONE;
 
+    private boolean markEnabled;
+    private String markAnimation = "";
+    private int markActionDelayTicks = 12;
+    private int markCooldownTicks = 240;
+    private int markMode = MARK_MODE_SOAK;
+    private int markTargetMode = BossTargetMode.RANDOM;
+    private int markTargetCount = 1;
+    /** How long the mark burns on its carrier before it goes off. */
+    private int markFuseTicks = 60;
+    private int markRadius = 4;
+    /** On, the circle rides its carrier; off, it stays on the ground they were called out on. */
+    private boolean markFollow;
+    /** Gather up: how many of the fight have to be standing inside when it goes off. */
+    private int markMinPlayers = 2;
+    /** Gather up: shared out between everyone inside. Spread out: dealt to each neighbour. */
+    private int markDamage = 30;
+    /** Gather up: what everyone inside takes instead when there were not enough of them. */
+    private int markFailDamage = 60;
+    /** Spread out: what the carrier pays for carrying it, wherever they took it. */
+    private int markSelfDamage;
+    private String markVfx = AreaVfxStyles.NONE;
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -432,6 +464,10 @@ public final class BossPhaseData {
     private final BossEffectSet tetherFailEffects = new BossEffectSet();
     /** Dosed every second to everyone inside the field, whichever way it is pushing them. */
     private final BossEffectSet gravityEffects = new BossEffectSet();
+    /** Landed on whoever took the mark's own damage, in either of its two rules. */
+    private final BossEffectSet markEffects = new BossEffectSet();
+    /** Gather up: landed instead on everyone inside when there were not enough of them. */
+    private final BossEffectSet markFailEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -637,6 +673,21 @@ public final class BossPhaseData {
         tag.putInt("GravityTouchRadius", gravityTouchRadius);
         tag.putInt("GravityDamage", gravityDamage);
         tag.putString("GravityVfx", gravityVfx);
+        tag.putBoolean("MarkEnabled", markEnabled);
+        tag.putString("MarkAnimation", markAnimation);
+        tag.putInt("MarkActionDelayTicks", markActionDelayTicks);
+        tag.putInt("MarkCooldownTicks", markCooldownTicks);
+        tag.putInt("MarkMode", markMode);
+        tag.putInt("MarkTargetMode", markTargetMode);
+        tag.putInt("MarkTargetCount", markTargetCount);
+        tag.putInt("MarkFuseTicks", markFuseTicks);
+        tag.putInt("MarkRadius", markRadius);
+        tag.putBoolean("MarkFollow", markFollow);
+        tag.putInt("MarkMinPlayers", markMinPlayers);
+        tag.putInt("MarkDamage", markDamage);
+        tag.putInt("MarkFailDamage", markFailDamage);
+        tag.putInt("MarkSelfDamage", markSelfDamage);
+        tag.putString("MarkVfx", markVfx);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -657,6 +708,8 @@ public final class BossPhaseData {
         tag.put("TetherEffects", tetherEffects.writeToNBT());
         tag.put("TetherFailEffects", tetherFailEffects.writeToNBT());
         tag.put("GravityEffects", gravityEffects.writeToNBT());
+        tag.put("MarkEffects", markEffects.writeToNBT());
+        tag.put("MarkFailEffects", markFailEffects.writeToNBT());
         return tag;
     }
 
@@ -904,6 +957,23 @@ public final class BossPhaseData {
         gravityDamage = value(tag, "GravityDamage", 8, 0, 1000);
         gravityVfx = AreaVfxStyles.normalize(tag.getString("GravityVfx"));
 
+        markEnabled = tag.getBoolean("MarkEnabled");
+        markAnimation = clean(tag.getString("MarkAnimation"));
+        markActionDelayTicks = value(tag, "MarkActionDelayTicks", 12, 0, 1200);
+        markCooldownTicks = value(tag, "MarkCooldownTicks", 240, 1, 12000);
+        markMode = value(tag, "MarkMode", MARK_MODE_SOAK, MARK_MODE_SOAK, MARK_MODE_SPREAD);
+        markTargetMode = value(tag, "MarkTargetMode",
+                BossTargetMode.RANDOM, BossTargetMode.MAIN, BossTargetMode.RANDOM);
+        markTargetCount = value(tag, "MarkTargetCount", 1, 1, 8);
+        markFuseTicks = value(tag, "MarkFuseTicks", 60, 10, 400);
+        markRadius = value(tag, "MarkRadius", 4, 1, 16);
+        markFollow = tag.getBoolean("MarkFollow");
+        markMinPlayers = value(tag, "MarkMinPlayers", 2, 1, 10);
+        markDamage = value(tag, "MarkDamage", 30, 0, 1000);
+        markFailDamage = value(tag, "MarkFailDamage", 60, 0, 1000);
+        markSelfDamage = value(tag, "MarkSelfDamage", 0, 0, 1000);
+        markVfx = AreaVfxStyles.normalize(tag.getString("MarkVfx"));
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -924,6 +994,10 @@ public final class BossPhaseData {
         }
         if (!tag.contains("GravityEnabled")) {
             castRootMask |= 1 << BossAbilityKind.GRAVITY;
+        }
+        // And for the marks, newest of the lot.
+        if (!tag.contains("MarkEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.MARK;
         }
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
@@ -948,6 +1022,8 @@ public final class BossPhaseData {
         tetherEffects.readFromNBT(tag, "TetherEffects");
         tetherFailEffects.readFromNBT(tag, "TetherFailEffects");
         gravityEffects.readFromNBT(tag, "GravityEffects");
+        markEffects.readFromNBT(tag, "MarkEffects");
+        markFailEffects.readFromNBT(tag, "MarkFailEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -1510,6 +1586,42 @@ public final class BossPhaseData {
     public String getGravityVfx() { return gravityVfx; }
     public void setGravityVfx(String value) { gravityVfx = AreaVfxStyles.normalize(value); }
 
+    public boolean isMarkEnabled() { return markEnabled; }
+    public void setMarkEnabled(boolean value) { markEnabled = value; }
+    public String getMarkAnimation() { return markAnimation; }
+    public void setMarkAnimation(String value) { markAnimation = clean(value); }
+    public int getMarkActionDelayTicks() { return markActionDelayTicks; }
+    public void setMarkActionDelayTicks(int value) { markActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getMarkCooldownTicks() { return markCooldownTicks; }
+    public void setMarkCooldownTicks(int value) { markCooldownTicks = Mth.clamp(value, 1, 12000); }
+    /** Which of the two rules the mark goes off by: gather up, or spread out. */
+    public int getMarkMode() { return markMode; }
+    public void setMarkMode(int value) {
+        markMode = Mth.clamp(value, MARK_MODE_SOAK, MARK_MODE_SPREAD);
+    }
+    public int getMarkTargetMode() { return markTargetMode; }
+    public void setMarkTargetMode(int value) { markTargetMode = BossTargetMode.clamp(value); }
+    /** How many marks one cast hands out. */
+    public int getMarkTargetCount() { return markTargetCount; }
+    public void setMarkTargetCount(int value) { markTargetCount = Mth.clamp(value, 1, 8); }
+    public int getMarkFuseTicks() { return markFuseTicks; }
+    public void setMarkFuseTicks(int value) { markFuseTicks = Mth.clamp(value, 10, 400); }
+    public int getMarkRadius() { return markRadius; }
+    public void setMarkRadius(int value) { markRadius = Mth.clamp(value, 1, 16); }
+    /** Whether the circle rides its carrier or stays where they were standing at the cast. */
+    public boolean isMarkFollow() { return markFollow; }
+    public void setMarkFollow(boolean value) { markFollow = value; }
+    public int getMarkMinPlayers() { return markMinPlayers; }
+    public void setMarkMinPlayers(int value) { markMinPlayers = Mth.clamp(value, 1, 10); }
+    public int getMarkDamage() { return markDamage; }
+    public void setMarkDamage(int value) { markDamage = Mth.clamp(value, 0, 1000); }
+    public int getMarkFailDamage() { return markFailDamage; }
+    public void setMarkFailDamage(int value) { markFailDamage = Mth.clamp(value, 0, 1000); }
+    public int getMarkSelfDamage() { return markSelfDamage; }
+    public void setMarkSelfDamage(int value) { markSelfDamage = Mth.clamp(value, 0, 1000); }
+    public String getMarkVfx() { return markVfx; }
+    public void setMarkVfx(String value) { markVfx = AreaVfxStyles.normalize(value); }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -1572,6 +1684,8 @@ public final class BossPhaseData {
     public BossEffectSet getTetherEffects() { return tetherEffects; }
     public BossEffectSet getTetherFailEffects() { return tetherFailEffects; }
     public BossEffectSet getGravityEffects() { return gravityEffects; }
+    public BossEffectSet getMarkEffects() { return markEffects; }
+    public BossEffectSet getMarkFailEffects() { return markFailEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();

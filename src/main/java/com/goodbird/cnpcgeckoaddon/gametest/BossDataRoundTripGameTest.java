@@ -126,6 +126,12 @@ public class BossDataRoundTripGameTest {
         phase.setGravityMode(BossPhaseData.GRAVITY_MODE_LIFT);
         phase.setGravityStrength(15);
         phase.setCastRooted(BossAbilityKind.GRAVITY, false);
+        phase.setMarkEnabled(true);
+        phase.setMarkMode(BossPhaseData.MARK_MODE_SPREAD);
+        phase.setMarkFollow(true);
+        phase.setMarkMinPlayers(4);
+        phase.setMarkSelfDamage(7);
+        phase.setCastRooted(BossAbilityKind.MARK, false);
         phase.setMinionSpawnMode(BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM);
         phase.getMinionSpawnPoints().add();
         phase.getMinionSpawnPoints().add();
