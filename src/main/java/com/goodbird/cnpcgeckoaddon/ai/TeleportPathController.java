@@ -1289,6 +1289,7 @@ public final class TeleportPathController {
         cancelPendingAndSchedules();
         clearHookPulls();
         BossGeyserScheduler.clearBoss(npc);
+        BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
         // Before the return below: clearing the leap re-pins the boss where it stands, and
@@ -2295,6 +2296,7 @@ public final class TeleportPathController {
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
+        BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
@@ -2323,6 +2325,7 @@ public final class TeleportPathController {
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
+        BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
@@ -4824,6 +4827,36 @@ public final class TeleportPathController {
     }
 
     /**
+     * Everyone a mark going off at this spot counts and hurts, judged by this boss.
+     *
+     * <p>Asked for by {@link BossMarkScheduler} seconds after the cast, for the reason
+     * {@link #geyserVictims} exists. One list rather than two: a gather takes its head count
+     * and shares its damage out over exactly the same people, or {@code damage / count} would
+     * stop being what anybody actually took.</p>
+     *
+     * <p>Which is also why players have to belong to this fight rather than merely be standing
+     * in the ring. The circle is a problem the party is being set, and a passer-by walking
+     * through it can neither be what solved it nor be made to pay for it. Npcs come in by the
+     * ordinary victim rules and by the species the boss is set to fight, so one aimed only at
+     * players never counts the cattle as bodies in the circle.</p>
+     */
+    List<LivingEntity> markVictims(ServerLevel level, Vec3 centre, double radius) {
+        TeleportPathData data = settings();
+        double radiusSquared = radius * radius;
+        AABB box = new AABB(centre, centre).inflate(radius + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= radiusSquared
+                        && (!(target instanceof Player player) || isEncounterParticipant(player))
+                        && matchesAbilityTargetKind(target, data)
+                        && isAbilityTarget(target, BossAbilityKind.MARK));
+    }
+
+    /** Whether this player is one of the people this boss' fight is being run against. */
+    private boolean isEncounterParticipant(Player player) {
+        return encounterParticipants.contains(player.getUUID());
+    }
+
+    /**
      * Whether a boulder this boss launched may run this one over.
      *
      * <p>Asked by {@link com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder} every tick of
@@ -5201,6 +5234,7 @@ public final class TeleportPathController {
         encounterResetDone = false;
         clearHookPulls();
         BossGeyserScheduler.clearBoss(npc);
+        BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
         clearLeap();
