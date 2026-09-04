@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
@@ -35,6 +36,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
@@ -45,9 +47,11 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.BossEvent;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.api.NpcAPI;
 import noppes.npcs.api.entity.IEntity;
@@ -64,6 +68,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -81,7 +86,7 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 15;
+    private static final int ABILITY_COUNT = 16;
     /**
      * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
      * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
@@ -93,6 +98,20 @@ public final class TeleportPathController {
      * own - what it does happens where its carrier takes it - so it borrows the leash's.
      */
     private static final double MARK_REACH = 32.0D;
+    /** Tries at finding floor and room for one shelter before the wind-up gives it up. */
+    private static final int COVER_SHELTER_ATTEMPTS = 12;
+    /**
+     * Where the lower sight line is aimed, above the victim's feet. A slab hides the legs
+     * and has to count; a carpet lies under them and must not, so the line ends a quarter
+     * block up rather than on the floor.
+     */
+    private static final double COVER_KNEE_HEIGHT = 0.25D;
+    /** Dust stacked over a shelter's centre, so it can be picked out from across the arena. */
+    private static final int COVER_SHELTER_POST_HEIGHT = 3;
+    /** How fast the take cover strike's wave runs, in blocks a tick: a shockwave, not a stroll. */
+    private static final double COVER_WAVE_SPEED = 1.0D;
+    private static final int MIN_COVER_VFX_DURATION_TICKS = 20;
+    private static final int MAX_COVER_VFX_DURATION_TICKS = 60;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -163,7 +182,19 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK
+        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER
+    }
+
+    /**
+     * Everything a take cover strike was wound up with, frozen on the tick it began.
+     *
+     * <p>Read back at the strike rather than off the phase again: the settings, the enrage
+     * bonus and the shelters are the problem the party was set on the first tick of the
+     * warning, and none of them may change under the people already answering it. Nothing
+     * of this is saved - a server that goes down mid wind-up owes nobody the strike.</p>
+     */
+    private record CoverCast(int mode, double range, int damage, int knockback, BossEffectSet effects,
+                             String vfx, double shelterRadius, List<Vec3> shelters) {
     }
 
     private final EntityNPCInterface npc;
@@ -232,6 +263,10 @@ public final class TeleportPathController {
     private long nextTetherAt = NOT_SCHEDULED;
     private long nextGravityAt = NOT_SCHEDULED;
     private long nextMarkAt = NOT_SCHEDULED;
+    private long nextCoverAt = NOT_SCHEDULED;
+
+    /** The take cover strike being wound up, or null outside one. */
+    private CoverCast coverCast;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -2669,6 +2704,13 @@ public final class TeleportPathController {
         } else {
             nextMarkAt = NOT_SCHEDULED;
         }
+        if (phase.isCoverEnabled()) {
+            if (nextCoverAt == NOT_SCHEDULED) {
+                nextCoverAt = gameTime + rageDown(phase.getCoverCooldownTicks());
+            }
+        } else {
+            nextCoverAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2710,6 +2752,7 @@ public final class TeleportPathController {
                 case 11 -> tryStartTether(level, data, phase, gameTime);
                 case 12 -> tryStartGravity(level, data, phase, gameTime);
                 case 13 -> tryStartMark(level, data, phase, gameTime);
+                case 14 -> tryStartCover(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -3344,6 +3387,165 @@ public final class TeleportPathController {
         }
         reportedBrokenGeyserFluid = "";
         return fluid;
+    }
+
+    /**
+     * A strike on everyone in reach, spared only by the arena: get out of the boss' sight,
+     * or into one of the shelters it puts down.
+     *
+     * <p>Nothing is aimed, exactly as the boulder rain is not: the range is the shape, and
+     * the cast only asks whether anybody is inside it worth spending a cooldown on. The
+     * wind-up is the mechanic - it is the time everyone gets to hide - so it is the ordinary
+     * pending action and nothing runs on after it: the boss channels, and the strike lands
+     * on the tick the channel ends. Which is also why the standing-cast choice matters
+     * here more than anywhere: the sight lines are drawn from wherever the boss is when
+     * they are checked.</p>
+     */
+    private boolean tryStartCover(ServerLevel level, TeleportPathData data,
+                                  BossPhaseData phase, long gameTime) {
+        if (!phase.isCoverEnabled() || gameTime < nextCoverAt) return false;
+        if (coverVictims(level, npc.position(), phase.getCoverRange()).isEmpty()) {
+            nextCoverAt = gameTime + 20;
+            return false;
+        }
+        boolean shelterRule = phase.getCoverMode() == BossPhaseData.COVER_MODE_SHELTER;
+        List<Vec3> shelters = shelterRule ? placeCoverShelters(level, phase) : List.of();
+        if (shelterRule && shelters.isEmpty()) {
+            // Nowhere to put a single shelter down is a strike nobody could have answered.
+            nextCoverAt = gameTime + 20;
+            return false;
+        }
+        // Frozen before the warning goes up, enrage bonus and all: from this tick the strike
+        // is a promise, and the settings behind it stay what the warning was shown for.
+        coverCast = new CoverCast(phase.getCoverMode(), phase.getCoverRange(),
+                rageUp(phase.getCoverDamage()), rageUp(phase.getCoverKnockback()),
+                phase.getCoverEffects(), phase.getCoverVfx(), phase.getCoverShelterRadius(), shelters);
+        beginAction(PendingAction.COVER, phase.getCoverAnimation(),
+                phase.getCoverActionDelayTicks(), gameTime, null, data, phase);
+        // Only the cooldown is scaled: the wind-up is the time to hide, and an enrage that
+        // shortened it would turn a mechanic into a strike nobody can answer.
+        nextCoverAt = gameTime + phase.getCoverActionDelayTicks()
+                + rageDown(phase.getCoverCooldownTicks());
+        return true;
+    }
+
+    /**
+     * Scatters the shelters for one cast: random points in the ring around the boss, on the
+     * floor, and never two of them close enough to overlap.
+     *
+     * <p>Drawn evenly over the ring's area the way the boulder rain draws its stones, and
+     * held two radii apart so each circle stands on its own: two shelters running into each
+     * other read as one odd shape rather than as two places to be. A point over a hole or
+     * crowding another is tried again a few times and then given up on, so a cramped ring
+     * simply gets fewer shelters than it asked for.</p>
+     */
+    private List<Vec3> placeCoverShelters(ServerLevel level, BossPhaseData phase) {
+        List<Vec3> shelters = new ArrayList<>();
+        RandomSource random = npc.getRandom();
+        Vec3 origin = npc.position();
+        double min = phase.getCoverShelterMinRange();
+        double max = phase.getCoverShelterMaxRange();
+        double apart = phase.getCoverShelterRadius() * 2.0D;
+        for (int i = 0; i < phase.getCoverShelterCount(); i++) {
+            for (int attempt = 0; attempt < COVER_SHELTER_ATTEMPTS; attempt++) {
+                double angle = random.nextDouble() * Math.PI * 2.0D;
+                double distance = Math.sqrt(min * min + random.nextDouble() * (max * max - min * min));
+                double x = origin.x + Math.cos(angle) * distance;
+                double z = origin.z + Math.sin(angle) * distance;
+                if (crowdsShelter(shelters, x, z, apart)) {
+                    continue;
+                }
+                BlockPos floor = BossAreaVfxScheduler.findFloor(level, x, origin.y, z);
+                if (floor != null) {
+                    shelters.add(new Vec3(x, floor.getY() + 1.0D, z));
+                    break;
+                }
+            }
+        }
+        return shelters;
+    }
+
+    /** Whether a shelter at this spot would stand closer than {@code apart} to one already down. */
+    private static boolean crowdsShelter(List<Vec3> shelters, double x, double z, double apart) {
+        for (Vec3 shelter : shelters) {
+            double dx = shelter.x - x;
+            double dz = shelter.z - z;
+            if (dx * dx + dz * dz < apart * apart) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The strike itself: everyone in reach, less whoever the arena is hiding.
+     *
+     * <p>Who got away is judged on this tick and nowhere else - the sight lines from where
+     * the boss stands now, the shelters where the wind-up drew them - so a player who
+     * stepped out of cover on the last second is caught, and one who stepped in is not.</p>
+     */
+    private void performCover(ServerLevel level) {
+        CoverCast cast = coverCast;
+        if (cast == null) {
+            return;
+        }
+        Vec3 origin = npc.position();
+        // Started before the hits, so what a player sees leaves at the same moment the damage
+        // lands rather than a tick behind it. No block wave: a shockwave the size of the
+        // arena would lift half its floor.
+        BossAreaVfxScheduler.schedule(level, origin, cast.vfx(), cast.range(),
+                coverWaveDuration(cast.range()), false);
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.GENERIC_EXPLODE.value(),
+                SoundSource.HOSTILE, 4.0F, 0.6F);
+        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.COVER), npc.getX(),
+                npc.getY() + npc.getBbHeight() * 0.5D, npc.getZ(), 40,
+                npc.getBbWidth(), npc.getBbHeight() * 0.5D, npc.getBbWidth(), 0.0D);
+        for (LivingEntity victim : coverVictims(level, origin, cast.range())) {
+            boolean spared = cast.mode() == BossPhaseData.COVER_MODE_SHELTER
+                    ? isSheltered(cast, victim) : isOutOfSight(level, victim);
+            if (spared) {
+                continue;
+            }
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.COVER, npc, cast.damage(), cast.effects(),
+                    cast.knockback(), npc.getX() - victim.getX(), npc.getZ() - victim.getZ());
+        }
+    }
+
+    /** How long the strike's wave takes to reach the edge of its range at a shockwave's pace. */
+    private static int coverWaveDuration(double range) {
+        return Mth.clamp((int) Math.round(range / COVER_WAVE_SPEED),
+                MIN_COVER_VFX_DURATION_TICKS, MAX_COVER_VFX_DURATION_TICKS);
+    }
+
+    /**
+     * Whether the arena hides this victim from the boss: a solid block on both sight lines,
+     * from the boss' eyes to their head and to their knees.
+     *
+     * <p>Two lines rather than one, so that ducking behind a slab - legs covered, head in
+     * plain view - is being seen, and so is peering out over a wall. Anything with a
+     * collision box counts as cover, leaves and glass included; grass, water and carpets
+     * stop nothing.</p>
+     */
+    private boolean isOutOfSight(ServerLevel level, LivingEntity victim) {
+        Vec3 eyes = npc.getEyePosition();
+        return blocksSight(level, eyes, victim.getEyePosition())
+                && blocksSight(level, eyes, victim.position().add(0.0D, COVER_KNEE_HEIGHT, 0.0D));
+    }
+
+    private boolean blocksSight(ServerLevel level, Vec3 from, Vec3 to) {
+        return level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, npc)).getType() != HitResult.Type.MISS;
+    }
+
+    /** Whether this victim is standing inside one of the cast's shelters, judged as every circle is. */
+    private static boolean isSheltered(CoverCast cast, LivingEntity victim) {
+        double radiusSquared = cast.shelterRadius() * cast.shelterRadius();
+        for (Vec3 shelter : cast.shelters()) {
+            if (victim.position().distanceToSqr(shelter) <= radiusSquared) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean tryStartTether(ServerLevel level, TeleportPathData data,
@@ -4078,7 +4280,17 @@ public final class TeleportPathController {
         // is: an edge nobody can see is not a warning left off, it is a trap. The name, the
         // note and the aura still go through the settings like everyone else's.
         boolean fieldEdge = pendingAction == PendingAction.GRAVITY;
-        if (!warns && !fieldEdge) {
+        // The take cover strike is nothing but its wind-up, so the whole warning is
+        // unconditional: the countdown, the aura on the boss and the shelters on the floor
+        // are the only way anyone ever learns the arena is about to be hit. Only the note
+        // and the lead still go through the settings.
+        boolean cover = pendingAction == PendingAction.COVER;
+        if (cover) {
+            // Before the audience check: it goes to whoever the strike can reach, and the
+            // strike reaches further than a mark on the floor can be seen from.
+            announceCoverCountdown(level);
+        }
+        if (!warns && !fieldEdge && !cover) {
             return;
         }
         // Decoration only, so an arena with nobody in it costs nothing to warn.
@@ -4087,11 +4299,43 @@ public final class TeleportPathController {
             return;
         }
         DustParticleOptions dust = BossTelegraphUtil.dust(ability);
-        if (fieldEdge || data.isTelegraphZone()) {
+        if (fieldEdge || cover || data.isTelegraphZone()) {
             drawTelegraphZone(level, data, ability, dust);
         }
-        if (warns && data.isTelegraphAura()) {
+        if (cover || (warns && data.isTelegraphAura())) {
             BossTelegraphUtil.aura(level, npc, dust);
+        }
+    }
+
+    /**
+     * The name and the time left, in the action bar of everyone the strike may reach.
+     *
+     * <p>Sent on every repaint rather than once, the way a mark's countdown is: the line is
+     * what says how long there is to run. It goes to whoever this fight belongs to and to
+     * everyone standing inside the range as well, because the strike reaches them wherever
+     * they stand and whether or not they have a boss bar up.</p>
+     */
+    private void announceCoverCountdown(ServerLevel level) {
+        CoverCast cast = coverCast;
+        if (cast == null) {
+            return;
+        }
+        // Rounded up, so the last second reads as one rather than as none. The numbers go
+        // in through %s: vanilla's translation formatter takes that one placeholder and
+        // nothing else, and a %d would leave the raw template on the screen.
+        int seconds = (int) Math.max(1L, (pendingActionAt - level.getGameTime() + 19L) / 20L);
+        Component line = Component.translatable("cnpcgeckoaddon.boss.cover_countdown",
+                        Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.COVER]), seconds)
+                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.COVER)));
+        Set<ServerPlayer> audience = new LinkedHashSet<>(timerBossEvent().getPlayers());
+        double rangeSquared = cast.range() * cast.range();
+        for (ServerPlayer player : level.players()) {
+            if (npc.distanceToSqr(player) <= rangeSquared && isAbilityTarget(player, BossAbilityKind.COVER)) {
+                audience.add(player);
+            }
+        }
+        for (ServerPlayer player : audience) {
+            player.displayClientMessage(line, true);
         }
     }
 
@@ -4162,6 +4406,9 @@ public final class TeleportPathController {
             // The field is centred on the boss and the ring is its edge: out of it for the
             // pull and the throw, into it for nobody.
             case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.getGravityRadius(), dust);
+            // The shelters, where the wind-up put them; under the sight rule there are none,
+            // and the cover is whatever the arena was built with.
+            case COVER -> drawCoverShelters(level, dust);
             case TETHER -> {
                 if (phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS) {
                     // The ring is the leash's length: get past it and the leash is broken.
@@ -4181,6 +4428,24 @@ public final class TeleportPathController {
             default -> {
                 // A teleport picks its point as it goes, so there is nothing to promise in
                 // advance, and NONE never gets this far.
+            }
+        }
+    }
+
+    /**
+     * Every shelter of the take cover strike being wound up: a ring on the floor, and a post
+     * of the same dust over its centre so it can be found from across the arena.
+     */
+    private void drawCoverShelters(ServerLevel level, DustParticleOptions dust) {
+        CoverCast cast = coverCast;
+        if (cast == null) {
+            return;
+        }
+        for (Vec3 shelter : cast.shelters()) {
+            BossTelegraphUtil.ring(level, shelter, cast.shelterRadius(), dust);
+            for (int step = 0; step < COVER_SHELTER_POST_HEIGHT; step++) {
+                level.sendParticles(dust, shelter.x, shelter.y + 0.5D + step, shelter.z, 1,
+                        0.0D, 0.0D, 0.0D, 0.0D);
             }
         }
     }
@@ -4277,6 +4542,7 @@ public final class TeleportPathController {
             case TETHER -> BossAbilityKind.TETHER;
             case GRAVITY -> BossAbilityKind.GRAVITY;
             case MARK -> BossAbilityKind.MARK;
+            case COVER -> BossAbilityKind.COVER;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -4356,6 +4622,9 @@ public final class TeleportPathController {
             // And the rain is not aimed at anybody at all: the ring is centred on the boss
             // and lands on ground, so there is nobody in particular who could have left it.
             case BOULDER_RAIN -> true;
+            // Nor is the take cover strike: hiding is the dodge, and it is judged per victim
+            // on the tick the strike lands, not by calling the whole thing off.
+            case COVER -> true;
             // Nobody to dodge a summon, a teleport, or an action that is not running.
             case NONE, SUMMON, TELEPORT -> true;
         };
@@ -4397,6 +4666,7 @@ public final class TeleportPathController {
             case TETHER -> nextTetherAt;
             case GRAVITY -> nextGravityAt;
             case MARK -> nextMarkAt;
+            case COVER -> nextCoverAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -4419,6 +4689,7 @@ public final class TeleportPathController {
             case TETHER -> nextTetherAt = at;
             case GRAVITY -> nextGravityAt = at;
             case MARK -> nextMarkAt = at;
+            case COVER -> nextCoverAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -4474,6 +4745,8 @@ public final class TeleportPathController {
             performGravity(level, phase, gameTime);
         } else if (pendingAction == PendingAction.MARK) {
             performMark(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.COVER) {
+            performCover(level);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -4948,6 +5221,25 @@ public final class TeleportPathController {
                         && isAbilityTarget(target, BossAbilityKind.MARK));
     }
 
+    /**
+     * Everyone a take cover strike from {@code centre} may land on, judged by this boss.
+     *
+     * <p>The gravity field's list, for the reason it has one: the whole arena is swept, so
+     * it keeps to the species the boss is set to fight and passes over anyone hidden by
+     * their own totems. Who got out of the way is decided per victim at the strike, not
+     * here - this is only who is in reach.</p>
+     */
+    private List<LivingEntity> coverVictims(ServerLevel level, Vec3 centre, double range) {
+        TeleportPathData data = settings();
+        double rangeSquared = range * range;
+        AABB box = new AABB(centre, centre).inflate(range + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= rangeSquared
+                        && matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target)
+                        && isAbilityTarget(target, BossAbilityKind.COVER));
+    }
+
     /** Whether this player is one of the people this boss' fight is being run against. */
     private boolean isEncounterParticipant(Player player) {
         return encounterParticipants.contains(player.getUUID());
@@ -5287,6 +5579,7 @@ public final class TeleportPathController {
         pendingExtraTargets.clear();
         lineAttackAxis = null;
         boulderAxis = null;
+        coverCast = null;
         // A leap still in the air is physics and keeps going; only a plan that has not been
         // pushed off yet dies with the windup that was just thrown away.
         if (!leapAirborne) {
@@ -5316,6 +5609,7 @@ public final class TeleportPathController {
         nextTetherAt = NOT_SCHEDULED;
         nextGravityAt = NOT_SCHEDULED;
         nextMarkAt = NOT_SCHEDULED;
+        nextCoverAt = NOT_SCHEDULED;
     }
 
     private void reset() {
