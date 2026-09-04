@@ -81,13 +81,18 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 14;
+    private static final int ABILITY_COUNT = 15;
     /**
      * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
      * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
      * leashed already standing outside the ring.
      */
     private static final double TETHER_REACH = 32.0D;
+    /**
+     * How far a mark is handed out: the arena, not the world. A mark has no reach of its
+     * own - what it does happens where its carrier takes it - so it borrows the leash's.
+     */
+    private static final double MARK_REACH = 32.0D;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -158,7 +163,7 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY
+        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK
     }
 
     private final EntityNPCInterface npc;
@@ -226,6 +231,7 @@ public final class TeleportPathController {
     private long nextBoulderRainAt = NOT_SCHEDULED;
     private long nextTetherAt = NOT_SCHEDULED;
     private long nextGravityAt = NOT_SCHEDULED;
+    private long nextMarkAt = NOT_SCHEDULED;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -2656,6 +2662,13 @@ public final class TeleportPathController {
         } else {
             nextGravityAt = NOT_SCHEDULED;
         }
+        if (phase.isMarkEnabled()) {
+            if (nextMarkAt == NOT_SCHEDULED) {
+                nextMarkAt = gameTime + rageDown(phase.getMarkCooldownTicks());
+            }
+        } else {
+            nextMarkAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -2696,6 +2709,7 @@ public final class TeleportPathController {
                 case 10 -> tryStartBoulderRain(level, data, phase, gameTime);
                 case 11 -> tryStartTether(level, data, phase, gameTime);
                 case 12 -> tryStartGravity(level, data, phase, gameTime);
+                case 13 -> tryStartMark(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -3232,6 +3246,83 @@ public final class TeleportPathController {
         int launch = rageUp(phase.getGeyserLaunch());
         for (LivingEntity victim : victims) {
             BossGeyserScheduler.schedule(level, npc, victim, phase, fluid, damage, launch, gameTime);
+        }
+    }
+
+    private boolean tryStartMark(ServerLevel level, TeleportPathData data,
+                                 BossPhaseData phase, long gameTime) {
+        if (!phase.isMarkEnabled() || gameTime < nextMarkAt) return false;
+        List<LivingEntity> targets = selectAbilityTargets(level, phase.getMarkTargetMode(),
+                MARK_REACH, this::isValidMarkTarget, phase.getMarkTargetCount());
+        if (targets.isEmpty()) {
+            nextMarkAt = gameTime + 10;
+            return false;
+        }
+        pendingExtraTargets.clear();
+        for (int i = 1; i < targets.size(); i++) {
+            pendingExtraTargets.add(targets.get(i).getId());
+        }
+        beginAction(PendingAction.MARK, phase.getMarkAnimation(),
+                phase.getMarkActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        nextMarkAt = gameTime + phase.getMarkActionDelayTicks()
+                + rageDown(phase.getMarkCooldownTicks());
+        return true;
+    }
+
+    /**
+     * Line of sight is deliberately not required, for the reason the geyser does not need
+     * it either: a mark is put on somebody rather than thrown at them.
+     *
+     * <p>Anyone already carrying one is passed over, this boss' marks and another boss'
+     * alike. Two circles on one person is two countdowns in one action bar and two answers
+     * to give at once, which is not a harder mechanic, only an unreadable one.</p>
+     */
+    private boolean isValidMarkTarget(LivingEntity target) {
+        if (target == null || target.level() != npc.level() || !target.isAlive()
+                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.MARK)
+                || BossMarkScheduler.isMarked(target.getUUID())) {
+            return false;
+        }
+        return npc.distanceToSqr(target) <= MARK_REACH * MARK_REACH;
+    }
+
+    /**
+     * Marks everyone this cast wound up on.
+     *
+     * <p>Nothing goes off here. The marks go to {@link BossMarkScheduler}, which owns them
+     * from now on, because the boss is back on its rotation long before any of them burns
+     * down - which is the whole point of the ability.</p>
+     */
+    private void performMark(ServerLevel level, BossPhaseData phase, long gameTime) {
+        List<LivingEntity> victims = new ArrayList<>();
+        LivingEntity primary = pendingTarget(level);
+        if (primary != null && isValidMarkTarget(primary)) {
+            victims.add(primary);
+        }
+        for (int id : pendingExtraTargets) {
+            if (level.getEntity(id) instanceof LivingEntity extra && isValidMarkTarget(extra)
+                    && !victims.contains(extra)) {
+                victims.add(extra);
+            }
+        }
+        if (victims.isEmpty()) {
+            return;
+        }
+        // The fuse, the radius and the head count are deliberately left alone by the enrage:
+        // they are the problem the party is set, not numbers the fight is allowed to turn.
+        int damage = rageUp(phase.getMarkDamage());
+        int failDamage = rageUp(phase.getMarkFailDamage());
+        int selfDamage = rageUp(phase.getMarkSelfDamage());
+        for (LivingEntity victim : victims) {
+            if (!BossMarkScheduler.schedule(level, npc, victim, phase, damage, failDamage,
+                    selfDamage, gameTime)) {
+                continue;
+            }
+            // The head count only counts this fight's own members, and a carrier is one of
+            // them by the fact that the boss has just picked them out.
+            if (victim instanceof ServerPlayer player) {
+                trackParticipant(player);
+            }
         }
     }
 
@@ -4059,7 +4150,7 @@ public final class TeleportPathController {
                     phase.getMeleeAttackRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE ->
                     drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
-            case HOOK, GEYSER -> {
+            case HOOK, GEYSER, MARK -> {
                 drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
                 for (int id : pendingExtraTargets) {
                     if (level.getEntity(id) instanceof LivingEntity victim) {
@@ -4185,6 +4276,7 @@ public final class TeleportPathController {
             case BOULDER_RAIN -> BossAbilityKind.BOULDER_RAIN;
             case TETHER -> BossAbilityKind.TETHER;
             case GRAVITY -> BossAbilityKind.GRAVITY;
+            case MARK -> BossAbilityKind.MARK;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -4252,6 +4344,7 @@ public final class TeleportPathController {
             case HOOK -> hasWoundUpVictim(level, candidate -> isValidHookTarget(candidate, phase));
             case GEYSER -> hasWoundUpVictim(level, candidate -> isValidGeyserTarget(candidate, phase));
             case TETHER -> hasWoundUpVictim(level, candidate -> isValidTetherTarget(candidate, phase));
+            case MARK -> hasWoundUpVictim(level, this::isValidMarkTarget);
             case CAPTURE -> isValidCaptureTarget(target, phase);
             // A leap at a fixed spot lands there whoever is standing on it.
             case LEAP -> phase.getLeapMode() != BossPhaseData.LEAP_MODE_TARGET
@@ -4303,6 +4396,7 @@ public final class TeleportPathController {
             case BOULDER_RAIN -> nextBoulderRainAt;
             case TETHER -> nextTetherAt;
             case GRAVITY -> nextGravityAt;
+            case MARK -> nextMarkAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -4324,6 +4418,7 @@ public final class TeleportPathController {
             case BOULDER_RAIN -> nextBoulderRainAt = at;
             case TETHER -> nextTetherAt = at;
             case GRAVITY -> nextGravityAt = at;
+            case MARK -> nextMarkAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -4377,6 +4472,8 @@ public final class TeleportPathController {
             performTether(level, phase, gameTime);
         } else if (pendingAction == PendingAction.GRAVITY) {
             performGravity(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.MARK) {
+            performMark(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -5218,6 +5315,7 @@ public final class TeleportPathController {
         nextBoulderRainAt = NOT_SCHEDULED;
         nextTetherAt = NOT_SCHEDULED;
         nextGravityAt = NOT_SCHEDULED;
+        nextMarkAt = NOT_SCHEDULED;
     }
 
     private void reset() {
