@@ -112,6 +112,13 @@ public final class TeleportPathController {
     private static final double COVER_WAVE_SPEED = 1.0D;
     private static final int MIN_COVER_VFX_DURATION_TICKS = 20;
     private static final int MAX_COVER_VFX_DURATION_TICKS = 60;
+    /**
+     * How far past the safe circle's first edge an arena hazard still burns: the arena's
+     * surroundings, not the world. Somebody who died and came back at a bed across the map
+     * is out of the fight, not standing in the fire, and must not be bled there until the
+     * boss gets round to resetting.
+     */
+    private static final double HAZARD_RING_REACH = 32.0D;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -197,6 +204,81 @@ public final class TeleportPathController {
                              String vfx, double shelterRadius, List<Vec3> shelters) {
     }
 
+    /**
+     * The arena hazard of the phase being fought, frozen on the tick the phase began.
+     *
+     * <p>Read back from here rather than off the phase again, the way a take cover strike
+     * keeps its settings: the ring's centre is where the boss stood as the phase opened, and
+     * a box a builder drags about mid-fight must not move under the people already standing
+     * clear of it. Nothing of this is saved - a server that goes down mid phase starts the
+     * hazard over from the next time the phase is entered.</p>
+     */
+    private static final class ArenaHazard {
+        private final int mode;
+        /** Game time the edge starts flashing at; never after {@link #opensAt}. */
+        private final long warnsAt;
+        /** Game time the arena turns dangerous at. */
+        private final long opensAt;
+        /** Ring: what the safe circle closes in on. Its height is the floor the edge is drawn on. */
+        private final Vec3 centre;
+        private final double startRadius;
+        private final double endRadius;
+        private final int shrinkTicks;
+        /** Box: the volume that burns, or null when its corners leave no room between them. */
+        private final AABB box;
+        /** Box: the height its outline is drawn at - inside the box, and as near the boss as it gets. */
+        private final double floorY;
+        /** What one dose hits for before the enrage bonus, which is read fresh on every dose. */
+        private final int damage;
+        private final int intervalTicks;
+        private final BossEffectSet effects;
+        /** Game time the next dose goes out at; the first is owed the moment the hazard opens. */
+        private long nextHitAt;
+
+        private ArenaHazard(BossPhaseData phase, long gameTime, Vec3 centre, AABB box, double floorY) {
+            mode = phase.getHazardMode();
+            opensAt = gameTime + phase.getHazardDelayTicks();
+            warnsAt = Math.max(gameTime, opensAt - phase.getHazardWarnTicks());
+            this.centre = centre;
+            startRadius = phase.getHazardStartRadius();
+            endRadius = phase.getHazardEndRadius();
+            shrinkTicks = phase.getHazardShrinkTicks();
+            this.box = box;
+            this.floorY = floorY;
+            damage = phase.getHazardDamage();
+            intervalTicks = phase.getHazardIntervalTicks();
+            effects = phase.getHazardEffects();
+            nextHitAt = opensAt;
+        }
+
+        /** How wide the safe circle is on this tick: closing from the start to the end, then held. */
+        private double ringRadius(long gameTime) {
+            if (gameTime <= opensAt) {
+                return startRadius;
+            }
+            double progress = Math.min(1.0D, (double) (gameTime - opensAt) / shrinkTicks);
+            return Mth.lerp(progress, startRadius, endRadius);
+        }
+
+        /**
+         * Whether this spot is in the fire: inside the box, or outside the circle.
+         *
+         * <p>The circle is measured flat. It is a shape on the floor, and a balcony over the
+         * fire is still over the fire.</p>
+         */
+        private boolean burns(Vec3 position, long gameTime) {
+            if (mode == BossPhaseData.HAZARD_MODE_BOX) {
+                return box != null && box.contains(position);
+            }
+            double dx = position.x - centre.x;
+            double dz = position.z - centre.z;
+            double distanceSquared = dx * dx + dz * dz;
+            double radius = ringRadius(gameTime);
+            double reach = startRadius + HAZARD_RING_REACH;
+            return distanceSquared > radius * radius && distanceSquared <= reach * reach;
+        }
+    }
+
     private final EntityNPCInterface npc;
     private final ServerBossEvent bossEvent;
     private final Set<UUID> bossBarParticipants = new HashSet<>();
@@ -267,6 +349,8 @@ public final class TeleportPathController {
 
     /** The take cover strike being wound up, or null outside one. */
     private CoverCast coverCast;
+    /** The arena hazard of the phase being fought, or null while the arena is safe. */
+    private ArenaHazard hazard;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -466,6 +550,7 @@ public final class TeleportPathController {
         // Above the busy gate and the pending block below on purpose: a wind-up has to stay
         // marked through a lock, and the mark has to stop on the tick the ability goes off.
         tickTelegraph(level, data, gameTime);
+        tickHazard(level, data, gameTime);
 
         if (data.isCombatOnly() && !hasCombatTarget()) {
             cancelPendingAndSchedules();
@@ -562,7 +647,7 @@ public final class TeleportPathController {
         // A boss that was left wounded starts the next fight straight in a later phase, so
         // the immune window has to be armed here too and not only on a phase change.
         initializeTotems(level, gameTime, data);
-        enterPhase(gameTime, data, data.getPhase(currentPhase));
+        enterPhase(level, gameTime, data, data.getPhase(currentPhase));
     }
 
     /**
@@ -580,6 +665,9 @@ public final class TeleportPathController {
             trackParticipant(player);
         }
         registerInitialPartyCandidates(level, data);
+        // The phase the fight opens in was entered long before anyone pulled - on load, or
+        // at the end of the last fight - so its hazard is armed from here instead.
+        armHazard(level, gameTime, data.getPhase(currentPhase));
         lockedPlayerCount = countEligibleHealthScalingPlayers(level, data, false);
         scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
         lastHealthScalingUpdateMode = data.getHealthScalingUpdateMode();
@@ -1130,7 +1218,7 @@ public final class TeleportPathController {
         currentPhase = highestPhaseReached;
         cancelPendingAndSchedules();
         // After the schedules are wiped, so an immediate summon is not cleared again.
-        enterPhase(gameTime, data, data.getPhase(currentPhase));
+        enterPhase(level, gameTime, data, data.getPhase(currentPhase));
         playAnimation(data.getPhaseTransitionAnimation());
         if (!data.getPhaseTransitionAnimation().isEmpty()) {
             busyUntil = gameTime + data.getPhaseTransitionLockTicks();
@@ -1138,12 +1226,19 @@ public final class TeleportPathController {
     }
 
     /**
-     * Arms the immune window when the boss steps into a phase that has one.
+     * Arms what a phase brings with it when the boss steps into one: the arena hazard, the
+     * totem wave and the immune window, whichever of them the phase has.
      *
-     * <p>Keyed on the phase index so a phase only turns immune once per encounter: the last
-     * phase has nowhere to advance to, and would otherwise re-arm itself forever.</p>
+     * <p>The immune window is keyed on the phase index so a phase only turns immune once
+     * per encounter: the last phase has nowhere to advance to, and would otherwise re-arm
+     * itself forever.</p>
      */
-    private void enterPhase(long gameTime, TeleportPathData data, BossPhaseData phase) {
+    private void enterPhase(ServerLevel level, long gameTime, TeleportPathData data, BossPhaseData phase) {
+        // Only inside a fight: the boss also enters its first phase when it merely loads, and
+        // an arena that burns with nobody in it is armed from the pull instead.
+        if (encounterRunning) {
+            armHazard(level, gameTime, phase);
+        }
         if (encounterRunning && data.isTotemsEnabled() && !totemWaveActivated
                 && data.getTotemActivationMode() == TeleportPathData.TOTEM_ACTIVATION_PHASE_ENTER
                 && currentPhase + 1 == data.getTotemActivationPhase()) {
@@ -1329,6 +1424,7 @@ public final class TeleportPathController {
         clearRage();
         cancelPendingAndSchedules();
         clearHookPulls();
+        hazard = null;
         BossGeyserScheduler.clearBoss(npc);
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
@@ -5246,6 +5342,104 @@ public final class TeleportPathController {
     }
 
     /**
+     * Arms the arena hazard of the phase the boss is fighting in, and drops the last one.
+     *
+     * <p>Whatever the new phase brings, the old hazard goes: a phase change resets the
+     * arena. The clock runs from here, so a boss left wounded and pulled again in a later
+     * phase gives that phase's grace from the pull, not from whenever it first got there.</p>
+     */
+    private void armHazard(ServerLevel level, long gameTime, BossPhaseData phase) {
+        hazard = null;
+        if (!phase.isHazardEnabled()) {
+            return;
+        }
+        if (phase.getHazardMode() == BossPhaseData.HAZARD_MODE_BOX) {
+            AABB box = hazardBoxBounds(level, phase);
+            double floorY = box == null ? npc.getY() : Mth.clamp(npc.getY(), box.minY, box.maxY - 1.0D);
+            hazard = new ArenaHazard(phase, gameTime, null, box, floorY);
+            return;
+        }
+        Vec3 centre = phase.getHazardCenterMode() == BossPhaseData.HAZARD_CENTER_POINT
+                // The middle of the block, so a spot picked by standing on it is that spot.
+                ? new Vec3(phase.getHazardCenterX() + 0.5D, npc.getY(), phase.getHazardCenterZ() + 0.5D)
+                : npc.position();
+        hazard = new ArenaHazard(phase, gameTime, centre, null, centre.y);
+    }
+
+    /**
+     * The box a hazard burns in, cut to this dimension's real build height the way the
+     * aggro zone's is. Its corners are read the same way too: either order, both inclusive.
+     */
+    private static AABB hazardBoxBounds(ServerLevel level, BossPhaseData phase) {
+        int minY = Math.max(Math.min(phase.getHazardY1(), phase.getHazardY2()), level.getMinBuildHeight());
+        int maxY = Math.min(Math.max(phase.getHazardY1(), phase.getHazardY2()), level.getMaxBuildHeight() - 1);
+        if (minY > maxY) {
+            return null;
+        }
+        int minX = Math.min(phase.getHazardX1(), phase.getHazardX2());
+        int minZ = Math.min(phase.getHazardZ1(), phase.getHazardZ2());
+        int maxX = Math.max(phase.getHazardX1(), phase.getHazardX2());
+        int maxZ = Math.max(phase.getHazardZ1(), phase.getHazardZ2());
+        // The upper AABB bounds are exclusive, so adding one includes every block of corner 2.
+        return new AABB(minX, minY, minZ, (double) maxX + 1.0D, (double) maxY + 1.0D, (double) maxZ + 1.0D);
+    }
+
+    /**
+     * Runs the arena hazard of the phase being fought: the warning, then the fire.
+     *
+     * <p>Above the combat-only and busy gates on purpose, the way the telegraph is: the
+     * arena does not stop burning because the boss lost sight of its target for a moment
+     * or is held in an animation. It stops when the phase ends, or the fight does.</p>
+     */
+    private void tickHazard(ServerLevel level, TeleportPathData data, long gameTime) {
+        ArenaHazard hazard = this.hazard;
+        if (hazard == null) {
+            return;
+        }
+        // Switched off mid-fight, the hazard goes out at once rather than burning on until
+        // the phase ends; everything else it was armed with stays as it was.
+        if (!encounterRunning || !data.getPhase(currentPhase).isHazardEnabled()) {
+            this.hazard = null;
+            return;
+        }
+        if (gameTime < hazard.opensAt || gameTime < hazard.nextHitAt) {
+            return;
+        }
+        hazard.nextHitAt = gameTime + hazard.intervalTicks;
+        for (LivingEntity victim : hazardVictims(level, hazard, gameTime)) {
+            // No knockback: the fire is the ground, and the ground does not shove.
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.HAZARD, npc, rageUp(hazard.damage),
+                    hazard.effects, 0, 0.0D, 0.0D);
+        }
+    }
+
+    /**
+     * Everyone standing in the fire on this tick, judged by this boss.
+     *
+     * <p>Players have to belong to this fight, the way they do for a mark: the arena is a
+     * problem set to the party, and a passer-by cannot be made to pay for it. Npcs come in
+     * by the ordinary victim rules and by the species the boss is set to fight, and anyone
+     * hidden by their own totems is passed over the way every arena-wide sweep passes them.
+     * The boss is never in its own fire, and by the same rules neither are its minions or
+     * its totems.</p>
+     */
+    private List<LivingEntity> hazardVictims(ServerLevel level, ArenaHazard hazard, long gameTime) {
+        AABB sweep = hazard.mode == BossPhaseData.HAZARD_MODE_BOX
+                ? hazard.box
+                : new AABB(hazard.centre, hazard.centre).inflate(hazard.startRadius + HAZARD_RING_REACH);
+        if (sweep == null) {
+            return List.of();
+        }
+        TeleportPathData data = settings();
+        return level.getEntitiesOfClass(LivingEntity.class, sweep, target ->
+                target != npc && target.isAlive() && hazard.burns(target.position(), gameTime)
+                        && (!(target instanceof Player player) || isEncounterParticipant(player))
+                        && matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target)
+                        && isAbilityTarget(target, BossAbilityKind.HAZARD));
+    }
+
+    /**
      * Whether a boulder this boss launched may run this one over.
      *
      * <p>Asked by {@link com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder} every tick of
@@ -5625,6 +5819,7 @@ public final class TeleportPathController {
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
         clearHookPulls();
+        hazard = null;
         BossGeyserScheduler.clearBoss(npc);
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
