@@ -28,6 +28,7 @@ public final class BossTotemUtil {
         totem.getPersistentData().remove(BossMinionUtil.MINION_OWNER_KEY);
         totem.getPersistentData().remove(BossMinionUtil.MINION_PHASE_KEY);
         totem.getPersistentData().remove(BossMinionUtil.MINION_SLOT_KEY);
+        BossCocoonUtil.clearRole(totem);
         totem.getPersistentData().putString(TOTEM_OWNER_KEY, boss.getUUID().toString());
         totem.getPersistentData().putInt(TOTEM_SLOT_KEY, Math.max(1, slotId));
     }

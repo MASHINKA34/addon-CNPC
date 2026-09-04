@@ -26,6 +26,8 @@ public final class BossMinionUtil {
         minion.getPersistentData().putString(MINION_OWNER_KEY, boss.getUUID().toString());
         minion.getPersistentData().remove(MINION_PHASE_KEY);
         minion.getPersistentData().remove(MINION_SLOT_KEY);
+        // And one saved from a cocoon or its guard: the role would keep it out of the caps.
+        BossCocoonUtil.clearRole(minion);
     }
 
     public static void markAsMinion(Entity minion, Entity boss, int phaseIndex, int pointId) {
@@ -54,11 +56,14 @@ public final class BossMinionUtil {
      * The same count, cut short at {@code cap}: exact below it, and simply "at least the
      * cap" once it is reached. Every caller only compares against the cap, and a minion can
      * be anywhere in the world - this walk cannot be boxed in, so it is kept short instead.
+     *
+     * <p>A cocoon and its guard are minions for ownership's sake and nothing else: neither
+     * was summoned by the wave the caps limit, so neither takes a seat from it.</p>
      */
     public static int countAlive(ServerLevel level, Entity boss, int cap) {
         int count = 0;
         for (Entity entity : level.getAllEntities()) {
-            if (entity.isAlive() && isMinionOf(entity, boss)) {
+            if (entity.isAlive() && isMinionOf(entity, boss) && !BossCocoonUtil.hasRole(entity)) {
                 count++;
                 if (count >= cap) {
                     return count;

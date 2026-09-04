@@ -51,6 +51,7 @@ public final class BossDeathEvents {
         // Any captured victim, player or npc, has to be let go before it stops existing.
         BossCaptureManager.releaseVictim(event.getEntity());
         BossTetherManager.releaseVictim(event.getEntity());
+        BossCocoonManager.releaseVictim(event.getEntity());
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.removePlayerFromEncounters(player);
         }
@@ -376,6 +377,13 @@ public final class BossDeathEvents {
         if (event.getLevel().isClientSide || !(event.getEntity() instanceof EntityNPCInterface npc)) {
             return;
         }
+        // A cocoon coming back in from a save is a shell with nobody inside: the hold it was
+        // part of died with the server. Kept out rather than let in and discarded on the
+        // boss' first tick, because its chunk may load long after the boss' did.
+        if (event.loadedFromDisk() && BossCocoonUtil.isCocoon(npc)) {
+            event.setCanceled(true);
+            return;
+        }
         if (BossTotemUtil.isTotem(npc) || BossMinionUtil.isMinion(npc)) {
             BossCloneRespawnGuard.suppressSelfRespawn(npc);
         }
@@ -386,6 +394,7 @@ public final class BossDeathEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             BossCaptureManager.releaseVictim(player);
             BossTetherManager.releaseVictim(player);
+            BossCocoonManager.releaseVictim(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
     }
@@ -395,6 +404,7 @@ public final class BossDeathEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             BossCaptureManager.releaseVictim(player);
             BossTetherManager.releaseVictim(player);
+            BossCocoonManager.releaseVictim(player);
             TeleportPathController.removePlayerFromEncounters(player);
         }
     }
@@ -510,6 +520,7 @@ public final class BossDeathEvents {
         }
         BossCaptureManager.tick(level);
         BossTetherManager.tick(level);
+        BossCocoonManager.tick(level);
     }
 
     @SubscribeEvent
@@ -526,6 +537,7 @@ public final class BossDeathEvents {
             BossCloneRespawnGuard.clear(level);
             BossCaptureManager.clearLevel(level);
             BossTetherManager.clearLevel(level);
+            BossCocoonManager.clearLevel(level);
             TeleportPathController.shutdownLevel(level);
         }
     }

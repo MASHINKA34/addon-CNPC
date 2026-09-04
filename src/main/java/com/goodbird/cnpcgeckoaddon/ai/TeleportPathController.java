@@ -88,7 +88,7 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 18;
+    private static final int ABILITY_COUNT = 19;
     /**
      * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
      * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
@@ -100,6 +100,11 @@ public final class TeleportPathController {
      * own - what it does happens where its carrier takes it - so it borrows the leash's.
      */
     private static final double MARK_REACH = 32.0D;
+    /**
+     * How far a cocoon is handed out: the arena, not the world. A cocoon has no reach of
+     * its own - it closes wherever its victim is standing - so it borrows the mark's.
+     */
+    private static final double COCOON_REACH = 32.0D;
     /** Tries at finding floor and room for one shelter before the wind-up gives it up. */
     private static final int COVER_SHELTER_ATTEMPTS = 12;
     /**
@@ -213,7 +218,8 @@ public final class TeleportPathController {
 
     private enum PendingAction {
         NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM
+        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM,
+        COCOON
     }
 
     /**
@@ -454,6 +460,7 @@ public final class TeleportPathController {
     private long nextCoverAt = NOT_SCHEDULED;
     private long nextHuntAt = NOT_SCHEDULED;
     private long nextBeamAt = NOT_SCHEDULED;
+    private long nextCocoonAt = NOT_SCHEDULED;
 
     /** The take cover strike being wound up, or null outside one. */
     private CoverCast coverCast;
@@ -545,6 +552,9 @@ public final class TeleportPathController {
     private long nextAggroZoneAt = NOT_SCHEDULED;
     private final Set<String> reportedBrokenMinionClones = new HashSet<>();
     private final Set<String> reportedBlockedMinionPoints = new HashSet<>();
+    private final Set<String> reportedBrokenCocoonClones = new HashSet<>();
+    /** Phases already told off for a cocoon with no clone name; never cleared, one line is the deal. */
+    private final Set<Integer> reportedEmptyCocoonPhases = new HashSet<>();
     /** Phase index -> the last point that successfully spawned in round-robin order. */
     private final Map<Integer, Integer> minionRoundRobinCursor = new HashMap<>();
     private String reportedBrokenFluid = "";
@@ -753,6 +763,16 @@ public final class TeleportPathController {
                 && data.getPhase(phaseIndex).isCaptureEnabled();
     }
 
+    /** Keeps a cocoon tied to the phase configuration that closed it, the way a capture is. */
+    boolean isCocoonEnabledForPhase(int phaseIndex) {
+        if (!active || !encounterRunning) {
+            return false;
+        }
+        TeleportPathData data = settings();
+        return data.isEnabled() && phaseIndex >= 0 && phaseIndex < data.getPhaseCount()
+                && data.getPhase(phaseIndex).isCocoonEnabled();
+    }
+
     /** Keeps a leash tied to the phase configuration that threw it, the way a capture is. */
     boolean isTetherEnabledForPhase(int phaseIndex) {
         if (!active || !encounterRunning) {
@@ -784,6 +804,9 @@ public final class TeleportPathController {
         // A boss that was left wounded starts the next fight straight in a later phase, so
         // the immune window has to be armed here too and not only on a phase change.
         initializeTotems(level, gameTime, data);
+        // A cocoon that outlived its hold - the server went down with somebody inside - is
+        // a shell with nobody in it, and goes the way a totem the boss no longer knows does.
+        BossCocoonUtil.removeStrayCocoons(level, npc);
         enterPhase(level, gameTime, data, data.getPhase(currentPhase));
     }
 
@@ -1577,6 +1600,9 @@ public final class TeleportPathController {
         clearLeap();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
+        // Before the minions are cleared: a cocoon is discarded, never killed, and the
+        // clear would run it through the builder's removal mode like any other minion.
+        BossCocoonManager.releaseByBoss(npc);
         busyUntil = 0L;
 
         if (data.isClearMinionsOnReset()) {
@@ -2587,6 +2613,7 @@ public final class TeleportPathController {
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
+        BossCocoonManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
@@ -2619,6 +2646,7 @@ public final class TeleportPathController {
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
+        BossCocoonManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
@@ -2980,6 +3008,13 @@ public final class TeleportPathController {
         } else {
             nextBeamAt = NOT_SCHEDULED;
         }
+        if (phase.canCocoon()) {
+            if (nextCocoonAt == NOT_SCHEDULED) {
+                nextCocoonAt = gameTime + rageDown(phase.getCocoonCooldownTicks());
+            }
+        } else {
+            nextCocoonAt = NOT_SCHEDULED;
+        }
     }
 
     private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
@@ -3025,6 +3060,7 @@ public final class TeleportPathController {
                 case 14 -> tryStartCover(level, data, phase, gameTime);
                 case 15 -> tryStartHunt(level, data, phase, gameTime);
                 case 16 -> tryStartBeam(level, data, phase, gameTime);
+                case 17 -> tryStartCocoon(level, data, phase, gameTime);
                 default -> tryStartSummon(level, data, phase, gameTime);
             };
             if (started) {
@@ -3289,9 +3325,12 @@ public final class TeleportPathController {
     }
 
     private boolean isValidCaptureTarget(LivingEntity target, BossPhaseData phase) {
+        // Somebody in a cocoon is left alone too: the two holds share the victim's client
+        // lock, and a capture ending would let go of a player the cocoon still has.
         if (target == null || target.level() != npc.level() || !target.isAlive()
                 || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.CAPTURE)
-                || BossCaptureManager.isCaptured(target.getUUID())) {
+                || BossCaptureManager.isCaptured(target.getUUID())
+                || BossCocoonManager.isCocooned(target.getUUID())) {
             return false;
         }
         double distanceSquared = npc.distanceToSqr(target);
@@ -4129,6 +4168,150 @@ public final class TeleportPathController {
         }
         long remaining = nextBeamAt == NOT_SCHEDULED ? 0L : nextBeamAt - gameTime;
         return remaining > 0L ? "Beam: cooldown " + remaining : "Beam: ready";
+    }
+
+    /**
+     * A cocoon closed round each victim: a clone spawned on the spot they stand on, with
+     * them held inside it until the party lets them out or the time runs out on them.
+     *
+     * <p>Aimed the way the marks are, at up to a handful of victims anywhere in the arena.
+     * What a cocoon does from then on belongs to {@link BossCocoonManager}, because a lock
+     * lasts a while and the boss is back on its rotation the moment the cast lands.</p>
+     */
+    private boolean tryStartCocoon(ServerLevel level, TeleportPathData data,
+                                   BossPhaseData phase, long gameTime) {
+        if (!phase.isCocoonEnabled() || gameTime < nextCocoonAt) return false;
+        if (!phase.canCocoon()) {
+            // Switched on with no clone to close round anybody: said once, then left quiet.
+            if (reportedEmptyCocoonPhases.add(currentPhase)) {
+                LOGGER.warn("Boss {} phase {} has the cocoon on but no cocoon clone name; it will not fire",
+                        npc.getName().getString(), currentPhase + 1);
+            }
+            return false;
+        }
+        List<LivingEntity> targets = selectAbilityTargets(level, phase.getCocoonTargetMode(),
+                COCOON_REACH, this::isValidCocoonTarget, phase.getCocoonTargetCount());
+        if (targets.isEmpty()) {
+            nextCocoonAt = gameTime + 10;
+            return false;
+        }
+        pendingExtraTargets.clear();
+        for (int i = 1; i < targets.size(); i++) {
+            pendingExtraTargets.add(targets.get(i).getId());
+        }
+        beginAction(PendingAction.COCOON, phase.getCocoonAnimation(),
+                phase.getCocoonActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        // Only the cooldown is scaled: the action delay is measured against the attack
+        // animation, and shortening it would close the cocoons before the cast does.
+        nextCocoonAt = gameTime + phase.getCocoonActionDelayTicks()
+                + rageDown(phase.getCocoonCooldownTicks());
+        return true;
+    }
+
+    private boolean isValidCocoonTarget(LivingEntity target) {
+        // Somebody already held, by a cocoon or a capture, is left alone: two holds on one
+        // victim would fight over their spot and their client's lock.
+        if (target == null || target.level() != npc.level() || !target.isAlive()
+                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.COCOON)
+                || BossCocoonManager.isCocooned(target.getUUID())
+                || BossCaptureManager.isCaptured(target.getUUID())) {
+            return false;
+        }
+        return npc.distanceToSqr(target) <= COCOON_REACH * COCOON_REACH;
+    }
+
+    /**
+     * Closes a cocoon round everyone this cast wound up on.
+     *
+     * <p>Each victim gets a clone of their own, spawned on the spot they are standing on;
+     * one whose clone cannot be spawned is simply not held, and the reason is said once.
+     * Nothing is measured here: the shells go to {@link BossCocoonManager}, which owns
+     * them from now on.</p>
+     */
+    private void performCocoon(ServerLevel level, BossPhaseData phase, long gameTime) {
+        List<LivingEntity> victims = new ArrayList<>();
+        LivingEntity primary = pendingTarget(level);
+        if (primary != null && isValidCocoonTarget(primary)) {
+            victims.add(primary);
+        }
+        for (int id : pendingExtraTargets) {
+            if (level.getEntity(id) instanceof LivingEntity extra
+                    && isValidCocoonTarget(extra) && !victims.contains(extra)) {
+                victims.add(extra);
+            }
+        }
+        for (LivingEntity victim : victims) {
+            Entity shell = spawnCocoonClone(level, phase.getCocoonCloneName(), phase.getCocoonCloneTab(),
+                    victim.position(), victim.getYRot());
+            if (shell == null) {
+                continue;
+            }
+            BossCocoonUtil.markAsCocoon(shell, npc);
+            if (!BossCocoonManager.start(level, npc, victim, shell, phase, currentPhase, gameTime)) {
+                // Refused - held by somebody else after all, or standing in a wall - so the
+                // shell goes back the way it came, without a death.
+                shell.discard();
+                continue;
+            }
+            if (victim instanceof ServerPlayer player) {
+                trackParticipant(player);
+            }
+        }
+    }
+
+    /**
+     * One cocoon clone, spawned where it is told and facing the way it is told.
+     *
+     * <p>The minion spawn's shape without its slot bookkeeping: a cocoon belongs to a
+     * victim, not to a spawn point. The caller marks it, because what it is - a shell, or
+     * the guard beside one - is the caller's to say.</p>
+     */
+    private Entity spawnCocoonClone(ServerLevel level, String cloneName, int cloneTab, Vec3 position, float yaw) {
+        if (cloneName == null || cloneName.isBlank()) {
+            return null;
+        }
+        String cloneKey = cloneTab + ":" + cloneName;
+        try {
+            IEntity<?> wrapper = NpcAPI.Instance().getClones().spawn(position.x, position.y, position.z,
+                    cloneTab, cloneName, NpcAPI.Instance().getIWorld(level));
+            if (wrapper == null || wrapper.getMCEntity() == null) {
+                warnBrokenCocoonClone(cloneKey, "clone returned no entity");
+                return null;
+            }
+            Entity spawned = wrapper.getMCEntity();
+            BossCloneRespawnGuard.suppressSelfRespawn(spawned);
+            spawned.setYRot(yaw);
+            if (spawned instanceof Mob mob) {
+                mob.setYHeadRot(yaw);
+                mob.yBodyRot = yaw;
+            }
+            return spawned;
+        } catch (Throwable error) {
+            warnBrokenCocoonClone(cloneKey, error.getMessage());
+            return null;
+        }
+    }
+
+    private void warnBrokenCocoonClone(String cloneKey, String reason) {
+        if (reportedBrokenCocoonClones.add(cloneKey)) {
+            LOGGER.warn("Cannot spawn cocoon clone {} for boss {}: {}", cloneKey,
+                    npc.getName().getString(), reason);
+        }
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    public String cocoonStatus(long gameTime) {
+        int held = BossCocoonManager.countForBoss(npc.getUUID());
+        String holding = held > 0 ? ", holding " + BossCocoonManager.victimNamesForBoss(npc.getUUID()) : "";
+        BossPhaseData phase = activePhase();
+        if (phase == null || !phase.isCocoonEnabled()) {
+            return "Cocoon: disabled" + holding;
+        }
+        if (!phase.canCocoon()) {
+            return "Cocoon: no clone name" + holding;
+        }
+        long remaining = nextCocoonAt == NOT_SCHEDULED ? 0L : nextCocoonAt - gameTime;
+        return (remaining > 0L ? "Cocoon: cooldown " + remaining : "Cocoon: ready") + holding;
     }
 
     /** Read-only status used by the boss diagnostic command. */
@@ -5007,7 +5190,9 @@ public final class TeleportPathController {
             // picked, which is the one thing everybody else needs to know.
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE, HUNT ->
                     drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
-            case HOOK, GEYSER, MARK -> {
+            // The cocoon marks everyone it is about to close round, the way the marks do:
+            // the ring is where the shell will stand, which is where the rescue will be.
+            case HOOK, GEYSER, MARK, COCOON -> {
                 drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
                 for (int id : pendingExtraTargets) {
                     if (level.getEntity(id) instanceof LivingEntity victim) {
@@ -5165,6 +5350,7 @@ public final class TeleportPathController {
             case COVER -> BossAbilityKind.COVER;
             case HUNT -> BossAbilityKind.HUNT;
             case BEAM -> BossAbilityKind.BEAM;
+            case COCOON -> BossAbilityKind.COCOON;
             case NONE, TELEPORT -> -1;
         };
     }
@@ -5235,6 +5421,7 @@ public final class TeleportPathController {
             case GEYSER -> hasWoundUpVictim(level, candidate -> isValidGeyserTarget(candidate, phase));
             case TETHER -> hasWoundUpVictim(level, candidate -> isValidTetherTarget(candidate, phase));
             case MARK -> hasWoundUpVictim(level, this::isValidMarkTarget);
+            case COCOON -> hasWoundUpVictim(level, this::isValidCocoonTarget);
             case CAPTURE -> isValidCaptureTarget(target, phase);
             // A prey that got out of reach before the boss even set off is a hunt not worth
             // starting; one that got out afterwards ends it on its own.
@@ -5296,6 +5483,7 @@ public final class TeleportPathController {
             case COVER -> nextCoverAt;
             case HUNT -> nextHuntAt;
             case BEAM -> nextBeamAt;
+            case COCOON -> nextCocoonAt;
             case TELEPORT -> nextTeleportAt;
             case NONE -> NOT_SCHEDULED;
         };
@@ -5321,6 +5509,7 @@ public final class TeleportPathController {
             case COVER -> nextCoverAt = at;
             case HUNT -> nextHuntAt = at;
             case BEAM -> nextBeamAt = at;
+            case COCOON -> nextCocoonAt = at;
             case TELEPORT -> nextTeleportAt = at;
             case NONE -> {
                 // Nothing was running, so there is no schedule to move.
@@ -5382,6 +5571,8 @@ public final class TeleportPathController {
             performHunt(level, phase, gameTime);
         } else if (pendingAction == PendingAction.BEAM) {
             performBeam(level, phase, gameTime);
+        } else if (pendingAction == PendingAction.COCOON) {
+            performCocoon(level, phase, gameTime);
         } else if (pendingAction == PendingAction.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
@@ -6767,6 +6958,7 @@ public final class TeleportPathController {
         nextCoverAt = NOT_SCHEDULED;
         nextHuntAt = NOT_SCHEDULED;
         nextBeamAt = NOT_SCHEDULED;
+        nextCocoonAt = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and
         // every one of those ends up here. Nor does a sweep.
         endHunt();
@@ -6795,6 +6987,7 @@ public final class TeleportPathController {
         clearLeap();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
+        BossCocoonManager.releaseByBoss(npc);
         busyUntil = 0L;
         cancelPendingAndSchedules();
         lastPathIndex = -1;
@@ -6807,6 +7000,7 @@ public final class TeleportPathController {
         clearTotemRuntime();
         reportedBrokenMinionClones.clear();
         reportedBlockedMinionPoints.clear();
+        reportedBrokenCocoonClones.clear();
         reportedBrokenFluid = "";
         reportedBrokenGeyserFluid = "";
         reportedBrokenBoulderBlock = "";
