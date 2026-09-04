@@ -8,6 +8,8 @@ import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossCaptureState;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -51,12 +53,16 @@ import java.util.UUID;
 public final class BossCocoonManager {
     /** Ticks between one dose of the held effects and the next. */
     private static final int EFFECT_INTERVAL_TICKS = 20;
+    /** How often the rescuers beside a cocoon are told how long it has left. */
+    private static final int ANNOUNCE_INTERVAL_TICKS = 10;
     /**
      * How often the victim's client is told about the lock again. Once would do on its
      * own; the repeat is what puts the lock back should anything else on the client's
      * side have let it go in the meantime.
      */
     private static final int LOCK_SYNC_INTERVAL_TICKS = 40;
+    /** How far from a cocoon somebody may stand and still be told about it. */
+    private static final double ANNOUNCE_RANGE = 12.0D;
     private static final double POSITION_EPSILON_SQUARED = 1.0E-8D;
 
     private static final List<Cocoon> COCOONS = new ArrayList<>();
@@ -78,10 +84,21 @@ public final class BossCocoonManager {
         private final float cocoonYaw;
         private final long startedAt;
         private final long endsAt;
+        private final int rescueMode;
+        private final double rescueRadius;
+        private final int rescueTicks;
+        /** What a burst hits for, with the enrage bonus already in it. */
+        private final int failDamage;
         private final BossEffectSet victimEffects;
+        private final BossEffectSet failEffects;
+        private final BossEffectSet freeEffects;
+        /** Stand rule: the ticks the rescuers have put in so far, every one of them counting. */
+        private int rescueProgress;
+        /** Set by a hit that would have killed the shell; the next tick opens it instead. */
+        private boolean broken;
 
         private Cocoon(EntityNPCInterface boss, LivingEntity victim, Entity cocoon, BossPhaseData phase,
-                       int phaseIndex, long gameTime) {
+                       int phaseIndex, int failDamage, long gameTime) {
             victimId = victim.getUUID();
             victimName = victim.getName().getString();
             bossId = boss.getUUID();
@@ -92,7 +109,13 @@ public final class BossCocoonManager {
             cocoonYaw = cocoon.getYRot();
             startedAt = gameTime;
             endsAt = gameTime + phase.getCocoonDurationTicks();
+            rescueMode = phase.getCocoonRescueMode();
+            rescueRadius = phase.getCocoonRescueRadius();
+            rescueTicks = phase.getCocoonRescueTicks();
+            this.failDamage = failDamage;
             victimEffects = phase.getCocoonVictimEffects();
+            failEffects = phase.getCocoonFailEffects();
+            freeEffects = phase.getCocoonFreeEffects();
         }
     }
 
@@ -102,14 +125,16 @@ public final class BossCocoonManager {
      * <p>The clone has already been spawned on them and marked by the caller; from here on
      * it is pinned and watched by the tick. A victim somebody is already holding, or one
      * not standing in this level, is left alone and the caller takes the clone back.</p>
+     *
+     * @param failDamage what a burst hits for, with the enrage bonus already in it
      */
     public static boolean start(ServerLevel level, EntityNPCInterface boss, LivingEntity victim, Entity cocoon,
-                                BossPhaseData phase, int phaseIndex, long gameTime) {
+                                BossPhaseData phase, int phaseIndex, int failDamage, long gameTime) {
         if (BY_VICTIM.containsKey(victim.getUUID()) || victim.level() != level || cocoon.level() != level
                 || !level.noBlockCollision(victim, victim.getBoundingBox())) {
             return false;
         }
-        Cocoon held = new Cocoon(boss, victim, cocoon, phase, phaseIndex, gameTime);
+        Cocoon held = new Cocoon(boss, victim, cocoon, phase, phaseIndex, failDamage, gameTime);
         COCOONS.add(held);
         BY_VICTIM.put(held.victimId, held);
         pinCocoon(cocoon, held);
@@ -206,8 +231,21 @@ public final class BossCocoonManager {
                 continue;
             }
             Entity shell = level.getEntity(cocoon.cocoonId);
-            if (shell == null || shell.isRemoved() || !shell.isAlive() || gameTime >= cocoon.endsAt) {
-                release(level, cocoon);
+            if (cocoon.broken || shell == null || shell.isRemoved() || !shell.isAlive()) {
+                // Beaten open, or taken away by a command: either way the party opened it.
+                free(level, boss, cocoon, victim);
+                continue;
+            }
+            // Read before the clock: opening it on the very last tick still counts.
+            if (cocoon.rescueMode == BossPhaseData.COCOON_RESCUE_STAND) {
+                cocoon.rescueProgress += rescuersBeside(level, cocoon, victim);
+                if (cocoon.rescueProgress >= cocoon.rescueTicks) {
+                    free(level, boss, cocoon, victim);
+                    continue;
+                }
+            }
+            if (gameTime >= cocoon.endsAt) {
+                burst(level, boss, cocoon, victim);
                 continue;
             }
             pinCocoon(shell, cocoon);
@@ -223,6 +261,9 @@ public final class BossCocoonManager {
             }
             if (held % LOCK_SYNC_INTERVAL_TICKS == 0L && victim instanceof ServerPlayer player) {
                 syncLock(player, cocoon, true);
+            }
+            if (held % ANNOUNCE_INTERVAL_TICKS == 0L) {
+                announce(level, cocoon, victim, gameTime);
             }
         }
     }
@@ -245,6 +286,26 @@ public final class BossCocoonManager {
             return null;
         }
         return victim;
+    }
+
+    /**
+     * How many people are tearing at the cocoon on this tick, for the stand rule.
+     *
+     * <p>Every player inside the radius who is not the one inside: two beside it count
+     * double, which is what makes coming together the faster rescue. The victim is left
+     * out because they are always inside the radius, and a cocoon that opened itself would
+     * not be a rescue.</p>
+     */
+    private static int rescuersBeside(ServerLevel level, Cocoon cocoon, LivingEntity victim) {
+        double radiusSquared = cocoon.rescueRadius * cocoon.rescueRadius;
+        int count = 0;
+        for (ServerPlayer player : level.players()) {
+            if (player != victim && player.isAlive() && !player.isSpectator()
+                    && player.position().distanceToSqr(cocoon.anchor) <= radiusSquared) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /** The clone put back onto the spot it was spawned on, the way a totem is pinned to its slot. */
@@ -293,11 +354,73 @@ public final class BossCocoonManager {
         return true;
     }
 
+    /**
+     * The party got there: the victim is let out with the effects for it, and the shell
+     * goes without drops or death scripts - it may already be a corpse, or still standing
+     * under the stand rule.
+     */
+    private static void free(ServerLevel level, EntityNPCInterface boss, Cocoon cocoon, LivingEntity victim) {
+        if (!release(level, cocoon)) {
+            return;
+        }
+        if (cocoon.freeEffects.isAnyEnabled()) {
+            BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.COCOON, boss, cocoon.freeEffects);
+        }
+        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.ITEM_BREAK,
+                SoundSource.HOSTILE, 1.2F, 0.8F);
+        burst(level, victim, ParticleTypes.CRIT);
+    }
+
+    /**
+     * Nobody came in time: the fail damage and effects land on the victim, and only then
+     * are they let out. The shell bursts with them, drops and scripts and all left out.
+     */
+    private static void burst(ServerLevel level, EntityNPCInterface boss, Cocoon cocoon, LivingEntity victim) {
+        if (!release(level, cocoon)) {
+            return;
+        }
+        // No knockback: what a cocoon does to somebody nobody came for is crush them, not throw them.
+        BossAbilityDamageUtil.hit(victim, BossAbilityKind.COCOON, boss, cocoon.failDamage,
+                cocoon.failEffects, 0, 0.0D, 0.0D);
+        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.GENERIC_EXPLODE.value(),
+                SoundSource.HOSTILE, 0.8F, 1.6F);
+        burst(level, victim, ParticleTypes.SMOKE);
+    }
+
     private static void burst(ServerLevel level, LivingEntity victim, ParticleOptions particle) {
         double y = victim.getY() + victim.getBbHeight() * 0.5D;
         level.sendParticles(particle, victim.getX(), y, victim.getZ(), 12, 0.3D, 0.4D, 0.3D, 0.1D);
         level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.COCOON), victim.getX(), y, victim.getZ(),
                 10, 0.4D, 0.5D, 0.4D, 0.0D);
+    }
+
+    /**
+     * The time left, in the action bar of everyone standing near the cocoon.
+     *
+     * <p>Sent on a clock rather than once, the way a mark's countdown is: the line is what
+     * says how long there is to get there. It goes to whoever is close enough to do
+     * something about it, and not to the victim, who is inside and can do nothing. Under
+     * the stand rule it carries how far the rescue has got, so somebody deciding whether
+     * to stay knows what leaving would throw away.</p>
+     */
+    private static void announce(ServerLevel level, Cocoon cocoon, LivingEntity victim, long gameTime) {
+        // Rounded up, so the last second reads as one rather than as none. The number goes
+        // in through %s: vanilla's translation formatter takes that one placeholder and
+        // nothing else, and a %d would leave the raw template on the screen.
+        int seconds = (int) Math.max(1L, (cocoon.endsAt - gameTime + 19L) / 20L);
+        MutableComponent line = Component.translatable("cnpcgeckoaddon.boss.cocoon_rescue_bar", seconds);
+        if (cocoon.rescueMode == BossPhaseData.COCOON_RESCUE_STAND) {
+            int percent = Mth.clamp(cocoon.rescueProgress * 100 / Math.max(1, cocoon.rescueTicks), 0, 99);
+            line.append("  " + percent + "%");
+        }
+        line.withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.COCOON)));
+        double rangeSquared = ANNOUNCE_RANGE * ANNOUNCE_RANGE;
+        for (ServerPlayer player : level.players()) {
+            if (player != victim && !player.isSpectator()
+                    && player.position().distanceToSqr(cocoon.anchor) <= rangeSquared) {
+                player.displayClientMessage(line, true);
+            }
+        }
     }
 
     /**
@@ -311,6 +434,61 @@ public final class BossCocoonManager {
         }
         ServerLevel level = victim.getServer() == null ? null : victim.getServer().getLevel(cocoon.levelKey);
         release(level, cocoon, victim);
+    }
+
+    /**
+     * A hit that would have killed a shell breaks it open instead.
+     *
+     * <p>The clone must never actually die: CustomNPCs drops its inventory and runs its
+     * death scripts before vanilla so much as hears about the death, and a cocoon is meant
+     * to go the way a totem goes, with neither. So the killing blow is taken away here and
+     * the shell is opened on the next tick, which is where the victim is let out with the
+     * effects for it.</p>
+     *
+     * @param attacker whoever dealt the hit, or null for damage with nobody behind it
+     * @return whether the hit was the one that broke it, and is to land as nothing
+     */
+    public static boolean breakOnLethalHit(LivingEntity shell, float damage, Entity attacker) {
+        if (COCOONS.isEmpty() || damage < shell.getHealth()) {
+            return false;
+        }
+        for (Cocoon cocoon : COCOONS) {
+            if (!cocoon.cocoonId.equals(shell.getUUID())) {
+                continue;
+            }
+            cocoon.broken = true;
+            // Whoever broke it is in the fight now, the way whoever hurts the boss is.
+            if (attacker instanceof ServerPlayer player && shell.level() instanceof ServerLevel level
+                    && level.getEntity(cocoon.bossId) instanceof IBossController holder
+                    && holder.cnpcgeckoaddon$getTeleportPathController() != null) {
+                holder.cnpcgeckoaddon$getTeleportPathController().trackParticipant(player);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * A cocoon's shell died anyway - a script set its health to nothing, say: whoever is
+     * inside is let out at once, with the effects for it, rather than a tick later when
+     * the clock next finds the shell gone.
+     */
+    public static void onShellDeath(Entity shell) {
+        if (COCOONS.isEmpty() || !(shell.level() instanceof ServerLevel level)) {
+            return;
+        }
+        for (Cocoon cocoon : COCOONS.toArray(Cocoon[]::new)) {
+            if (!cocoon.cocoonId.equals(shell.getUUID())) {
+                continue;
+            }
+            EntityNPCInterface boss = usableBoss(level, cocoon);
+            LivingEntity victim = usableVictim(level, cocoon);
+            if (boss == null || victim == null) {
+                release(level, cocoon);
+            } else {
+                free(level, boss, cocoon, victim);
+            }
+        }
     }
 
     public static void releaseByBoss(EntityNPCInterface boss) {

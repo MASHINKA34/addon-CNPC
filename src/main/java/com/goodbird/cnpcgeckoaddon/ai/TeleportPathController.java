@@ -105,6 +105,9 @@ public final class TeleportPathController {
      * its own - it closes wherever its victim is standing - so it borrows the mark's.
      */
     private static final double COCOON_REACH = 32.0D;
+    /** How far from a cocoon its guard is posted, and how many spots round it are tried. */
+    private static final double COCOON_GUARD_DISTANCE = 2.0D;
+    private static final int COCOON_GUARD_ATTEMPTS = 8;
     /** Tries at finding floor and room for one shelter before the wind-up gives it up. */
     private static final int COVER_SHELTER_ATTEMPTS = 12;
     /**
@@ -1608,6 +1611,9 @@ public final class TeleportPathController {
         if (data.isClearMinionsOnReset()) {
             BossMinionUtil.clear(level, npc, data.getMinionRemovalMode());
         }
+        // After the clear, so a guard goes the way the builder's removal mode says when
+        // that is on; and whatever it says, a guard was posted for a fight that is over.
+        BossCocoonUtil.removeGuards(level, npc);
         resetTotemsAfterEncounter(level, data);
         hideBossBar();
 
@@ -4247,16 +4253,66 @@ public final class TeleportPathController {
                 continue;
             }
             BossCocoonUtil.markAsCocoon(shell, npc);
-            if (!BossCocoonManager.start(level, npc, victim, shell, phase, currentPhase, gameTime)) {
+            // The time limit and the rescue are deliberately left alone by the enrage: they
+            // are the room a party gets to answer, not a number the fight may turn down.
+            if (!BossCocoonManager.start(level, npc, victim, shell, phase, currentPhase,
+                    rageUp(phase.getCocoonFailDamage()), gameTime)) {
                 // Refused - held by somebody else after all, or standing in a wall - so the
                 // shell goes back the way it came, without a death.
                 shell.discard();
                 continue;
             }
+            spawnCocoonGuard(level, phase, victim.position());
             if (victim instanceof ServerPlayer player) {
                 trackParticipant(player);
             }
         }
+    }
+
+    /**
+     * The guard posted beside a cocoon, on the first free spot round it.
+     *
+     * <p>Optional, and never on the cocoon itself: it is there to be fought past on the way
+     * to the rescue, and one standing inside the shell would take every swing meant for
+     * the shell. A guard is an ordinary minion in everything but the caps: it fights, it
+     * stays when the cocoon opens, and it goes when the fight does.</p>
+     */
+    private void spawnCocoonGuard(ServerLevel level, BossPhaseData phase, Vec3 cocoon) {
+        if (phase.getCocoonGuardName().isEmpty()) {
+            return;
+        }
+        String cloneKey = phase.getCocoonGuardTab() + ":" + phase.getCocoonGuardName();
+        Vec3 spot = findCocoonGuardSpot(level, cocoon);
+        if (spot == null) {
+            warnBrokenCocoonClone(cloneKey, "no room beside the cocoon for the guard");
+            return;
+        }
+        // Facing the cocoon it was posted at, in Minecraft's own degrees.
+        float yaw = (float) (Mth.atan2(cocoon.z - spot.z, cocoon.x - spot.x) * Mth.RAD_TO_DEG) - 90.0F;
+        Entity guard = spawnCocoonClone(level, phase.getCocoonGuardName(), phase.getCocoonGuardTab(), spot, yaw);
+        if (guard == null) {
+            return;
+        }
+        BossCocoonUtil.markAsGuard(guard, npc);
+        if (guard instanceof Mob mob && hasCombatTarget() && mob.canAttack(npc.getTarget())) {
+            mob.setTarget(npc.getTarget());
+        }
+    }
+
+    /** A free spot a couple of blocks off the cocoon, tried the way round from a random start. */
+    private Vec3 findCocoonGuardSpot(ServerLevel level, Vec3 cocoon) {
+        double start = npc.getRandom().nextDouble() * Math.PI * 2.0D;
+        for (int attempt = 0; attempt < COCOON_GUARD_ATTEMPTS; attempt++) {
+            double angle = start + attempt * Math.PI * 2.0D / COCOON_GUARD_ATTEMPTS;
+            Vec3 candidate = new Vec3(cocoon.x + Math.cos(angle) * COCOON_GUARD_DISTANCE, cocoon.y,
+                    cocoon.z + Math.sin(angle) * COCOON_GUARD_DISTANCE);
+            BlockPos pos = BlockPos.containing(candidate);
+            if (level.hasChunkAt(pos) && level.getWorldBorder().isWithinBounds(pos)
+                    && level.noCollision(minionSpawnBox(candidate))) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     /**

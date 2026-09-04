@@ -52,6 +52,8 @@ public final class BossDeathEvents {
         BossCaptureManager.releaseVictim(event.getEntity());
         BossTetherManager.releaseVictim(event.getEntity());
         BossCocoonManager.releaseVictim(event.getEntity());
+        // And a cocoon that died some other way than a hit lets its victim out.
+        BossCocoonManager.onShellDeath(event.getEntity());
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.removePlayerFromEncounters(player);
         }
@@ -85,6 +87,9 @@ public final class BossDeathEvents {
         if (data.isClearMinionsOnDeath()) {
             BossMinionUtil.clear(level, npc, data.getMinionRemovalMode());
         }
+        // The cocoon guards go with the boss whatever the minion setting says, after the
+        // clear so the builder's removal mode gets them first when it is on.
+        BossCocoonUtil.removeGuards(level, npc);
         if (data.isExplosionEnabled()) {
             BossExplosionScheduler.schedule(level, npc, data);
         }
@@ -315,6 +320,23 @@ public final class BossDeathEvents {
         }
         event.setNewDamage(maximumDamage);
         controller.playTotemHitFeedback();
+    }
+
+    /**
+     * A hit that would kill a cocoon breaks it open instead.
+     *
+     * <p>Lowest, after every other listener has had its say on the number: what counts is
+     * the damage that would really have landed. A cocoon must never die the way a clone
+     * dies - CustomNPCs drops its loot and runs its death scripts ahead of vanilla's own
+     * death - so the killing blow is turned to nothing here and the manager opens the
+     * shell on its next tick, letting the victim out with the effects for it.</p>
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onCocoonShellDamage(final LivingDamageEvent.Pre event) {
+        if (BossCocoonUtil.isCocoon(event.getEntity()) && BossCocoonManager.breakOnLethalHit(
+                event.getEntity(), event.getNewDamage(), event.getSource().getEntity())) {
+            event.setNewDamage(0.0F);
+        }
     }
 
     /**
