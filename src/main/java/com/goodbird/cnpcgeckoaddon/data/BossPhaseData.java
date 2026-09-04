@@ -88,6 +88,19 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.tether_anchor.pair"
     };
 
+    /** Everyone in the field is dragged toward the boss, and hurt while they are up against it. */
+    public static final int GRAVITY_MODE_PULL = 0;
+    /** Everyone in the field is shoved away from the boss; nothing hurts. */
+    public static final int GRAVITY_MODE_PUSH = 1;
+    /** One throw straight up, and the landing hurts on top of the fall itself. */
+    public static final int GRAVITY_MODE_LIFT = 2;
+
+    public static final String[] GRAVITY_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.gravity_mode.pull",
+            "cnpcgeckoaddon.boss.gravity_mode.push",
+            "cnpcgeckoaddon.boss.gravity_mode.lift"
+    };
+
     public static final int CAPTURE_MODE_HOLD = 0;
     public static final int CAPTURE_MODE_LIFT = 1;
     public static final int CAPTURE_EFFECT_PLAYER = 0;
@@ -124,7 +137,8 @@ public final class BossPhaseData {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
-            BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER
+            BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
+            BossAbilityKind.GRAVITY
     };
     /**
      * Every ability is cast standing still until a builder frees it, existing bosses
@@ -369,6 +383,29 @@ public final class BossPhaseData {
     private String tetherStyle = HookCordStyles.PARTICLES;
     private int tetherWidthPercent = 100;
 
+    private boolean gravityEnabled;
+    private String gravityAnimation = "";
+    private int gravityActionDelayTicks = 20;
+    private int gravityCooldownTicks = 300;
+    private int gravityMode = GRAVITY_MODE_PULL;
+    private int gravityRadius = 16;
+    /** How long the pull or the push keeps working; a throw is over the tick it happens. */
+    private int gravityDurationTicks = 60;
+    /**
+     * Pull and push: hundredths of a block per tick added every tick, so 10 is a steady
+     * 0.10. Throw: tenths of a block per tick straight up, the way the geyser's launch is.
+     *
+     * <p>The default is pitched against what a player on plain ground puts in per tick -
+     * 0.098 walking, 0.127 sprinting - and sits between the two: a walker is held where
+     * they stand, a sprinter gains about a block every sixteen ticks. Anyone standing still
+     * is reeled in at walking pace.</p>
+     */
+    private int gravityStrength = 10;
+    /** How close to the boss counts as touching it, for the pull's bite. */
+    private int gravityTouchRadius = 2;
+    private int gravityDamage = 8;
+    private String gravityVfx = AreaVfxStyles.NONE;
+
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
 
@@ -393,6 +430,8 @@ public final class BossPhaseData {
     private final BossEffectSet tetherEffects = new BossEffectSet();
     /** Landed once, on whoever was still leashed when the time ran out. */
     private final BossEffectSet tetherFailEffects = new BossEffectSet();
+    /** Dosed every second to everyone inside the field, whichever way it is pushing them. */
+    private final BossEffectSet gravityEffects = new BossEffectSet();
 
     public CompoundTag writeToNBT() {
         CompoundTag tag = new CompoundTag();
@@ -587,6 +626,17 @@ public final class BossPhaseData {
         tag.putInt("TetherFailDamage", tetherFailDamage);
         tag.putString("TetherStyle", tetherStyle);
         tag.putInt("TetherWidthPercent", tetherWidthPercent);
+        tag.putBoolean("GravityEnabled", gravityEnabled);
+        tag.putString("GravityAnimation", gravityAnimation);
+        tag.putInt("GravityActionDelayTicks", gravityActionDelayTicks);
+        tag.putInt("GravityCooldownTicks", gravityCooldownTicks);
+        tag.putInt("GravityMode", gravityMode);
+        tag.putInt("GravityRadius", gravityRadius);
+        tag.putInt("GravityDurationTicks", gravityDurationTicks);
+        tag.putInt("GravityStrength", gravityStrength);
+        tag.putInt("GravityTouchRadius", gravityTouchRadius);
+        tag.putInt("GravityDamage", gravityDamage);
+        tag.putString("GravityVfx", gravityVfx);
         tag.putInt("CastRootMask", castRootMask);
         tag.putBoolean("InvulnerableEnabled", invulnerableEnabled);
         tag.putInt("InvulnerableEndMode", invulnerableEndMode);
@@ -606,6 +656,7 @@ public final class BossPhaseData {
         tag.put("BoulderRainEffects", boulderRainEffects.writeToNBT());
         tag.put("TetherEffects", tetherEffects.writeToNBT());
         tag.put("TetherFailEffects", tetherFailEffects.writeToNBT());
+        tag.put("GravityEffects", gravityEffects.writeToNBT());
         return tag;
     }
 
@@ -841,6 +892,18 @@ public final class BossPhaseData {
         tetherStyle = HookCordStyles.normalize(tag.getString("TetherStyle"));
         tetherWidthPercent = value(tag, "TetherWidthPercent", 100, 25, 400);
 
+        gravityEnabled = tag.getBoolean("GravityEnabled");
+        gravityAnimation = clean(tag.getString("GravityAnimation"));
+        gravityActionDelayTicks = value(tag, "GravityActionDelayTicks", 20, 0, 1200);
+        gravityCooldownTicks = value(tag, "GravityCooldownTicks", 300, 1, 12000);
+        gravityMode = value(tag, "GravityMode", GRAVITY_MODE_PULL, GRAVITY_MODE_PULL, GRAVITY_MODE_LIFT);
+        gravityRadius = value(tag, "GravityRadius", 16, 3, 48);
+        gravityDurationTicks = value(tag, "GravityDurationTicks", 60, 5, 400);
+        gravityStrength = value(tag, "GravityStrength", 10, 1, 20);
+        gravityTouchRadius = value(tag, "GravityTouchRadius", 2, 1, 6);
+        gravityDamage = value(tag, "GravityDamage", 8, 0, 1000);
+        gravityVfx = AreaVfxStyles.normalize(tag.getString("GravityVfx"));
+
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
@@ -855,9 +918,12 @@ public final class BossPhaseData {
         if (!tag.contains("BoulderRainEnabled")) {
             castRootMask |= 1 << BossAbilityKind.BOULDER_RAIN;
         }
-        // And for the tether, the newest bit of all.
+        // And for the tether, and then the gravity field, each newer than the last.
         if (!tag.contains("TetherEnabled")) {
             castRootMask |= 1 << BossAbilityKind.TETHER;
+        }
+        if (!tag.contains("GravityEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.GRAVITY;
         }
 
         invulnerableEnabled = tag.getBoolean("InvulnerableEnabled");
@@ -881,6 +947,7 @@ public final class BossPhaseData {
         boulderRainEffects.readFromNBT(tag, "BoulderRainEffects");
         tetherEffects.readFromNBT(tag, "TetherEffects");
         tetherFailEffects.readFromNBT(tag, "TetherFailEffects");
+        gravityEffects.readFromNBT(tag, "GravityEffects");
     }
 
     private static int value(CompoundTag tag, String key, int fallback, int min, int max) {
@@ -1413,6 +1480,36 @@ public final class BossPhaseData {
     public int getTetherWidthPercent() { return tetherWidthPercent; }
     public void setTetherWidthPercent(int value) { tetherWidthPercent = Mth.clamp(value, 25, 400); }
 
+    public boolean isGravityEnabled() { return gravityEnabled; }
+    public void setGravityEnabled(boolean value) { gravityEnabled = value; }
+    public String getGravityAnimation() { return gravityAnimation; }
+    public void setGravityAnimation(String value) { gravityAnimation = clean(value); }
+    public int getGravityActionDelayTicks() { return gravityActionDelayTicks; }
+    public void setGravityActionDelayTicks(int value) { gravityActionDelayTicks = Mth.clamp(value, 0, 1200); }
+    public int getGravityCooldownTicks() { return gravityCooldownTicks; }
+    public void setGravityCooldownTicks(int value) { gravityCooldownTicks = Mth.clamp(value, 1, 12000); }
+    /** Which way the field works: in, out, or up. */
+    public int getGravityMode() { return gravityMode; }
+    public void setGravityMode(int value) {
+        gravityMode = Mth.clamp(value, GRAVITY_MODE_PULL, GRAVITY_MODE_LIFT);
+    }
+    public int getGravityRadius() { return gravityRadius; }
+    public void setGravityRadius(int value) { gravityRadius = Mth.clamp(value, 3, 48); }
+    /** How long a pull or a push runs for; a throw ignores it. */
+    public int getGravityDurationTicks() { return gravityDurationTicks; }
+    public void setGravityDurationTicks(int value) { gravityDurationTicks = Mth.clamp(value, 5, 400); }
+    /** Hundredths of a block per tick for the pull and the push, tenths for the throw. */
+    public int getGravityStrength() { return gravityStrength; }
+    public void setGravityStrength(int value) { gravityStrength = Mth.clamp(value, 1, 20); }
+    /** How close to the boss the pull has to get somebody before it starts to hurt them. */
+    public int getGravityTouchRadius() { return gravityTouchRadius; }
+    public void setGravityTouchRadius(int value) { gravityTouchRadius = Mth.clamp(value, 1, 6); }
+    /** What the pull's bite and the throw's landing hit for; the push never hurts. */
+    public int getGravityDamage() { return gravityDamage; }
+    public void setGravityDamage(int value) { gravityDamage = Mth.clamp(value, 0, 1000); }
+    public String getGravityVfx() { return gravityVfx; }
+    public void setGravityVfx(String value) { gravityVfx = AreaVfxStyles.normalize(value); }
+
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
         return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
@@ -1474,6 +1571,7 @@ public final class BossPhaseData {
     public BossEffectSet getBoulderRainEffects() { return boulderRainEffects; }
     public BossEffectSet getTetherEffects() { return tetherEffects; }
     public BossEffectSet getTetherFailEffects() { return tetherFailEffects; }
+    public BossEffectSet getGravityEffects() { return gravityEffects; }
 
     private static String clean(String value) {
         return value == null ? "" : value.trim();

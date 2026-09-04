@@ -122,6 +122,10 @@ public class BossDataRoundTripGameTest {
         phase.setTetherAnchor(BossPhaseData.TETHER_ANCHOR_PAIR);
         phase.setTetherTargetCount(3);
         phase.setTetherPull(5);
+        phase.setGravityEnabled(true);
+        phase.setGravityMode(BossPhaseData.GRAVITY_MODE_LIFT);
+        phase.setGravityStrength(15);
+        phase.setCastRooted(BossAbilityKind.GRAVITY, false);
         phase.setMinionSpawnMode(BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM);
         phase.getMinionSpawnPoints().add();
         phase.getMinionSpawnPoints().add();

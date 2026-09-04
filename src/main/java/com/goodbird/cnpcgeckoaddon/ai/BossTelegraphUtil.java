@@ -37,7 +37,8 @@ public final class BossTelegraphUtil {
             0x3355FF, // geyser - deep blue, the column coming up out of the floor
             0x9999A6, // boulder - stone grey, the colour of the thing about to arrive
             0xC2703D, // boulder rain - dust brown, the same stone seen from underneath
-            0x2EE6B8  // tether - teal, a leash of light that has to be run through
+            0x2EE6B8, // tether - teal, a leash of light that has to be run through
+            0xE040FB  // gravity - magenta, the one hue between the summon and the capture
     };
 
     /** How much of an ability's colour its faded half keeps. */

@@ -145,7 +145,8 @@ public final class TeleportPathData {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
             BossAbilityKind.FLUID, BossAbilityKind.HOOK, BossAbilityKind.CAPTURE,
             BossAbilityKind.SUMMON, BossAbilityKind.LEAP, BossAbilityKind.LINE,
-            BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER
+            BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER,
+            BossAbilityKind.GRAVITY
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -162,6 +163,10 @@ public final class TeleportPathData {
      */
     private static final int TELEGRAPH_ABILITIES_BEFORE_TETHER =
             ((1 << (BossAbilityKind.BOULDER + 1)) - 1) & ~(1 << BossAbilityKind.BLAST);
+    /** And before the gravity field: everything through the tether, minus the same two. */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_GRAVITY =
+            ((1 << (BossAbilityKind.TETHER + 1)) - 1)
+                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
 
     private static int telegraphMask() {
         int mask = 0;
@@ -1116,6 +1121,7 @@ public final class TeleportPathData {
         return saved == TELEGRAPH_ABILITIES_BEFORE_LINE || saved == TELEGRAPH_ABILITIES_BEFORE_GEYSER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_BOULDER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_TETHER
+                || saved == TELEGRAPH_ABILITIES_BEFORE_GRAVITY
                 ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 
