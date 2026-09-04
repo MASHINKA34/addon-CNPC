@@ -4113,7 +4113,8 @@ public final class TeleportPathController {
     private void performBeam(ServerLevel level, BossPhaseData phase, long gameTime) {
         // The length, the speed and the timer are deliberately left alone by the enrage:
         // they are the room a player gets to walk, not a number the fight may turn down.
-        BossBeamScheduler.start(level, npc, phase, beamStartYaw, gameTime);
+        BossBeamScheduler.start(level, npc, phase, beamStartYaw, rageUp(phase.getBeamDamage()),
+                rageUp(phase.getBeamKnockback()), gameTime);
     }
 
     /** Read-only status used by the boss diagnostic command. */
