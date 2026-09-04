@@ -1289,6 +1289,7 @@ public final class TeleportPathController {
         clearHookPulls();
         BossGeyserScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
+        BossGravityScheduler.clearBoss(npc);
         // Before the return below: clearing the leap re-pins the boss where it stands, and
         // the return then moves that pin home rather than the other way round.
         clearLeap();
@@ -2281,6 +2282,7 @@ public final class TeleportPathController {
         BossTetherManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
+        BossGravityScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             removeTotemsOnBossDeath(level, settings());
         }
@@ -2308,6 +2310,7 @@ public final class TeleportPathController {
         BossTetherManager.releaseByBoss(npc);
         BossGeyserScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
+        BossGravityScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
                 dropTotemLink(totem, BossTotemUtil.slotId(totem));
@@ -4720,6 +4723,26 @@ public final class TeleportPathController {
     }
 
     /**
+     * Everyone a gravity field around {@code centre} may move, judged by this boss.
+     *
+     * <p>Asked for by {@link BossGravityScheduler} on every tick the field is open, for the
+     * reason {@link #geyserVictims} exists. Unlike an area slam it also keeps to the species
+     * the boss is set to fight and passes over anyone hidden by their own totems: a field
+     * that throws the cattle about, or drags a warded boss out of its formation, reads as a
+     * bug rather than as a mechanic.</p>
+     */
+    List<LivingEntity> gravityVictims(ServerLevel level, Vec3 centre, double radius) {
+        TeleportPathData data = settings();
+        double radiusSquared = radius * radius;
+        AABB box = new AABB(centre, centre).inflate(radius + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= radiusSquared
+                        && matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target)
+                        && isAbilityTarget(target, BossAbilityKind.GRAVITY));
+    }
+
+    /**
      * Whether a boulder this boss launched may run this one over.
      *
      * <p>Asked by {@link com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder} every tick of
@@ -5097,6 +5120,7 @@ public final class TeleportPathController {
         clearHookPulls();
         BossGeyserScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
+        BossGravityScheduler.clearBoss(npc);
         clearLeap();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);

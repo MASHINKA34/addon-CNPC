@@ -295,6 +295,21 @@ public final class BossDeathEvents {
         }
     }
 
+    /**
+     * Lands the gravity throw's own hit on whoever it threw, the moment they come down.
+     *
+     * <p>From the fall event rather than from a tick, because this fires before vanilla
+     * works out the fall's own damage - and landing the extra hit first is what lets the two
+     * stack instead of the second being swallowed by the first's invulnerability frames.
+     * Whoever was not thrown is not in the scheduler's list and is left to fall as usual.</p>
+     */
+    @SubscribeEvent
+    public static void onGravityLanding(final LivingFallEvent event) {
+        if (!event.getEntity().level().isClientSide) {
+            BossGravityScheduler.onFall(event.getEntity(), event.getDistance(), event.getDamageMultiplier());
+        }
+    }
+
     @SubscribeEvent
     public static void onLivingDamage(final LivingDamageEvent.Post event) {
         if (event.getEntity() instanceof EntityNPCInterface npc
@@ -440,6 +455,10 @@ public final class BossDeathEvents {
         if (BossCloneRespawnGuard.hasPending()) {
             BossCloneRespawnGuard.tick(level);
         }
+        // Before the capture, so a held victim the field also reaches is pinned back last.
+        if (BossGravityScheduler.hasPending()) {
+            BossGravityScheduler.tick(level);
+        }
         BossCaptureManager.tick(level);
         BossTetherManager.tick(level);
     }
@@ -452,6 +471,7 @@ public final class BossDeathEvents {
             BossAreaVfxScheduler.clear(level);
             BossGeyserScheduler.clear(level);
             BossBoulderRainScheduler.clear(level);
+            BossGravityScheduler.clear(level);
             BossCloneRespawnGuard.clear(level);
             BossCaptureManager.clearLevel(level);
             BossTetherManager.clearLevel(level);
