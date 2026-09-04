@@ -17,8 +17,11 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 public final class SubGuiBossTelegraphAbilities extends GuiBasic {
     private static final int FIRST_ABILITY_BUTTON = 100;
 
-    /** Two columns, the way the npc immunity screen lists the same abilities. */
-    private static final int ROWS_PER_COLUMN = 6;
+    /**
+     * Two columns, the way the npc immunity screen lists the same abilities. Seven rows
+     * since the gravity field made it thirteen.
+     */
+    private static final int ROWS_PER_COLUMN = 7;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
 
@@ -28,7 +31,7 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
         this.data = data;
         setBackground("menubg.png");
         imageWidth = 256;
-        imageHeight = 186;
+        imageHeight = 208;
         closeOnEsc = true;
     }
 
@@ -43,7 +46,7 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
             addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
                     abilityLabel(i)));
         }
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 160, 60, 20,
+        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 182, 60, 20,
                 "gui.done", button -> close()));
     }
 
