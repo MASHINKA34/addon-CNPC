@@ -12,6 +12,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Pins the save round trip of the boss configuration: write, read, write again has to
@@ -20,6 +21,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
  * here is how their settings would silently rot on every edit-and-save.
  */
 @GameTestHolder(CNPCGeckoAddon.MODID)
+@PrefixGameTestTemplate(false)
 public class BossDataRoundTripGameTest {
 
     @GameTest(template = "fluid_platform", timeoutTicks = 100)

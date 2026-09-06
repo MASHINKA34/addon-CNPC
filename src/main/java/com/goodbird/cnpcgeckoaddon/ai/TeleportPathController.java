@@ -13,6 +13,7 @@ import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
 import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
+import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
@@ -804,8 +805,6 @@ public final class TeleportPathController {
         encounterResetDone = false;
         lastPathIndex = -1;
         previousPathSize = 0;
-        // A boss that was left wounded starts the next fight straight in a later phase, so
-        // the immune window has to be armed here too and not only on a phase change.
         initializeTotems(level, gameTime, data);
         // A cocoon that outlived its hold - the server went down with somebody inside - is
         // a shell with nobody in it, and goes the way a totem the boss no longer knows does.
@@ -833,6 +832,7 @@ public final class TeleportPathController {
         armHazard(level, gameTime, data.getPhase(currentPhase));
         // The barrier for the same reason: a shield with nobody to break it is not a check.
         armBarrier(level, gameTime, data.getPhase(currentPhase));
+        armPhaseInvulnerability(gameTime, data.getPhase(currentPhase));
         lockedPlayerCount = countEligibleHealthScalingPlayers(level, data, false);
         scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
         lastHealthScalingUpdateMode = data.getHealthScalingUpdateMode();
@@ -1412,6 +1412,12 @@ public final class TeleportPathController {
                 && currentPhase + 1 == data.getTotemActivationPhase()) {
             activateTotemWave(gameTime, data);
         }
+        if (encounterRunning || !data.isCombatOnly()) {
+            armPhaseInvulnerability(gameTime, phase);
+        }
+    }
+
+    private void armPhaseInvulnerability(long gameTime, BossPhaseData phase) {
         if (!phase.isInvulnerableEnabled() || invulnerablePhaseIndex == currentPhase) {
             return;
         }
@@ -3162,7 +3168,7 @@ public final class TeleportPathController {
         if (!phase.isRangedAttackEnabled() || gameTime < nextRangedAttackAt) return false;
         LivingEntity target = selectAbilityTarget(level, phase.getRangedAttackTargetMode(),
                 phase.getRangedAttackMaxRange(), candidate -> isValidRangedTarget(candidate, phase));
-        if (target == null || npc.inventory.getProjectile() == null) {
+        if (target == null || !ProjectileEntityUtil.canShoot(npc)) {
             nextRangedAttackAt = gameTime + 10;
             return false;
         }
@@ -5470,7 +5476,7 @@ public final class TeleportPathController {
             // Nobody left inside the beams' reach is a sweep not worth switching on.
             case BEAM -> hasBeamTargets(level, phase);
             case RANGED_ATTACK -> isValidRangedTarget(target, phase)
-                    && npc.inventory.getProjectile() != null;
+                    && ProjectileEntityUtil.canShoot(npc);
             case MELEE_ATTACK -> isValidMeleeTarget(target, phase);
             case FLUID_SPIT -> isValidFluidSpitTarget(target, phase);
             case HOOK -> hasWoundUpVictim(level, candidate -> isValidHookTarget(candidate, phase));
@@ -6928,7 +6934,7 @@ public final class TeleportPathController {
 
     private void performRangedAttack(ServerLevel level, BossPhaseData phase) {
         LivingEntity target = pendingTarget(level);
-        if (!isValidRangedTarget(target, phase) || npc.inventory.getProjectile() == null) return;
+        if (!isValidRangedTarget(target, phase) || !ProjectileEntityUtil.canShoot(npc)) return;
         npc.getLookControl().setLookAt(target, 30.0F, 30.0F);
         DataRanged ranged = npc.stats.ranged;
         int previousDamage = ranged.getStrength();

@@ -5,9 +5,12 @@ import com.goodbird.cnpcgeckoaddon.network.PacketSyncTileAnimation;
 import com.goodbird.cnpcgeckoaddon.tile.TileEntityCustomModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
+import net.neoforged.neoforge.network.PacketDistributor;
 import noppes.npcs.api.entity.IPlayer;
 import noppes.npcs.api.wrapper.BlockScriptedWrapper;
 import noppes.npcs.api.wrapper.BlockWrapper;
@@ -63,11 +66,19 @@ public abstract class MixinBlockScriptedWrapper extends BlockWrapper {
 
     @Unique
     public void syncAnimForPlayer(RawAnimation builder, IPlayer<ServerPlayer> player) {
-        NetworkWrapper.send(player.getMCEntity(), new PacketSyncTileAnimation(getMCTileEntity().getBlockPos(), builder));
+        if (getMCTileEntity().getLevel() instanceof ServerLevel level
+                && player.getMCEntity().serverLevel() == level) {
+            NetworkWrapper.send(player.getMCEntity(), new PacketSyncTileAnimation(
+                    level.dimension().location(), getMCTileEntity().getBlockPos(), builder));
+        }
     }
 
     @Unique
     public void syncAnimForAll(RawAnimation builder) {
-        NetworkWrapper.sendAll(new PacketSyncTileAnimation(getMCTileEntity().getBlockPos(), builder));
+        if (getMCTileEntity().getLevel() instanceof ServerLevel level) {
+            BlockPos pos = getMCTileEntity().getBlockPos();
+            PacketDistributor.sendToPlayersTrackingChunk(level, new ChunkPos(pos),
+                    new PacketSyncTileAnimation(level.dimension().location(), pos, builder));
+        }
     }
 }

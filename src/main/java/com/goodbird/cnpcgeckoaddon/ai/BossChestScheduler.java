@@ -82,7 +82,6 @@ public final class BossChestScheduler {
     /**
      * @param deathPos where the boss actually fell - kept apart from {@code origin} because
      *                 loot that cannot be put in a chest is dropped where it was earned
-     * @param exact    place on {@code origin} and nowhere else, replacing whatever stands there
      */
     private record Pending(int bossId, ResourceKey<Level> dimension, BlockPos deathPos, BlockPos origin,
                            boolean exact, Direction facing, long spawnAt, String blockId, String styleId,
@@ -202,11 +201,9 @@ public final class BossChestScheduler {
     }
 
     private static void place(ServerLevel level, Pending pending) {
-        // Fixed coordinates are taken at their word: whoever typed them in wants the chest
-        // there and not two blocks to the side, and the store puts the covered block back
-        // when the time is up anyway.
         BlockPos pos = pending.exact() ? pending.origin() : findPlacement(level, pending.origin());
-        if (pos == null || !level.isInWorldBounds(pos) || !level.getWorldBorder().isWithinBounds(pos)) {
+        if (pos == null || !level.isInWorldBounds(pos) || !level.getWorldBorder().isWithinBounds(pos)
+                || !level.isLoaded(pos)) {
             LOGGER.warn("No room for a boss loot chest at {}: nothing there can hold a block",
                     pending.exact() ? pending.origin() : pending.deathPos());
             spill(level, pending);
@@ -214,6 +211,11 @@ public final class BossChestScheduler {
         }
 
         BlockState previous = level.getBlockState(pos);
+        if (previous.hasBlockEntity() || level.getBlockEntity(pos) != null) {
+            LOGGER.warn("Boss loot chest at {} would replace a block entity, dropping the loot instead", pos);
+            spill(level, pending);
+            return;
+        }
         BlockState placed = orient(level, chestState(pending), pos, pending.facing());
         if (!level.setBlock(pos, placed, Block.UPDATE_ALL)) {
             spill(level, pending);
@@ -256,11 +258,13 @@ public final class BossChestScheduler {
      * the fight, which is worse than a pile of items in an awkward spot.</p>
      */
     private static void spill(ServerLevel level, Pending pending) {
-        if (pending.items().isEmpty()) {
+        List<ItemStack> items = new ArrayList<>(pending.items());
+        items.addAll(rollLootTable(level, pending.lootTableId(), pending.deathPos()));
+        if (items.isEmpty()) {
             return;
         }
-        LOGGER.warn("Dropping {} stacks of boss loot at {} instead", pending.items().size(), pending.deathPos());
-        for (ItemStack stack : pending.items()) {
+        LOGGER.warn("Dropping {} stacks of boss loot at {} instead", items.size(), pending.deathPos());
+        for (ItemStack stack : items) {
             Block.popResource(level, pending.deathPos(), stack);
         }
     }

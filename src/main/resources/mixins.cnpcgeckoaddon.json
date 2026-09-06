@@ -5,6 +5,7 @@
   "mixins": [
     "BlockEntityAccessor",
     "MixinBlockScriptedWrapper",
+    "MixinCustomNpcsGameTest",
     "MixinDataAI",
     "MixinDataDisplay",
     "MixinDataRanged",
@@ -17,6 +18,8 @@
     "MixinEntityNPCInterfaceSoundReaction",
     "MixinEntityNPCInterfaceTeleportPath",
     "MixinFlowingFluid",
+    "MixinFluidState",
+    "MixinFluidInteractionRegistry",
     "MixinModelData",
     "MixinNpcWrapper",
     "MixinServerGamePacketListenerImpl",
@@ -24,6 +27,7 @@
     "TileScriptedMixin"
   ],
   "client": [
+    "EntityRenderDispatcherAccessor",
     "MixinBlockScriptedRenderer",
     "MixinEntityUtil",
     "MixinGuiCreationEntities",

@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.KeepDistanceGoal;
+import com.goodbird.cnpcgeckoaddon.ai.NpcProjectileDamage;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
@@ -106,6 +107,7 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
             }
             try {
                 projectile.setOwner(npc);
+                NpcProjectileDamage.configure(projectile, ranged.getStrength());
                 projectile.setPos(x, y, z);
                 if (type != EntityType.FIREBALL) {
                     projectile.shoot(dx, dy, dz, (float) velocity, inaccuracy);

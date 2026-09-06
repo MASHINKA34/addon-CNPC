@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.RegisterEvent;
+import noppes.npcs.CustomBlocks;
 
 @EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD, modid = CNPCGeckoAddon.MODID)
 public class TileEntityRegistry {
@@ -23,7 +24,8 @@ public class TileEntityRegistry {
     @SubscribeEvent
     public static void registerBlocks(RegisterEvent event) {
         if (event.getRegistry() == BuiltInRegistries.BLOCK_ENTITY_TYPE) {
-            tileEntityCustomModel = createTile("custommodeltileentity",TileEntityCustomModel::new);
+            tileEntityCustomModel = createTile("custommodeltileentity", TileEntityCustomModel::new,
+                    CustomBlocks.scripted, CustomBlocks.scripted_door);
             Registry.register((Registry<? super BlockEntityType<?>>) event.getRegistry(), CNPCGeckoAddon.MODID+":custommodeltileentity", tileEntityCustomModel);
             // Blocks are handed out before block entities are, so the block this one is
             // bound to already exists by the time we get here.

@@ -20,6 +20,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Covers the part of the loot chest that touches the world, because getting it wrong means
@@ -27,15 +28,16 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
  * the terrain back when its time is up.
  */
 @GameTestHolder(CNPCGeckoAddon.MODID)
+@PrefixGameTestTemplate(false)
 public class BossChestGameTest {
 
-    private static final int LIFETIME_TICKS = 40;
+    private static final int LIFETIME_TICKS = TeleportPathData.MIN_CHEST_LIFETIME_TICKS;
     /** Enough for the level tick to have run the scheduler. */
     private static final int SPAWN_DELAY = 5;
 
     @GameTest(template = "fluid_platform", timeoutTicks = 400)
     public static void chestIsFilledAndThenTakenAway(GameTestHelper helper) {
-        BlockPos relative = new BlockPos(2, 1, 2);
+        BlockPos relative = new BlockPos(2, 2, 2);
         BlockState before = helper.getLevel().getBlockState(helper.absolutePos(relative));
 
         TeleportPathData data = bossWithChest();

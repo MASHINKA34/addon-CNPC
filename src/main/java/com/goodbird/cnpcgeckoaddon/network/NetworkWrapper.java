@@ -27,8 +27,8 @@ public class NetworkWrapper {
     @SubscribeEvent
     public static void register(final RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar("1");
-        registerPacket(registrar, PacketSyncAnimation.TYPE,PacketSyncAnimation::encode,PacketSyncAnimation::decode,PacketSyncAnimation::handle);
-        registerPacket(registrar, PacketSyncTileAnimation.TYPE,PacketSyncTileAnimation::encode,PacketSyncTileAnimation::decode,PacketSyncTileAnimation::handle);
+        registerPacket(registrar.versioned("2"), PacketSyncAnimation.TYPE,PacketSyncAnimation::encode,PacketSyncAnimation::decode,PacketSyncAnimation::handle);
+        registerPacket(registrar.versioned("2"), PacketSyncTileAnimation.TYPE,PacketSyncTileAnimation::encode,PacketSyncTileAnimation::decode,PacketSyncTileAnimation::handle);
         registerPacket(registrar, PacketSyncBossBarStyle.TYPE, PacketSyncBossBarStyle::encode,
                 PacketSyncBossBarStyle::decode, PacketSyncBossBarStyle::handle);
         registerPacket(registrar, PacketSyncBossTimer.TYPE, PacketSyncBossTimer::encode,

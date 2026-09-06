@@ -34,7 +34,8 @@ public class TileEntityCustomModel extends BlockEntity implements GeoAnimatable,
 
     private PlayState predicate(AnimationState<TileEntityCustomModel> event) {
         if (manualAnim != null) {
-            if (event.getController().getAnimationState() == AnimationController.State.STOPPED) {
+            if (event.getController().getCurrentRawAnimation() == manualAnim
+                    && event.getController().getAnimationState() == AnimationController.State.STOPPED) {
                 manualAnim = null;
             } else {
                 if (event.getController().getCurrentRawAnimation() != manualAnim) {

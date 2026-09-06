@@ -21,6 +21,7 @@ final class RawAnimationSerializer {
     private static final String ANIMATIONS_KEY = "anims";
     private static final String NAME_KEY = "name";
     private static final String LOOP_KEY = "loop";
+    private static final String TICKS_KEY = "ticks";
 
     private RawAnimationSerializer() {
     }
@@ -32,6 +33,7 @@ final class RawAnimationSerializer {
             for (RawAnimation.Stage stage : animation.getAnimationStages()) {
                 CompoundTag animTag = new CompoundTag();
                 animTag.putString(NAME_KEY, stage.animationName());
+                animTag.putInt(TICKS_KEY, stage.additionalTicks());
                 String loopId = loopTypeId(stage.loopType());
                 if (loopId != null) {
                     animTag.putString(LOOP_KEY, loopId);
@@ -57,10 +59,13 @@ final class RawAnimationSerializer {
                 continue;
             }
             // Absent loop key => keep the loop type declared by the animation file.
-            Animation.LoopType loopType = animTag.contains(LOOP_KEY, Tag.TAG_STRING)
-                    ? Animation.LoopType.fromString(animTag.getString(LOOP_KEY))
-                    : null;
-            animation.then(name, loopType);
+            Animation.LoopType loopType = null;
+            if (animTag.contains(LOOP_KEY, Tag.TAG_STRING)) {
+                String loopId = animTag.getString(LOOP_KEY);
+                loopType = "default".equals(loopId) ? Animation.LoopType.DEFAULT
+                        : Animation.LoopType.fromString(loopId);
+            }
+            animation.getAnimationStages().add(new RawAnimation.Stage(name, loopType, animTag.getInt(TICKS_KEY)));
         }
         return animation;
     }
@@ -68,6 +73,9 @@ final class RawAnimationSerializer {
     private static String loopTypeId(Animation.LoopType type) {
         if (type == null) {
             return null;
+        }
+        if (type == Animation.LoopType.DEFAULT) {
+            return "default";
         }
         for (Map.Entry<String, Animation.LoopType> entry : Animation.LoopType.LOOP_TYPES.entrySet()) {
             if (entry.getValue() == type) {

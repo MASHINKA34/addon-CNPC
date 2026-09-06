@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import software.bernie.geckolib.animation.RawAnimation;
 
 /**
@@ -21,7 +22,7 @@ public final class ManualAnimationClientBridge {
 
     @FunctionalInterface
     public interface TileHandler {
-        void accept(BlockPos pos, RawAnimation animation);
+        void accept(ResourceLocation dimension, BlockPos pos, RawAnimation animation);
     }
 
     private static EntityHandler entityHandler;
@@ -41,9 +42,9 @@ public final class ManualAnimationClientBridge {
         }
     }
 
-    public static void acceptTile(BlockPos pos, RawAnimation animation) {
+    public static void acceptTile(ResourceLocation dimension, BlockPos pos, RawAnimation animation) {
         if (tileHandler != null) {
-            tileHandler.accept(pos, animation);
+            tileHandler.accept(dimension, pos, animation);
         }
     }
 }

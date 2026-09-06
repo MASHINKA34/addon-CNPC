@@ -14,6 +14,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
 
@@ -22,6 +23,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Keeps track of the loot chests bosses leave behind and takes them away again when their
@@ -40,6 +42,8 @@ public class BossChestStore extends SavedData {
     private static final String STATE_KEY = "State";
     private static final String PLACED_KEY = "Placed";
     private static final String EXPIRES_KEY = "Expires";
+    private static final String ID_KEY = "Id";
+    private static final String OWNERSHIP_KEY = "cnpcgeckoaddon:boss_chest_id";
 
     /**
      * Which dimensions currently hold a chest. Lets the per-level tick skip its lookup in
@@ -50,7 +54,7 @@ public class BossChestStore extends SavedData {
     private final List<Entry> entries = new ArrayList<>();
     private ResourceKey<Level> dimension;
 
-    private record Entry(BlockPos pos, BlockState original, BlockState placed, long expiresAt) {
+    private record Entry(BlockPos pos, BlockState original, BlockState placed, long expiresAt, UUID id) {
     }
 
     private static final SavedData.Factory<BossChestStore> FACTORY =
@@ -69,7 +73,7 @@ public class BossChestStore extends SavedData {
     private BossChestStore() {
     }
 
-    private static BossChestStore load(CompoundTag tag, HolderLookup.Provider registries) {
+    public static BossChestStore load(CompoundTag tag, HolderLookup.Provider registries) {
         BossChestStore store = new BossChestStore();
         // Block states are stored by name rather than by their numeric id: these entries
         // are meant to outlive a restart, and the numbering shifts the moment the modpack
@@ -85,7 +89,7 @@ public class BossChestStore extends SavedData {
             store.entries.add(new Entry(pos,
                     NbtUtils.readBlockState(blocks, entry.getCompound(STATE_KEY)),
                     NbtUtils.readBlockState(blocks, entry.getCompound(PLACED_KEY)),
-                    entry.getLong(EXPIRES_KEY)));
+                    entry.getLong(EXPIRES_KEY), entry.hasUUID(ID_KEY) ? entry.getUUID(ID_KEY) : null));
         }
         return store;
     }
@@ -99,6 +103,9 @@ public class BossChestStore extends SavedData {
             saved.put(STATE_KEY, NbtUtils.writeBlockState(entry.original()));
             saved.put(PLACED_KEY, NbtUtils.writeBlockState(entry.placed()));
             saved.putLong(EXPIRES_KEY, entry.expiresAt());
+            if (entry.id() != null) {
+                saved.putUUID(ID_KEY, entry.id());
+            }
             list.add(saved);
         }
         tag.put(ENTRIES_KEY, list);
@@ -109,15 +116,24 @@ public class BossChestStore extends SavedData {
     public void register(ServerLevel level, BlockPos pos, BlockState original, BlockState placed,
                          int lifetimeTicks) {
         BlockPos immutable = pos.immutable();
+        BlockEntity blockEntity = level.getBlockEntity(immutable);
+        if (!(blockEntity instanceof Container)) {
+            return;
+        }
         Entry previous = findEntry(immutable);
         if (previous != null) {
             // A chest standing where another one already stood: keep the state the first one
             // covered up, or the position would be restored to a chest and stay one forever.
-            original = previous.original();
+            if (isOwned(level, previous)) {
+                original = previous.original();
+            }
             entries.remove(previous);
         }
+        UUID id = UUID.randomUUID();
+        blockEntity.getPersistentData().putUUID(OWNERSHIP_KEY, id);
+        blockEntity.setChanged();
         entries.add(new Entry(immutable, original, placed,
-                level.getGameTime() + Math.max(lifetimeTicks, 1)));
+                level.getGameTime() + Math.max(lifetimeTicks, 1), id));
         setDirty();
         markActive();
     }
@@ -168,7 +184,7 @@ public class BossChestStore extends SavedData {
         // whole response: putting the old state back would destroy what they built there.
         // An air placed state means the block came from a mod that is gone now, and matching
         // it against the air standing there would clear whatever moved in since.
-        if (entry.placed().isAir() || !current.is(entry.placed().getBlock())) {
+        if (entry.placed().isAir() || !current.is(entry.placed().getBlock()) || !isOwned(level, entry)) {
             return;
         }
         if (level.getBlockEntity(entry.pos()) instanceof Container container) {
@@ -177,6 +193,13 @@ public class BossChestStore extends SavedData {
             container.clearContent();
         }
         level.setBlock(entry.pos(), entry.original(), Block.UPDATE_ALL);
+    }
+
+    private static boolean isOwned(ServerLevel level, Entry entry) {
+        BlockEntity blockEntity = level.getBlockEntity(entry.pos());
+        return entry.id() != null && blockEntity != null
+                && blockEntity.getPersistentData().hasUUID(OWNERSHIP_KEY)
+                && entry.id().equals(blockEntity.getPersistentData().getUUID(OWNERSHIP_KEY));
     }
 
     /**

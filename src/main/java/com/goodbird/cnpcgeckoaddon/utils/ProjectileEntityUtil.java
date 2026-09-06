@@ -1,11 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.utils;
 
+import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.Level;
+import noppes.npcs.entity.EntityNPCInterface;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -49,6 +51,11 @@ public class ProjectileEntityUtil {
 
     public static boolean isUsable(EntityType<?> type) {
         return !Boolean.FALSE.equals(USABLE.get(type));
+    }
+
+    public static boolean canShoot(EntityNPCInterface npc) {
+        String id = ((IRangedData) npc.stats.ranged).getRangedExtraData().getProjectileEntity();
+        return npc.inventory.getProjectile() != null || isSelectable(id, npc.level());
     }
 
     public static void markUsable(EntityType<?> type) {

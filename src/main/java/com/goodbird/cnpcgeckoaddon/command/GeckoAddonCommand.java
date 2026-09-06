@@ -167,20 +167,10 @@ public class GeckoAddonCommand {
                         fixed++;
                     }
                 }
-                TeleportPathData teleport =
-                        ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData();
-                if (teleport.isEnabled() && npc.ais.getMovingPathSize() < 2) {
-                    problems.add(describe(npc, "teleport path needs at least 2 points"));
-                    if (fix) {
-                        teleport.setEnabled(false);
-                        npc.updateClient();
-                        fixed++;
-                    }
-                }
             }
         }
         if (problems.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No broken npc models, projectiles or teleport paths found"), false);
+            source.sendSuccess(() -> Component.literal("No broken npc models or projectiles found"), false);
             return 1;
         }
         for (String problem : problems) {

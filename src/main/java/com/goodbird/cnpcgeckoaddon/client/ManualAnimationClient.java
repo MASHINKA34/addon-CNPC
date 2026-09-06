@@ -6,6 +6,7 @@ import com.goodbird.cnpcgeckoaddon.tile.TileEntityCustomModel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import noppes.npcs.blocks.tiles.TileScripted;
@@ -43,9 +44,9 @@ public final class ManualAnimationClient {
         model.manualAnim = animation;
     }
 
-    private static void applyToTile(BlockPos pos, RawAnimation animation) {
+    private static void applyToTile(ResourceLocation dimension, BlockPos pos, RawAnimation animation) {
         ClientLevel level = Minecraft.getInstance().level;
-        if (level == null) {
+        if (level == null || !level.dimension().location().equals(dimension)) {
             return;
         }
         BlockEntity entity = level.getBlockEntity(pos);

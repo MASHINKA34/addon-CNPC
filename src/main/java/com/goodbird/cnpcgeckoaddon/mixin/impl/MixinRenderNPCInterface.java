@@ -16,6 +16,7 @@ import noppes.npcs.client.renderer.RenderNPCInterface;
 import noppes.npcs.entity.EntityCustomNpc;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -36,9 +37,13 @@ public abstract class MixinRenderNPCInterface <T extends EntityNPCInterface, M e
     @Inject(method = "render(Lnoppes/npcs/entity/EntityNPCInterface;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",at=@At(value = "INVOKE",target = "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;render(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"), cancellable = true)
     public void render(T npc, float entityYaw, float partialTicks, PoseStack matrixStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
         if(npc instanceof EntityCustomNpc && ((EntityCustomNpc)npc).modelData.getEntity(npc) instanceof EntityCustomModel){
-            cnpcgeckoaddon$renderGeoModel((EntityCustomNpc) npc, entityYaw,
-                    matrixStack, buffer, packedLight, partialTicks);
-            cnpcgeckoaddon$drawNameStandalone(npc, entityYaw, partialTicks, matrixStack, buffer, packedLight);
+            try {
+                cnpcgeckoaddon$renderGeoModel((EntityCustomNpc) npc, entityYaw,
+                        matrixStack, buffer, packedLight, partialTicks);
+                cnpcgeckoaddon$drawNameStandalone(npc, entityYaw, partialTicks, matrixStack, buffer, packedLight);
+            } finally {
+                RenderNPCInterface.currentNpc = null;
+            }
             ci.cancel();
         }
     }
@@ -70,30 +75,41 @@ public abstract class MixinRenderNPCInterface <T extends EntityNPCInterface, M e
             model.setXRot(npc.getXRot());
             model.xRotO = npc.xRotO;
         }
-        if (!npc.isInvisible())
-        {
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            EntityRenderDispatcher lvt_16_1_ = Minecraft.getInstance().getEntityRenderDispatcher();
-            lvt_16_1_.setRenderShadow(false);
-            RenderSystem.runAsFancy(() -> {
-                lvt_16_1_.render(entity, 0.0, 0.0, 0.0, entityYaw,
-                        partialTicks, matrixStack, buffer, packedLight);
-            });
+        boolean translucent = npc.isInvisible();
+        if (translucent && npc.isInvisibleTo(Minecraft.getInstance().player)) {
+            return;
         }
-        else if (!npc.isInvisibleTo(Minecraft.getInstance().player))
-        {
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 0.15F);
-            RenderSystem.depthMask(false);
-            RenderSystem.enableBlend();
-            RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            EntityRenderDispatcher lvt_16_1_ = Minecraft.getInstance().getEntityRenderDispatcher();
-            lvt_16_1_.setRenderShadow(false);
-            RenderSystem.runAsFancy(() -> {
-                lvt_16_1_.render(entity, 0.0, 0.0, 0.0, entityYaw,
-                        partialTicks, matrixStack, buffer, packedLight);
-            });
-            RenderSystem.disableBlend();
-            RenderSystem.depthMask(true);
+        EntityRenderDispatcher dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
+        boolean shadow = ((EntityRenderDispatcherAccessor) dispatcher).cnpcgeckoaddon$shouldRenderShadow();
+        float[] color = RenderSystem.getShaderColor().clone();
+        boolean depthMask = !translucent || GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        boolean blend = translucent && GL11.glIsEnabled(GL11.GL_BLEND);
+        int srcRgb = translucent ? GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB) : 0;
+        int dstRgb = translucent ? GL11.glGetInteger(GL14.GL_BLEND_DST_RGB) : 0;
+        int srcAlpha = translucent ? GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA) : 0;
+        int dstAlpha = translucent ? GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA) : 0;
+        try {
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, translucent ? 0.15F : 1.0F);
+            dispatcher.setRenderShadow(false);
+            if (translucent) {
+                RenderSystem.depthMask(false);
+                RenderSystem.enableBlend();
+                RenderSystem.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            }
+            RenderSystem.runAsFancy(() -> dispatcher.render(entity, 0.0, 0.0, 0.0, entityYaw,
+                    partialTicks, matrixStack, buffer, packedLight));
+        } finally {
+            dispatcher.setRenderShadow(shadow);
+            RenderSystem.setShaderColor(color[0], color[1], color[2], color[3]);
+            if (translucent) {
+                RenderSystem.depthMask(depthMask);
+                RenderSystem.blendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+                if (blend) {
+                    RenderSystem.enableBlend();
+                } else {
+                    RenderSystem.disableBlend();
+                }
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Pins the on-disk format of the temporary fluid entries.
@@ -25,6 +26,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
  * wrong block entirely.</p>
  */
 @GameTestHolder(CNPCGeckoAddon.MODID)
+@PrefixGameTestTemplate(false)
 public class TemporaryFluidStoreFormatGameTest {
 
     /** The literal keys of the saved format, spelled out so a rename cannot go unnoticed. */
@@ -39,16 +41,16 @@ public class TemporaryFluidStoreFormatGameTest {
     @GameTest(template = "fluid_platform", timeoutTicks = 100)
     public static void savedEntriesCarryStatesByNameAndById(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        BlockPos absolute = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos absolute = helper.absolutePos(new BlockPos(2, 2, 2));
         BlockState before = level.getBlockState(absolute);
 
-        TemporaryFluidStore store = TemporaryFluidStore.get(level);
+        TemporaryFluidStore store = TemporaryFluidStore.load(new CompoundTag(), level.registryAccess());
         helper.assertTrue(store.place(level, absolute, Blocks.LAVA.defaultBlockState(), 60),
                 "the temporary fluid should have been placed");
         CompoundTag saved = store.save(new CompoundTag(), level.registryAccess());
         // Put the world back right away, before lava has a chance to schedule anything.
         store.restoreAll(level);
-        helper.assertBlockPresent(before.getBlock(), new BlockPos(2, 1, 2));
+        helper.assertBlockPresent(before.getBlock(), new BlockPos(2, 2, 2));
 
         CompoundTag entry = findEntry(helper, saved, absolute);
         helper.assertTrue(entry.contains(STATE_TAG_KEY, Tag.TAG_COMPOUND)
@@ -66,7 +68,7 @@ public class TemporaryFluidStoreFormatGameTest {
     @GameTest(template = "fluid_platform", timeoutTicks = 100)
     public static void loadPrefersStatesByNameOverShiftedIds(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        BlockPos relative = new BlockPos(2, 1, 2);
+        BlockPos relative = new BlockPos(2, 2, 2);
         BlockPos absolute = helper.absolutePos(relative);
         helper.setBlock(relative, Blocks.LAVA);
 
