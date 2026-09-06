@@ -2,7 +2,6 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
@@ -15,7 +14,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
  * families deliberately sit their columns a pixel or three apart - each family overrides
  * its own numbers, so every screen keeps exactly the layout it had as a copy.</p>
  */
-public abstract class SubGuiFieldScreen extends GuiBasic {
+public abstract class SubGuiFieldScreen extends ScrollableSubGui {
 
     private static final int HINT_COLOR = 0xA0A0A0;
     private static final int HINT_LINE_HEIGHT = 9;

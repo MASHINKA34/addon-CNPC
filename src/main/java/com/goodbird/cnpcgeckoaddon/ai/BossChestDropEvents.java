@@ -70,7 +70,7 @@ public class BossChestDropEvents {
         // Emptying the list is what keeps the loot out of the grass: CustomNPCs spawns
         // exactly what is left in it.
         event.droppedItems = new IItemStack[0];
-        BossChestScheduler.takeDrops(npc.getId(), drops, level.getGameTime());
+        BossChestScheduler.takeDrops(level, npc.getUUID(), drops);
     }
 
     @SubscribeEvent
@@ -89,7 +89,7 @@ public class BossChestDropEvents {
             }
         }
         event.getDrops().clear();
-        BossChestScheduler.takeDrops(npc.getId(), drops, level.getGameTime());
+        BossChestScheduler.takeDrops(level, npc.getUUID(), drops);
     }
 
     private static boolean wantsDrops(EntityNPCInterface npc) {

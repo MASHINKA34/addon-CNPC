@@ -8,6 +8,8 @@ import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ContainerBlockUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.BossChestStore;
+import com.goodbird.cnpcgeckoaddon.world.PendingBossChestStore;
+import com.goodbird.cnpcgeckoaddon.world.PendingBossChestStore.Pending;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentMap;
@@ -42,6 +44,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Puts a chest full of loot where a boss died, a configurable number of ticks afterwards.
@@ -49,11 +52,6 @@ import java.util.Map;
  * <p>Built the same way as {@link BossExplosionScheduler} and for the same reason: CustomNPCs
  * may discard the entity the moment it dies, so the position and the settings are snapshotted
  * at the death and the chest is placed from the level tick instead of from the boss.</p>
- *
- * <p>Nothing here is persisted either. A pending chest lives for a second or two, and a
- * server killed inside that window should not drop loot on an empty field on the next start.
- * The chest that did get placed is another matter - {@code BossChestStore} owns it from
- * there on.</p>
  *
  * <p>Placing a chest writes to the world, spills leftovers on the floor and can end up
  * rolling a loot table, so it happens outside the walk over the queue like every other
@@ -76,29 +74,18 @@ public final class BossChestScheduler {
     private static final double NO_SUPPORT_PENALTY = 1000.0D;
     /** How long drops wait for a chest to claim them before they are thrown away. */
     private static final int STAGED_DROPS_TIMEOUT = 100;
-    /** How many chests may be placed in a single level tick; the rest wait for the next one. */
-    private static final int MAX_PER_TICK = 16;
-
-    /**
-     * @param deathPos where the boss actually fell - kept apart from {@code origin} because
-     *                 loot that cannot be put in a chest is dropped where it was earned
-     */
-    private record Pending(int bossId, ResourceKey<Level> dimension, BlockPos deathPos, BlockPos origin,
-                           boolean exact, Direction facing, long spawnAt, String blockId, String styleId,
-                           String lootTableId, Component name, int lifetimeTicks, List<ItemStack> items) {
+    private record DropOwner(ResourceKey<Level> dimension, UUID bossId) {
     }
 
     private record StagedDrops(long stagedAt, List<ItemStack> items) {
     }
-
-    private static final TickQueue<Pending> PENDING = new TickQueue<>("boss loot chests", MAX_PER_TICK);
 
     /**
      * Drops handed over before the chest that wants them was scheduled. CustomNPCs empties
      * the npc's inventory onto the ground from inside its own death event, which runs before
      * the death event this addon listens to, so the items always turn up first.
      */
-    private static final Map<Integer, StagedDrops> STAGED_DROPS = new HashMap<>();
+    private static final Map<DropOwner, StagedDrops> STAGED_DROPS = new HashMap<>();
 
     private static String reportedBrokenBlock = "";
     private static String reportedBrokenLootTable = "";
@@ -117,21 +104,21 @@ public final class BossChestScheduler {
 
         Component name = data.getChestName().isEmpty()
                 ? boss.getDisplayName() : Component.literal(data.getChestName());
-        Pending pending = new Pending(boss.getId(), level.dimension(), boss.blockPosition(),
+        Pending pending = new Pending(boss.getUUID(), boss.blockPosition(),
                 resolveOrigin(boss, data, arenaHome),
                 data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_FIXED,
                 chestFacing(boss, killer), level.getGameTime() + delay, data.getChestBlock(),
                 data.getChestStyle(), data.getChestLootTable(), name, data.getChestLifetimeTicks(),
                 new ArrayList<>());
 
-        StagedDrops staged = STAGED_DROPS.remove(boss.getId());
+        StagedDrops staged = STAGED_DROPS.remove(new DropOwner(level.dimension(), boss.getUUID()));
         if (staged != null) {
             pending.items().addAll(staged.items());
         }
         // Rolled here rather than at spawn time, so editing the boss while its corpse is
         // still warm cannot change what it just dropped.
         pending.items().addAll(data.getChestLoot().rollAll(level.getRandom()));
-        PENDING.add(pending);
+        PendingBossChestStore.get(level).add(pending);
     }
 
     /**
@@ -162,22 +149,20 @@ public final class BossChestScheduler {
      * Hands the drops of a dead boss to the chest it is about to leave behind, whether that
      * chest has been scheduled yet or not.
      */
-    public static void takeDrops(int bossId, List<ItemStack> drops, long gameTime) {
+    public static void takeDrops(ServerLevel level, UUID bossId, List<ItemStack> drops) {
         if (drops.isEmpty()) {
             return;
         }
-        Pending pending = PENDING.find(entry -> entry.bossId() == bossId);
-        if (pending != null) {
-            pending.items().addAll(drops);
+        if (PendingBossChestStore.get(level).takeDrops(bossId, drops)) {
             return;
         }
-        StagedDrops staged = STAGED_DROPS.computeIfAbsent(bossId,
-                key -> new StagedDrops(gameTime, new ArrayList<>()));
+        StagedDrops staged = STAGED_DROPS.computeIfAbsent(new DropOwner(level.dimension(), bossId),
+                key -> new StagedDrops(level.getGameTime(), new ArrayList<>()));
         staged.items().addAll(drops);
     }
 
-    public static boolean hasPending() {
-        return !PENDING.isEmpty() || !STAGED_DROPS.isEmpty();
+    public static boolean hasPending(ServerLevel level) {
+        return !PendingBossChestStore.get(level).isEmpty() || !STAGED_DROPS.isEmpty();
     }
 
     public static void tick(ServerLevel level) {
@@ -185,19 +170,17 @@ public final class BossChestScheduler {
         // Drops nobody came back for: the death was cancelled, or the chest was switched off
         // between the two events. Holding on to them would leak the items forever. Swept
         // before any chest is placed, so a death set off by the placement can still stage.
-        STAGED_DROPS.values().removeIf(staged -> gameTime - staged.stagedAt() > STAGED_DROPS_TIMEOUT);
+        STAGED_DROPS.entrySet().removeIf(entry -> entry.getKey().dimension().equals(level.dimension())
+                && gameTime - entry.getValue().stagedAt() > STAGED_DROPS_TIMEOUT);
 
-        PENDING.drain(
-                pending -> pending.dimension().equals(level.dimension()) && gameTime >= pending.spawnAt(),
+        PendingBossChestStore.get(level).drain(
+                pending -> gameTime >= pending.spawnAt() && level.isLoaded(pending.deathPos())
+                        && (!level.isInWorldBounds(pending.origin()) || level.isLoaded(pending.origin())),
                 pending -> place(level, pending));
     }
 
-    /** Drops anything still waiting in a level that is going away. */
     public static void clear(ServerLevel level) {
-        PENDING.removeIf(pending -> pending.dimension().equals(level.dimension()));
-        // Drops belong to a boss in a world that is closing, and entity ids start over in
-        // the next one - keeping them would hand somebody else's loot to another boss.
-        STAGED_DROPS.clear();
+        STAGED_DROPS.keySet().removeIf(owner -> owner.dimension().equals(level.dimension()));
     }
 
     private static void place(ServerLevel level, Pending pending) {
@@ -435,15 +418,27 @@ public final class BossChestScheduler {
         }
 
         List<ItemStack> leftovers = new ArrayList<>();
-        int next = 0;
         for (ItemStack stack : items) {
-            if (stack.isEmpty()) {
-                continue;
+            ItemStack remaining = stack.copy();
+            for (int slot : free) {
+                if (remaining.isEmpty()) {
+                    break;
+                }
+                if (!container.getItem(slot).isEmpty() || !container.canPlaceItem(slot, remaining)) {
+                    continue;
+                }
+                int count = Math.min(remaining.getCount(), container.getMaxStackSize(remaining));
+                if (count <= 0) {
+                    continue;
+                }
+                container.setItem(slot, remaining.copyWithCount(count));
+                ItemStack inserted = container.getItem(slot);
+                if (ItemStack.isSameItemSameComponents(remaining, inserted)) {
+                    remaining.shrink(Math.min(count, inserted.getCount()));
+                }
             }
-            if (next >= free.size()) {
-                leftovers.add(stack);
-            } else {
-                container.setItem(free.get(next++), stack);
+            while (!remaining.isEmpty()) {
+                leftovers.add(remaining.split(remaining.getMaxStackSize()));
             }
         }
         return leftovers;

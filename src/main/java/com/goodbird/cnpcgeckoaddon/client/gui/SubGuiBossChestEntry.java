@@ -24,6 +24,7 @@ public final class SubGuiBossChestEntry extends GuiBasic implements ITextfieldLi
     private static final int REMOVE_BUTTON = 6;
 
     private final BossLootEntry entry;
+    private boolean removed;
 
     public SubGuiBossChestEntry(BossLootEntry entry) {
         this.entry = entry;
@@ -71,6 +72,7 @@ public final class SubGuiBossChestEntry extends GuiBasic implements ITextfieldLi
         if (button.id == FROM_HAND_BUTTON) {
             takeFromHand();
         } else if (button.id == REMOVE_BUTTON) {
+            removed = true;
             entry.clear();
             close();
         }
@@ -105,6 +107,9 @@ public final class SubGuiBossChestEntry extends GuiBasic implements ITextfieldLi
     }
 
     private void applyFields() {
+        if (removed) {
+            return;
+        }
         GuiTextFieldNop item = getTextField(ITEM_FIELD);
         if (item != null) {
             applyItemId(item);

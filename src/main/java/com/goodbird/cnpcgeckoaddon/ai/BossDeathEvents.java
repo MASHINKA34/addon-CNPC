@@ -11,6 +11,7 @@ import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
@@ -43,6 +44,7 @@ import noppes.npcs.entity.EntityNPCInterface;
  */
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
 public final class BossDeathEvents {
+    private static final String PROJECTILE_EFFECTS_KEY = "cnpcgeckoaddon:boss_projectile_effects";
     private BossDeathEvents() {
     }
 
@@ -465,14 +467,22 @@ public final class BossDeathEvents {
         }
     }
 
-    /**
-     * Hangs the configured potion effects on whoever a boss projectile hits.
-     *
-     * <p>Ranged attacks and fluid spits land several ticks after they are fired, so the
-     * effect cannot be applied when the ability executes - by then the victim may well have
-     * dodged. Reading the boss' current phase at impact keeps the effect tied to the attack
-     * that actually connected.</p>
-     */
+    @SubscribeEvent
+    public static void onProjectileJoinLevel(final EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide || event.loadedFromDisk()
+                || !(event.getEntity() instanceof Projectile projectile)
+                || projectile.getPersistentData().contains(PROJECTILE_EFFECTS_KEY, Tag.TAG_LIST)
+                || !(projectile.getOwner() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        BossPhaseData phase = controller == null ? null : controller.activePhase();
+        BossEffectSet effects = phase == null ? new BossEffectSet()
+                : projectile instanceof EntityFluidSpit ? phase.getFluidSpitEffects() : phase.getRangedAttackEffects();
+        projectile.getPersistentData().put(PROJECTILE_EFFECTS_KEY, effects.writeToNBT());
+    }
+
     @SubscribeEvent
     public static void onProjectileImpact(final ProjectileImpactEvent event) {
         if (!(event.getRayTraceResult() instanceof EntityHitResult hit)
@@ -481,8 +491,7 @@ public final class BossDeathEvents {
         }
         Projectile projectile = event.getProjectile();
         if (projectile.level().isClientSide
-                || !(projectile.getOwner() instanceof EntityNPCInterface npc)
-                || !(npc instanceof IBossController holder)) {
+                || !(projectile.getOwner() instanceof EntityNPCInterface npc)) {
             return;
         }
         int ability = projectile instanceof EntityFluidSpit
@@ -491,19 +500,11 @@ public final class BossDeathEvents {
         if (BossAbilityDamageUtil.isImmune(victim, ability)) {
             // The whole impact is dropped rather than only the potions: a projectile carries
             // its own damage, and an ability that passes an npc by cannot leave that behind.
-            // Asked before the phase is read, because immunity does not depend on which part
-            // of the fight the boss happens to be in.
             event.setCanceled(true);
             return;
         }
-        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
-        BossPhaseData phase = controller == null ? null : controller.activePhase();
-        if (phase == null) {
-            return;
-        }
-        BossEffectSet effects = ability == BossAbilityKind.FLUID
-                ? phase.getFluidSpitEffects()
-                : phase.getRangedAttackEffects();
+        BossEffectSet effects = new BossEffectSet();
+        effects.readFromNBT(projectile.getPersistentData(), PROJECTILE_EFFECTS_KEY);
         BossAbilityDamageUtil.applyEffects(victim, ability, npc, effects);
     }
 
@@ -515,7 +516,7 @@ public final class BossDeathEvents {
         if (BossExplosionScheduler.hasPending()) {
             BossExplosionScheduler.tick(level);
         }
-        if (BossChestScheduler.hasPending()) {
+        if (BossChestScheduler.hasPending(level)) {
             BossChestScheduler.tick(level);
         }
         if (BossAreaVfxScheduler.hasPending()) {

@@ -44,13 +44,13 @@ public final class TickQueue<T> {
     private final List<T> entries = new ArrayList<>();
     /** Entries scheduled while work was running; merged back the moment it stops. */
     private final List<T> arrivals = new ArrayList<>();
-    /** Removals asked for while work was running; applied at the same moment. */
-    private final List<Predicate<? super T>> cancellations = new ArrayList<>();
     /** What the current tick pulled out of the queue and has not run yet. */
     private final ArrayDeque<T> pulled = new ArrayDeque<>();
 
     private boolean running;
     private boolean heldBack;
+    private T current;
+    private boolean currentCancelled;
 
     public TickQueue(String name, int maxPerTick) {
         this.name = name;
@@ -66,7 +66,8 @@ public final class TickQueue<T> {
     }
 
     public boolean isEmpty() {
-        return entries.isEmpty() && arrivals.isEmpty() && pulled.isEmpty();
+        return entries.isEmpty() && arrivals.isEmpty() && pulled.isEmpty()
+                && (current == null || currentCancelled);
     }
 
     /**
@@ -86,7 +87,10 @@ public final class TickQueue<T> {
             // worked on by the rest of the tick either.
             pulled.removeIf(filter);
             arrivals.removeIf(filter);
-            cancellations.add(filter);
+            entries.removeIf(filter);
+            if (current != null && filter.test(current)) {
+                currentCancelled = true;
+            }
             return;
         }
         entries.removeIf(filter);
@@ -100,6 +104,9 @@ public final class TickQueue<T> {
         }
         if (found == null) {
             found = firstOf(pulled, filter);
+        }
+        if (found == null && current != null && !currentCancelled && filter.test(current)) {
+            found = current;
         }
         return found;
     }
@@ -176,6 +183,8 @@ public final class TickQueue<T> {
             // Polled rather than iterated, so a cancellation arriving mid-run can still take
             // the entries behind this one out.
             while ((entry = pulled.poll()) != null) {
+                current = entry;
+                currentCancelled = false;
                 boolean keep;
                 try {
                     keep = action.test(entry);
@@ -184,11 +193,13 @@ public final class TickQueue<T> {
                     LOGGER.error("A queued {} entry failed and was dropped", name, throwable);
                     continue;
                 }
-                if (keep) {
+                if (keep && !currentCancelled) {
                     arrivals.add(entry);
                 }
             }
         } finally {
+            current = null;
+            currentCancelled = false;
             running = false;
             pulled.clear();
             merge();
@@ -197,10 +208,6 @@ public final class TickQueue<T> {
 
     /** Everything that arrived during the run, in the order it was asked for. */
     private void merge() {
-        for (Predicate<? super T> cancellation : cancellations) {
-            entries.removeIf(cancellation);
-        }
-        cancellations.clear();
         entries.addAll(arrivals);
         arrivals.clear();
     }

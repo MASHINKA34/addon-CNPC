@@ -3,14 +3,13 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Compact phase menu. Every ability opens its own fully configurable screen. */
-public final class SubGuiBossPhase extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossPhase extends ScrollableSubGui implements ITextfieldListener {
     private static final int THRESHOLD_FIELD = 1;
 
     private final EntityNPCInterface npc;

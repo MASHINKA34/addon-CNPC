@@ -115,7 +115,7 @@ public class EntityBossBoulder extends Projectile {
     private int shatterDamage;
     private String vfx = AreaVfxStyles.NONE;
     /** Not persisted: a boulder outliving a world reload just loses its potions. */
-    private BossEffectSet effects;
+    private final BossEffectSet effects = new BossEffectSet();
 
     /** Everyone already clipped this flight, so a slow roll cannot grind one victim down. */
     private final Set<Integer> struckIds = new HashSet<>();
@@ -158,7 +158,7 @@ public class EntityBossBoulder extends Projectile {
         shatterRadius = Mth.clamp(shatterRadiusBlocks, 0, 16);
         shatterDamage = Math.max(shatterDamageAmount, 0);
         vfx = AreaVfxStyles.normalize(vfxStyle);
-        effects = effectSet;
+        effects.readFromNBT(effectSet == null ? new net.minecraft.nbt.ListTag() : effectSet.writeToNBT());
     }
 
     /** Sends the boulder rolling flat along {@code axis} for at most {@code rangeBlocks}. */
@@ -569,6 +569,7 @@ public class EntityBossBoulder extends Projectile {
         tag.putInt(SHATTER_RADIUS_KEY, shatterRadius);
         tag.putInt(SHATTER_DAMAGE_KEY, shatterDamage);
         tag.putString(VFX_KEY, vfx);
+        tag.put("Effects", effects.writeToNBT());
     }
 
     @Override
@@ -599,6 +600,7 @@ public class EntityBossBoulder extends Projectile {
         shatterRadius = Mth.clamp(tag.getInt(SHATTER_RADIUS_KEY), 0, 16);
         shatterDamage = Math.max(tag.getInt(SHATTER_DAMAGE_KEY), 0);
         vfx = AreaVfxStyles.normalize(tag.getString(VFX_KEY));
+        effects.readFromNBT(tag, "Effects");
         maxAgeTicks = travelBudgetTicks();
     }
 }

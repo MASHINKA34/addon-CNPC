@@ -4,12 +4,11 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Whether the boss stands still or keeps walking while it casts, one row per ability. */
-public final class SubGuiBossCastMovement extends GuiBasic {
+public final class SubGuiBossCastMovement extends ScrollableSubGui {
     private static final int FIRST_ABILITY_BUTTON = 100;
     private static final int LEAP_BUTTON = 90;
     private static final int FIRST_HINT_LABEL = 40;
