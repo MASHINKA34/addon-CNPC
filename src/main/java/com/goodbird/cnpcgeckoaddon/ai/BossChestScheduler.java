@@ -175,7 +175,8 @@ public final class BossChestScheduler {
 
         PendingBossChestStore.get(level).drain(
                 pending -> gameTime >= pending.spawnAt() && level.isLoaded(pending.deathPos())
-                        && (!level.isInWorldBounds(pending.origin()) || level.isLoaded(pending.origin())),
+                        && (!level.isInWorldBounds(pending.origin())
+                        || !level.getWorldBorder().isWithinBounds(pending.origin()) || level.isLoaded(pending.origin())),
                 pending -> place(level, pending));
     }
 
@@ -226,9 +227,7 @@ public final class BossChestScheduler {
         if (!leftovers.isEmpty()) {
             LOGGER.warn("Boss loot chest at {} had no room for {} stacks, dropping them next to it",
                     pos, leftovers.size());
-            for (ItemStack stack : leftovers) {
-                Block.popResource(level, pos, stack);
-            }
+            dropStacks(level, pos, leftovers);
         }
     }
 
@@ -247,8 +246,15 @@ public final class BossChestScheduler {
             return;
         }
         LOGGER.warn("Dropping {} stacks of boss loot at {} instead", items.size(), pending.deathPos());
+        dropStacks(level, pending.deathPos(), items);
+    }
+
+    private static void dropStacks(ServerLevel level, BlockPos pos, List<ItemStack> items) {
         for (ItemStack stack : items) {
-            Block.popResource(level, pending.deathPos(), stack);
+            ItemStack remaining = stack.copy();
+            while (!remaining.isEmpty()) {
+                Block.popResource(level, pos, remaining.split(remaining.getMaxStackSize()));
+            }
         }
     }
 
@@ -424,14 +430,18 @@ public final class BossChestScheduler {
                 if (remaining.isEmpty()) {
                     break;
                 }
-                if (!container.getItem(slot).isEmpty() || !container.canPlaceItem(slot, remaining)) {
+                if (!container.getItem(slot).isEmpty()) {
                     continue;
                 }
                 int count = Math.min(remaining.getCount(), container.getMaxStackSize(remaining));
                 if (count <= 0) {
                     continue;
                 }
-                container.setItem(slot, remaining.copyWithCount(count));
+                ItemStack offered = remaining.copyWithCount(count);
+                if (!container.canPlaceItem(slot, offered)) {
+                    continue;
+                }
+                container.setItem(slot, offered);
                 ItemStack inserted = container.getItem(slot);
                 if (ItemStack.isSameItemSameComponents(remaining, inserted)) {
                     remaining.shrink(Math.min(count, inserted.getCount()));

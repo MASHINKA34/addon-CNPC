@@ -17,13 +17,17 @@ public class TickQueueGameTest {
     public static void runningEntryCanCancelItself(GameTestHelper helper) {
         TickQueue<String> queue = new TickQueue<>("test actions", 16);
         queue.add("active");
+        boolean[] visible = new boolean[3];
         queue.sweep(entry -> true, entry -> {
-            helper.assertFalse(queue.isEmpty(), "the running entry must remain visible to cancellation guards");
-            helper.assertTrue(entry.equals(queue.find(entry::equals)), "find must include the running entry");
+            visible[0] = !queue.isEmpty();
+            visible[1] = entry.equals(queue.find(entry::equals));
             queue.removeIf(entry::equals);
-            helper.assertTrue(queue.find(entry::equals) == null, "a cancelled entry must stop being discoverable");
+            visible[2] = queue.find(entry::equals) == null;
             return true;
         });
+        helper.assertTrue(visible[0], "the running entry must remain visible to cancellation guards");
+        helper.assertTrue(visible[1], "find must include the running entry");
+        helper.assertTrue(visible[2], "a cancelled entry must stop being discoverable");
         helper.assertTrue(queue.isEmpty(), "returning true must not revive a cancelled action");
         int[] repeats = {0};
         queue.drain(entry -> true, entry -> repeats[0]++);

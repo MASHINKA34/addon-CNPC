@@ -13,6 +13,7 @@ import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -158,7 +159,7 @@ public class EntityBossBoulder extends Projectile {
         shatterRadius = Mth.clamp(shatterRadiusBlocks, 0, 16);
         shatterDamage = Math.max(shatterDamageAmount, 0);
         vfx = AreaVfxStyles.normalize(vfxStyle);
-        effects.readFromNBT(effectSet == null ? new net.minecraft.nbt.ListTag() : effectSet.writeToNBT());
+        effects.readFromNBT(effectSet == null ? new ListTag() : effectSet.writeToNBT());
     }
 
     /** Sends the boulder rolling flat along {@code axis} for at most {@code rangeBlocks}. */

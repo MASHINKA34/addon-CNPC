@@ -132,9 +132,7 @@ public class BossChestRewardGameTest {
         data.setChestDelayTicks(0);
         data.setChestPlacement(TeleportPathData.CHEST_PLACEMENT_FIXED);
         BlockPos absolute = helper.absolutePos(POS);
-        data.setChestFixedX(absolute.getX());
-        data.setChestFixedY(absolute.getY());
-        data.setChestFixedZ(absolute.getZ());
+        data.setChestFixed(absolute.getX(), absolute.getY(), absolute.getZ());
         return data;
     }
 
