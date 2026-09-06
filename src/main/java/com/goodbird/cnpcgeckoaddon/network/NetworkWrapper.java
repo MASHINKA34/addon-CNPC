@@ -41,6 +41,9 @@ public class NetworkWrapper {
                 PacketSyncBossCaptureState::decode, PacketSyncBossCaptureState::handle);
         registerPacket(registrar, PacketRestoreBossTotems.TYPE, PacketRestoreBossTotems::encode,
                 PacketRestoreBossTotems::decode, PacketRestoreBossTotems::handle);
+        registrar.playToClient(PacketSyncNpcCarryState.TYPE,
+                CustomPacketPayload.codec(PacketSyncNpcCarryState::encode, PacketSyncNpcCarryState::decode),
+                (packet, context) -> PacketSyncNpcCarryState.handle(packet));
     }
 
     /**

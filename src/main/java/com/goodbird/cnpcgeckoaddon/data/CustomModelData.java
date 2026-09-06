@@ -73,10 +73,10 @@ public class CustomModelData {
                 headBoneName = nbttagcompound.getString("HeadBoneName");
 
             if (nbttagcompound.contains("Width"))
-                width = nbttagcompound.getFloat("Width");
+                setWidth(nbttagcompound.getFloat("Width"));
 
             if (nbttagcompound.contains("Height"))
-                height = nbttagcompound.getFloat("Height");
+                setHeight(nbttagcompound.getFloat("Height"));
 
             // NPCs saved before the derived sizes existed carry the old 0.7 by 2.0
             // box. Those were never chosen, they were simply the only default, so
@@ -88,7 +88,7 @@ public class CustomModelData {
                 autoHitbox = width == LEGACY_WIDTH && height == LEGACY_HEIGHT;
 
             if (nbttagcompound.contains("HitboxScale"))
-                hitboxScale = nbttagcompound.getFloat("HitboxScale");
+                setHitboxScale(nbttagcompound.getFloat("HitboxScale"));
 
             if (nbttagcompound.contains("TransitionLengthTicks"))
                 transitionLengthTicks = nbttagcompound.getInt("TransitionLengthTicks");
@@ -191,7 +191,7 @@ public class CustomModelData {
     }
 
     public void setWidth(float width) {
-        this.width = width;
+        this.width = sanitizeSize(width, LEGACY_WIDTH);
     }
 
     public float getHeight() {
@@ -199,7 +199,7 @@ public class CustomModelData {
     }
 
     public void setHeight(float height) {
-        this.height = height;
+        this.height = sanitizeSize(height, LEGACY_HEIGHT);
     }
 
     public boolean isAutoHitbox() {
@@ -227,7 +227,12 @@ public class CustomModelData {
     }
 
     public void setHitboxScale(float hitboxScale) {
-        this.hitboxScale = hitboxScale;
+        this.hitboxScale = Float.isFinite(hitboxScale)
+                ? Math.clamp(hitboxScale, MIN_SCALE, MAX_SCALE) : 1.0F;
+    }
+
+    private static float sanitizeSize(float value, float fallback) {
+        return Float.isFinite(value) ? Math.clamp(value, 0.0F, Float.MAX_VALUE / MAX_SCALE) : fallback;
     }
 
     /** The size the model records for itself, or null for a non-bundled model. */

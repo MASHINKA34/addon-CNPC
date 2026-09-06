@@ -6,8 +6,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 public class FloatTextFieldUtils {
     public static boolean isFloat(GuiTextFieldNop field) {
         try {
-            Float.parseFloat(field.getValue());
-            return true;
+            return Float.isFinite(Float.parseFloat(field.getValue()));
         } catch (NumberFormatException var2) {
             return false;
         }

@@ -153,6 +153,7 @@ public class EntityCustomModel extends Animal implements GeoAnimatable, GeoEntit
 
     public void setSize(float width, float height) {
         dims = EntityDimensions.scalable(width, height);
+        refreshDimensions();
     }
 
     @Override

@@ -47,7 +47,7 @@ public class NpcTextureUtils {
     }
     private static void loadSkin(File file, ResourceLocation resource, String par1Str, boolean fix64) {
         TextureManager texturemanager = Minecraft.getInstance().getTextureManager();
-        AbstractTexture object = texturemanager.getTexture(resource);
+        AbstractTexture object = texturemanager.getTexture(resource, null);
         if (object == null) {
             object = new ImageDownloadAlt(file, par1Str, resource, DefaultPlayerSkin.getDefaultTexture(), fix64, () -> {});
             texturemanager.register(resource, object);

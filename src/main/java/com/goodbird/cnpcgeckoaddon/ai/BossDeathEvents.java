@@ -10,6 +10,7 @@ import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
@@ -398,7 +399,21 @@ public final class BossDeathEvents {
      */
     @SubscribeEvent
     public static void onEntityJoinLevel(final EntityJoinLevelEvent event) {
-        if (event.getLevel().isClientSide || !(event.getEntity() instanceof EntityNPCInterface npc)) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        if (event.loadedFromDisk() && BossMinionUtil.isMinion(event.getEntity())) {
+            int removalMode = BossMinionCleanupStore.get(level).pendingRemovalMode(event.getEntity());
+            if (removalMode >= 0) {
+                if (removalMode == TeleportPathData.MINION_REMOVAL_KILL) {
+                    BossMinionUtil.scheduleRemoval(event.getEntity(), removalMode);
+                } else {
+                    event.setCanceled(true);
+                }
+                return;
+            }
+        }
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)) {
             return;
         }
         // A cocoon coming back in from a save is a shell with nobody inside: the hold it was
@@ -534,6 +549,7 @@ public final class BossDeathEvents {
         if (BossCloneRespawnGuard.hasPending()) {
             BossCloneRespawnGuard.tick(level);
         }
+        BossMinionUtil.tick(level);
         // Before the capture, so a held victim the field also reaches is pinned back last.
         if (BossGravityScheduler.hasPending()) {
             BossGravityScheduler.tick(level);
@@ -558,6 +574,7 @@ public final class BossDeathEvents {
             BossGravityScheduler.clear(level);
             BossBeamScheduler.clear(level);
             BossCloneRespawnGuard.clear(level);
+            BossMinionUtil.clearPending(level);
             BossCaptureManager.clearLevel(level);
             BossTetherManager.clearLevel(level);
             BossCocoonManager.clearLevel(level);

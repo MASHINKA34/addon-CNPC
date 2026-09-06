@@ -5,6 +5,9 @@ import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.NpcCarryData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryData;
+import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryState;
+import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
+import com.goodbird.cnpcgeckoaddon.network.PacketSyncNpcCarryState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -68,7 +71,6 @@ public final class NpcCarryManager {
 
     private static final Set<UUID> CARRY_MODE = new HashSet<>();
     private static final Map<UUID, CarryRuntime> BY_PLAYER = new HashMap<>();
-    /** Also read off the server thread, by the carry mixin on client side npc copies. */
     private static final Map<UUID, CarryRuntime> BY_NPC = new ConcurrentHashMap<>();
 
     private NpcCarryManager() {
@@ -190,7 +192,21 @@ public final class NpcCarryManager {
 
     /** Answers for client side copies too, so a held npc has no hitbox on either side. */
     public static boolean isCarried(Entity npc) {
-        return !BY_NPC.isEmpty() && BY_NPC.containsKey(npc.getUUID());
+        return npc instanceof INpcCarryState state && state.cnpcgeckoaddon$isCarried();
+    }
+
+    private static void setCarried(EntityNPCInterface npc, boolean carried) {
+        INpcCarryState state = (INpcCarryState) npc;
+        if (state.cnpcgeckoaddon$isCarried() != carried) {
+            state.cnpcgeckoaddon$setCarried(carried);
+            NetworkWrapper.sendToTracking(npc, new PacketSyncNpcCarryState(npc, carried));
+        }
+    }
+
+    public static void syncForTracking(ServerPlayer player, Entity npc) {
+        if (npc instanceof INpcCarryState) {
+            NetworkWrapper.send(player, new PacketSyncNpcCarryState(npc, isCarried(npc)));
+        }
     }
 
     /**
@@ -219,6 +235,7 @@ public final class NpcCarryManager {
         CarryRuntime carry = new CarryRuntime(player, npc, builderTool);
         BY_PLAYER.put(carry.playerId, carry);
         BY_NPC.put(carry.npcId, carry);
+        setCarried(npc, true);
         // Borrowed for the trip and handed back on placement: a carried npc neither thinks
         // nor fights, and does not sink out of the carrier's hands under its own weight.
         npc.setNoAi(true);
@@ -577,6 +594,7 @@ public final class NpcCarryManager {
     }
 
     private static void restoreFlags(EntityNPCInterface npc, CarryRuntime carry) {
+        setCarried(npc, false);
         npc.setNoAi(carry.hadNoAi);
         npc.setInvulnerable(carry.wasInvulnerable);
         npc.setNoGravity(carry.hadNoGravity);

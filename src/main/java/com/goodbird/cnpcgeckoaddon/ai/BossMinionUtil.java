@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
+import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -15,6 +17,10 @@ public final class BossMinionUtil {
     public static final String MINION_OWNER_KEY = "CNPCGeckoBossOwner";
     public static final String MINION_PHASE_KEY = "CNPCGeckoBossMinionPhase";
     public static final String MINION_SLOT_KEY = "CNPCGeckoBossMinionSlot";
+    private static final TickQueue<PendingRemoval> PENDING = new TickQueue<>("unloaded minion removals", 64);
+
+    private record PendingRemoval(Entity minion, int removalMode, long removeAt) {
+    }
 
     private BossMinionUtil() {
     }
@@ -24,6 +30,10 @@ public final class BossMinionUtil {
         minion.getPersistentData().remove(BossTotemUtil.TOTEM_OWNER_KEY);
         minion.getPersistentData().remove(BossTotemUtil.TOTEM_SLOT_KEY);
         minion.getPersistentData().putString(MINION_OWNER_KEY, boss.getUUID().toString());
+        if (boss.level() instanceof ServerLevel level) {
+            minion.getPersistentData().putLong(BossMinionCleanupStore.GENERATION_KEY,
+                    BossMinionCleanupStore.get(level).generation(boss.getUUID()));
+        }
         minion.getPersistentData().remove(MINION_PHASE_KEY);
         minion.getPersistentData().remove(MINION_SLOT_KEY);
         // And one saved from a cocoon or its guard: the role would keep it out of the caps.
@@ -99,27 +109,54 @@ public final class BossMinionUtil {
      * @param removalMode one of the {@code MINION_REMOVAL_*} constants on {@link TeleportPathData}
      */
     public static void clear(ServerLevel level, Entity boss, int removalMode) {
+        BossMinionCleanupStore.get(level).invalidate(boss.getUUID(), removalMode);
         List<Entity> minions = new ArrayList<>();
-        for (Entity entity : level.getAllEntities()) {
-            if (isMinionOf(entity, boss)) {
-                minions.add(entity);
+        for (ServerLevel dimension : level.getServer().getAllLevels()) {
+            for (Entity entity : dimension.getAllEntities()) {
+                if (isMinionOf(entity, boss)) {
+                    minions.add(entity);
+                }
             }
         }
         for (Entity minion : minions) {
-            if (removalMode == TeleportPathData.MINION_REMOVAL_KILL
-                    && minion instanceof LivingEntity living && living.isAlive()) {
-                living.hurt(level.damageSources().genericKill(), Float.MAX_VALUE);
-                if (!living.isAlive() || living.isRemoved()) {
-                    continue;
-                }
-                // An invulnerable clone shrugged the damage off; it still must not
-                // outlive its owner, so fall through to discarding it.
-            }
-            level.sendParticles(ParticleTypes.POOF,
-                    minion.getX(), minion.getY(0.5D), minion.getZ(), 8,
-                    minion.getBbWidth() * 0.5D, minion.getBbHeight() * 0.5D,
-                    minion.getBbWidth() * 0.5D, 0.02D);
-            minion.discard();
+            remove(minion, removalMode);
         }
+    }
+
+    public static void scheduleRemoval(Entity minion, int removalMode) {
+        BossCloneRespawnGuard.suppressSelfRespawn(minion);
+        PENDING.add(new PendingRemoval(minion, removalMode, minion.level().getGameTime() + 1L));
+    }
+
+    public static void tick(ServerLevel level) {
+        PENDING.drain(pending -> pending.minion().level() == level && pending.removeAt() <= level.getGameTime(),
+                pending -> {
+                    if (!pending.minion().isRemoved()
+                            && BossMinionCleanupStore.get(level).pendingRemovalMode(pending.minion()) >= 0) {
+                        remove(pending.minion(), pending.removalMode());
+                    }
+                });
+    }
+
+    public static void clearPending(ServerLevel level) {
+        PENDING.removeIf(pending -> pending.minion().level() == level);
+    }
+
+    private static void remove(Entity minion, int removalMode) {
+        if (!(minion.level() instanceof ServerLevel level) || minion.isRemoved()) {
+            return;
+        }
+        if (removalMode == TeleportPathData.MINION_REMOVAL_KILL
+                && minion instanceof LivingEntity living && living.isAlive()) {
+            living.hurt(level.damageSources().genericKill(), Float.MAX_VALUE);
+            if (!living.isAlive() || living.isRemoved()) {
+                return;
+            }
+        }
+        level.sendParticles(ParticleTypes.POOF,
+                minion.getX(), minion.getY(0.5D), minion.getZ(), 8,
+                minion.getBbWidth() * 0.5D, minion.getBbHeight() * 0.5D,
+                minion.getBbWidth() * 0.5D, 0.02D);
+        minion.discard();
     }
 }

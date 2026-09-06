@@ -2391,7 +2391,7 @@ public final class TeleportPathController {
     private double healthScalingBonus(AttributeInstance instance, TeleportPathData data) {
         double desiredMax = data.calculateScaledMaxHealth(baseMaxHealth, scaledPlayerCount);
         double sanitizedMax = instance.getAttribute().value().sanitizeValue(desiredMax);
-        return Math.max(0.0D, sanitizedMax - baseMaxHealth);
+        return BossHealthScalingUtil.calculateAdditiveBonus(instance, sanitizedMax);
     }
 
     private static double finiteHealth(double value, double nonFiniteFallback) {
@@ -6911,6 +6911,13 @@ public final class TeleportPathController {
             }
             return result;
         }
+        if (mode == BossTargetMode.MAIN) {
+            LivingEntity main = selectAbilityTarget(level, mode, searchRange, canHit);
+            if (main != null) {
+                result.add(main);
+                candidates.remove(main);
+            }
+        }
         if (mode == BossTargetMode.RANDOM) {
             Collections.shuffle(candidates, new java.util.Random(npc.getRandom().nextLong()));
         } else {
@@ -6920,7 +6927,8 @@ public final class TeleportPathController {
                 return farthest ? -order : order;
             });
         }
-        for (int i = 0; i < Math.min(count, candidates.size()); i++) {
+        int remaining = count - result.size();
+        for (int i = 0; i < Math.min(remaining, candidates.size()); i++) {
             result.add(candidates.get(i));
         }
         return result;

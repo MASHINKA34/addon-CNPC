@@ -98,6 +98,13 @@ public final class NpcCarryEvents {
         }
     }
 
+    @SubscribeEvent
+    public static void onStartTracking(final PlayerEvent.StartTracking event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            NpcCarryManager.syncForTracking(player, event.getTarget());
+        }
+    }
+
     /** The npc stays in the dimension it was picked up in, so the carry ends with it. */
     @SubscribeEvent
     public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {

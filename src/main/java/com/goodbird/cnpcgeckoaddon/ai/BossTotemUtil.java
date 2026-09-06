@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
+import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -28,6 +29,7 @@ public final class BossTotemUtil {
         totem.getPersistentData().remove(BossMinionUtil.MINION_OWNER_KEY);
         totem.getPersistentData().remove(BossMinionUtil.MINION_PHASE_KEY);
         totem.getPersistentData().remove(BossMinionUtil.MINION_SLOT_KEY);
+        totem.getPersistentData().remove(BossMinionCleanupStore.GENERATION_KEY);
         BossCocoonUtil.clearRole(totem);
         totem.getPersistentData().putString(TOTEM_OWNER_KEY, boss.getUUID().toString());
         totem.getPersistentData().putInt(TOTEM_SLOT_KEY, Math.max(1, slotId));
