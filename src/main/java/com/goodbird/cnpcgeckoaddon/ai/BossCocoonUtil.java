@@ -44,16 +44,16 @@ public final class BossCocoonUtil {
     }
 
     public static boolean isCocoon(Entity entity) {
-        return ROLE_COCOON.equals(PersistentDataUtil.read(entity).getString(ROLE_KEY));
+        return ROLE_COCOON.equals(PersistentDataUtil.getString(entity, ROLE_KEY));
     }
 
     public static boolean isGuard(Entity entity) {
-        return ROLE_GUARD.equals(PersistentDataUtil.read(entity).getString(ROLE_KEY));
+        return ROLE_GUARD.equals(PersistentDataUtil.getString(entity, ROLE_KEY));
     }
 
     /** Whether this minion is a cocoon or a guard: the two the summon's caps leave out. */
     public static boolean hasRole(Entity entity) {
-        return !PersistentDataUtil.read(entity).getString(ROLE_KEY).isEmpty();
+        return !PersistentDataUtil.getString(entity, ROLE_KEY).isEmpty();
     }
 
     public static boolean isCocoonOf(Entity entity, Entity boss) {

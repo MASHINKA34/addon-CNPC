@@ -487,7 +487,7 @@ public final class BossDeathEvents {
     public static void onProjectileJoinLevel(final EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide || event.loadedFromDisk()
                 || !(event.getEntity() instanceof Projectile projectile)
-                || PersistentDataUtil.read(projectile).contains(PROJECTILE_EFFECTS_KEY, Tag.TAG_LIST)
+                || PersistentDataUtil.contains(projectile, PROJECTILE_EFFECTS_KEY, Tag.TAG_LIST)
                 || !(projectile.getOwner() instanceof EntityNPCInterface npc)
                 || !(npc instanceof IBossController holder)) {
             return;

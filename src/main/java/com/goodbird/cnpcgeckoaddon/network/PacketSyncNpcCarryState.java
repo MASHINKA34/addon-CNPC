@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.network;
 
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryState;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.world.entity.Entity;
@@ -26,9 +27,19 @@ public record PacketSyncNpcCarryState(int entityId, UUID entityUuid, boolean car
     }
 
     public static void handle(PacketSyncNpcCarryState packet) {
-        var level = Minecraft.getInstance().level;
-        if (level != null) {
-            packet.apply(level.getEntity(packet.entityId()));
+        ClientTarget.apply(packet);
+    }
+
+    private static final class ClientTarget {
+
+        private ClientTarget() {
+        }
+
+        static void apply(PacketSyncNpcCarryState packet) {
+            ClientLevel level = Minecraft.getInstance().level;
+            if (level != null) {
+                packet.apply(level.getEntity(packet.entityId()));
+            }
         }
     }
 

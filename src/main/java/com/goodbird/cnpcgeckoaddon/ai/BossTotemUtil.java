@@ -38,16 +38,16 @@ public final class BossTotemUtil {
 
     public static boolean isTotemOf(Entity entity, Entity boss) {
         return entity != boss && isTotem(entity)
-                && boss.getUUID().toString().equals(PersistentDataUtil.read(entity).getString(TOTEM_OWNER_KEY));
+                && boss.getUUID().toString().equals(PersistentDataUtil.getString(entity, TOTEM_OWNER_KEY));
     }
 
     public static boolean isTotem(Entity entity) {
-        CompoundTag data = PersistentDataUtil.read(entity);
-        return !data.getString(TOTEM_OWNER_KEY).isEmpty() && data.getInt(TOTEM_SLOT_KEY) > 0;
+        return !PersistentDataUtil.getString(entity, TOTEM_OWNER_KEY).isEmpty()
+                && PersistentDataUtil.getInt(entity, TOTEM_SLOT_KEY) > 0;
     }
 
     public static int slotId(Entity entity) {
-        return PersistentDataUtil.read(entity).getInt(TOTEM_SLOT_KEY);
+        return PersistentDataUtil.getInt(entity, TOTEM_SLOT_KEY);
     }
 
     /**
@@ -111,7 +111,7 @@ public final class BossTotemUtil {
 
     public static Set<Integer> readDeadSlots(Entity boss) {
         Set<Integer> result = new HashSet<>();
-        for (int slotId : PersistentDataUtil.read(boss).getIntArray(DEAD_SLOTS_KEY)) {
+        for (int slotId : PersistentDataUtil.getIntArray(boss, DEAD_SLOTS_KEY)) {
             if (slotId > 0) {
                 result.add(slotId);
             }

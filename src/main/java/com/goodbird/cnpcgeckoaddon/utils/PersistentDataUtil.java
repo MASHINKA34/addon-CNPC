@@ -6,16 +6,37 @@ import net.minecraft.world.entity.Entity;
 
 public final class PersistentDataUtil {
 
-    private static final CompoundTag EMPTY = new CompoundTag();
-
     private PersistentDataUtil() {
     }
 
     public static CompoundTag read(Entity entity) {
-        if (entity == null) {
-            return EMPTY;
-        }
-        CompoundTag existing = ((EntityPersistentDataAccessor) entity).cnpcgeckoaddon$existingPersistentData();
-        return existing == null ? EMPTY : existing;
+        CompoundTag existing = existing(entity);
+        return existing == null ? new CompoundTag() : existing;
+    }
+
+    public static String getString(Entity entity, String key) {
+        CompoundTag existing = existing(entity);
+        return existing == null ? "" : existing.getString(key);
+    }
+
+    public static int getInt(Entity entity, String key) {
+        CompoundTag existing = existing(entity);
+        return existing == null ? 0 : existing.getInt(key);
+    }
+
+    public static int[] getIntArray(Entity entity, String key) {
+        CompoundTag existing = existing(entity);
+        return existing == null ? new int[0] : existing.getIntArray(key);
+    }
+
+    public static boolean contains(Entity entity, String key, int type) {
+        CompoundTag existing = existing(entity);
+        return existing != null && existing.contains(key, type);
+    }
+
+    private static CompoundTag existing(Entity entity) {
+        return entity == null
+                ? null
+                : ((EntityPersistentDataAccessor) entity).cnpcgeckoaddon$existingPersistentData();
     }
 }
