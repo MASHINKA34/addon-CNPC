@@ -11,6 +11,8 @@ import noppes.npcs.entity.EntityNPCInterface;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
+
 /**
  * The mark: a circle handed to a handful of victims that goes off where they are standing
  * when its fuse runs out.
@@ -26,8 +28,6 @@ final class BossMarkRuntime {
      * own - what it does happens where its carrier takes it - so it borrows the leash's.
      */
     private static final double REACH = 32.0D;
-    /** How long an ability that found nobody waits before looking again. */
-    private static final int RETRY_TICKS = 10;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -38,18 +38,18 @@ final class BossMarkRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.isMarkEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.MARK)) return false;
-        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.getMarkTargetMode(),
-                REACH, this::isValidTarget, phase.getMarkTargetCount());
+        if (!phase.mark().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.MARK)) return false;
+        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.mark().getTargetMode(),
+                REACH, this::isValidTarget, phase.mark().getTargetCount());
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.MARK, gameTime + RETRY_TICKS);
             return false;
         }
         boss.rememberExtraTargets(targets);
-        boss.beginAction(BossAbility.MARK, phase.getMarkAnimation(),
-                phase.getMarkActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        boss.setAbilityScheduleAt(BossAbility.MARK, gameTime + phase.getMarkActionDelayTicks()
-                + boss.rageDown(phase.getMarkCooldownTicks()));
+        boss.beginAction(BossAbility.MARK, phase.mark().getAnimation(),
+                phase.mark().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        boss.setAbilityScheduleAt(BossAbility.MARK, gameTime + phase.mark().getActionDelayTicks()
+                + boss.rageDown(phase.mark().getCooldownTicks()));
         return true;
     }
 
@@ -88,9 +88,9 @@ final class BossMarkRuntime {
         }
         // The fuse, the radius and the head count are deliberately left alone by the enrage:
         // they are the problem the party is set, not numbers the fight is allowed to turn.
-        int damage = boss.rageUp(phase.getMarkDamage());
-        int failDamage = boss.rageUp(phase.getMarkFailDamage());
-        int selfDamage = boss.rageUp(phase.getMarkSelfDamage());
+        int damage = boss.rageUp(phase.mark().getDamage());
+        int failDamage = boss.rageUp(phase.mark().getFailDamage());
+        int selfDamage = boss.rageUp(phase.mark().getSelfDamage());
         for (LivingEntity victim : victims) {
             if (!BossMarkScheduler.schedule(level, npc, victim, phase, damage, failDamage,
                     selfDamage, gameTime)) {

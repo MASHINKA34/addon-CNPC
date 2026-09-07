@@ -52,7 +52,6 @@ public final class BossBoulderRainScheduler {
      */
     private static final int MAX_PER_TICK = 64;
     /** Beyond this nobody can see the mark, so it burns down without costing anything. */
-    private static final double AUDIENCE_RANGE = 64.0D;
     /** How often the mark is repainted. Every other tick reads as a steady shape. */
     private static final int MARK_INTERVAL_TICKS = 2;
     /** Smallest mark a stone with no shards still gets, so every drop is announced. */
@@ -127,15 +126,15 @@ public final class BossBoulderRainScheduler {
                                Vec3 origin, BlockState block, int damage, int knockback,
                                int shatterDamage, long gameTime) {
         RandomSource random = level.getRandom();
-        double diameter = phase.getBoulderRainScale() / 10.0D;
-        int interval = phase.getBoulderRainIntervalTicks();
+        double diameter = phase.boulderRain().getScale() / 10.0D;
+        int interval = phase.boulderRain().getIntervalTicks();
         int scheduled = 0;
-        for (int i = 0; i < phase.getBoulderRainCount(); i++) {
+        for (int i = 0; i < phase.boulderRain().getCount(); i++) {
             Vec3 point = findPoint(level, origin, phase, random);
             if (point == null) {
                 continue;
             }
-            double spawnY = spawnHeight(level, point, phase.getBoulderRainFallHeight(), diameter);
+            double spawnY = spawnHeight(level, point, phase.boulderRain().getFallHeight(), diameter);
             if (Double.isNaN(spawnY)) {
                 continue;
             }
@@ -144,9 +143,9 @@ public final class BossBoulderRainScheduler {
             long dropsAt = gameTime + (long) i * interval;
             long landsAt = dropsAt + EntityBossBoulder.fallTicks(spawnY - point.y);
             PENDING.add(new Pending(level.dimension(), boss, point, spawnY, block,
-                    phase.getBoulderRainStyle(), phase.getBoulderRainScale(), damage, knockback,
-                    phase.getBoulderRainShatterRadius(), shatterDamage, phase.getBoulderRainVfx(),
-                    phase.getBoulderRainEffects(), dropsAt, landsAt));
+                    phase.boulderRain().getStyle(), phase.boulderRain().getScale(), damage, knockback,
+                    phase.boulderRain().getShatterRadius(), shatterDamage, phase.boulderRain().getVfx(),
+                    phase.boulderRain().getEffects(), dropsAt, landsAt));
             scheduled++;
         }
         return scheduled;
@@ -224,7 +223,7 @@ public final class BossBoulderRainScheduler {
     /** Paints the circle the stone is about to come down in, and the grit shaken off it. */
     private static void markFloor(ServerLevel level, Pending pending, long gameTime) {
         if (gameTime % MARK_INTERVAL_TICKS != 0L || level.getNearestPlayer(pending.pos.x,
-                pending.pos.y, pending.pos.z, AUDIENCE_RANGE, false) == null) {
+                pending.pos.y, pending.pos.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
         BossTelegraphUtil.ring(level, pending.pos, pending.markRadius(),
@@ -242,8 +241,8 @@ public final class BossBoulderRainScheduler {
      */
     private static Vec3 findPoint(ServerLevel level, Vec3 origin, BossPhaseData phase,
                                   RandomSource random) {
-        double min = phase.getBoulderRainMinRadius();
-        double max = phase.getBoulderRainRadius();
+        double min = phase.boulderRain().getMinRadius();
+        double max = phase.boulderRain().getRadius();
         for (int attempt = 0; attempt < PLACEMENT_ATTEMPTS; attempt++) {
             double angle = random.nextDouble() * Math.PI * 2.0D;
             double distance = Math.sqrt(min * min + random.nextDouble() * (max * max - min * min));

@@ -36,16 +36,16 @@ public final class SubGuiBossMinionSpawnSettings extends SubGuiFieldScreen {
                 guiLeft + 8, guiTop + 7, 0xFFFFFF));
         int y = guiTop + 27;
         addChoice(MODE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_mode", y,
-                BossPhaseData.MINION_SPAWN_MODE_LABELS, phase.getMinionSpawnMode());
+                BossPhaseData.MINION_SPAWN_MODE_LABELS, phase.summon().getSpawnMode());
         y += 25;
         addChoice(ORDER_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_order", y,
-                BossPhaseData.MINION_SPAWN_ORDER_LABELS, phase.getMinionSpawnOrder());
+                BossPhaseData.MINION_SPAWN_ORDER_LABELS, phase.summon().getSpawnOrder());
         y += 25;
 
         addLabel(new GuiLabel(SEARCH_FIELD, "cnpcgeckoaddon.boss.minion_spawn_search",
                 guiLeft + 8, y + 6));
         GuiTextFieldNop search = new GuiTextFieldNop(SEARCH_FIELD, this,
-                guiLeft + 182, y, 60, 20, Integer.toString(phase.getMinionPointSearchRadius()));
+                guiLeft + 182, y, 60, 20, Integer.toString(phase.summon().getPointSearchRadius()));
         search.setNumbersOnly();
         search.setMinMaxDefault(0, 4, 0);
         addTextField(search);
@@ -54,7 +54,7 @@ public final class SubGuiBossMinionSpawnSettings extends SubGuiFieldScreen {
         addLabel(new GuiLabel(REUSE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_reuse",
                 guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, REUSE_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isMinionReuseOccupiedPoints()));
+                phase.summon().isReuseOccupiedPoints()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.minion_spawn_hint",
                 guiLeft + 8, guiTop + 135, 0xA0A0A0));
@@ -71,11 +71,11 @@ public final class SubGuiBossMinionSpawnSettings extends SubGuiFieldScreen {
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == MODE_BUTTON) {
-            phase.setMinionSpawnMode(button.getValue());
+            phase.summon().setSpawnMode(button.getValue());
         } else if (button.id == ORDER_BUTTON) {
-            phase.setMinionSpawnOrder(button.getValue());
+            phase.summon().setSpawnOrder(button.getValue());
         } else if (button.id == REUSE_BUTTON) {
-            phase.setMinionReuseOccupiedPoints(((GuiButtonYesNo) button).getBoolean());
+            phase.summon().setReuseOccupiedPoints(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == EDIT_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossMinionSpawnList(npc, phase, phaseIndex));
@@ -84,6 +84,6 @@ public final class SubGuiBossMinionSpawnSettings extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        applyNumberField(SEARCH_FIELD, phase::setMinionPointSearchRadius);
+        applyNumberField(SEARCH_FIELD, phase.summon()::setPointSearchRadius);
     }
 }

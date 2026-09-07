@@ -65,43 +65,43 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addToggleRow(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", y, phase.isCocoonEnabled());
+        addToggleRow(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", y, phase.cocoon().isEnabled());
         y += 21;
 
-        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.getCocoonAnimation());
+        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.cocoon().getAnimation());
         y += 21;
 
         // How many cocoons and who they close round, on one line: the two answer the same question.
         addLabel(new GuiLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.cocoon_targets", guiLeft + 6, y + 6));
-        addSmallField(TARGET_COUNT_FIELD, guiLeft + 72, y, 38, phase.getCocoonTargetCount(), 1, 4, 1);
+        addSmallField(TARGET_COUNT_FIELD, guiLeft + 72, y, 38, phase.cocoon().getTargetCount(), 1, 4, 1);
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getCocoonTargetMode()));
+                BossTargetMode.LABELS, phase.cocoon().getTargetMode()));
         y += 21;
 
         // The two clones, each as the summon asks for its own: a tab and a name, on one line.
         addCloneRow(CLONE_TAB_FIELD, CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.cocoon_clone", y,
-                phase.getCocoonCloneTab(), phase.getCocoonCloneName());
+                phase.cocoon().getCloneTab(), phase.cocoon().getCloneName());
         y += 21;
         addCloneRow(GUARD_TAB_FIELD, GUARD_NAME_FIELD, "cnpcgeckoaddon.boss.cocoon_guard", y,
-                phase.getCocoonGuardTab(), phase.getCocoonGuardName());
+                phase.cocoon().getGuardTab(), phase.cocoon().getGuardName());
         y += 21;
 
         addLabel(new GuiLabel(RESCUE_MODE_BUTTON, "cnpcgeckoaddon.boss.cocoon_rescue", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, RESCUE_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.COCOON_RESCUE_LABELS, phase.getCocoonRescueMode()));
+                BossPhaseData.COCOON_RESCUE_LABELS, phase.cocoon().getRescueMode()));
         y += 21;
 
         addPairRow(RESCUE_RADIUS_FIELD, RESCUE_TICKS_FIELD, "cnpcgeckoaddon.boss.cocoon_rescue_time", y,
-                phase.getCocoonRescueRadius(), 1, 8, 3,
-                phase.getCocoonRescueTicks(), 10, 1200, 60);
+                phase.cocoon().getRescueRadius(), 1, 8, 3,
+                phase.cocoon().getRescueTicks(), 10, 1200, 60);
         y += 21;
         addPairRow(DURATION_FIELD, FAIL_DAMAGE_FIELD, "cnpcgeckoaddon.boss.cocoon_duration", y,
-                phase.getCocoonDurationTicks(), 20, 2400, 300,
-                phase.getCocoonFailDamage(), 0, 1000, 40);
+                phase.cocoon().getDurationTicks(), 20, 2400, 300,
+                phase.cocoon().getFailDamage(), 0, 1000, 40);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getCocoonActionDelayTicks(), 0, 1200, 16,
-                phase.getCocoonCooldownTicks(), 1, 12000, 400);
+                phase.cocoon().getActionDelayTicks(), 0, 1200, 16,
+                phase.cocoon().getCooldownTicks(), 1, 12000, 400);
         y += 21;
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.cocoon_hint", y + 3);
@@ -185,7 +185,7 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
 
     /** The stand rule's two numbers only mean something under the stand rule. */
     private void updateRescueFields() {
-        boolean stand = phase.getCocoonRescueMode() == BossPhaseData.COCOON_RESCUE_STAND;
+        boolean stand = phase.cocoon().getRescueMode() == BossPhaseData.COCOON_RESCUE_STAND;
         GuiTextFieldNop radius = getTextField(RESCUE_RADIUS_FIELD);
         GuiTextFieldNop ticks = getTextField(RESCUE_TICKS_FIELD);
         if (radius != null) radius.enabled = stand;
@@ -213,19 +213,19 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
             applyFields();
             setSubGui(new SubGuiBossCocoonEffects(phase));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setCocoonEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.cocoon().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setCocoonTargetMode(button.getValue());
+            phase.cocoon().setTargetMode(button.getValue());
         } else if (button.id == RESCUE_MODE_BUTTON) {
-            phase.setCocoonRescueMode(button.getValue());
+            phase.cocoon().setRescueMode(button.getValue());
             updateRescueFields();
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting cocoon animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setCocoonAnimation(name);
+                phase.cocoon().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setCocoonActionDelayTicks);
+                        phase.cocoon()::setActionDelayTicks);
             }));
         }
     }
@@ -235,21 +235,21 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setCocoonAnimation(value);
-            else animation.setValue(phase.getCocoonAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.cocoon().setAnimation(value);
+            else animation.setValue(phase.cocoon().getAnimation());
         }
-        applyNumberField(TARGET_COUNT_FIELD, phase::setCocoonTargetCount);
-        applyNumberField(CLONE_TAB_FIELD, phase::setCocoonCloneTab);
+        applyNumberField(TARGET_COUNT_FIELD, phase.cocoon()::setTargetCount);
+        applyNumberField(CLONE_TAB_FIELD, phase.cocoon()::setCloneTab);
         GuiTextFieldNop cloneName = getTextField(CLONE_NAME_FIELD);
-        if (cloneName != null) phase.setCocoonCloneName(cloneName.getValue());
-        applyNumberField(GUARD_TAB_FIELD, phase::setCocoonGuardTab);
+        if (cloneName != null) phase.cocoon().setCloneName(cloneName.getValue());
+        applyNumberField(GUARD_TAB_FIELD, phase.cocoon()::setGuardTab);
         GuiTextFieldNop guardName = getTextField(GUARD_NAME_FIELD);
-        if (guardName != null) phase.setCocoonGuardName(guardName.getValue());
-        applyNumberField(RESCUE_RADIUS_FIELD, phase::setCocoonRescueRadius);
-        applyNumberField(RESCUE_TICKS_FIELD, phase::setCocoonRescueTicks);
-        applyNumberField(DURATION_FIELD, phase::setCocoonDurationTicks);
-        applyNumberField(FAIL_DAMAGE_FIELD, phase::setCocoonFailDamage);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setCocoonActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setCocoonCooldownTicks);
+        if (guardName != null) phase.cocoon().setGuardName(guardName.getValue());
+        applyNumberField(RESCUE_RADIUS_FIELD, phase.cocoon()::setRescueRadius);
+        applyNumberField(RESCUE_TICKS_FIELD, phase.cocoon()::setRescueTicks);
+        applyNumberField(DURATION_FIELD, phase.cocoon()::setDurationTicks);
+        applyNumberField(FAIL_DAMAGE_FIELD, phase.cocoon()::setFailDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase.cocoon()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.cocoon()::setCooldownTicks);
     }
 }

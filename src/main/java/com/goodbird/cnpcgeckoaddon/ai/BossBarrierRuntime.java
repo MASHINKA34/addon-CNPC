@@ -75,17 +75,17 @@ final class BossBarrierRuntime {
         private Barrier(BossPhaseData phase, float absorb, long gameTime) {
             total = absorb;
             left = absorb;
-            expiresAt = phase.getBarrierTimeoutTicks() > 0
-                    ? gameTime + phase.getBarrierTimeoutTicks() : NOT_SCHEDULED;
-            breakWindowTicks = phase.getBarrierBreakWindowTicks();
-            breakDamagePercent = phase.getBarrierBreakDamageTakenPercent();
-            failMode = phase.getBarrierFailMode();
-            failDamage = phase.getBarrierFailDamage();
-            failHealPercent = phase.getBarrierFailHealPercent();
-            failEffects = phase.getBarrierFailEffects();
-            breakAnimation = phase.getBarrierBreakAnimation();
-            repeatTicks = phase.getBarrierTrigger() == BossPhaseData.BARRIER_TRIGGER_TIMER
-                    ? phase.getBarrierIntervalTicks() : 0;
+            expiresAt = phase.barrier().getTimeoutTicks() > 0
+                    ? gameTime + phase.barrier().getTimeoutTicks() : NOT_SCHEDULED;
+            breakWindowTicks = phase.barrier().getBreakWindowTicks();
+            breakDamagePercent = phase.barrier().getBreakDamageTakenPercent();
+            failMode = phase.barrier().getFailMode();
+            failDamage = phase.barrier().getFailDamage();
+            failHealPercent = phase.barrier().getFailHealPercent();
+            failEffects = phase.barrier().getFailEffects();
+            breakAnimation = phase.barrier().getBreakAnimation();
+            repeatTicks = phase.barrier().getTrigger() == BossPhaseData.BARRIER_TRIGGER_TIMER
+                    ? phase.barrier().getIntervalTicks() : 0;
         }
     }
 
@@ -116,15 +116,15 @@ final class BossBarrierRuntime {
      */
     void arm(ServerLevel level, long gameTime, BossPhaseData phase) {
         clear();
-        if (boss.isEncounterRunning() && phase.isBarrierEnabled()) {
+        if (boss.isEncounterRunning() && phase.barrier().isEnabled()) {
             raise(level, gameTime, phase);
         }
     }
 
     private void raise(ServerLevel level, long gameTime, BossPhaseData phase) {
         nextBarrierAt = NOT_SCHEDULED;
-        barrier = new Barrier(phase, phase.barrierAbsorb(npc.getMaxHealth()), gameTime);
-        boss.playAnimation(phase.getBarrierAnimation());
+        barrier = new Barrier(phase, phase.barrier().barrierAbsorb(npc.getMaxHealth()), gameTime);
+        boss.playAnimation(phase.barrier().getAnimation());
         level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.BEACON_ACTIVATE,
                 SoundSource.HOSTILE, 1.0F, 1.3F);
         level.sendParticles(dust(), npc.getX(), npc.getY(0.5D), npc.getZ(), 40,
@@ -145,7 +145,7 @@ final class BossBarrierRuntime {
         BossPhaseData phase = data.getPhase(boss.currentPhaseIndex());
         // Switched off mid-fight, everything goes at once rather than running on until the
         // phase ends; a window is taken back with it, multiplier and stun included.
-        if (!boss.isEncounterRunning() || !phase.isBarrierEnabled()) {
+        if (!boss.isEncounterRunning() || !phase.barrier().isEnabled()) {
             clear();
             return;
         }
@@ -340,7 +340,7 @@ final class BossBarrierRuntime {
                     + " ticks left, damage taken " + exposedPercent + "%";
         }
         BossPhaseData phase = boss.activePhase();
-        if (phase == null || !phase.isBarrierEnabled()) {
+        if (phase == null || !phase.barrier().isEnabled()) {
             return "Barrier: disabled";
         }
         if (nextBarrierAt != NOT_SCHEDULED) {
@@ -358,7 +358,7 @@ final class BossBarrierRuntime {
      */
     private void paint(ServerLevel level) {
         if (level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
-                TeleportPathController.TELEGRAPH_AUDIENCE_RANGE, false) == null) {
+                BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
         DustParticleOptions dust = dust();

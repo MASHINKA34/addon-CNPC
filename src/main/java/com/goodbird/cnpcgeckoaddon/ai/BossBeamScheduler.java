@@ -48,7 +48,6 @@ public final class BossBeamScheduler {
     /** Sweeps one level tick works on. One per boss is all a fight has, so this is a runaway stop. */
     private static final int MAX_PER_TICK = 16;
     /** Beyond this nobody can see a beam, so it turns without costing anything. */
-    private static final double AUDIENCE_RANGE = 64.0D;
     /**
      * How high above the boss' feet the beams leave. Its waist, for a boss of about a
      * player's size; a giant's waist would pass clean over everyone's head, so the beams
@@ -95,19 +94,19 @@ public final class BossBeamScheduler {
                       float startYaw, int damage, int knockback, long gameTime) {
             this.dimension = dimension;
             this.boss = boss;
-            this.count = phase.getBeamCount();
-            this.length = phase.getBeamLength();
+            this.count = phase.beam().getCount();
+            this.length = phase.beam().getLength();
             this.startYaw = startYaw;
-            this.degreesPerTick = phase.getBeamDegreesPerSecond() / TICKS_PER_SECOND;
-            this.followsBoss = phase.isBeamFollowsBoss();
-            this.stopsAtWalls = phase.isBeamStopsAtWalls();
-            this.halfWidth = phase.getBeamWidth() * 0.5D;
+            this.degreesPerTick = phase.beam().getDegreesPerSecond() / TICKS_PER_SECOND;
+            this.followsBoss = phase.beam().isFollowsBoss();
+            this.stopsAtWalls = phase.beam().isStopsAtWalls();
+            this.halfWidth = phase.beam().getWidth() * 0.5D;
             this.damage = damage;
             this.knockback = knockback;
-            this.hitIntervalTicks = phase.getBeamHitIntervalTicks();
-            this.effects = phase.getBeamEffects();
+            this.hitIntervalTicks = phase.beam().getHitIntervalTicks();
+            this.effects = phase.beam().getEffects();
             this.startedAt = gameTime;
-            this.endsAt = gameTime + phase.getBeamDurationTicks();
+            this.endsAt = gameTime + phase.beam().getDurationTicks();
             this.centre = centreOf(boss);
         }
     }
@@ -355,7 +354,7 @@ public final class BossBeamScheduler {
      * them, since a beam is drawn on every tick it turns.</p>
      */
     private static void paint(ServerLevel level, Vec3 centre, Vec3[] ends, double length) {
-        if (level.getNearestPlayer(centre.x, centre.y, centre.z, AUDIENCE_RANGE, false) == null) {
+        if (level.getNearestPlayer(centre.x, centre.y, centre.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
         DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.BEAM);

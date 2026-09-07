@@ -23,6 +23,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
+
 /**
  * The cocoon: the shell the boss closes round a victim, and the guard posted beside it.
  *
@@ -44,8 +46,6 @@ final class BossCocoonRuntime {
     /** How far from a cocoon its guard is posted, and how many spots round it are tried. */
     private static final double GUARD_DISTANCE = 2.0D;
     private static final int GUARD_ATTEMPTS = 8;
-    /** How long an ability that found nobody waits before looking again. */
-    private static final int RETRY_TICKS = 10;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -70,8 +70,8 @@ final class BossCocoonRuntime {
      * <p>Aimed the way the marks are, at up to a handful of victims anywhere in the arena.</p>
      */
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.isCocoonEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.COCOON)) return false;
-        if (!phase.canCocoon()) {
+        if (!phase.cocoon().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.COCOON)) return false;
+        if (!phase.cocoon().canCocoon()) {
             // Switched on with no clone to close round anybody: said once, then left quiet.
             if (reportedEmptyPhases.add(boss.currentPhaseIndex())) {
                 LOGGER.warn("Boss {} phase {} has the cocoon on but no cocoon clone name; it will not fire",
@@ -79,19 +79,19 @@ final class BossCocoonRuntime {
             }
             return false;
         }
-        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.getCocoonTargetMode(),
-                REACH, this::isValidTarget, phase.getCocoonTargetCount());
+        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.cocoon().getTargetMode(),
+                REACH, this::isValidTarget, phase.cocoon().getTargetCount());
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.COCOON, gameTime + RETRY_TICKS);
             return false;
         }
         boss.rememberExtraTargets(targets);
-        boss.beginAction(BossAbility.COCOON, phase.getCocoonAnimation(),
-                phase.getCocoonActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        boss.beginAction(BossAbility.COCOON, phase.cocoon().getAnimation(),
+                phase.cocoon().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would close the cocoons before the cast does.
-        boss.setAbilityScheduleAt(BossAbility.COCOON, gameTime + phase.getCocoonActionDelayTicks()
-                + boss.rageDown(phase.getCocoonCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.COCOON, gameTime + phase.cocoon().getActionDelayTicks()
+                + boss.rageDown(phase.cocoon().getCooldownTicks()));
         return true;
     }
 
@@ -128,7 +128,7 @@ final class BossCocoonRuntime {
             }
         }
         for (LivingEntity victim : victims) {
-            Entity shell = spawnClone(level, phase.getCocoonCloneName(), phase.getCocoonCloneTab(),
+            Entity shell = spawnClone(level, phase.cocoon().getCloneName(), phase.cocoon().getCloneTab(),
                     victim.position(), victim.getYRot());
             if (shell == null) {
                 continue;
@@ -137,7 +137,7 @@ final class BossCocoonRuntime {
             // The time limit and the rescue are deliberately left alone by the enrage: they
             // are the room a party gets to answer, not a number the fight may turn down.
             if (!BossCocoonManager.start(level, npc, victim, shell, phase, boss.currentPhaseIndex(),
-                    boss.rageUp(phase.getCocoonFailDamage()), gameTime)) {
+                    boss.rageUp(phase.cocoon().getFailDamage()), gameTime)) {
                 // Refused - held by somebody else after all, or standing in a wall - so the
                 // shell goes back the way it came, without a death.
                 shell.discard();
@@ -159,10 +159,10 @@ final class BossCocoonRuntime {
      * stays when the cocoon opens, and it goes when the fight does.</p>
      */
     private void spawnGuard(ServerLevel level, BossPhaseData phase, Vec3 cocoon) {
-        if (phase.getCocoonGuardName().isEmpty()) {
+        if (phase.cocoon().getGuardName().isEmpty()) {
             return;
         }
-        String cloneKey = phase.getCocoonGuardTab() + ":" + phase.getCocoonGuardName();
+        String cloneKey = phase.cocoon().getGuardTab() + ":" + phase.cocoon().getGuardName();
         Vec3 spot = findGuardSpot(level, cocoon);
         if (spot == null) {
             warnBrokenClone(cloneKey, "no room beside the cocoon for the guard");
@@ -170,7 +170,7 @@ final class BossCocoonRuntime {
         }
         // Facing the cocoon it was posted at, in Minecraft's own degrees.
         float yaw = (float) (Mth.atan2(cocoon.z - spot.z, cocoon.x - spot.x) * Mth.RAD_TO_DEG) - 90.0F;
-        Entity guard = spawnClone(level, phase.getCocoonGuardName(), phase.getCocoonGuardTab(), spot, yaw);
+        Entity guard = spawnClone(level, phase.cocoon().getGuardName(), phase.cocoon().getGuardTab(), spot, yaw);
         if (guard == null) {
             return;
         }
@@ -241,10 +241,10 @@ final class BossCocoonRuntime {
         int held = BossCocoonManager.countForBoss(npc.getUUID());
         String holding = held > 0 ? ", holding " + BossCocoonManager.victimNamesForBoss(npc.getUUID()) : "";
         BossPhaseData phase = boss.activePhase();
-        if (phase == null || !phase.isCocoonEnabled()) {
+        if (phase == null || !phase.cocoon().isEnabled()) {
             return "Cocoon: disabled" + holding;
         }
-        if (!phase.canCocoon()) {
+        if (!phase.cocoon().canCocoon()) {
             return "Cocoon: no clone name" + holding;
         }
         long remaining = boss.abilityCooldownLeft(BossAbility.COCOON, gameTime);

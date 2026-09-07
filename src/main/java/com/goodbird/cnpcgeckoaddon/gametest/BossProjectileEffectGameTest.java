@@ -1,7 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.gametest;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
-import com.goodbird.cnpcgeckoaddon.ai.BossDeathEvents;
+import com.goodbird.cnpcgeckoaddon.ai.BossLifecycleEvents;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
@@ -51,7 +51,7 @@ public class BossProjectileEffectGameTest {
             changePhase(helper, npc);
             for (Projectile projectile : projectiles) {
                 LivingEntity victim = helper.spawn(EntityType.COW, new BlockPos(3, 2, 2));
-                BossDeathEvents.onProjectileImpact(new ProjectileImpactEvent(projectile, new EntityHitResult(victim)));
+                BossLifecycleEvents.onProjectileImpact(new ProjectileImpactEvent(projectile, new EntityHitResult(victim)));
                 helper.assertTrue(victim.hasEffect(projectile instanceof EntityFluidSpit ? MobEffects.MOVEMENT_SLOWDOWN : MobEffects.POISON),
                         "impact must use the effects of the phase that launched " + projectile.getType());
                 helper.assertFalse(victim.hasEffect(MobEffects.WEAKNESS), "the next phase must not alter a projectile in flight");
@@ -74,7 +74,7 @@ public class BossProjectileEffectGameTest {
             helper.getLevel().addFreshEntity(projectile);
             changePhase(helper, npc);
             LivingEntity victim = helper.spawn(EntityType.COW, new BlockPos(3, 2, 2));
-            BossDeathEvents.onProjectileImpact(new ProjectileImpactEvent(projectile, new EntityHitResult(victim)));
+            BossLifecycleEvents.onProjectileImpact(new ProjectileImpactEvent(projectile, new EntityHitResult(victim)));
             helper.assertTrue(victim.getActiveEffects().isEmpty(), "an empty launch snapshot must not inherit later effects");
             projectile.discard();
             helper.succeed();
@@ -96,9 +96,9 @@ public class BossProjectileEffectGameTest {
             changePhase(helper, npc);
             Snowball reloaded = new Snowball(EntityType.SNOWBALL, helper.getLevel());
             reloaded.load(saved);
-            BossDeathEvents.onProjectileJoinLevel(new EntityJoinLevelEvent(reloaded, helper.getLevel(), true));
+            BossLifecycleEvents.onProjectileJoinLevel(new EntityJoinLevelEvent(reloaded, helper.getLevel(), true));
             LivingEntity victim = helper.spawn(EntityType.COW, new BlockPos(3, 2, 2));
-            BossDeathEvents.onProjectileImpact(new ProjectileImpactEvent(reloaded, new EntityHitResult(victim)));
+            BossLifecycleEvents.onProjectileImpact(new ProjectileImpactEvent(reloaded, new EntityHitResult(victim)));
             helper.assertTrue(victim.hasEffect(MobEffects.POISON), "entity NBT must preserve the launch snapshot");
             helper.assertFalse(victim.hasEffect(MobEffects.WEAKNESS), "loading an entity must not recapture the current phase");
             helper.succeed();
@@ -145,11 +145,11 @@ public class BossProjectileEffectGameTest {
         data.setPhaseCount(2);
         data.getPhase(1).setStartHealthPercent(50);
         if (withEffects) {
-            enable(data.getPhase(0).getRangedAttackEffects(), "minecraft:poison");
-            enable(data.getPhase(0).getFluidSpitEffects(), "minecraft:slowness");
+            enable(data.getPhase(0).rangedAttack().getEffects(), "minecraft:poison");
+            enable(data.getPhase(0).fluidSpit().getEffects(), "minecraft:slowness");
         }
-        enable(data.getPhase(1).getRangedAttackEffects(), "minecraft:weakness");
-        enable(data.getPhase(1).getFluidSpitEffects(), "minecraft:weakness");
+        enable(data.getPhase(1).rangedAttack().getEffects(), "minecraft:weakness");
+        enable(data.getPhase(1).fluidSpit().getEffects(), "minecraft:weakness");
         npc.tick();
         var controller = ((IBossController) npc).cnpcgeckoaddon$getTeleportPathController();
         helper.assertTrue(controller != null && controller.activePhase() == data.getPhase(0), "the boss must begin in phase one");

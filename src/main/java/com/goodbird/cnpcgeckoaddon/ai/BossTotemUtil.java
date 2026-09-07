@@ -34,6 +34,7 @@ public final class BossTotemUtil {
         BossCocoonUtil.clearRole(totem);
         totem.getPersistentData().putString(TOTEM_OWNER_KEY, boss.getUUID().toString());
         totem.getPersistentData().putInt(TOTEM_SLOT_KEY, Math.max(1, slotId));
+        BossOwnedEntityIndex.invalidate();
     }
 
     public static boolean isTotemOf(Entity entity, Entity boss) {
@@ -84,7 +85,7 @@ public final class BossTotemUtil {
 
     /** Searches loaded entities only and never asks the target chunk to load. */
     public static Entity findAlive(ServerLevel level, Entity boss, int slotId) {
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : BossOwnedEntityIndex.totemsOf(level, boss)) {
             if (entity.isAlive() && slotId(entity) == slotId && isTotemOf(entity, boss)) {
                 return entity;
             }
@@ -94,7 +95,7 @@ public final class BossTotemUtil {
 
     public static List<Entity> findAllLoaded(ServerLevel level, Entity boss) {
         List<Entity> result = new ArrayList<>();
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : BossOwnedEntityIndex.totemsOf(level, boss)) {
             if (isTotemOf(entity, boss)) {
                 result.add(entity);
             }

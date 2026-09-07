@@ -42,6 +42,7 @@ public final class BossMinionUtil {
         minion.getPersistentData().remove(MINION_SLOT_KEY);
         // And one saved from a cocoon or its guard: the role would keep it out of the caps.
         BossCocoonUtil.clearRole(minion);
+        BossOwnedEntityIndex.invalidate();
     }
 
     public static void markAsMinion(Entity minion, Entity boss, int phaseIndex, int pointId) {
@@ -76,7 +77,7 @@ public final class BossMinionUtil {
      */
     public static int countAlive(ServerLevel level, Entity boss, int cap) {
         int count = 0;
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : BossOwnedEntityIndex.minionsOf(level, boss)) {
             if (entity.isAlive() && isMinionOf(entity, boss) && !BossCocoonUtil.hasRole(entity)) {
                 count++;
                 if (count >= cap) {
@@ -99,7 +100,7 @@ public final class BossMinionUtil {
 
     public static Set<Integer> occupiedSlots(ServerLevel level, Entity boss, int phaseIndex) {
         Set<Integer> occupied = new HashSet<>();
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : BossOwnedEntityIndex.minionsOf(level, boss)) {
             if (!entity.isAlive() || !isMinionOf(entity, boss)) {
                 continue;
             }

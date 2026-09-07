@@ -613,6 +613,7 @@
   "cnpcgeckoaddon.boss.totem_vuln_pick": "Abilities...",
   "cnpcgeckoaddon.boss.totem_vuln_title": "Totem vulnerability",
   "cnpcgeckoaddon.boss.totem_vuln_hint": "With an empty list the totem cannot be broken at all.",
+  "cnpcgeckoaddon.string_picker.search": "Search...",
   "cnpcgeckoaddon.model_picker.title": "Select GeckoLib model",
   "cnpcgeckoaddon.model_picker.search": "Search models...",
   "cnpcgeckoaddon.model_picker.mod": "Mod",

@@ -18,6 +18,9 @@ import org.joml.Vector3f;
  */
 public final class BossTelegraphUtil {
 
+    /** With no player this close the mark cannot be seen, so it is not worth the particles. */
+    public static final double AUDIENCE_RANGE = 64.0D;
+
     /**
      * One colour per ability, numbered by {@link BossAbilityKind}. Two abilities winding up
      * in the same fight have to be told apart at a glance, so the colour is what says which

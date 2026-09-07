@@ -12,6 +12,8 @@ import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.List;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
+
 /**
  * The line strike: a corridor laid straight out in front of the boss, with a weaker wave
  * running along each flank of it.
@@ -24,7 +26,6 @@ import java.util.List;
 final class BossLineAttackRuntime {
 
     /** How long a strike that found an empty corridor waits before looking again. */
-    private static final int RETRY_TICKS = 10;
     /** The turn left over from the eased wind-up, finished on the tick the strike lands. */
     private static final float SNAP_DEGREES = 360.0F;
 
@@ -40,10 +41,10 @@ final class BossLineAttackRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.isLineAttackEnabled()
+        if (!phase.lineAttack().isEnabled()
                 || gameTime < boss.abilityScheduleAt(BossAbility.LINE_ATTACK)) return false;
-        LivingEntity target = boss.selectAbilityTarget(level, phase.getLineAttackTargetMode(),
-                phase.getLineAttackLength(), candidate -> isValidTarget(candidate, phase));
+        LivingEntity target = boss.selectAbilityTarget(level, phase.lineAttack().getTargetMode(),
+                phase.lineAttack().getLength(), candidate -> isValidTarget(candidate, phase));
         Vec3 axis = resolveAxis(phase, target);
         // An empty corridor is no reason to swing: the strike would land on bare floor and
         // spend a whole cooldown doing it.
@@ -52,18 +53,18 @@ final class BossLineAttackRuntime {
             return false;
         }
         boss.commitAxis(axis);
-        boss.beginAction(BossAbility.LINE_ATTACK, phase.getLineAttackAnimation(),
-                phase.getLineAttackActionDelayTicks(), gameTime, target, data, phase);
+        boss.beginAction(BossAbility.LINE_ATTACK, phase.lineAttack().getAnimation(),
+                phase.lineAttack().getActionDelayTicks(), gameTime, target, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would land the hit before the swing does.
-        boss.setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + phase.getLineAttackActionDelayTicks()
-                + boss.rageDown(phase.getLineAttackCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + phase.lineAttack().getActionDelayTicks()
+                + boss.rageDown(phase.lineAttack().getCooldownTicks()));
         return true;
     }
 
     /** Which way this strike goes: at whoever it picked, or wherever the boss is looking. */
     private Vec3 resolveAxis(BossPhaseData phase, LivingEntity target) {
-        if (phase.getLineAttackDirection() != BossPhaseData.LINE_DIRECTION_TARGET) {
+        if (phase.lineAttack().getDirection() != BossPhaseData.LINE_DIRECTION_TARGET) {
             return boss.facingAxis();
         }
         if (target == null) {
@@ -84,10 +85,10 @@ final class BossLineAttackRuntime {
     boolean isValidTarget(LivingEntity target, BossPhaseData phase) {
         if (target == null || !target.isAlive()
                 || !boss.isAbilityTarget(target, BossAbilityKind.LINE)) return false;
-        if (Math.abs(target.getY() - npc.getY()) > phase.getLineAttackHeight()) return false;
+        if (Math.abs(target.getY() - npc.getY()) > phase.lineAttack().getHeight()) return false;
         double dx = target.getX() - npc.getX();
         double dz = target.getZ() - npc.getZ();
-        double length = phase.getLineAttackLength();
+        double length = phase.lineAttack().getLength();
         return dx * dx + dz * dz <= length * length;
     }
 
@@ -96,25 +97,25 @@ final class BossLineAttackRuntime {
         if (axis == null) {
             return;
         }
-        if (phase.isLineAttackFaceAxis()) {
+        if (phase.lineAttack().isFaceAxis()) {
             // Whatever the eased turn had left to cover is finished on the tick the strike
             // lands, so the model points exactly down the corridor it hits.
-            boss.turnTowardAxis(axis, phase.getLineAttackLength(), SNAP_DEGREES);
+            boss.turnTowardAxis(axis, phase.lineAttack().getLength(), SNAP_DEGREES);
         }
         Vec3 origin = npc.position();
         // Purely for show, and started before the hits so the wave leaves at the same moment
         // the damage lands rather than a tick behind it.
         BossAreaVfxScheduler.scheduleLine(level, origin, axis, phase);
-        int damage = boss.rageUp(phase.getLineAttackDamage());
-        int sideDamage = sideWaveDamage(damage, phase.getLineAttackSidePercent());
-        int knockback = boss.rageUp(phase.getLineAttackKnockback());
+        int damage = boss.rageUp(phase.lineAttack().getDamage());
+        int sideDamage = sideWaveDamage(damage, phase.lineAttack().getSidePercent());
+        int knockback = boss.rageUp(phase.lineAttack().getKnockback());
         for (LivingEntity target : targetsIn(level, origin, axis, phase)) {
             boolean side = bandOf(origin, axis, phase, target) == Band.SIDE;
             // Pushed down the line rather than away from the boss: this is a strike forward
             // and not a blast, so everyone it catches is thrown the same way. Vanilla shoves
             // against the vector it is handed, which is why the axis goes in negated.
             BossAbilityDamageUtil.hit(target, BossAbilityKind.LINE, npc, side ? sideDamage : damage,
-                    phase.getLineAttackEffects(), knockback, -axis.x, -axis.z);
+                    phase.lineAttack().getEffects(), knockback, -axis.x, -axis.z);
         }
     }
 
@@ -139,9 +140,9 @@ final class BossLineAttackRuntime {
      */
     private List<LivingEntity> targetsIn(ServerLevel level, Vec3 origin, Vec3 axis,
                                          BossPhaseData phase) {
-        double reach = phase.getLineAttackWidth() * 0.5D + phase.getLineAttackSideWidth() + 1.0D;
-        AABB box = new AABB(origin, origin.add(axis.scale(phase.getLineAttackLength())))
-                .inflate(reach, phase.getLineAttackHeight() + 1.0D, reach);
+        double reach = phase.lineAttack().getWidth() * 0.5D + phase.lineAttack().getSideWidth() + 1.0D;
+        AABB box = new AABB(origin, origin.add(axis.scale(phase.lineAttack().getLength())))
+                .inflate(reach, phase.lineAttack().getHeight() + 1.0D, reach);
         return level.getEntitiesOfClass(LivingEntity.class, box, target -> target != npc
                 && target.isAlive() && boss.isAbilityTarget(target, BossAbilityKind.LINE)
                 && bandOf(origin, axis, phase, target) != Band.MISS);
@@ -155,23 +156,23 @@ final class BossLineAttackRuntime {
      * only the weaker wave running beside it.</p>
      */
     private Band bandOf(Vec3 origin, Vec3 axis, BossPhaseData phase, LivingEntity target) {
-        if (Math.abs(target.getY() - origin.y) > phase.getLineAttackHeight()) {
+        if (Math.abs(target.getY() - origin.y) > phase.lineAttack().getHeight()) {
             return Band.MISS;
         }
         double dx = target.getX() - origin.x;
         double dz = target.getZ() - origin.z;
         double along = dx * axis.x + dz * axis.z;
-        if (along < 0.0D || along > phase.getLineAttackLength()) {
+        if (along < 0.0D || along > phase.lineAttack().getLength()) {
             return Band.MISS;
         }
         // The axis is flat and unit length, so a quarter turn of it gives the across
         // measurement without a second normalize.
         double across = Math.abs(dx * axis.z - dz * axis.x);
-        double half = phase.getLineAttackWidth() * 0.5D;
+        double half = phase.lineAttack().getWidth() * 0.5D;
         if (across <= half) {
             return Band.CORRIDOR;
         }
-        return phase.getLineAttackSideWidth() > 0 && across <= half + phase.getLineAttackSideWidth()
+        return phase.lineAttack().getSideWidth() > 0 && across <= half + phase.lineAttack().getSideWidth()
                 ? Band.SIDE : Band.MISS;
     }
 }

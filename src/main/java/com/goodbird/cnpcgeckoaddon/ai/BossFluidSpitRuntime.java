@@ -16,6 +16,8 @@ import noppes.npcs.entity.EntityNPCInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
+
 /**
  * The spit: a lobbed ball of fluid that leaves a puddle where it lands.
  *
@@ -28,7 +30,6 @@ final class BossFluidSpitRuntime {
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** How long a cast that found nobody, or no such fluid, waits before looking again. */
-    private static final int RETRY_TICKS = 20;
     /** How much of the flat distance is added as lift, so the ball arcs onto the feet. */
     private static final double ARC_LIFT = 0.2D;
 
@@ -49,17 +50,17 @@ final class BossFluidSpitRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.canSpitFluid() || gameTime < boss.abilityScheduleAt(BossAbility.FLUID_SPIT)) return false;
-        LivingEntity target = boss.selectAbilityTarget(level, phase.getFluidSpitTargetMode(),
-                phase.getFluidSpitMaxRange(), candidate -> isValidTarget(candidate, phase));
-        if (target == null || FluidBlockUtil.resolve(phase.getFluidSpitBlock()) == null) {
-            boss.setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + RETRY_TICKS);
+        if (!phase.fluidSpit().canSpit() || gameTime < boss.abilityScheduleAt(BossAbility.FLUID_SPIT)) return false;
+        LivingEntity target = boss.selectAbilityTarget(level, phase.fluidSpit().getTargetMode(),
+                phase.fluidSpit().getMaxRange(), candidate -> isValidTarget(candidate, phase));
+        if (target == null || FluidBlockUtil.resolve(phase.fluidSpit().getBlock()) == null) {
+            boss.setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + RETRY_LONG_TICKS);
             return false;
         }
-        boss.beginAction(BossAbility.FLUID_SPIT, phase.getFluidSpitAnimation(),
-                phase.getFluidSpitActionDelayTicks(), gameTime, target, data, phase);
-        boss.setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + phase.getFluidSpitActionDelayTicks()
-                + boss.rageDown(phase.getFluidSpitCooldownTicks()));
+        boss.beginAction(BossAbility.FLUID_SPIT, phase.fluidSpit().getAnimation(),
+                phase.fluidSpit().getActionDelayTicks(), gameTime, target, data, phase);
+        boss.setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + phase.fluidSpit().getActionDelayTicks()
+                + boss.rageDown(phase.fluidSpit().getCooldownTicks()));
         return true;
     }
 
@@ -67,20 +68,20 @@ final class BossFluidSpitRuntime {
         if (target == null || !target.isAlive()
                 || !boss.isAbilityTarget(target, BossAbilityKind.FLUID)) return false;
         double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getFluidSpitMinRange();
-        double max = phase.getFluidSpitMaxRange();
+        double min = phase.fluidSpit().getMinRange();
+        double max = phase.fluidSpit().getMaxRange();
         return distanceSquared >= min * min && distanceSquared <= max * max;
     }
 
     void perform(ServerLevel level, BossPhaseData phase) {
         LivingEntity target = boss.pendingTarget(level);
         if (!isValidTarget(target, phase)) return;
-        BlockState fluid = FluidBlockUtil.resolve(phase.getFluidSpitBlock());
+        BlockState fluid = FluidBlockUtil.resolve(phase.fluidSpit().getBlock());
         if (fluid == null) {
-            if (!phase.getFluidSpitBlock().equals(reportedBrokenFluid)) {
-                reportedBrokenFluid = phase.getFluidSpitBlock();
+            if (!phase.fluidSpit().getBlock().equals(reportedBrokenFluid)) {
+                reportedBrokenFluid = phase.fluidSpit().getBlock();
                 LOGGER.warn("Boss {} cannot spit {}: that block is not a fluid",
-                        npc.getName().getString(), phase.getFluidSpitBlock());
+                        npc.getName().getString(), phase.fluidSpit().getBlock());
             }
             return;
         }
@@ -88,8 +89,8 @@ final class BossFluidSpitRuntime {
 
         npc.getLookControl().setLookAt(target, 30.0F, 30.0F);
         EntityFluidSpit spit = new EntityFluidSpit(EntityRegistry.entityFluidSpit, npc, level);
-        spit.configure(fluid, phase.getFluidSpitLifetimeTicks(), phase.getFluidSpitRadius(),
-                boss.rageUp(phase.getFluidSpitDamage()));
+        spit.configure(fluid, phase.fluidSpit().getLifetimeTicks(), phase.fluidSpit().getRadius(),
+                boss.rageUp(phase.fluidSpit().getDamage()));
         spit.setPos(npc.getX(), npc.getEyeY() - 0.1D, npc.getZ());
 
         // Aim at the feet with a slight arc so the puddle lands on the ground the target

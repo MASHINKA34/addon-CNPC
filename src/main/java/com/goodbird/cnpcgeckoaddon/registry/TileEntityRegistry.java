@@ -4,8 +4,8 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.tile.BossChestBlockEntity;
 import com.goodbird.cnpcgeckoaddon.tile.TileEntityCustomModel;
 import net.minecraft.Util;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.datafix.fixes.References;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -23,15 +23,17 @@ public class TileEntityRegistry {
 
     @SubscribeEvent
     public static void registerBlocks(RegisterEvent event) {
-        if (event.getRegistry() == BuiltInRegistries.BLOCK_ENTITY_TYPE) {
+        event.register(Registries.BLOCK_ENTITY_TYPE, helper -> {
             tileEntityCustomModel = createTile("custommodeltileentity", TileEntityCustomModel::new,
                     CustomBlocks.scripted, CustomBlocks.scripted_door);
-            Registry.register((Registry<? super BlockEntityType<?>>) event.getRegistry(), CNPCGeckoAddon.MODID+":custommodeltileentity", tileEntityCustomModel);
+            helper.register(ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "custommodeltileentity"),
+                    tileEntityCustomModel);
             // Blocks are handed out before block entities are, so the block this one is
             // bound to already exists by the time we get here.
             bossChest = createTile(BlockRegistry.BOSS_CHEST_NAME, BossChestBlockEntity::new, BlockRegistry.bossChest);
-            Registry.register((Registry<? super BlockEntityType<?>>) event.getRegistry(), CNPCGeckoAddon.MODID+":"+BlockRegistry.BOSS_CHEST_NAME, bossChest);
-        }
+            helper.register(ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID,
+                    BlockRegistry.BOSS_CHEST_NAME), bossChest);
+        });
     }
 
     private static <T extends BlockEntity> BlockEntityType<T> createTile(String key, BlockEntityType.BlockEntitySupplier<T> factoryIn, Block... blocks){

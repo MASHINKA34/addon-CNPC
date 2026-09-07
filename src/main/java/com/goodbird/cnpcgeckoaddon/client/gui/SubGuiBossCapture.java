@@ -48,41 +48,41 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.capture_enabled", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isCaptureEnabled()));
+                phase.capture().isEnabled()));
         y += 24;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getCaptureAnimation()));
+                phase.capture().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 24;
 
         addNumberField(ACTION_DELAY_FIELD, "cnpcgeckoaddon.boss.action_delay", y,
-                phase.getCaptureActionDelayTicks(), 0, 1200, 10);
+                phase.capture().getActionDelayTicks(), 0, 1200, 10);
         y += 24;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
-                phase.getCaptureCooldownTicks(), 20, 12000, 200);
+                phase.capture().getCooldownTicks(), 20, 12000, 200);
         y += 24;
 
         addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getCaptureTargetMode()));
+                BossTargetMode.LABELS, phase.capture().getTargetMode()));
         y += 24;
 
         addNumberField(MIN_RANGE_FIELD, "cnpcgeckoaddon.boss.min_range", y,
-                phase.getCaptureMinRange(), 0, 64, 0);
+                phase.capture().getMinRange(), 0, 64, 0);
         y += 24;
         addNumberField(MAX_RANGE_FIELD, "cnpcgeckoaddon.boss.max_range", y,
-                phase.getCaptureMaxRange(), 1, 128, 16);
+                phase.capture().getMaxRange(), 1, 128, 16);
         y += 24;
 
         addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.capture_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                MODE_LABELS, phase.getCaptureMode()));
+                MODE_LABELS, phase.capture().getMode()));
         y += 24;
         addNumberField(DURATION_FIELD, "cnpcgeckoaddon.boss.capture_duration", y,
-                phase.getCaptureDurationTicks(), 1, 1200, 60);
+                phase.capture().getDurationTicks(), 1, 1200, 60);
 
         addButton(new GuiButtonNop(this, DETAILS_BUTTON, guiLeft + 6, guiTop + 232, 150, 20,
                 "cnpcgeckoaddon.boss.capture_effects_beam"));
@@ -101,18 +101,18 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
             applyFields();
             setSubGui(new SubGuiBossCaptureEffects(phase));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setCaptureEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.capture().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setCaptureTargetMode(button.getValue());
+            phase.capture().setTargetMode(button.getValue());
         } else if (button.id == MODE_BUTTON) {
-            phase.setCaptureMode(button.getValue());
+            phase.capture().setMode(button.getValue());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting capture animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setCaptureAnimation(name);
+                phase.capture().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setCaptureActionDelayTicks);
+                        phase.capture()::setActionDelayTicks);
             }));
         }
     }
@@ -122,14 +122,14 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setCaptureAnimation(value);
-            else animation.setValue(phase.getCaptureAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.capture().setAnimation(value);
+            else animation.setValue(phase.capture().getAnimation());
         }
-        applyNumberField(ACTION_DELAY_FIELD, phase::setCaptureActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setCaptureCooldownTicks);
+        applyNumberField(ACTION_DELAY_FIELD, phase.capture()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.capture()::setCooldownTicks);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
-        if (min != null && max != null) phase.setCaptureRange(min.getInteger(), max.getInteger());
-        applyNumberField(DURATION_FIELD, phase::setCaptureDurationTicks);
+        if (min != null && max != null) phase.capture().setRange(min.getInteger(), max.getInteger());
+        applyNumberField(DURATION_FIELD, phase.capture()::setDurationTicks);
     }
 }

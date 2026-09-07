@@ -63,48 +63,48 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addToggleRow(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", y, phase.isBeamEnabled());
+        addToggleRow(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", y, phase.beam().isEnabled());
         y += 21;
 
-        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.getBeamAnimation());
+        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.beam().getAnimation());
         y += 21;
 
         addRowLabel("cnpcgeckoaddon.boss.beam_shape", y, TRIPLE_FIELD_X - 6 - 2);
         addSmallField(COUNT_FIELD, guiLeft + TRIPLE_FIELD_X, y, TRIPLE_FIELD_WIDTH,
-                phase.getBeamCount(), 1, 4, 1);
+                phase.beam().getCount(), 1, 4, 1);
         addSmallField(LENGTH_FIELD, guiLeft + TRIPLE_FIELD_X + TRIPLE_FIELD_STEP, y, TRIPLE_FIELD_WIDTH,
-                phase.getBeamLength(), 3, 64, 20);
+                phase.beam().getLength(), 3, 64, 20);
         addSmallField(WIDTH_FIELD, guiLeft + TRIPLE_FIELD_X + 2 * TRIPLE_FIELD_STEP, y, TRIPLE_FIELD_WIDTH,
-                phase.getBeamWidth(), 1, 6, 1);
+                phase.beam().getWidth(), 1, 6, 1);
         y += 21;
 
         addRowLabel("cnpcgeckoaddon.boss.beam_spin", y, PAIR_FIELD_X - 6 - 2);
-        addSmallField(DURATION_FIELD, guiLeft + PAIR_FIELD_X, y, 52, phase.getBeamDurationTicks(), 10, 1200, 120);
+        addSmallField(DURATION_FIELD, guiLeft + PAIR_FIELD_X, y, 52, phase.beam().getDurationTicks(), 10, 1200, 120);
         // Plain rather than numbers-only: setNumbersOnly() lets nothing but digits through,
         // and the speed's sign is its direction - the minus would be impossible to type.
         addTextField(new GuiTextFieldNop(SPEED_FIELD, this, guiLeft + 190, y, 52, 20,
-                Integer.toString(phase.getBeamDegreesPerSecond())));
+                Integer.toString(phase.beam().getDegreesPerSecond())));
         y += 21;
 
         addLabel(new GuiLabel(START_MODE_BUTTON, "cnpcgeckoaddon.boss.beam_start", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, START_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.BEAM_START_LABELS, phase.getBeamStartMode()));
+                BossPhaseData.BEAM_START_LABELS, phase.beam().getStartMode()));
         y += 21;
 
-        addToggleRow(FOLLOW_BUTTON, "cnpcgeckoaddon.boss.beam_follow", y, phase.isBeamFollowsBoss());
+        addToggleRow(FOLLOW_BUTTON, "cnpcgeckoaddon.boss.beam_follow", y, phase.beam().isFollowsBoss());
         y += 21;
-        addToggleRow(WALLS_BUTTON, "cnpcgeckoaddon.boss.beam_walls", y, phase.isBeamStopsAtWalls());
+        addToggleRow(WALLS_BUTTON, "cnpcgeckoaddon.boss.beam_walls", y, phase.beam().isStopsAtWalls());
         y += 21;
 
         addPairRow(DAMAGE_FIELD, INTERVAL_FIELD, "cnpcgeckoaddon.boss.beam_hit", y,
-                phase.getBeamDamage(), 0, 1000, 6,
-                phase.getBeamHitIntervalTicks(), 1, 100, 10);
+                phase.beam().getDamage(), 0, 1000, 6,
+                phase.beam().getHitIntervalTicks(), 1, 100, 10);
         y += 21;
-        addNumberField(KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.knockback", y, phase.getBeamKnockback(), 0, 10, 1);
+        addNumberField(KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.knockback", y, phase.beam().getKnockback(), 0, 10, 1);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getBeamActionDelayTicks(), 0, 1200, 20,
-                phase.getBeamCooldownTicks(), 1, 12000, 360);
+                phase.beam().getActionDelayTicks(), 0, 1200, 20,
+                phase.beam().getCooldownTicks(), 1, 12000, 360);
         y += 21;
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.beam_hint", y + 3);
@@ -197,22 +197,22 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getBeamEffects(), "cnpcgeckoaddon.boss.effects_beam"));
+            setSubGui(new SubGuiBossEffectList(phase.beam().getEffects(), "cnpcgeckoaddon.boss.effects_beam"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setBeamEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.beam().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == FOLLOW_BUTTON) {
-            phase.setBeamFollowsBoss(((GuiButtonYesNo) button).getBoolean());
+            phase.beam().setFollowsBoss(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == WALLS_BUTTON) {
-            phase.setBeamStopsAtWalls(((GuiButtonYesNo) button).getBoolean());
+            phase.beam().setStopsAtWalls(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == START_MODE_BUTTON) {
-            phase.setBeamStartMode(button.getValue());
+            phase.beam().setStartMode(button.getValue());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting beam animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setBeamAnimation(name);
+                phase.beam().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setBeamActionDelayTicks);
+                        phase.beam()::setActionDelayTicks);
             }));
         }
     }
@@ -222,24 +222,24 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setBeamAnimation(value);
-            else animation.setValue(phase.getBeamAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.beam().setAnimation(value);
+            else animation.setValue(phase.beam().getAnimation());
         }
-        applyNumberField(COUNT_FIELD, phase::setBeamCount);
-        applyNumberField(LENGTH_FIELD, phase::setBeamLength);
-        applyNumberField(WIDTH_FIELD, phase::setBeamWidth);
-        applyNumberField(DURATION_FIELD, phase::setBeamDurationTicks);
+        applyNumberField(COUNT_FIELD, phase.beam()::setCount);
+        applyNumberField(LENGTH_FIELD, phase.beam()::setLength);
+        applyNumberField(WIDTH_FIELD, phase.beam()::setWidth);
+        applyNumberField(DURATION_FIELD, phase.beam()::setDurationTicks);
         GuiTextFieldNop speed = getTextField(SPEED_FIELD);
         if (speed != null) {
-            phase.setBeamDegreesPerSecond(signed(speed));
+            phase.beam().setDegreesPerSecond(signed(speed));
             // Clamped on the way in, so what the screen shows is what the boss will do.
-            speed.setValue(Integer.toString(phase.getBeamDegreesPerSecond()));
+            speed.setValue(Integer.toString(phase.beam().getDegreesPerSecond()));
         }
-        applyNumberField(DAMAGE_FIELD, phase::setBeamDamage);
-        applyNumberField(INTERVAL_FIELD, phase::setBeamHitIntervalTicks);
-        applyNumberField(KNOCKBACK_FIELD, phase::setBeamKnockback);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setBeamActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setBeamCooldownTicks);
+        applyNumberField(DAMAGE_FIELD, phase.beam()::setDamage);
+        applyNumberField(INTERVAL_FIELD, phase.beam()::setHitIntervalTicks);
+        applyNumberField(KNOCKBACK_FIELD, phase.beam()::setKnockback);
+        applyNumberField(ACTION_DELAY_FIELD, phase.beam()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.beam()::setCooldownTicks);
     }
 
 }

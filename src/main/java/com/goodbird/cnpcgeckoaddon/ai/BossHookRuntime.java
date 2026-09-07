@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
+
 /**
  * The chain the boss throws, and the drag that keeps hold of whoever it caught.
  *
@@ -50,21 +52,21 @@ final class BossHookRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.isHookEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.HOOK)) {
+        if (!phase.hook().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.HOOK)) {
             return false;
         }
-        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.getHookTargetMode(),
-                phase.getHookMaxRange(), candidate -> isValidTarget(candidate, phase),
-                phase.getHookTargetCount());
+        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.hook().getTargetMode(),
+                phase.hook().getMaxRange(), candidate -> isValidTarget(candidate, phase),
+                phase.hook().getTargetCount());
         if (targets.isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.HOOK, gameTime + 10);
+            boss.setAbilityScheduleAt(BossAbility.HOOK, gameTime + RETRY_TICKS);
             return false;
         }
         boss.rememberExtraTargets(targets);
-        boss.beginAction(BossAbility.HOOK, phase.getHookAnimation(),
-                phase.getHookActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        boss.setAbilityScheduleAt(BossAbility.HOOK, gameTime + phase.getHookActionDelayTicks()
-                + boss.rageDown(phase.getHookCooldownTicks()));
+        boss.beginAction(BossAbility.HOOK, phase.hook().getAnimation(),
+                phase.hook().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        boss.setAbilityScheduleAt(BossAbility.HOOK, gameTime + phase.hook().getActionDelayTicks()
+                + boss.rageDown(phase.hook().getCooldownTicks()));
         return true;
     }
 
@@ -73,8 +75,8 @@ final class BossHookRuntime {
             return false;
         }
         double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getHookMinRange();
-        double max = phase.getHookMaxRange();
+        double min = phase.hook().getMinRange();
+        double max = phase.hook().getMaxRange();
         if (distanceSquared < min * min || distanceSquared > max * max) {
             return false;
         }
@@ -98,26 +100,26 @@ final class BossHookRuntime {
             return;
         }
 
-        double strength = boss.rageUp(phase.getHookPullStrength()) / 20.0D;
-        long endsAt = gameTime + phase.getHookPullDurationTicks();
+        double strength = boss.rageUp(phase.hook().getPullStrength()) / 20.0D;
+        long endsAt = gameTime + phase.hook().getPullDurationTicks();
         // A cinch reels everyone onto one spot and keeps them there for the full duration,
         // so the release distance is deliberately ignored - the point is to end up with a
         // tight pile that the next area attack can catch.
-        boolean cinch = phase.getHookMode() == BossPhaseData.HOOK_MODE_CINCH;
+        boolean cinch = phase.hook().getMode() == BossPhaseData.HOOK_MODE_CINCH;
         Vec3 gatherPoint = cinch ? npc.position() : null;
-        double stopDistance = cinch ? 0.0D : phase.getHookStopDistance();
-        String cordStyle = phase.getHookCordStyle();
+        double stopDistance = cinch ? 0.0D : phase.hook().getStopDistance();
+        String cordStyle = phase.hook().getCordStyle();
         boolean textured = HookCordStyles.isTextured(cordStyle);
         for (LivingEntity victim : victims) {
             if (textured) {
-                sendCord(victim.getId(), cordStyle, phase.getHookPullDurationTicks());
+                sendCord(victim.getId(), cordStyle, phase.hook().getPullDurationTicks());
             } else {
                 drawChain(level, victim);
             }
             // No knockback here: what the hook shoves with is the pull below, which runs for
             // as long as the cord holds rather than for one tick.
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.HOOK, npc,
-                    boss.rageUp(phase.getHookDamage()), phase.getHookEffects(), 0, 0.0D, 0.0D);
+                    boss.rageUp(phase.hook().getDamage()), phase.hook().getEffects(), 0, 0.0D, 0.0D);
             // Re-hooking someone already being dragged just refreshes their pull.
             activePulls.removeIf(pull -> pull.targetId() == victim.getId());
             activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint,

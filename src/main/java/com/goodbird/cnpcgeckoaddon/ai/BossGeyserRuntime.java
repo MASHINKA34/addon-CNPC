@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
+
 /**
  * The geyser: a fuse lit under a handful of victims, and a column up through the floor when
  * it burns down.
@@ -27,8 +29,6 @@ final class BossGeyserRuntime {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
-    /** How long an ability that found nobody waits before looking again. */
-    private static final int RETRY_TICKS = 10;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -47,19 +47,19 @@ final class BossGeyserRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.isGeyserEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.GEYSER)) return false;
-        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.getGeyserTargetMode(),
-                phase.getGeyserMaxRange(), candidate -> isValidTarget(candidate, phase),
-                phase.getGeyserTargetCount());
+        if (!phase.geyser().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.GEYSER)) return false;
+        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.geyser().getTargetMode(),
+                phase.geyser().getMaxRange(), candidate -> isValidTarget(candidate, phase),
+                phase.geyser().getTargetCount());
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.GEYSER, gameTime + RETRY_TICKS);
             return false;
         }
         boss.rememberExtraTargets(targets);
-        boss.beginAction(BossAbility.GEYSER, phase.getGeyserAnimation(),
-                phase.getGeyserActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        boss.setAbilityScheduleAt(BossAbility.GEYSER, gameTime + phase.getGeyserActionDelayTicks()
-                + boss.rageDown(phase.getGeyserCooldownTicks()));
+        boss.beginAction(BossAbility.GEYSER, phase.geyser().getAnimation(),
+                phase.geyser().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        boss.setAbilityScheduleAt(BossAbility.GEYSER, gameTime + phase.geyser().getActionDelayTicks()
+                + boss.rageDown(phase.geyser().getCooldownTicks()));
         return true;
     }
 
@@ -72,8 +72,8 @@ final class BossGeyserRuntime {
             return false;
         }
         double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getGeyserMinRange();
-        double max = phase.getGeyserMaxRange();
+        double min = phase.geyser().getMinRange();
+        double max = phase.geyser().getMaxRange();
         return distanceSquared >= min * min && distanceSquared <= max * max;
     }
 
@@ -96,8 +96,8 @@ final class BossGeyserRuntime {
         BlockState fluid = fluid(phase);
         // The fuse is deliberately left alone by the enrage: it is the window a player gets
         // to read the mark and step off it, not a number the fight is allowed to turn up.
-        int damage = boss.rageUp(phase.getGeyserDamage());
-        int launch = boss.rageUp(phase.getGeyserLaunch());
+        int damage = boss.rageUp(phase.geyser().getDamage());
+        int launch = boss.rageUp(phase.geyser().getLaunch());
         for (LivingEntity victim : victims) {
             BossGeyserScheduler.schedule(level, npc, victim, phase, fluid, damage, launch, gameTime);
         }
@@ -105,17 +105,17 @@ final class BossGeyserRuntime {
 
     /** What the eruption pools, or null when it pools nothing or the id is not a fluid. */
     private BlockState fluid(BossPhaseData phase) {
-        if (!phase.leavesGeyserFluid()) {
+        if (!phase.geyser().leavesGeyserFluid()) {
             return null;
         }
-        BlockState fluid = FluidBlockUtil.resolve(phase.getGeyserFluid());
+        BlockState fluid = FluidBlockUtil.resolve(phase.geyser().getFluid());
         if (fluid == null) {
             // The geyser still goes off; only the puddle is dropped. Reported once per broken
             // id rather than once per eruption.
-            if (!phase.getGeyserFluid().equals(reportedBrokenFluid)) {
-                reportedBrokenFluid = phase.getGeyserFluid();
+            if (!phase.geyser().getFluid().equals(reportedBrokenFluid)) {
+                reportedBrokenFluid = phase.geyser().getFluid();
                 LOGGER.warn("Boss {} cannot pool {}: that block is not a fluid",
-                        npc.getName().getString(), phase.getGeyserFluid());
+                        npc.getName().getString(), phase.geyser().getFluid());
             }
             return null;
         }

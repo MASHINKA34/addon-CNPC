@@ -2,8 +2,8 @@ package com.goodbird.cnpcgeckoaddon.registry;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.block.BossChestBlock;
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -21,7 +21,7 @@ public class BlockRegistry {
 
     @SubscribeEvent
     public static void registerBlocks(RegisterEvent event) {
-        if (event.getRegistry() == BuiltInRegistries.BLOCK) {
+        event.register(Registries.BLOCK, helper -> {
             // No item form and no loot table: this block is only ever put down by a dying
             // boss, and breaking it should give back its contents, not a chest to keep.
             bossChest = new BossChestBlock(BlockBehaviour.Properties.of()
@@ -30,8 +30,7 @@ public class BlockRegistry {
                     .sound(SoundType.WOOD)
                     .noOcclusion()
                     .noLootTable());
-            Registry.register((Registry<? super Block>) event.getRegistry(),
-                    CNPCGeckoAddon.MODID + ":" + BOSS_CHEST_NAME, bossChest);
-        }
+            helper.register(ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, BOSS_CHEST_NAME), bossChest);
+        });
     }
 }

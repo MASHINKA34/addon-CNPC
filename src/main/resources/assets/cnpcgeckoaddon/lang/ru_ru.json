@@ -613,6 +613,7 @@
   "cnpcgeckoaddon.boss.totem_vuln_pick": "Список…",
   "cnpcgeckoaddon.boss.totem_vuln_title": "Уязвимость тотема",
   "cnpcgeckoaddon.boss.totem_vuln_hint": "С пустым списком тотем несокрушим.",
+  "cnpcgeckoaddon.string_picker.search": "Поиск...",
   "cnpcgeckoaddon.model_picker.title": "Выбор GeckoLib-модели",
   "cnpcgeckoaddon.model_picker.search": "Поиск моделей...",
   "cnpcgeckoaddon.model_picker.mod": "Мод",

@@ -43,7 +43,7 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         this.index = index;
-        this.point = phase.getMinionSpawnPoints().get(index);
+        this.point = phase.summon().getSpawnPoints().get(index);
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -134,7 +134,7 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
         } else if (button.id == DELETE_BUTTON) {
-            phase.getMinionSpawnPoints().remove(index);
+            phase.summon().getSpawnPoints().remove(index);
             super.close();
         }
     }

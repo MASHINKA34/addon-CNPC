@@ -50,10 +50,10 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
                 data.shouldPlaySound()));
         y += 23;
         addAnimationRow(PRE_ANIMATION_FIELD, "cnpcgeckoaddon.boss.teleport_pre_anim", y,
-                phase.getTeleportPreparationAnimation());
+                phase.teleport().getPreparationAnimation());
         y += 23;
         addNumberField(PRE_DELAY_FIELD, "cnpcgeckoaddon.boss.teleport_pre_delay", y,
-                phase.getTeleportPreparationTicks(), 0, 1200, 20);
+                phase.teleport().getPreparationTicks(), 0, 1200, 20);
         y += 23;
         addAnimationRow(POST_ANIMATION_FIELD, "cnpcgeckoaddon.boss.teleport_post_anim", y,
                 phase.getAppearanceAnimation());
@@ -62,10 +62,10 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
                 phase.getAppearanceLockTicks(), 0, 1200, 20);
         y += 23;
         addNumberField(MIN_DELAY_FIELD, "cnpcgeckoaddon.teleport.min_delay", y,
-                phase.getTeleportMinDelayTicks(), 10, 1200, 60);
+                phase.teleport().getMinDelayTicks(), 10, 1200, 60);
         y += 23;
         addNumberField(MAX_DELAY_FIELD, "cnpcgeckoaddon.teleport.max_delay", y,
-                phase.getTeleportMaxDelayTicks(), 10, 1200, 100);
+                phase.teleport().getMaxDelayTicks(), 10, 1200, 100);
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.teleport.ticks_hint",
                 guiLeft + 8, guiTop + 202, 0xA0A0A0));
@@ -88,9 +88,9 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
         } else if (button.id == PRE_ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting teleport preparation animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setTeleportPreparationAnimation(name);
+                phase.teleport().setPreparationAnimation(name);
                 getTextField(PRE_ANIMATION_FIELD).setValue(name);
-                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, PRE_DELAY_FIELD, phase::setTeleportPreparationTicks);
+                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, PRE_DELAY_FIELD, phase.teleport()::setPreparationTicks);
             }));
         } else if (button.id == POST_ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting post-teleport animation:",
@@ -106,11 +106,11 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
     protected void applyFields() {
         applyAnimation(PRE_ANIMATION_FIELD, true);
         applyAnimation(POST_ANIMATION_FIELD, false);
-        applyNumberField(PRE_DELAY_FIELD, phase::setTeleportPreparationTicks);
+        applyNumberField(PRE_DELAY_FIELD, phase.teleport()::setPreparationTicks);
         applyNumberField(POST_LOCK_FIELD, phase::setAppearanceLockTicks);
         GuiTextFieldNop min = getTextField(MIN_DELAY_FIELD);
         GuiTextFieldNop max = getTextField(MAX_DELAY_FIELD);
-        if (min != null && max != null) phase.setTeleportDelayRange(min.getInteger(), max.getInteger());
+        if (min != null && max != null) phase.teleport().setDelayRange(min.getInteger(), max.getInteger());
     }
 
     private void applyAnimation(int fieldId, boolean preparation) {
@@ -118,10 +118,10 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
         if (field == null) return;
         String value = field.getValue().trim();
         if (BossAnimationGuiUtil.isValid(npc, value)) {
-            if (preparation) phase.setTeleportPreparationAnimation(value);
+            if (preparation) phase.teleport().setPreparationAnimation(value);
             else phase.setAppearanceAnimation(value);
         } else {
-            field.setValue(preparation ? phase.getTeleportPreparationAnimation() : phase.getAppearanceAnimation());
+            field.setValue(preparation ? phase.teleport().getPreparationAnimation() : phase.getAppearanceAnimation());
         }
     }
 }

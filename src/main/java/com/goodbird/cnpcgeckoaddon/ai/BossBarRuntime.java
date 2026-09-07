@@ -205,7 +205,7 @@ final class BossBarRuntime {
         int total = 0;
         if (state == PacketSyncBossTimer.STATE_INVULNERABLE) {
             remaining = boss.invulnerableTicksLeft();
-            total = data.getPhase(boss.invulnerablePhaseIndex()).getInvulnerableDurationTicks();
+            total = data.getPhase(boss.invulnerablePhaseIndex()).invulnerable().getDurationTicks();
         } else if (state == PacketSyncBossTimer.STATE_COUNTDOWN) {
             remaining = boss.rageTicksLeft();
             total = data.getRageDelayTicks();

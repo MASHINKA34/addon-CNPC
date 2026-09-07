@@ -64,42 +64,42 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addToggleRow(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", y, phase.isBarrierEnabled());
+        addToggleRow(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", y, phase.barrier().isEnabled());
         y += 21;
 
-        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.getBarrierAnimation());
+        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.barrier().getAnimation());
         y += 21;
         addSelectRow(BREAK_ANIMATION_FIELD, "cnpcgeckoaddon.boss.barrier_break_animation", y,
-                phase.getBarrierBreakAnimation());
+                phase.barrier().getBreakAnimation());
         y += 21;
 
         // The rule and its number share a row: the timer rule's button reads "every (ticks)"
         // and the field beside it is the ticks. Under the other rule the field goes.
         addRowLabel("cnpcgeckoaddon.boss.barrier_trigger", y, RULE_BUTTON_X - 6 - 2);
         addButton(new GuiButtonNop(this, TRIGGER_BUTTON, guiLeft + RULE_BUTTON_X, y, 104, 20,
-                BossPhaseData.BARRIER_TRIGGER_LABELS, phase.getBarrierTrigger()));
-        addRuleField(INTERVAL_FIELD, y, phase.getBarrierIntervalTicks(), 20, 24000, 600);
+                BossPhaseData.BARRIER_TRIGGER_LABELS, phase.barrier().getTrigger()));
+        addRuleField(INTERVAL_FIELD, y, phase.barrier().getIntervalTicks(), 20, 24000, 600);
         y += 21;
 
         addPairRow(AMOUNT_FIELD, PERCENT_FIELD, "cnpcgeckoaddon.boss.barrier_amount", y,
-                phase.getBarrierAmount(), 1, 1000000, 200,
-                phase.getBarrierPercent(), 0, 100, 0);
+                phase.barrier().getAmount(), 1, 1000000, 200,
+                phase.barrier().getPercent(), 0, 100, 0);
         y += 21;
         addNumberField(TIMEOUT_FIELD, "cnpcgeckoaddon.boss.barrier_timeout", y,
-                phase.getBarrierTimeoutTicks(), 0, 24000, 300);
+                phase.barrier().getTimeoutTicks(), 0, 24000, 300);
         y += 21;
         addPairRow(WINDOW_FIELD, WINDOW_DAMAGE_FIELD, "cnpcgeckoaddon.boss.barrier_window", y,
-                phase.getBarrierBreakWindowTicks(), 0, 1200, 60,
-                phase.getBarrierBreakDamageTakenPercent(), 100, 500, 150);
+                phase.barrier().getBreakWindowTicks(), 0, 1200, 60,
+                phase.barrier().getBreakDamageTakenPercent(), 100, 500, 150);
         y += 21;
 
         // The two rules with a number of their own share the last slot; only one is ever on
         // the screen, and the enrage rule shows neither.
         addRowLabel("cnpcgeckoaddon.boss.barrier_fail", y, RULE_BUTTON_X - 6 - 2);
         addButton(new GuiButtonNop(this, FAIL_MODE_BUTTON, guiLeft + RULE_BUTTON_X, y, 104, 20,
-                BossPhaseData.BARRIER_FAIL_LABELS, phase.getBarrierFailMode()));
-        addRuleField(FAIL_DAMAGE_FIELD, y, phase.getBarrierFailDamage(), 0, 1000, 20);
-        addRuleField(FAIL_HEAL_FIELD, y, phase.getBarrierFailHealPercent(), 1, 100, 25);
+                BossPhaseData.BARRIER_FAIL_LABELS, phase.barrier().getFailMode()));
+        addRuleField(FAIL_DAMAGE_FIELD, y, phase.barrier().getFailDamage(), 0, 1000, 20);
+        addRuleField(FAIL_HEAL_FIELD, y, phase.barrier().getFailHealPercent(), 1, 100, 25);
         y += 21;
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.barrier_hint", y + 3);
@@ -119,8 +119,8 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
      * whatever was typed into it, so switching rules and back loses nothing.</p>
      */
     private void applyRuleRows() {
-        showField(INTERVAL_FIELD, phase.getBarrierTrigger() == BossPhaseData.BARRIER_TRIGGER_TIMER);
-        int mode = phase.getBarrierFailMode();
+        showField(INTERVAL_FIELD, phase.barrier().getTrigger() == BossPhaseData.BARRIER_TRIGGER_TIMER);
+        int mode = phase.barrier().getFailMode();
         showField(FAIL_DAMAGE_FIELD, mode == BossPhaseData.BARRIER_FAIL_DAMAGE);
         showField(FAIL_HEAL_FIELD, mode == BossPhaseData.BARRIER_FAIL_HEAL);
     }
@@ -220,25 +220,25 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getBarrierFailEffects(), "cnpcgeckoaddon.boss.effects_barrier"));
+            setSubGui(new SubGuiBossEffectList(phase.barrier().getFailEffects(), "cnpcgeckoaddon.boss.effects_barrier"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setBarrierEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.barrier().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TRIGGER_BUTTON) {
-            phase.setBarrierTrigger(button.getValue());
+            phase.barrier().setTrigger(button.getValue());
             applyRuleRows();
         } else if (button.id == FAIL_MODE_BUTTON) {
-            phase.setBarrierFailMode(button.getValue());
+            phase.barrier().setFailMode(button.getValue());
             applyRuleRows();
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting barrier animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setBarrierAnimation(name);
+                phase.barrier().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
             }));
         } else if (button.id == BREAK_ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting barrier break animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setBarrierBreakAnimation(name);
+                phase.barrier().setBreakAnimation(name);
                 getTextField(BREAK_ANIMATION_FIELD).setValue(name);
             }));
         }
@@ -246,18 +246,18 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        applyAnimation(ANIMATION_FIELD, phase.getBarrierAnimation(), phase::setBarrierAnimation);
-        applyAnimation(BREAK_ANIMATION_FIELD, phase.getBarrierBreakAnimation(), phase::setBarrierBreakAnimation);
+        applyAnimation(ANIMATION_FIELD, phase.barrier().getAnimation(), phase.barrier()::setAnimation);
+        applyAnimation(BREAK_ANIMATION_FIELD, phase.barrier().getBreakAnimation(), phase.barrier()::setBreakAnimation);
         // Read whether or not the rule in force shows them: a hidden field keeps the number
         // a builder typed under the other rule, rather than losing it on a click.
-        applyNumberField(INTERVAL_FIELD, phase::setBarrierIntervalTicks);
-        applyNumberField(AMOUNT_FIELD, phase::setBarrierAmount);
-        applyNumberField(PERCENT_FIELD, phase::setBarrierPercent);
-        applyNumberField(TIMEOUT_FIELD, phase::setBarrierTimeoutTicks);
-        applyNumberField(WINDOW_FIELD, phase::setBarrierBreakWindowTicks);
-        applyNumberField(WINDOW_DAMAGE_FIELD, phase::setBarrierBreakDamageTakenPercent);
-        applyNumberField(FAIL_DAMAGE_FIELD, phase::setBarrierFailDamage);
-        applyNumberField(FAIL_HEAL_FIELD, phase::setBarrierFailHealPercent);
+        applyNumberField(INTERVAL_FIELD, phase.barrier()::setIntervalTicks);
+        applyNumberField(AMOUNT_FIELD, phase.barrier()::setAmount);
+        applyNumberField(PERCENT_FIELD, phase.barrier()::setPercent);
+        applyNumberField(TIMEOUT_FIELD, phase.barrier()::setTimeoutTicks);
+        applyNumberField(WINDOW_FIELD, phase.barrier()::setBreakWindowTicks);
+        applyNumberField(WINDOW_DAMAGE_FIELD, phase.barrier()::setBreakDamageTakenPercent);
+        applyNumberField(FAIL_DAMAGE_FIELD, phase.barrier()::setFailDamage);
+        applyNumberField(FAIL_HEAL_FIELD, phase.barrier()::setFailHealPercent);
     }
 
     /** Keeps a typed animation only when the model has it; otherwise the field snaps back. */

@@ -37,9 +37,13 @@ see [lib/README.md](lib/README.md).
 they cover exactly what can be checked without a world:
 
 - the save round trip of the whole boss configuration, and a reflective sweep asserting that
-  every one of `BossPhaseData`'s three hundred odd fields actually reaches the tag - a field
-  added to the class and the GUI but not to `readFromNBT` is silently forgotten on the next
-  load, and this is what catches it;
+  every one of the three hundred odd settings fields actually reaches the tag - a field added
+  to a settings class and the GUI but not to `readFromNBT` is silently forgotten on the next
+  load, and this is what catches it. The sweep runs once per ability settings class, so a new
+  ability is one line to add there and a loud one to forget;
+- the phase save format key by key - all three hundred odd of them written out, because a key
+  renamed or lost while settings are moved about does not fail to compile and quietly hands
+  every saved boss a default instead;
 - that every number in a boss save comes back clamped, by poisoning each one in turn with
   `Integer.MAX_VALUE` - a setting read straight out of the tag is a cooldown of two billion
   ticks or a scan radius past the world border, neither of which throws;
@@ -52,6 +56,9 @@ they cover exactly what can be checked without a world:
 - the take cover geometry: who a shelter covers, which shelters crowd each other out, how
   long the shockwave is drawn for;
 - the phase thresholds and the party health scaling - the two sums a fight is decided by;
+- that every phase of a boss can actually be reached, whatever thresholds were typed into the
+  GUI or arrived in an old save: a rung set at or above the one before it is a phase that
+  never opens, silently, for the life of the boss;
 - the five artwork tables, held to the fallback every one of them promises;
 - `TickQueue`'s reentrancy, its per-tick cap and its cancellation rules;
 - that every mob bundle with a recorded texture table is also listed in the resolver's

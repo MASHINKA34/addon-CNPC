@@ -44,36 +44,36 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isFluidSpitEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.fluidSpit().isEnabled()));
         y += 22;
 
-        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.getFluidSpitAnimation());
+        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.fluidSpit().getAnimation());
         y += 22;
-        addSelectRow(FLUID_FIELD, "cnpcgeckoaddon.boss.fluid_block", y, phase.getFluidSpitBlock());
+        addSelectRow(FLUID_FIELD, "cnpcgeckoaddon.boss.fluid_block", y, phase.fluidSpit().getBlock());
         y += 21;
         addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getFluidSpitTargetMode()));
+                BossTargetMode.LABELS, phase.fluidSpit().getTargetMode()));
         y += 21;
 
         addNumberField(LIFETIME_FIELD, "cnpcgeckoaddon.boss.fluid_lifetime", y,
-                phase.getFluidSpitLifetimeTicks(), 5, 1200, 60);
+                phase.fluidSpit().getLifetimeTicks(), 5, 1200, 60);
         y += 21;
         addNumberField(RADIUS_FIELD, "cnpcgeckoaddon.boss.fluid_radius", y,
-                phase.getFluidSpitRadius(), 0, 4, 1);
+                phase.fluidSpit().getRadius(), 0, 4, 1);
         y += 21;
         addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.fluid_impact_damage", y,
-                phase.getFluidSpitDamage(), 0, 1000, 0);
+                phase.fluidSpit().getDamage(), 0, 1000, 0);
         y += 21;
         // Min and max share a row: the extra target selector would otherwise push the
         // last field past the bottom edge of the 256px background.
-        addRangeRow(y, phase.getFluidSpitMinRange(), phase.getFluidSpitMaxRange());
+        addRangeRow(y, phase.fluidSpit().getMinRange(), phase.fluidSpit().getMaxRange());
         y += 21;
         addNumberField(ACTION_DELAY_FIELD, "cnpcgeckoaddon.boss.action_delay", y,
-                phase.getFluidSpitActionDelayTicks(), 0, 1200, 12);
+                phase.fluidSpit().getActionDelayTicks(), 0, 1200, 12);
         y += 21;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
-                phase.getFluidSpitCooldownTicks(), 1, 12000, 120);
+                phase.fluidSpit().getCooldownTicks(), 1, 12000, 120);
 
         addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
@@ -119,24 +119,24 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == 67) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getFluidSpitEffects(), "cnpcgeckoaddon.boss.effects_fluid"));
+            setSubGui(new SubGuiBossEffectList(phase.fluidSpit().getEffects(), "cnpcgeckoaddon.boss.effects_fluid"));
             return;
         }
         if (button.id == TARGET_MODE_BUTTON) {
-            phase.setFluidSpitTargetMode(button.getValue());
+            phase.fluidSpit().setTargetMode(button.getValue());
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setFluidSpitEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.fluidSpit().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting fluid spit animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setFluidSpitAnimation(name);
+                phase.fluidSpit().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
-                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase::setFluidSpitActionDelayTicks);
+                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase.fluidSpit()::setActionDelayTicks);
             }));
         } else if (button.id == FLUID_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting fluid block:",
                     FluidBlockUtil.getSelectableIds(), name -> {
-                phase.setFluidSpitBlock(name);
+                phase.fluidSpit().setBlock(name);
                 getTextField(FLUID_FIELD).setValue(name);
             }));
         }
@@ -147,23 +147,23 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setFluidSpitAnimation(value);
-            else animation.setValue(phase.getFluidSpitAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.fluidSpit().setAnimation(value);
+            else animation.setValue(phase.fluidSpit().getAnimation());
         }
         GuiTextFieldNop fluid = getTextField(FLUID_FIELD);
         if (fluid != null) {
             String value = fluid.getValue().trim();
             // Anything that is not a fluid block would silently never spit, so reject it here.
-            if (FluidBlockUtil.isFluidBlock(value)) phase.setFluidSpitBlock(value);
-            else fluid.setValue(phase.getFluidSpitBlock());
+            if (FluidBlockUtil.isFluidBlock(value)) phase.fluidSpit().setBlock(value);
+            else fluid.setValue(phase.fluidSpit().getBlock());
         }
-        applyNumberField(LIFETIME_FIELD, phase::setFluidSpitLifetimeTicks);
-        applyNumberField(RADIUS_FIELD, phase::setFluidSpitRadius);
-        applyNumberField(DAMAGE_FIELD, phase::setFluidSpitDamage);
+        applyNumberField(LIFETIME_FIELD, phase.fluidSpit()::setLifetimeTicks);
+        applyNumberField(RADIUS_FIELD, phase.fluidSpit()::setRadius);
+        applyNumberField(DAMAGE_FIELD, phase.fluidSpit()::setDamage);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
-        if (min != null && max != null) phase.setFluidSpitRange(min.getInteger(), max.getInteger());
-        applyNumberField(ACTION_DELAY_FIELD, phase::setFluidSpitActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setFluidSpitCooldownTicks);
+        if (min != null && max != null) phase.fluidSpit().setRange(min.getInteger(), max.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase.fluidSpit()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.fluidSpit()::setCooldownTicks);
     }
 }

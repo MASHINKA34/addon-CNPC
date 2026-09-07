@@ -72,17 +72,17 @@ public final class BossCaptureManager {
             this.originPhaseIndex = phaseIndex;
             this.anchor = victim.position();
             this.startedAt = gameTime;
-            this.endsAt = gameTime + phase.getCaptureDurationTicks();
+            this.endsAt = gameTime + phase.capture().getDurationTicks();
             this.liftEndsAt = gameTime + liftTicks;
-            this.mode = phase.getCaptureMode();
+            this.mode = phase.capture().getMode();
             this.targetY = targetY;
             this.lockedYaw = victim.getYRot();
             this.lockedPitch = victim.getXRot();
-            this.allowLook = phase.isCaptureAllowLook();
+            this.allowLook = phase.capture().isAllowLook();
             this.beamChannel = 0;
-            this.beamStyle = phase.getCaptureBeamStyle();
-            this.beamWidthPercent = phase.getCaptureBeamWidthPercent();
-            this.beamSagPercent = phase.getCaptureBeamSagPercent();
+            this.beamStyle = phase.capture().getBeamStyle();
+            this.beamWidthPercent = phase.capture().getBeamWidthPercent();
+            this.beamSagPercent = phase.capture().getBeamSagPercent();
         }
     }
 
@@ -94,9 +94,9 @@ public final class BossCaptureManager {
                 || !level.noCollision(victim, victim.getBoundingBox())) {
             return false;
         }
-        int liftTicks = Math.min(phase.getCaptureLiftTicks(), phase.getCaptureDurationTicks());
-        double height = phase.getCaptureMode() == BossPhaseData.CAPTURE_MODE_LIFT
-                ? safeLiftHeight(level, victim, victim.getBoundingBox(), phase.getCaptureLiftHeight()) : 0.0D;
+        int liftTicks = Math.min(phase.capture().getLiftTicks(), phase.capture().getDurationTicks());
+        double height = phase.capture().getMode() == BossPhaseData.CAPTURE_MODE_LIFT
+                ? safeLiftHeight(level, victim, victim.getBoundingBox(), phase.capture().getLiftHeight()) : 0.0D;
         CaptureRuntime capture = new CaptureRuntime(boss, victim, phase, phaseIndex, gameTime,
                 victim.getY() + height, liftTicks);
         BY_VICTIM.put(capture.victimId, capture);
@@ -109,7 +109,7 @@ public final class BossCaptureManager {
         if (victim instanceof ServerPlayer player) {
             syncState(player, capture, true);
         }
-        syncLink(boss, victim, capture, phase.getCaptureDurationTicks());
+        syncLink(boss, victim, capture, phase.capture().getDurationTicks());
         return true;
     }
 

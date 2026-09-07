@@ -120,14 +120,14 @@ public final class BossTetherManager {
             this.spot = spot;
             this.stake = stake;
             this.startedAt = gameTime;
-            this.endsAt = gameTime + phase.getTetherDurationTicks();
-            this.breakDistance = phase.getTetherBreakDistance();
-            this.pullSpeed = phase.getTetherPull() * PULL_PER_LEVEL;
+            this.endsAt = gameTime + phase.tether().getDurationTicks();
+            this.breakDistance = phase.tether().getBreakDistance();
+            this.pullSpeed = phase.tether().getPull() * PULL_PER_LEVEL;
             this.failDamage = failDamage;
-            this.effects = phase.getTetherEffects();
-            this.failEffects = phase.getTetherFailEffects();
-            this.style = phase.getTetherStyle();
-            this.widthPercent = phase.getTetherWidthPercent();
+            this.effects = phase.tether().getEffects();
+            this.failEffects = phase.tether().getFailEffects();
+            this.style = phase.tether().getStyle();
+            this.widthPercent = phase.tether().getWidthPercent();
         }
     }
 
@@ -153,7 +153,7 @@ public final class BossTetherManager {
             }
         }
         int tied = 0;
-        if (phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_PAIR) {
+        if (phase.tether().getAnchor() == BossPhaseData.TETHER_ANCHOR_PAIR) {
             while (free.size() >= 2) {
                 LivingEntity first = free.removeFirst();
                 LivingEntity partner = nearest(first, free);
@@ -168,7 +168,7 @@ public final class BossTetherManager {
             int anchor = BossPhaseData.TETHER_ANCHOR_BOSS;
             Vec3 spot = null;
             End stake = null;
-            if (phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_SPOT) {
+            if (phase.tether().getAnchor() == BossPhaseData.TETHER_ANCHOR_SPOT) {
                 EntityBossTetherAnchor planted = EntityBossTetherAnchor.plant(level, victim.position());
                 if (planted == null) {
                     continue;

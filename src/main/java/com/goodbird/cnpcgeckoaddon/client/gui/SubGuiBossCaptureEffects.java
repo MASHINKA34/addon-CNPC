@@ -44,7 +44,7 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
         addLabel(new GuiLabel(EFFECT_TARGET_BUTTON, "cnpcgeckoaddon.boss.capture_effect_target",
                 guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, EFFECT_TARGET_BUTTON, guiLeft + 112, y, 130, 20,
-                EFFECT_TARGET_LABELS, phase.getCaptureEffectTarget()));
+                EFFECT_TARGET_LABELS, phase.capture().getEffectTarget()));
         y += 24;
 
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, y, 236, 20,
@@ -52,16 +52,16 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
         y += 24;
 
         addNumberField(LIFT_HEIGHT_FIELD, "cnpcgeckoaddon.boss.capture_lift_height", y,
-                phase.getCaptureLiftHeight(), 0, 64, 5);
+                phase.capture().getLiftHeight(), 0, 64, 5);
         y += 24;
         addNumberField(LIFT_TICKS_FIELD, "cnpcgeckoaddon.boss.capture_lift_ticks", y,
-                phase.getCaptureLiftTicks(), 1, 1200, 40);
+                phase.capture().getLiftTicks(), 1, 1200, 40);
         y += 24;
 
         addLabel(new GuiLabel(ALLOW_LOOK_BUTTON, "cnpcgeckoaddon.boss.capture_allow_look",
                 guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, ALLOW_LOOK_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isCaptureAllowLook()));
+                phase.capture().isAllowLook()));
         y += 24;
 
         addLabel(new GuiLabel(BEAM_STYLE_BUTTON, "cnpcgeckoaddon.boss.capture_beam", guiLeft + 6, y + 6));
@@ -69,10 +69,10 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
                 BEAM_STYLE_LABELS, beamStyleIndex()));
         y += 24;
         addNumberField(BEAM_WIDTH_FIELD, "cnpcgeckoaddon.boss.capture_beam_width", y,
-                phase.getCaptureBeamWidthPercent(), 25, 400, 100);
+                phase.capture().getBeamWidthPercent(), 25, 400, 100);
         y += 24;
         addNumberField(BEAM_SAG_FIELD, "cnpcgeckoaddon.boss.capture_beam_sag", y,
-                phase.getCaptureBeamSagPercent(), 0, 200, 0);
+                phase.capture().getBeamSagPercent(), 0, 200, 0);
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.capture_hint",
                 guiLeft + 6, guiTop + 213, 0xA0A0A0));
@@ -87,7 +87,7 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
     }
 
     private int beamStyleIndex() {
-        String id = phase.getCaptureBeamStyle();
+        String id = phase.capture().getBeamStyle();
         for (int i = 0; i < HookCordStyles.values().size(); i++) {
             if (HookCordStyles.values().get(i).id().equals(id)) return i;
         }
@@ -95,7 +95,7 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
     }
 
     private void updateLiftFields() {
-        boolean enabled = phase.getCaptureMode() == BossPhaseData.CAPTURE_MODE_LIFT;
+        boolean enabled = phase.capture().getMode() == BossPhaseData.CAPTURE_MODE_LIFT;
         GuiTextFieldNop height = getTextField(LIFT_HEIGHT_FIELD);
         GuiTextFieldNop ticks = getTextField(LIFT_TICKS_FIELD);
         if (height != null) height.enabled = enabled;
@@ -105,23 +105,23 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECT_TARGET_BUTTON) {
-            phase.setCaptureEffectTarget(button.getValue());
+            phase.capture().setEffectTarget(button.getValue());
         } else if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getCaptureEffects(),
+            setSubGui(new SubGuiBossEffectList(phase.capture().getEffects(),
                     "cnpcgeckoaddon.boss.capture_effects"));
         } else if (button.id == ALLOW_LOOK_BUTTON) {
-            phase.setCaptureAllowLook(((GuiButtonYesNo) button).getBoolean());
+            phase.capture().setAllowLook(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == BEAM_STYLE_BUTTON) {
-            phase.setCaptureBeamStyle(HookCordStyles.values().get(button.getValue()).id());
+            phase.capture().setBeamStyle(HookCordStyles.values().get(button.getValue()).id());
         }
     }
 
     @Override
     protected void applyFields() {
-        applyNumberField(LIFT_HEIGHT_FIELD, phase::setCaptureLiftHeight);
-        applyNumberField(LIFT_TICKS_FIELD, phase::setCaptureLiftTicks);
-        applyNumberField(BEAM_WIDTH_FIELD, phase::setCaptureBeamWidthPercent);
-        applyNumberField(BEAM_SAG_FIELD, phase::setCaptureBeamSagPercent);
+        applyNumberField(LIFT_HEIGHT_FIELD, phase.capture()::setLiftHeight);
+        applyNumberField(LIFT_TICKS_FIELD, phase.capture()::setLiftTicks);
+        applyNumberField(BEAM_WIDTH_FIELD, phase.capture()::setBeamWidthPercent);
+        applyNumberField(BEAM_SAG_FIELD, phase.capture()::setBeamSagPercent);
     }
 }

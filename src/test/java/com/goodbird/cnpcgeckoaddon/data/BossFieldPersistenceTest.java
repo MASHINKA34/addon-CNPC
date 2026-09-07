@@ -2,15 +2,19 @@ package com.goodbird.cnpcgeckoaddon.data;
 
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,6 +46,48 @@ class BossFieldPersistenceTest {
                 data -> data.getPhase(1));
     }
 
+    /**
+     * The same sweep over every ability's own settings.
+     *
+     * <p>The phase used to hold all three hundred fields itself, so walking its declared
+     * fields was the whole check. Now each ability owns its own object and the phase holds
+     * two dozen final references to them - which the sweep skips - so without this the check
+     * would still pass while covering almost nothing. Each settings class is asked for by
+     * name rather than discovered, so a new ability is one line here and a loud one to
+     * forget.</p>
+     */
+    @TestFactory
+    @DisplayName("every ability settings field reaches the save tag")
+    Stream<DynamicTest> everyAbilityFieldIsPersisted() {
+        return Stream.<Map.Entry<Class<?>, Function<BossPhaseData, ?>>>of(
+                        Map.entry(BossAreaAttackSettings.class, BossPhaseData::areaAttack),
+                        Map.entry(BossBarrierSettings.class, BossPhaseData::barrier),
+                        Map.entry(BossBeamSettings.class, BossPhaseData::beam),
+                        Map.entry(BossBoulderSettings.class, BossPhaseData::boulder),
+                        Map.entry(BossBoulderRainSettings.class, BossPhaseData::boulderRain),
+                        Map.entry(BossCaptureSettings.class, BossPhaseData::capture),
+                        Map.entry(BossCocoonSettings.class, BossPhaseData::cocoon),
+                        Map.entry(BossCoverSettings.class, BossPhaseData::cover),
+                        Map.entry(BossFluidSpitSettings.class, BossPhaseData::fluidSpit),
+                        Map.entry(BossGeyserSettings.class, BossPhaseData::geyser),
+                        Map.entry(BossGravitySettings.class, BossPhaseData::gravity),
+                        Map.entry(BossHazardSettings.class, BossPhaseData::hazard),
+                        Map.entry(BossHookSettings.class, BossPhaseData::hook),
+                        Map.entry(BossHuntSettings.class, BossPhaseData::hunt),
+                        Map.entry(BossInvulnerableSettings.class, BossPhaseData::invulnerable),
+                        Map.entry(BossLeapSettings.class, BossPhaseData::leap),
+                        Map.entry(BossLineAttackSettings.class, BossPhaseData::lineAttack),
+                        Map.entry(BossMarkSettings.class, BossPhaseData::mark),
+                        Map.entry(BossMeleeAttackSettings.class, BossPhaseData::meleeAttack),
+                        Map.entry(BossRangedAttackSettings.class, BossPhaseData::rangedAttack),
+                        Map.entry(BossSummonSettings.class, BossPhaseData::summon),
+                        Map.entry(BossTeleportSettings.class, BossPhaseData::teleport),
+                        Map.entry(BossTetherSettings.class, BossPhaseData::tether))
+                .map(entry -> DynamicTest.dynamicTest(entry.getKey().getSimpleName(),
+                        () -> assertPersisted(entry.getKey(), BossFieldPersistenceTest::configuredHost,
+                                data -> entry.getValue().apply(data.getPhase(1)))));
+    }
+
     @Test
     @DisplayName("every boss-wide field reaches the save tag")
     void everyBossFieldIsPersisted() {
@@ -56,8 +102,8 @@ class BossFieldPersistenceTest {
         return data;
     }
 
-    private static <T> void assertPersisted(Class<T> owned, Supplier<TeleportPathData> host,
-                                            Function<TeleportPathData, T> target) {
+    private static <T> void assertPersisted(Class<?> owned, Supplier<TeleportPathData> host,
+                                            Function<TeleportPathData, ?> target) {
         Set<String> silent = new TreeSet<>();
         int checked = 0;
         for (Field field : owned.getDeclaredFields()) {
@@ -84,13 +130,13 @@ class BossFieldPersistenceTest {
                         + "load - each needs a line in writeToNBT and readFromNBT: " + silent);
     }
 
-    private static <T> boolean perturbs(Field field, List<Object> candidates,
+    private static boolean perturbs(Field field, List<Object> candidates,
                                         Supplier<TeleportPathData> host,
-                                        Function<TeleportPathData, T> target,
+                                        Function<TeleportPathData, ?> target,
                                         CompoundTag baseline) {
         for (Object candidate : candidates) {
             TeleportPathData data = host.get();
-            T owner = target.apply(data);
+            Object owner = target.apply(data);
             try {
                 if (candidate.equals(field.get(owner))) {
                     continue;

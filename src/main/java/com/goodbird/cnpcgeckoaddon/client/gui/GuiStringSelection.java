@@ -57,7 +57,7 @@ public class GuiStringSelection extends GuiNPCInterface {
         addWidget(this.slot);
 
         GuiTextFieldNop search = new GuiTextFieldNop(1, this, width / 2 - 40, height - 44, 190, 20, "");
-        search.setHint(Component.literal("Search..."));
+        search.setHint(Component.translatable("cnpcgeckoaddon.string_picker.search"));
         search.setResponder(this::applyFilter);
         addTextField(search);
 

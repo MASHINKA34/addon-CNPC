@@ -69,7 +69,6 @@ public final class BossAreaVfxScheduler {
     private static final int MIN_CORRIDOR_DURATION_TICKS = 10;
     private static final int MAX_CORRIDOR_DURATION_TICKS = 60;
     /** Beyond this the wave is invisible anyway, so it plays out without costing anything. */
-    private static final double AUDIENCE_RANGE = 64.0D;
     /** How far below the boss the ring will look for a floor to run along. */
     private static final int FLOOR_SEARCH_DEPTH = 4;
 
@@ -155,8 +154,8 @@ public final class BossAreaVfxScheduler {
 
     /** Starts a wave for an area attack that has just landed. */
     public static void schedule(ServerLevel level, Vec3 center, BossPhaseData phase) {
-        schedule(level, center, phase.getAreaAttackVfx(), phase.getAreaAttackRadius(),
-                phase.getAreaAttackVfxDurationTicks(), phase.isAreaAttackBlockWave());
+        schedule(level, center, phase.areaAttack().getVfx(), phase.areaAttack().getRadius(),
+                phase.areaAttack().getVfxDurationTicks(), phase.areaAttack().isBlockWave());
     }
 
     /**
@@ -181,14 +180,14 @@ public final class BossAreaVfxScheduler {
      * @param axis the flat unit direction the strike was committed to
      */
     public static void scheduleLine(ServerLevel level, Vec3 origin, Vec3 axis, BossPhaseData phase) {
-        String style = AreaVfxStyles.normalize(phase.getLineAttackVfx());
-        if (!AreaVfxStyles.isVisible(style) && !phase.isLineAttackBlockWave()) {
+        String style = AreaVfxStyles.normalize(phase.lineAttack().getVfx());
+        if (!AreaVfxStyles.isVisible(style) && !phase.lineAttack().isBlockWave()) {
             return;
         }
-        int length = phase.getLineAttackLength();
+        int length = phase.lineAttack().getLength();
         WAVES.add(Wave.corridor(level.dimension(), origin, axis, length,
-                phase.getLineAttackWidth(), phase.getLineAttackSideWidth(), style,
-                corridorDuration(length), phase.isLineAttackBlockWave()));
+                phase.lineAttack().getWidth(), phase.lineAttack().getSideWidth(), style,
+                corridorDuration(length), phase.lineAttack().isBlockWave()));
         playStyleSound(level, origin, style);
     }
 
@@ -211,7 +210,7 @@ public final class BossAreaVfxScheduler {
             // With nobody around the wave still runs its clock down, so a player walking in
             // halfway through catches the rest of it rather than a ring frozen in time.
             if (level.getNearestPlayer(wave.center.x, wave.center.y, wave.center.z,
-                    AUDIENCE_RANGE, false) != null) {
+                    BossTelegraphUtil.AUDIENCE_RANGE, false) != null) {
                 if (wave.shape == Shape.CORRIDOR) {
                     emitCorridor(level, wave);
                 } else {

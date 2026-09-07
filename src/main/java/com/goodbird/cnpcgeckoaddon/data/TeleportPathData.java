@@ -841,7 +841,7 @@ public final class TeleportPathData {
             int max = tag.contains("GeckoTeleportPathMaxDelay") ? tag.getInt("GeckoTeleportPathMaxDelay") : 100;
             for (int i = 0; i < 2; i++) {
                 BossPhaseData phase = new BossPhaseData();
-                phase.setTeleportDelayRange(min, max);
+                phase.teleport().setDelayRange(min, max);
                 phases.add(phase);
             }
             phases.get(1).setStartHealthPercent(50);
@@ -850,7 +850,7 @@ public final class TeleportPathData {
         if (phases.isEmpty()) {
             phases.add(new BossPhaseData());
         }
-        phases.get(0).setStartHealthPercent(100);
+        normalizePhaseThresholds();
     }
 
     public int getPhaseCount() {
@@ -874,11 +874,59 @@ public final class TeleportPathData {
             phase.setStartHealthPercent(Math.round(100.0F * (count - index) / count));
             phases.add(phase);
         }
-        phases.get(0).setStartHealthPercent(100);
+        normalizePhaseThresholds();
     }
 
     public BossPhaseData getPhase(int index) {
         return phases.get(Mth.clamp(index, 0, phases.size() - 1));
+    }
+
+    /**
+     * Writes one phase's threshold and keeps the list strictly descending around it.
+     *
+     * <p>The thresholds are read as a ladder the boss climbs down, and
+     * {@link #resolvePhaseIndex} answers with the deepest rung already passed. A rung set at
+     * or above the one before it is therefore never the answer to anything: the phase simply
+     * never opens, silently, for the life of the boss. So the number is clamped into the gap
+     * its own row leaves, and every row under it is pushed down out of the way rather than
+     * being allowed to overtake it.</p>
+     *
+     * <p>Phase one is not settable: it is what the boss starts the fight in, so its threshold
+     * is full health by definition.</p>
+     */
+    public void setPhaseThreshold(int index, int percent) {
+        if (index <= 0 || index >= phases.size()) {
+            return;
+        }
+        phases.get(index).setStartHealthPercent(Mth.clamp(percent, lowestThresholdFor(index),
+                phases.get(index - 1).getStartHealthPercent() - 1));
+        normalizeThresholdsFrom(index + 1);
+    }
+
+    /**
+     * Repairs a ladder that arrived out of order - an old save, a script, a hand-edited tag -
+     * so no phase is left unreachable. Each row keeps its own number wherever it still fits.
+     */
+    public void normalizePhaseThresholds() {
+        normalizeThresholdsFrom(1);
+    }
+
+    private void normalizeThresholdsFrom(int first) {
+        phases.get(0).setStartHealthPercent(100);
+        for (int i = Math.max(1, first); i < phases.size(); i++) {
+            BossPhaseData phase = phases.get(i);
+            phase.setStartHealthPercent(Mth.clamp(phase.getStartHealthPercent(),
+                    lowestThresholdFor(i), phases.get(i - 1).getStartHealthPercent() - 1));
+        }
+    }
+
+    /**
+     * The lowest a row may go and still leave every row under it somewhere to stand: one
+     * percent per phase still to come. Without it a threshold of 1 halfway down the list
+     * would leave the rest with nothing below it to take.
+     */
+    private int lowestThresholdFor(int index) {
+        return phases.size() - index;
     }
 
     /**
@@ -1304,11 +1352,9 @@ public final class TeleportPathData {
         return phases.size() > 1 ? phases.get(1).getStartHealthPercent() : 50;
     }
     public void setPhaseTwoHealthPercent(int value) {
-        if (phases.size() > 1) {
-            phases.get(1).setStartHealthPercent(value);
-        }
+        setPhaseThreshold(1, value);
     }
-    public int getMinDelayTicks() { return phases.get(0).getTeleportMinDelayTicks(); }
-    public int getMaxDelayTicks() { return phases.get(0).getTeleportMaxDelayTicks(); }
-    public void setDelayRange(int min, int max) { phases.get(0).setTeleportDelayRange(min, max); }
+    public int getMinDelayTicks() { return phases.get(0).teleport().getMinDelayTicks(); }
+    public int getMaxDelayTicks() { return phases.get(0).teleport().getMaxDelayTicks(); }
+    public void setDelayRange(int min, int max) { phases.get(0).teleport().setDelayRange(min, max); }
 }

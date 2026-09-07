@@ -33,10 +33,10 @@ public class BossCombatRegressionGameTest {
         data.setResetHeal(true);
         data.setPhaseCount(1);
         BossPhaseData phase = data.getPhase(0);
-        phase.setInvulnerableEnabled(true);
-        phase.setInvulnerableEndMode(BossPhaseData.INVULNERABLE_END_TIMER);
-        phase.setInvulnerableDurationTicks(100);
-        phase.setInvulnerableSummonImmediately(false);
+        phase.invulnerable().setEnabled(true);
+        phase.invulnerable().setEndMode(BossPhaseData.INVULNERABLE_END_TIMER);
+        phase.invulnerable().setDurationTicks(100);
+        phase.invulnerable().setSummonImmediately(false);
         Cow target = helper.spawn(EntityType.COW, new BlockPos(3, 2, 2));
         target.setNoAi(true);
         TeleportPathController controller = new TeleportPathController(npc);

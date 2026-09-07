@@ -41,13 +41,13 @@ public final class SubGuiBossCocoonEffects extends SubGuiFieldScreen {
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == INSIDE_BUTTON) {
-            setSubGui(new SubGuiBossEffectList(phase.getCocoonVictimEffects(),
+            setSubGui(new SubGuiBossEffectList(phase.cocoon().getVictimEffects(),
                     "cnpcgeckoaddon.boss.effects_cocoon_inside"));
         } else if (button.id == FAIL_BUTTON) {
-            setSubGui(new SubGuiBossEffectList(phase.getCocoonFailEffects(),
+            setSubGui(new SubGuiBossEffectList(phase.cocoon().getFailEffects(),
                     "cnpcgeckoaddon.boss.effects_cocoon_fail"));
         } else if (button.id == FREE_BUTTON) {
-            setSubGui(new SubGuiBossEffectList(phase.getCocoonFreeEffects(),
+            setSubGui(new SubGuiBossEffectList(phase.cocoon().getFreeEffects(),
                     "cnpcgeckoaddon.boss.effects_cocoon_free"));
         }
     }

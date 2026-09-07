@@ -56,7 +56,6 @@ public final class BossGravityScheduler {
     /** Fields one level tick works on. One per boss is all a fight has, so this is a runaway stop. */
     private static final int MAX_PER_TICK = 16;
     /** Beyond this nobody can see the ring, so the field works without costing anything. */
-    private static final double AUDIENCE_RANGE = 64.0D;
     /** How often the ring is repainted. Every other tick reads as a steady shape. */
     private static final int MARK_INTERVAL_TICKS = 2;
     /** Ticks between one dose of the held effects and the next. */
@@ -116,14 +115,14 @@ public final class BossGravityScheduler {
                       int damage, long gameTime) {
             this.dimension = dimension;
             this.boss = boss;
-            this.mode = phase.getGravityMode();
-            this.radius = phase.getGravityRadius();
-            this.force = phase.getGravityStrength() / 100.0D;
-            this.touchRadius = phase.getGravityTouchRadius();
+            this.mode = phase.gravity().getMode();
+            this.radius = phase.gravity().getRadius();
+            this.force = phase.gravity().getStrength() / 100.0D;
+            this.touchRadius = phase.gravity().getTouchRadius();
             this.damage = damage;
-            this.effects = phase.getGravityEffects();
+            this.effects = phase.gravity().getEffects();
             this.startedAt = gameTime;
-            this.endsAt = gameTime + phase.getGravityDurationTicks();
+            this.endsAt = gameTime + phase.gravity().getDurationTicks();
         }
     }
 
@@ -168,14 +167,14 @@ public final class BossGravityScheduler {
         Vec3 centre = boss.position();
         // Purely for show, and started before anything is moved, so what a player sees leaves
         // at the same moment the force lands rather than a tick behind it.
-        BossAreaVfxScheduler.schedule(level, centre, phase.getGravityVfx(), phase.getGravityRadius(),
+        BossAreaVfxScheduler.schedule(level, centre, phase.gravity().getVfx(), phase.gravity().getRadius(),
                 VFX_DURATION_TICKS, false);
-        if (phase.getGravityMode() == BossPhaseData.GRAVITY_MODE_LIFT) {
+        if (phase.gravity().getMode() == BossPhaseData.GRAVITY_MODE_LIFT) {
             fling(level, boss, phase, damage, gameTime);
             return;
         }
         FIELDS.add(new Field(level.dimension(), boss, phase, damage, gameTime));
-        if (phase.getGravityMode() == BossPhaseData.GRAVITY_MODE_PULL) {
+        if (phase.gravity().getMode() == BossPhaseData.GRAVITY_MODE_PULL) {
             // A low hum as the field opens; the wind that follows is the particles' job.
             level.playSound(null, centre.x, centre.y, centre.z, SoundEvents.BEACON_ACTIVATE,
                     SoundSource.HOSTILE, 1.5F, 0.5F);
@@ -193,8 +192,8 @@ public final class BossGravityScheduler {
      */
     private static void fling(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, int damage,
                               long gameTime) {
-        double up = phase.getGravityStrength() / 10.0D;
-        for (LivingEntity victim : victims(level, boss, boss.position(), phase.getGravityRadius())) {
+        double up = phase.gravity().getStrength() / 10.0D;
+        for (LivingEntity victim : victims(level, boss, boss.position(), phase.gravity().getRadius())) {
             if (skips(victim)) {
                 continue;
             }
@@ -207,9 +206,9 @@ public final class BossGravityScheduler {
             // Players simulate their own movement, so the server has to push the new velocity
             // to them explicitly. hurtMarked is what makes ServerEntity send it.
             victim.hurtMarked = true;
-            if (phase.getGravityEffects().isAnyEnabled()) {
+            if (phase.gravity().getEffects().isAnyEnabled()) {
                 BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.GRAVITY, boss,
-                        phase.getGravityEffects());
+                        phase.gravity().getEffects());
             }
             LANDINGS.put(victim.getUUID(), new Landing(level.dimension(), boss, damage, gameTime));
             level.sendParticles(ParticleTypes.CLOUD, victim.getX(), victim.getY() + 0.2D, victim.getZ(),
@@ -404,7 +403,7 @@ public final class BossGravityScheduler {
 
     /** The ring at the field's edge, and the motes streaming through it the way it pulls. */
     private static void paint(ServerLevel level, Field field, Vec3 centre, long gameTime) {
-        if (level.getNearestPlayer(centre.x, centre.y, centre.z, AUDIENCE_RANGE, false) == null) {
+        if (level.getNearestPlayer(centre.x, centre.y, centre.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
         if (gameTime % MARK_INTERVAL_TICKS == 0L) {

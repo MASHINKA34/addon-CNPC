@@ -39,30 +39,30 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         int y = guiTop + 18;
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isMeleeAttackEnabled()));
+                phase.meleeAttack().isEnabled()));
         y += 24;
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getMeleeAttackAnimation()));
+                phase.meleeAttack().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 24;
-        addTargetModeRow(TARGET_MODE_BUTTON, y, phase.getMeleeAttackTargetMode());
+        addTargetModeRow(TARGET_MODE_BUTTON, y, phase.meleeAttack().getTargetMode());
         y += 24;
         addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y,
-                phase.getMeleeAttackDamage(), 1, 1000, 6);
+                phase.meleeAttack().getDamage(), 1, 1000, 6);
         y += 24;
         addNumberField(RANGE_FIELD, "cnpcgeckoaddon.boss.attack_radius", y,
-                phase.getMeleeAttackRange(), 1, 32, 3);
+                phase.meleeAttack().getRange(), 1, 32, 3);
         y += 24;
         addNumberField(KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.knockback", y,
-                phase.getMeleeAttackKnockback(), 0, 10, 1);
+                phase.meleeAttack().getKnockback(), 0, 10, 1);
         y += 24;
         addNumberField(ACTION_DELAY_FIELD, "cnpcgeckoaddon.boss.action_delay", y,
-                phase.getMeleeAttackActionDelayTicks(), 0, 1200, 8);
+                phase.meleeAttack().getActionDelayTicks(), 0, 1200, 8);
         y += 24;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
-                phase.getMeleeAttackCooldownTicks(), 1, 12000, 30);
+                phase.meleeAttack().getCooldownTicks(), 1, 12000, 30);
 
         addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 230, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
@@ -79,19 +79,19 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == 67) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getMeleeAttackEffects(), "cnpcgeckoaddon.boss.effects_melee"));
+            setSubGui(new SubGuiBossEffectList(phase.meleeAttack().getEffects(), "cnpcgeckoaddon.boss.effects_melee"));
             return;
         }
         if (button.id == TARGET_MODE_BUTTON) {
-            phase.setMeleeAttackTargetMode(button.getValue());
+            phase.meleeAttack().setTargetMode(button.getValue());
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setMeleeAttackEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.meleeAttack().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting melee attack animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setMeleeAttackAnimation(name);
+                phase.meleeAttack().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
-                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase::setMeleeAttackActionDelayTicks);
+                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase.meleeAttack()::setActionDelayTicks);
             }));
         }
     }
@@ -101,13 +101,13 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setMeleeAttackAnimation(value);
-            else animation.setValue(phase.getMeleeAttackAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.meleeAttack().setAnimation(value);
+            else animation.setValue(phase.meleeAttack().getAnimation());
         }
-        applyNumberField(DAMAGE_FIELD, phase::setMeleeAttackDamage);
-        applyNumberField(RANGE_FIELD, phase::setMeleeAttackRange);
-        applyNumberField(KNOCKBACK_FIELD, phase::setMeleeAttackKnockback);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setMeleeAttackActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setMeleeAttackCooldownTicks);
+        applyNumberField(DAMAGE_FIELD, phase.meleeAttack()::setDamage);
+        applyNumberField(RANGE_FIELD, phase.meleeAttack()::setRange);
+        applyNumberField(KNOCKBACK_FIELD, phase.meleeAttack()::setKnockback);
+        applyNumberField(ACTION_DELAY_FIELD, phase.meleeAttack()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.meleeAttack()::setCooldownTicks);
     }
 }

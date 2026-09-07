@@ -52,43 +52,43 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isTetherEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.tether().isEnabled()));
         y += 21;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getTetherAnimation()));
+                phase.tether().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
         addLabel(new GuiLabel(ANCHOR_BUTTON, "cnpcgeckoaddon.boss.tether_anchor", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, ANCHOR_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.TETHER_ANCHOR_LABELS, phase.getTetherAnchor()));
+                BossPhaseData.TETHER_ANCHOR_LABELS, phase.tether().getAnchor()));
         y += 21;
 
         // How many leashes and who they land on, on one line: the two answer the same question.
         addLabel(new GuiLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.tether_targets", guiLeft + 6, y + 6));
-        addPairedField(TARGET_COUNT_FIELD, guiLeft + 72, y, phase.getTetherTargetCount(), 1, 8, 2, 38);
+        addPairedField(TARGET_COUNT_FIELD, guiLeft + 72, y, phase.tether().getTargetCount(), 1, 8, 2, 38);
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getTetherTargetMode()));
+                BossTargetMode.LABELS, phase.tether().getTargetMode()));
         y += 21;
 
         // The two numbers the mechanic is made of share a line, behind a narrower pair of
         // fields than the other screens use, so their long label still has room to be read.
         addLabel(new GuiLabel(BREAK_DISTANCE_FIELD, "cnpcgeckoaddon.boss.tether_break", guiLeft + 6, y + 6));
-        addPairedField(BREAK_DISTANCE_FIELD, guiLeft + 156, y, phase.getTetherBreakDistance(), 3, 48, 10, 40);
-        addPairedField(DURATION_FIELD, guiLeft + 202, y, phase.getTetherDurationTicks(), 20, 1200, 120, 40);
+        addPairedField(BREAK_DISTANCE_FIELD, guiLeft + 156, y, phase.tether().getBreakDistance(), 3, 48, 10, 40);
+        addPairedField(DURATION_FIELD, guiLeft + 202, y, phase.tether().getDurationTicks(), 20, 1200, 120, 40);
         y += 21;
 
-        addNumberField(PULL_FIELD, "cnpcgeckoaddon.boss.tether_pull", y, phase.getTetherPull(), 0, 10, 0);
+        addNumberField(PULL_FIELD, "cnpcgeckoaddon.boss.tether_pull", y, phase.tether().getPull(), 0, 10, 0);
         y += 21;
         addNumberField(FAIL_DAMAGE_FIELD, "cnpcgeckoaddon.boss.tether_fail", y,
-                phase.getTetherFailDamage(), 0, 1000, 12);
+                phase.tether().getFailDamage(), 0, 1000, 12);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getTetherActionDelayTicks(), 0, 1200, 16,
-                phase.getTetherCooldownTicks(), 1, 12000, 300);
+                phase.tether().getActionDelayTicks(), 0, 1200, 16,
+                phase.tether().getCooldownTicks(), 1, 12000, 300);
         y += 21;
 
         addLabel(new GuiLabel(STYLE_BUTTON, "cnpcgeckoaddon.boss.tether_style", guiLeft + 6, y + 6));
@@ -96,7 +96,7 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
                 STYLE_LABELS, styleIndex()));
         y += 21;
         addNumberField(WIDTH_FIELD, "cnpcgeckoaddon.boss.tether_width", y,
-                phase.getTetherWidthPercent(), 25, 400, 100);
+                phase.tether().getWidthPercent(), 25, 400, 100);
         y += 21;
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.tether_hint", y + 3);
@@ -111,7 +111,7 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
     }
 
     private int styleIndex() {
-        String id = phase.getTetherStyle();
+        String id = phase.tether().getStyle();
         for (int i = 0; i < HookCordStyles.values().size(); i++) {
             if (HookCordStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -156,26 +156,26 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getTetherEffects(), "cnpcgeckoaddon.boss.effects_tether"));
+            setSubGui(new SubGuiBossEffectList(phase.tether().getEffects(), "cnpcgeckoaddon.boss.effects_tether"));
         } else if (button.id == FAIL_EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getTetherFailEffects(),
+            setSubGui(new SubGuiBossEffectList(phase.tether().getFailEffects(),
                     "cnpcgeckoaddon.boss.effects_tether_fail"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setTetherEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.tether().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANCHOR_BUTTON) {
-            phase.setTetherAnchor(button.getValue());
+            phase.tether().setAnchor(button.getValue());
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setTetherTargetMode(button.getValue());
+            phase.tether().setTargetMode(button.getValue());
         } else if (button.id == STYLE_BUTTON) {
-            phase.setTetherStyle(HookCordStyles.values().get(button.getValue()).id());
+            phase.tether().setStyle(HookCordStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting tether animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setTetherAnimation(name);
+                phase.tether().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setTetherActionDelayTicks);
+                        phase.tether()::setActionDelayTicks);
             }));
         }
     }
@@ -185,16 +185,16 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setTetherAnimation(value);
-            else animation.setValue(phase.getTetherAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.tether().setAnimation(value);
+            else animation.setValue(phase.tether().getAnimation());
         }
-        applyNumberField(TARGET_COUNT_FIELD, phase::setTetherTargetCount);
-        applyNumberField(BREAK_DISTANCE_FIELD, phase::setTetherBreakDistance);
-        applyNumberField(DURATION_FIELD, phase::setTetherDurationTicks);
-        applyNumberField(PULL_FIELD, phase::setTetherPull);
-        applyNumberField(FAIL_DAMAGE_FIELD, phase::setTetherFailDamage);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setTetherActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setTetherCooldownTicks);
-        applyNumberField(WIDTH_FIELD, phase::setTetherWidthPercent);
+        applyNumberField(TARGET_COUNT_FIELD, phase.tether()::setTargetCount);
+        applyNumberField(BREAK_DISTANCE_FIELD, phase.tether()::setBreakDistance);
+        applyNumberField(DURATION_FIELD, phase.tether()::setDurationTicks);
+        applyNumberField(PULL_FIELD, phase.tether()::setPull);
+        applyNumberField(FAIL_DAMAGE_FIELD, phase.tether()::setFailDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase.tether()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.tether()::setCooldownTicks);
+        applyNumberField(WIDTH_FIELD, phase.tether()::setWidthPercent);
     }
 }

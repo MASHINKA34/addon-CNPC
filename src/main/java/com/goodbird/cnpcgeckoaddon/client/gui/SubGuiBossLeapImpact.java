@@ -48,23 +48,23 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getLeapActionDelayTicks(), 0, 1200, 12,
-                phase.getLeapCooldownTicks(), 1, 12000, 200);
+                phase.leap().getActionDelayTicks(), 0, 1200, 12,
+                phase.leap().getCooldownTicks(), 1, 12000, 200);
         y += 21;
         addPairRow(DAMAGE_FIELD, RADIUS_FIELD, "cnpcgeckoaddon.boss.leap_impact", y,
-                phase.getLeapImpactDamage(), 0, 1000, 10,
-                phase.getLeapImpactRadius(), 1, 32, 4);
+                phase.leap().getImpactDamage(), 0, 1000, 10,
+                phase.leap().getImpactRadius(), 1, 32, 4);
         y += 21;
         addNumberField(KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.leap_knockback", y,
-                phase.getLeapImpactKnockback(), 0, 10, 2);
+                phase.leap().getImpactKnockback(), 0, 10, 2);
         y += 21;
         addNumberField(AIR_TICKS_FIELD, "cnpcgeckoaddon.boss.leap_air_ticks", y,
-                phase.getLeapMaxAirTicks(), 20, 400, 100);
+                phase.leap().getMaxAirTicks(), 20, 400, 100);
         y += 21;
 
         addLabel(new GuiLabel(TELEGRAPH_BUTTON, "cnpcgeckoaddon.boss.leap_telegraph", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, TELEGRAPH_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isLeapTelegraph()));
+                phase.leap().isTelegraph()));
         y += 21;
 
         addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
@@ -74,7 +74,7 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
 
         addLabel(new GuiLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isLeapBlockWave()));
+                phase.leap().isBlockWave()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.leap_hint", guiLeft + 6, guiTop + 170, 0xA0A0A0));
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 6, guiTop + 182, 0xA0A0A0));
@@ -82,7 +82,7 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
     }
 
     private int vfxStyleIndex() {
-        String id = phase.getLeapVfx();
+        String id = phase.leap().getVfx();
         for (int i = 0; i < AreaVfxStyles.values().size(); i++) {
             if (AreaVfxStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -116,21 +116,21 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == TELEGRAPH_BUTTON) {
-            phase.setLeapTelegraph(((GuiButtonYesNo) button).getBoolean());
+            phase.leap().setTelegraph(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == BLOCK_WAVE_BUTTON) {
-            phase.setLeapBlockWave(((GuiButtonYesNo) button).getBoolean());
+            phase.leap().setBlockWave(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == VFX_STYLE_BUTTON) {
-            phase.setLeapVfx(AreaVfxStyles.values().get(button.getValue()).id());
+            phase.leap().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         }
     }
 
     @Override
     protected void applyFields() {
-        applyNumberField(ACTION_DELAY_FIELD, phase::setLeapActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setLeapCooldownTicks);
-        applyNumberField(DAMAGE_FIELD, phase::setLeapImpactDamage);
-        applyNumberField(RADIUS_FIELD, phase::setLeapImpactRadius);
-        applyNumberField(KNOCKBACK_FIELD, phase::setLeapImpactKnockback);
-        applyNumberField(AIR_TICKS_FIELD, phase::setLeapMaxAirTicks);
+        applyNumberField(ACTION_DELAY_FIELD, phase.leap()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.leap()::setCooldownTicks);
+        applyNumberField(DAMAGE_FIELD, phase.leap()::setImpactDamage);
+        applyNumberField(RADIUS_FIELD, phase.leap()::setImpactRadius);
+        applyNumberField(KNOCKBACK_FIELD, phase.leap()::setImpactKnockback);
+        applyNumberField(AIR_TICKS_FIELD, phase.leap()::setMaxAirTicks);
     }
 }

@@ -108,14 +108,14 @@ public final class BossCocoonManager {
             cocoonId = cocoon.getUUID();
             cocoonYaw = cocoon.getYRot();
             startedAt = gameTime;
-            endsAt = gameTime + phase.getCocoonDurationTicks();
-            rescueMode = phase.getCocoonRescueMode();
-            rescueRadius = phase.getCocoonRescueRadius();
-            rescueTicks = phase.getCocoonRescueTicks();
+            endsAt = gameTime + phase.cocoon().getDurationTicks();
+            rescueMode = phase.cocoon().getRescueMode();
+            rescueRadius = phase.cocoon().getRescueRadius();
+            rescueTicks = phase.cocoon().getRescueTicks();
             this.failDamage = failDamage;
-            victimEffects = phase.getCocoonVictimEffects();
-            failEffects = phase.getCocoonFailEffects();
-            freeEffects = phase.getCocoonFreeEffects();
+            victimEffects = phase.cocoon().getVictimEffects();
+            failEffects = phase.cocoon().getFailEffects();
+            freeEffects = phase.cocoon().getFreeEffects();
         }
     }
 

@@ -24,6 +24,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
+
 /**
  * The take cover strike: a channel that hits the whole arena and spares only whoever hid.
  *
@@ -82,29 +84,29 @@ final class BossCoverRuntime {
      * are drawn from wherever the boss is when they are checked.</p>
      */
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.isCoverEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.COVER)) {
+        if (!phase.cover().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.COVER)) {
             return false;
         }
-        if (boss.coverVictims(level, npc.position(), phase.getCoverRange()).isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + 20);
+        if (boss.coverVictims(level, npc.position(), phase.cover().getRange()).isEmpty()) {
+            boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + RETRY_LONG_TICKS);
             return false;
         }
-        boolean shelterRule = phase.getCoverMode() == BossPhaseData.COVER_MODE_SHELTER;
+        boolean shelterRule = phase.cover().getMode() == BossPhaseData.COVER_MODE_SHELTER;
         List<Vec3> shelters = shelterRule ? placeShelters(level, phase) : List.of();
         if (shelterRule && shelters.isEmpty()) {
             // Nowhere to put a single shelter down is a strike nobody could have answered.
-            boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + 20);
+            boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + RETRY_LONG_TICKS);
             return false;
         }
-        cast = new CoverCast(phase.getCoverMode(), phase.getCoverRange(),
-                boss.rageUp(phase.getCoverDamage()), boss.rageUp(phase.getCoverKnockback()),
-                phase.getCoverEffects(), phase.getCoverVfx(), phase.getCoverShelterRadius(), shelters);
-        boss.beginAction(BossAbility.COVER, phase.getCoverAnimation(),
-                phase.getCoverActionDelayTicks(), gameTime, null, data, phase);
+        cast = new CoverCast(phase.cover().getMode(), phase.cover().getRange(),
+                boss.rageUp(phase.cover().getDamage()), boss.rageUp(phase.cover().getKnockback()),
+                phase.cover().getEffects(), phase.cover().getVfx(), phase.cover().getShelterRadius(), shelters);
+        boss.beginAction(BossAbility.COVER, phase.cover().getAnimation(),
+                phase.cover().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the wind-up is the time to hide, and an enrage that
         // shortened it would turn a mechanic into a strike nobody can answer.
-        boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + phase.getCoverActionDelayTicks()
-                + boss.rageDown(phase.getCoverCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + phase.cover().getActionDelayTicks()
+                + boss.rageDown(phase.cover().getCooldownTicks()));
         return true;
     }
 
@@ -213,10 +215,10 @@ final class BossCoverRuntime {
         List<Vec3> shelters = new ArrayList<>();
         RandomSource random = npc.getRandom();
         Vec3 origin = npc.position();
-        double min = phase.getCoverShelterMinRange();
-        double max = phase.getCoverShelterMaxRange();
-        double apart = phase.getCoverShelterRadius() * 2.0D;
-        for (int i = 0; i < phase.getCoverShelterCount(); i++) {
+        double min = phase.cover().getShelterMinRange();
+        double max = phase.cover().getShelterMaxRange();
+        double apart = phase.cover().getShelterRadius() * 2.0D;
+        for (int i = 0; i < phase.cover().getShelterCount(); i++) {
             for (int attempt = 0; attempt < SHELTER_ATTEMPTS; attempt++) {
                 double angle = random.nextDouble() * Math.PI * 2.0D;
                 double distance = Math.sqrt(min * min + random.nextDouble() * (max * max - min * min));

@@ -11,6 +11,8 @@ import noppes.npcs.entity.EntityNPCInterface;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
+
 /**
  * The leash: victims tied to the boss, to a spot or to each other for a while.
  *
@@ -26,8 +28,6 @@ final class BossTetherCastRuntime {
      * leashed already standing outside the ring.
      */
     private static final double REACH = 32.0D;
-    /** How long an ability that found nobody waits before looking again. */
-    private static final int RETRY_TICKS = 10;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -38,26 +38,26 @@ final class BossTetherCastRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.isTetherEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.TETHER)) return false;
-        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.getTetherTargetMode(),
+        if (!phase.tether().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.TETHER)) return false;
+        List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.tether().getTargetMode(),
                 reach(phase), candidate -> isValidTarget(candidate, phase),
-                phase.getTetherTargetCount());
+                phase.tether().getTargetCount());
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.TETHER, gameTime + RETRY_TICKS);
             return false;
         }
         boss.rememberExtraTargets(targets);
-        boss.beginAction(BossAbility.TETHER, phase.getTetherAnimation(),
-                phase.getTetherActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        boss.setAbilityScheduleAt(BossAbility.TETHER, gameTime + phase.getTetherActionDelayTicks()
-                + boss.rageDown(phase.getTetherCooldownTicks()));
+        boss.beginAction(BossAbility.TETHER, phase.tether().getAnimation(),
+                phase.tether().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
+        boss.setAbilityScheduleAt(BossAbility.TETHER, gameTime + phase.tether().getActionDelayTicks()
+                + boss.rageDown(phase.tether().getCooldownTicks()));
         return true;
     }
 
     /** How far this cast picks its victims from; see {@link #REACH}. */
     private static double reach(BossPhaseData phase) {
-        return phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS
-                ? phase.getTetherBreakDistance() : REACH;
+        return phase.tether().getAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS
+                ? phase.tether().getBreakDistance() : REACH;
     }
 
     boolean isValidTarget(LivingEntity target, BossPhaseData phase) {
@@ -93,7 +93,7 @@ final class BossTetherCastRuntime {
         // The break distance and the timer are deliberately left alone by the enrage: they
         // are the window a player gets to run, not a number the fight is allowed to turn down.
         if (BossTetherManager.start(level, npc, victims, phase, boss.currentPhaseIndex(),
-                boss.rageUp(phase.getTetherFailDamage()), gameTime) == 0) {
+                boss.rageUp(phase.tether().getFailDamage()), gameTime) == 0) {
             return;
         }
         for (LivingEntity victim : victims) {

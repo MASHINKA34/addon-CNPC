@@ -57,50 +57,50 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isLineAttackEnabled()));
+                phase.lineAttack().isEnabled()));
         y += 21;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getLineAttackAnimation()));
+                phase.lineAttack().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
         addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getLineAttackTargetMode()));
+                BossTargetMode.LABELS, phase.lineAttack().getTargetMode()));
         y += 21;
 
         addLabel(new GuiLabel(DIRECTION_BUTTON, "cnpcgeckoaddon.boss.line_direction", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, DIRECTION_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.LINE_DIRECTION_LABELS, phase.getLineAttackDirection()));
+                BossPhaseData.LINE_DIRECTION_LABELS, phase.lineAttack().getDirection()));
         y += 21;
 
         addLabel(new GuiLabel(FACE_AXIS_BUTTON, "cnpcgeckoaddon.boss.line_face_axis", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, FACE_AXIS_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isLineAttackFaceAxis()));
+                phase.lineAttack().isFaceAxis()));
         y += 21;
 
         addPairRow(LENGTH_FIELD, WIDTH_FIELD, "cnpcgeckoaddon.boss.line_size", y,
-                phase.getLineAttackLength(), 1, 64, 9,
-                phase.getLineAttackWidth(), 1, 8, 2);
+                phase.lineAttack().getLength(), 1, 64, 9,
+                phase.lineAttack().getWidth(), 1, 8, 2);
         y += 21;
         addNumberField(HEIGHT_FIELD, "cnpcgeckoaddon.boss.line_height", y,
-                phase.getLineAttackHeight(), 1, 8, 3);
+                phase.lineAttack().getHeight(), 1, 8, 3);
         y += 21;
         addPairRow(DAMAGE_FIELD, KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.line_damage", y,
-                phase.getLineAttackDamage(), 1, 1000, 10,
-                phase.getLineAttackKnockback(), 0, 10, 2);
+                phase.lineAttack().getDamage(), 1, 1000, 10,
+                phase.lineAttack().getKnockback(), 0, 10, 2);
         y += 21;
         // A width of zero here is what turns the flanks off outright, damage and wave alike.
         addPairRow(SIDE_WIDTH_FIELD, SIDE_PERCENT_FIELD, "cnpcgeckoaddon.boss.line_side", y,
-                phase.getLineAttackSideWidth(), 0, 8, 2,
-                phase.getLineAttackSidePercent(), 10, 100, 50);
+                phase.lineAttack().getSideWidth(), 0, 8, 2,
+                phase.lineAttack().getSidePercent(), 10, 100, 50);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getLineAttackActionDelayTicks(), 0, 1200, 12,
-                phase.getLineAttackCooldownTicks(), 1, 12000, 140);
+                phase.lineAttack().getActionDelayTicks(), 0, 1200, 12,
+                phase.lineAttack().getCooldownTicks(), 1, 12000, 140);
         y += 21;
 
         addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
@@ -109,7 +109,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
         y += 21;
         addLabel(new GuiLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isLineAttackBlockWave()));
+                phase.lineAttack().isBlockWave()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.line_hint", guiLeft + 6, guiTop + 271, 0xA0A0A0));
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 281, 120, 20,
@@ -118,7 +118,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
     }
 
     private int vfxStyleIndex() {
-        String id = phase.getLineAttackVfx();
+        String id = phase.lineAttack().getVfx();
         for (int i = 0; i < AreaVfxStyles.values().size(); i++) {
             if (AreaVfxStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -162,27 +162,27 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getLineAttackEffects(),
+            setSubGui(new SubGuiBossEffectList(phase.lineAttack().getEffects(),
                     "cnpcgeckoaddon.boss.effects_line"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setLineAttackEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.lineAttack().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setLineAttackTargetMode(button.getValue());
+            phase.lineAttack().setTargetMode(button.getValue());
         } else if (button.id == DIRECTION_BUTTON) {
-            phase.setLineAttackDirection(button.getValue());
+            phase.lineAttack().setDirection(button.getValue());
         } else if (button.id == FACE_AXIS_BUTTON) {
-            phase.setLineAttackFaceAxis(((GuiButtonYesNo) button).getBoolean());
+            phase.lineAttack().setFaceAxis(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == VFX_STYLE_BUTTON) {
-            phase.setLineAttackVfx(AreaVfxStyles.values().get(button.getValue()).id());
+            phase.lineAttack().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == BLOCK_WAVE_BUTTON) {
-            phase.setLineAttackBlockWave(((GuiButtonYesNo) button).getBoolean());
+            phase.lineAttack().setBlockWave(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting line strike animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setLineAttackAnimation(name);
+                phase.lineAttack().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setLineAttackActionDelayTicks);
+                        phase.lineAttack()::setActionDelayTicks);
             }));
         }
     }
@@ -192,17 +192,17 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setLineAttackAnimation(value);
-            else animation.setValue(phase.getLineAttackAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.lineAttack().setAnimation(value);
+            else animation.setValue(phase.lineAttack().getAnimation());
         }
-        applyNumberField(LENGTH_FIELD, phase::setLineAttackLength);
-        applyNumberField(WIDTH_FIELD, phase::setLineAttackWidth);
-        applyNumberField(HEIGHT_FIELD, phase::setLineAttackHeight);
-        applyNumberField(DAMAGE_FIELD, phase::setLineAttackDamage);
-        applyNumberField(KNOCKBACK_FIELD, phase::setLineAttackKnockback);
-        applyNumberField(SIDE_WIDTH_FIELD, phase::setLineAttackSideWidth);
-        applyNumberField(SIDE_PERCENT_FIELD, phase::setLineAttackSidePercent);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setLineAttackActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setLineAttackCooldownTicks);
+        applyNumberField(LENGTH_FIELD, phase.lineAttack()::setLength);
+        applyNumberField(WIDTH_FIELD, phase.lineAttack()::setWidth);
+        applyNumberField(HEIGHT_FIELD, phase.lineAttack()::setHeight);
+        applyNumberField(DAMAGE_FIELD, phase.lineAttack()::setDamage);
+        applyNumberField(KNOCKBACK_FIELD, phase.lineAttack()::setKnockback);
+        applyNumberField(SIDE_WIDTH_FIELD, phase.lineAttack()::setSideWidth);
+        applyNumberField(SIDE_PERCENT_FIELD, phase.lineAttack()::setSidePercent);
+        applyNumberField(ACTION_DELAY_FIELD, phase.lineAttack()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.lineAttack()::setCooldownTicks);
     }
 }

@@ -72,25 +72,25 @@ final class BossMinionSpawnRuntime {
     void summon(ServerLevel level, BossPhaseData phase) {
         // Capped at the ceiling it is subtracted from: past that the difference is never
         // positive anyway, and the walk does not have to finish counting a full arena.
-        int available = phase.getMaxAliveMinions()
-                - BossMinionUtil.countAlive(level, npc, phase.getMaxAliveMinions());
-        int amount = Math.min(phase.getMinionCount(), Math.max(available, 0));
+        int available = phase.summon().getMaxAlives()
+                - BossMinionUtil.countAlive(level, npc, phase.summon().getMaxAlives());
+        int amount = Math.min(phase.summon().getCount(), Math.max(available, 0));
         if (amount <= 0) return;
 
         int spawned = 0;
-        if (phase.getMinionSpawnMode() != BossPhaseData.MINION_SPAWN_RANDOM_RADIUS) {
+        if (phase.summon().getSpawnMode() != BossPhaseData.MINION_SPAWN_RANDOM_RADIUS) {
             spawned = spawnConfigured(level, phase, amount);
         }
 
-        boolean useRandom = phase.getMinionSpawnMode() == BossPhaseData.MINION_SPAWN_RANDOM_RADIUS
-                || phase.getMinionSpawnMode() == BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM;
-        if (!useRandom || phase.getMinionCloneName().isEmpty()) {
+        boolean useRandom = phase.summon().getSpawnMode() == BossPhaseData.MINION_SPAWN_RANDOM_RADIUS
+                || phase.summon().getSpawnMode() == BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM;
+        if (!useRandom || phase.summon().getCloneName().isEmpty()) {
             return;
         }
         for (int i = spawned; i < amount; i++) {
-            Vec3 position = findRingPosition(level, phase.getMinionRadius());
+            Vec3 position = findRingPosition(level, phase.summon().getRadius());
             if (position == null) continue;
-            spawnClone(level, phase.getMinionCloneName(), phase.getMinionCloneTab(),
+            spawnClone(level, phase.summon().getCloneName(), phase.summon().getCloneTab(),
                     position, Float.NaN, boss.currentPhaseIndex(), -1);
         }
     }
@@ -105,19 +105,19 @@ final class BossMinionSpawnRuntime {
             }
             Vec3 anchor = pointAnchor(point);
             Vec3 position = findConfiguredPosition(level, anchor,
-                    phase.getMinionPointSearchRadius(), phaseIndex, point.getPointId());
+                    phase.summon().getPointSearchRadius(), phaseIndex, point.getPointId());
             if (position == null) {
                 continue;
             }
             String cloneName = point.getCloneNameOverride().isEmpty()
-                    ? phase.getMinionCloneName() : point.getCloneNameOverride();
+                    ? phase.summon().getCloneName() : point.getCloneNameOverride();
             int cloneTab = point.getCloneTabOverride() == 0
-                    ? phase.getMinionCloneTab() : point.getCloneTabOverride();
+                    ? phase.summon().getCloneTab() : point.getCloneTabOverride();
             Entity minion = spawnClone(level, cloneName, cloneTab, position,
                     point.getYaw(), phaseIndex, point.getPointId());
             if (minion != null) {
                 spawned++;
-                if (phase.getMinionSpawnOrder() == BossPhaseData.MINION_ORDER_ROUND_ROBIN) {
+                if (phase.summon().getSpawnOrder() == BossPhaseData.MINION_ORDER_ROUND_ROBIN) {
                     roundRobinCursor.put(phaseIndex, point.getPointId());
                 }
             }
@@ -128,14 +128,14 @@ final class BossMinionSpawnRuntime {
     private List<BossMinionSpawnPoint> orderedPoints(ServerLevel level, BossPhaseData phase) {
         int phaseIndex = boss.currentPhaseIndex();
         List<BossMinionSpawnPoint> candidates = new ArrayList<>();
-        Set<Integer> occupied = phase.isMinionReuseOccupiedPoints()
+        Set<Integer> occupied = phase.summon().isReuseOccupiedPoints()
                 ? Set.of() : BossMinionUtil.occupiedSlots(level, npc, phaseIndex);
-        for (BossMinionSpawnPoint point : phase.getMinionSpawnPoints().entries()) {
+        for (BossMinionSpawnPoint point : phase.summon().getSpawnPoints().entries()) {
             if (!point.isEnabled()) {
                 continue;
             }
             String cloneName = point.getCloneNameOverride().isEmpty()
-                    ? phase.getMinionCloneName() : point.getCloneNameOverride();
+                    ? phase.summon().getCloneName() : point.getCloneNameOverride();
             if (cloneName.isEmpty()) {
                 continue;
             }
@@ -146,10 +146,10 @@ final class BossMinionSpawnRuntime {
             candidates.add(point);
         }
 
-        if (phase.getMinionSpawnOrder() == BossPhaseData.MINION_ORDER_RANDOM) {
+        if (phase.summon().getSpawnOrder() == BossPhaseData.MINION_ORDER_RANDOM) {
             return weightedRandomPoints(candidates);
         }
-        if (phase.getMinionSpawnOrder() != BossPhaseData.MINION_ORDER_ROUND_ROBIN
+        if (phase.summon().getSpawnOrder() != BossPhaseData.MINION_ORDER_ROUND_ROBIN
                 || candidates.size() < 2) {
             return candidates;
         }
@@ -158,7 +158,7 @@ final class BossMinionSpawnRuntime {
         if (lastPointId == null) {
             return candidates;
         }
-        List<BossMinionSpawnPoint> configured = phase.getMinionSpawnPoints().entries();
+        List<BossMinionSpawnPoint> configured = phase.summon().getSpawnPoints().entries();
         int lastIndex = -1;
         for (int i = 0; i < configured.size(); i++) {
             if (configured.get(i).getPointId() == lastPointId) {

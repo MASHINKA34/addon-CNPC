@@ -30,7 +30,7 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        this.points = phase.getMinionSpawnPoints();
+        this.points = phase.summon().getSpawnPoints();
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -99,7 +99,7 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
             clone = I18n.get("cnpcgeckoaddon.boss.minion_spawn_default_clone");
         } else {
             int tab = point.getCloneTabOverride() == 0
-                    ? phase.getMinionCloneTab() : point.getCloneTabOverride();
+                    ? phase.summon().getCloneTab() : point.getCloneTabOverride();
             clone = tab + ":" + point.getCloneNameOverride();
         }
         return coordinates + " · " + clone;

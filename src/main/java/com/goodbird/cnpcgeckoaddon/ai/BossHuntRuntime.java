@@ -66,13 +66,13 @@ final class BossHuntRuntime {
 
         private Hunt(LivingEntity prey, BossPhaseData phase, long gameTime) {
             preyId = prey.getId();
-            endsAt = gameTime + phase.getHuntDurationTicks();
-            catchRadius = phase.getHuntCatchRadius();
-            damage = phase.getHuntDamage();
-            effects = phase.getHuntEffects();
-            catchEnds = phase.isHuntCatchEnds();
-            silence = phase.isHuntSilence();
-            glowing = phase.isHuntGlow();
+            endsAt = gameTime + phase.hunt().getDurationTicks();
+            catchRadius = phase.hunt().getCatchRadius();
+            damage = phase.hunt().getDamage();
+            effects = phase.hunt().getEffects();
+            catchEnds = phase.hunt().isCatchEnds();
+            silence = phase.hunt().isSilence();
+            glowing = phase.hunt().isGlow();
             nextCatchAt = gameTime;
         }
     }
@@ -135,10 +135,10 @@ final class BossHuntRuntime {
             // Not ambient and no particles: the outline is the mark, and a cloud of swirls
             // round the prey would only hide who it is on. As long as the chase, so the glow
             // goes out with the hunt even if nothing gets to take it off.
-            prey.addEffect(new MobEffectInstance(MobEffects.GLOWING, phase.getHuntDurationTicks(),
+            prey.addEffect(new MobEffectInstance(MobEffects.GLOWING, phase.hunt().getDurationTicks(),
                     0, false, false, true), npc);
         }
-        applySpeed(phase.getHuntSpeedPercent() / 100.0D);
+        applySpeed(phase.hunt().getSpeedPercent() / 100.0D);
         boss.setTargetIfChanged(prey);
         announce(prey);
         boss.endCastRoot();
@@ -294,7 +294,7 @@ final class BossHuntRuntime {
         // Named loudly: a stride still on with no hunt to own it is exactly the leak every
         // way out of a hunt is meant to rule out.
         String leak = stride ? " (speed modifier still on!)" : "";
-        if (phase == null || !phase.isHuntEnabled()) {
+        if (phase == null || !phase.hunt().isEnabled()) {
             return "Hunt: disabled" + leak;
         }
         long remaining = nextHuntAt == NOT_SCHEDULED ? 0L : nextHuntAt - gameTime;

@@ -71,18 +71,18 @@ final class BossHazardRuntime {
         private long nextHitAt;
 
         private ArenaHazard(BossPhaseData phase, long gameTime, Vec3 centre, AABB box, double floorY) {
-            mode = phase.getHazardMode();
-            opensAt = gameTime + phase.getHazardDelayTicks();
-            warnsAt = Math.max(gameTime, opensAt - phase.getHazardWarnTicks());
+            mode = phase.hazard().getMode();
+            opensAt = gameTime + phase.hazard().getDelayTicks();
+            warnsAt = Math.max(gameTime, opensAt - phase.hazard().getWarnTicks());
             this.centre = centre;
-            startRadius = phase.getHazardStartRadius();
-            endRadius = phase.getHazardEndRadius();
-            shrinkTicks = phase.getHazardShrinkTicks();
+            startRadius = phase.hazard().getStartRadius();
+            endRadius = phase.hazard().getEndRadius();
+            shrinkTicks = phase.hazard().getShrinkTicks();
             this.box = box;
             this.floorY = floorY;
-            damage = phase.getHazardDamage();
-            intervalTicks = phase.getHazardIntervalTicks();
-            effects = phase.getHazardEffects();
+            damage = phase.hazard().getDamage();
+            intervalTicks = phase.hazard().getIntervalTicks();
+            effects = phase.hazard().getEffects();
             nextHitAt = opensAt;
         }
 
@@ -134,18 +134,18 @@ final class BossHazardRuntime {
      */
     void arm(ServerLevel level, long gameTime, BossPhaseData phase) {
         hazard = null;
-        if (!phase.isHazardEnabled()) {
+        if (!phase.hazard().isEnabled()) {
             return;
         }
-        if (phase.getHazardMode() == BossPhaseData.HAZARD_MODE_BOX) {
+        if (phase.hazard().getMode() == BossPhaseData.HAZARD_MODE_BOX) {
             AABB box = boxBounds(level, phase);
             double floorY = box == null ? npc.getY() : Mth.clamp(npc.getY(), box.minY, box.maxY - 1.0D);
             hazard = new ArenaHazard(phase, gameTime, null, box, floorY);
             return;
         }
-        Vec3 centre = phase.getHazardCenterMode() == BossPhaseData.HAZARD_CENTER_POINT
+        Vec3 centre = phase.hazard().getCenterMode() == BossPhaseData.HAZARD_CENTER_POINT
                 // The middle of the block, so a spot picked by standing on it is that spot.
-                ? new Vec3(phase.getHazardCenterX() + 0.5D, npc.getY(), phase.getHazardCenterZ() + 0.5D)
+                ? new Vec3(phase.hazard().getCenterX() + 0.5D, npc.getY(), phase.hazard().getCenterZ() + 0.5D)
                 : npc.position();
         hazard = new ArenaHazard(phase, gameTime, centre, null, centre.y);
     }
@@ -159,15 +159,15 @@ final class BossHazardRuntime {
      * aggro zone's is. Its corners are read the same way too: either order, both inclusive.
      */
     private static AABB boxBounds(ServerLevel level, BossPhaseData phase) {
-        int minY = Math.max(Math.min(phase.getHazardY1(), phase.getHazardY2()), level.getMinBuildHeight());
-        int maxY = Math.min(Math.max(phase.getHazardY1(), phase.getHazardY2()), level.getMaxBuildHeight() - 1);
+        int minY = Math.max(Math.min(phase.hazard().getY1(), phase.hazard().getY2()), level.getMinBuildHeight());
+        int maxY = Math.min(Math.max(phase.hazard().getY1(), phase.hazard().getY2()), level.getMaxBuildHeight() - 1);
         if (minY > maxY) {
             return null;
         }
-        int minX = Math.min(phase.getHazardX1(), phase.getHazardX2());
-        int minZ = Math.min(phase.getHazardZ1(), phase.getHazardZ2());
-        int maxX = Math.max(phase.getHazardX1(), phase.getHazardX2());
-        int maxZ = Math.max(phase.getHazardZ1(), phase.getHazardZ2());
+        int minX = Math.min(phase.hazard().getX1(), phase.hazard().getX2());
+        int minZ = Math.min(phase.hazard().getZ1(), phase.hazard().getZ2());
+        int maxX = Math.max(phase.hazard().getX1(), phase.hazard().getX2());
+        int maxZ = Math.max(phase.hazard().getZ1(), phase.hazard().getZ2());
         // The upper AABB bounds are exclusive, so adding one includes every block of corner 2.
         return new AABB(minX, minY, minZ, (double) maxX + 1.0D, (double) maxY + 1.0D, (double) maxZ + 1.0D);
     }
@@ -186,7 +186,7 @@ final class BossHazardRuntime {
         }
         // Switched off mid-fight, the hazard goes out at once rather than burning on until
         // the phase ends; everything else it was armed with stays as it was.
-        if (!boss.isEncounterRunning() || !data.getPhase(boss.currentPhaseIndex()).isHazardEnabled()) {
+        if (!boss.isEncounterRunning() || !data.getPhase(boss.currentPhaseIndex()).hazard().isEnabled()) {
             this.hazard = null;
             return;
         }
@@ -242,7 +242,7 @@ final class BossHazardRuntime {
      */
     private static boolean hasAudience(ServerLevel level, Vec3 centre, double reach) {
         return level.getNearestPlayer(centre.x, centre.y, centre.z,
-                TeleportPathController.TELEGRAPH_AUDIENCE_RANGE + reach, false) != null;
+                BossTelegraphUtil.AUDIENCE_RANGE + reach, false) != null;
     }
 
     /**

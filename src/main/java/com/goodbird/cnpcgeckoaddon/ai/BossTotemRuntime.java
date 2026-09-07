@@ -67,11 +67,6 @@ final class BossTotemRuntime {
     private boolean waveActivated;
     private long activationDeadline = NOT_SCHEDULED;
     private long nextStructuralReconcileAt;
-    /** Game time the shared totem scan below was collected on. */
-    private long scanAt = NOT_SCHEDULED;
-    /** Every loaded totem of this boss, collected at most once per tick and shared. */
-    private List<Entity> scan = List.of();
-
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
 
@@ -230,7 +225,7 @@ final class BossTotemRuntime {
         Entity totem = runtime == null || runtime.entityId == null
                 ? null : level.getEntity(runtime.entityId);
         if (!isUsable(totem, slotId)) {
-            Entity adopted = findAlive(level, gameTime, slotId);
+            Entity adopted = findAlive(level, slotId);
             if (adopted != null) {
                 runtime = slots.computeIfAbsent(slotId, ignored -> new TotemRuntime(null));
                 runtime.entityId = adopted.getUUID();
@@ -385,7 +380,7 @@ final class BossTotemRuntime {
 
     void adoptLoaded(ServerLevel level, long gameTime, TeleportPathData data) {
         Set<Integer> configured = configuredSlotIds(data, true);
-        for (Entity totem : loadedTotems(level, gameTime)) {
+        for (Entity totem : loadedTotems(level)) {
             if (totem.isRemoved()) {
                 // Discarded earlier in this same tick, by the reconcile that shares the scan.
                 continue;
@@ -419,7 +414,7 @@ final class BossTotemRuntime {
         boolean changed = deadSlots.retainAll(allConfigured);
         slots.keySet().removeIf(slotId -> !enabledConfigured.contains(slotId));
         resetHealthSlots.retainAll(enabledConfigured);
-        for (Entity totem : loadedTotems(level, gameTime)) {
+        for (Entity totem : loadedTotems(level)) {
             if (totem.isRemoved()) {
                 continue;
             }
@@ -461,24 +456,16 @@ final class BossTotemRuntime {
     }
 
     /**
-     * Every loaded totem of this boss, scanned at most once per tick.
-     *
-     * <p>The scan walks every entity in the level. Without the memo it ran once per empty
-     * slot per tick, plus twice per structural reconcile - on a populated server that is
-     * most of what a totem boss cost. Entities discarded after the scan was taken are
-     * filtered out again wherever the list is read.</p>
+     * Every loaded totem of this boss, out of the level walk the whole addon shares.
+     * Entities discarded since it was taken are filtered out wherever the list is read.
      */
-    List<Entity> loadedTotems(ServerLevel level, long gameTime) {
-        if (scanAt != gameTime) {
-            scanAt = gameTime;
-            scan = BossTotemUtil.findAllLoaded(level, npc);
-        }
-        return scan;
+    List<Entity> loadedTotems(ServerLevel level) {
+        return BossOwnedEntityIndex.totemsOf(level, npc);
     }
 
     /** The shared-scan form of {@link BossTotemUtil#findAlive}, with the same answer. */
-    Entity findAlive(ServerLevel level, long gameTime, int slotId) {
-        for (Entity entity : loadedTotems(level, gameTime)) {
+    Entity findAlive(ServerLevel level, int slotId) {
+        for (Entity entity : loadedTotems(level)) {
             if (entity.isAlive() && !entity.isRemoved()
                     && BossTotemUtil.slotId(entity) == slotId && BossTotemUtil.isTotemOf(entity, npc)) {
                 return entity;
@@ -513,9 +500,6 @@ final class BossTotemRuntime {
         waveActivated = false;
         activationDeadline = NOT_SCHEDULED;
         nextStructuralReconcileAt = 0L;
-        // Dropped so the memo cannot keep entity references alive past the fight.
-        scanAt = NOT_SCHEDULED;
-        scan = List.of();
     }
 
     void syncLink(TeleportPathData data, BossTotemEntry entry, Entity totem,

@@ -52,7 +52,6 @@ public final class BossGeyserScheduler {
      */
     private static final int MAX_PER_TICK = 32;
     /** Beyond this nobody can see the mark, so the fuse burns down without costing anything. */
-    private static final double AUDIENCE_RANGE = 64.0D;
     /** How often the mark is repainted. Every other tick reads as a steady shape. */
     private static final int MARK_INTERVAL_TICKS = 2;
     /** How long the eruption's wave runs for; the geyser has no length setting of its own. */
@@ -135,11 +134,11 @@ public final class BossGeyserScheduler {
             return false;
         }
         PENDING.add(new Pending(level.dimension(), boss,
-                phase.isGeyserFollowTarget() ? victim.getId() : -1,
-                phase.getGeyserRadius(), damage, launch, phase.getGeyserEffects(),
-                phase.getGeyserVfx(), phase.isGeyserBlockWave(), fluid,
-                phase.getGeyserFluidLifetimeTicks(), gameTime,
-                gameTime + phase.getGeyserFuseTicks(), point));
+                phase.geyser().isFollowTarget() ? victim.getId() : -1,
+                phase.geyser().getRadius(), damage, launch, phase.geyser().getEffects(),
+                phase.geyser().getVfx(), phase.geyser().isBlockWave(), fluid,
+                phase.geyser().getFluidLifetimeTicks(), gameTime,
+                gameTime + phase.geyser().getFuseTicks(), point));
         // One hiss as the ground opens, for the player who is not looking down.
         level.playSound(null, point.x, point.y, point.z, SoundEvents.LAVA_POP,
                 SoundSource.HOSTILE, 1.6F, 0.5F);
@@ -222,7 +221,7 @@ public final class BossGeyserScheduler {
      */
     private static void markFuse(ServerLevel level, Pending pending, long gameTime) {
         if (gameTime % MARK_INTERVAL_TICKS != 0L || level.getNearestPlayer(pending.pos.x,
-                pending.pos.y, pending.pos.z, AUDIENCE_RANGE, false) == null) {
+                pending.pos.y, pending.pos.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
         BossTelegraphUtil.ring(level, pending.pos, pending.radius,
@@ -297,7 +296,7 @@ public final class BossGeyserScheduler {
     /** The column itself: what a player watching sees come up out of the mark. */
     private static void drawColumn(ServerLevel level, Pending pending) {
         Vec3 pos = pending.pos;
-        if (level.getNearestPlayer(pos.x, pos.y, pos.z, AUDIENCE_RANGE, false) == null) {
+        if (level.getNearestPlayer(pos.x, pos.y, pos.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
         double height = Mth.clamp(pending.radius * COLUMN_HEIGHT_PER_RADIUS,

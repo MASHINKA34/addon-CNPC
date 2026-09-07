@@ -62,7 +62,6 @@ public final class BossMarkScheduler {
      */
     private static final int MAX_PER_TICK = 32;
     /** Beyond this nobody can see the circle, so the fuse burns down without costing anything. */
-    private static final double AUDIENCE_RANGE = 64.0D;
     /** How often the circle is repainted and the carrier's countdown refreshed. */
     private static final int MARK_INTERVAL_TICKS = 2;
     /** How long the blast's wave runs for; a mark has no length setting of its own. */
@@ -103,18 +102,18 @@ public final class BossMarkScheduler {
             this.dimension = dimension;
             this.boss = boss;
             this.carrierId = carrier.getUUID();
-            this.follow = phase.isMarkFollow();
-            this.mode = phase.getMarkMode();
-            this.radius = phase.getMarkRadius();
-            this.minPlayers = phase.getMarkMinPlayers();
+            this.follow = phase.mark().isFollow();
+            this.mode = phase.mark().getMode();
+            this.radius = phase.mark().getRadius();
+            this.minPlayers = phase.mark().getMinPlayers();
             this.damage = damage;
             this.failDamage = failDamage;
             this.selfDamage = selfDamage;
-            this.effects = phase.getMarkEffects();
-            this.failEffects = phase.getMarkFailEffects();
-            this.vfx = phase.getMarkVfx();
+            this.effects = phase.mark().getEffects();
+            this.failEffects = phase.mark().getFailEffects();
+            this.vfx = phase.mark().getVfx();
             this.litAt = gameTime;
-            this.explodesAt = gameTime + phase.getMarkFuseTicks();
+            this.explodesAt = gameTime + phase.mark().getFuseTicks();
             this.pos = pos;
         }
     }
@@ -256,7 +255,7 @@ public final class BossMarkScheduler {
             announce(pending, player, inside, gameTime);
         }
         if (level.getNearestPlayer(pending.pos.x, pending.pos.y, pending.pos.z,
-                AUDIENCE_RANGE, false) == null) {
+                BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
         BossTelegraphUtil.ring(level, pending.pos, pending.radius,

@@ -39,30 +39,30 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         int y = guiTop + 18;
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isRangedAttackEnabled()));
+                phase.rangedAttack().isEnabled()));
         y += 24;
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getRangedAttackAnimation()));
+                phase.rangedAttack().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 24;
-        addTargetModeRow(TARGET_MODE_BUTTON, y, phase.getRangedAttackTargetMode());
+        addTargetModeRow(TARGET_MODE_BUTTON, y, phase.rangedAttack().getTargetMode());
         y += 24;
         addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y,
-                phase.getRangedAttackDamage(), 1, 1000, 6);
+                phase.rangedAttack().getDamage(), 1, 1000, 6);
         y += 24;
         addNumberField(MIN_RANGE_FIELD, "cnpcgeckoaddon.boss.min_range", y,
-                phase.getRangedAttackMinRange(), 0, 64, 4);
+                phase.rangedAttack().getMinRange(), 0, 64, 4);
         y += 24;
         addNumberField(MAX_RANGE_FIELD, "cnpcgeckoaddon.boss.max_range", y,
-                phase.getRangedAttackMaxRange(), 1, 128, 24);
+                phase.rangedAttack().getMaxRange(), 1, 128, 24);
         y += 24;
         addNumberField(ACTION_DELAY_FIELD, "cnpcgeckoaddon.boss.action_delay", y,
-                phase.getRangedAttackActionDelayTicks(), 0, 1200, 12);
+                phase.rangedAttack().getActionDelayTicks(), 0, 1200, 12);
         y += 24;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
-                phase.getRangedAttackCooldownTicks(), 1, 12000, 80);
+                phase.rangedAttack().getCooldownTicks(), 1, 12000, 80);
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.projectile_hint",
                 guiLeft + 8, guiTop + 212, 0xA0A0A0));
@@ -81,19 +81,19 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == 67) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getRangedAttackEffects(), "cnpcgeckoaddon.boss.effects_ranged"));
+            setSubGui(new SubGuiBossEffectList(phase.rangedAttack().getEffects(), "cnpcgeckoaddon.boss.effects_ranged"));
             return;
         }
         if (button.id == TARGET_MODE_BUTTON) {
-            phase.setRangedAttackTargetMode(button.getValue());
+            phase.rangedAttack().setTargetMode(button.getValue());
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setRangedAttackEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.rangedAttack().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting ranged attack animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setRangedAttackAnimation(name);
+                phase.rangedAttack().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
-                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase::setRangedAttackActionDelayTicks);
+                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase.rangedAttack()::setActionDelayTicks);
             }));
         }
     }
@@ -103,14 +103,14 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setRangedAttackAnimation(value);
-            else animation.setValue(phase.getRangedAttackAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.rangedAttack().setAnimation(value);
+            else animation.setValue(phase.rangedAttack().getAnimation());
         }
-        applyNumberField(DAMAGE_FIELD, phase::setRangedAttackDamage);
+        applyNumberField(DAMAGE_FIELD, phase.rangedAttack()::setDamage);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
-        if (min != null && max != null) phase.setRangedAttackRange(min.getInteger(), max.getInteger());
-        applyNumberField(ACTION_DELAY_FIELD, phase::setRangedAttackActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setRangedAttackCooldownTicks);
+        if (min != null && max != null) phase.rangedAttack().setRange(min.getInteger(), max.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase.rangedAttack()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.rangedAttack()::setCooldownTicks);
     }
 }

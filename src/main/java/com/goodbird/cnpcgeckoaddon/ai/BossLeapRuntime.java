@@ -16,6 +16,8 @@ import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The jump: a wind-up on the spot, a flight the boss does not steer, and a slam where it lands.
@@ -94,33 +96,33 @@ final class BossLeapRuntime {
 
     boolean tryStart(ServerLevel level, TeleportPathData data,
                                  BossPhaseData phase, long gameTime) {
-        if (!phase.isLeapEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.LEAP) || airborne) return false;
+        if (!phase.leap().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.LEAP) || airborne) return false;
         if (!npc.onGround()) {
             // Nothing to push off from. Knocked into the air or standing in a boat, the
             // boss simply tries again in half a second.
-            boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + 10);
+            boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + RETRY_TICKS);
             return false;
         }
         LivingEntity target = null;
-        if (phase.getLeapMode() == BossPhaseData.LEAP_MODE_TARGET) {
-            target = boss.selectAbilityTarget(level, phase.getLeapTargetMode(),
-                    phase.getLeapMaxRange(), candidate -> isValidTarget(candidate, phase));
+        if (phase.leap().getMode() == BossPhaseData.LEAP_MODE_TARGET) {
+            target = boss.selectAbilityTarget(level, phase.leap().getTargetMode(),
+                    phase.leap().getMaxRange(), candidate -> isValidTarget(candidate, phase));
             if (target == null) {
-                boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + 10);
+                boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + RETRY_TICKS);
                 return false;
             }
         }
         Vec3 planned = resolveDestination(data, phase, target);
         if (planned == null) {
-            boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + 20);
+            boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + RETRY_LONG_TICKS);
             return false;
         }
         this.destination = planned;
         phaseIndex = boss.currentPhaseIndex();
-        boss.beginAction(BossAbility.LEAP, phase.getLeapAnimation(),
-                phase.getLeapActionDelayTicks(), gameTime, target, data, phase);
+        boss.beginAction(BossAbility.LEAP, phase.leap().getAnimation(),
+                phase.leap().getActionDelayTicks(), gameTime, target, data, phase);
         // Only the cooldown is scaled - the windup is measured against the leap animation.
-        boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + phase.getLeapActionDelayTicks() + boss.rageDown(phase.getLeapCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + phase.leap().getActionDelayTicks() + boss.rageDown(phase.leap().getCooldownTicks()));
         return true;
     }
 
@@ -131,19 +133,19 @@ final class BossLeapRuntime {
     boolean isValidTarget(LivingEntity target, BossPhaseData phase) {
         if (target == null || !target.isAlive() || !boss.isAbilityTarget(target, BossAbilityKind.LEAP)) return false;
         double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getLeapMinRange();
-        double max = phase.getLeapMaxRange();
+        double min = phase.leap().getMinRange();
+        double max = phase.leap().getMaxRange();
         return distanceSquared >= min * min && distanceSquared <= max * max;
     }
 
     /** Where this leap is aimed, already pulled back inside the home leash. */
     Vec3 resolveDestination(TeleportPathData data, BossPhaseData phase, LivingEntity target) {
-        Vec3 aimed = switch (phase.getLeapMode()) {
+        Vec3 aimed = switch (phase.leap().getMode()) {
             case BossPhaseData.LEAP_MODE_TARGET -> target == null ? null : target.position();
-            case BossPhaseData.LEAP_MODE_FIXED -> new Vec3(phase.getLeapFixedX() + 0.5D,
-                    phase.getLeapFixedY(), phase.getLeapFixedZ() + 0.5D);
-            case BossPhaseData.LEAP_MODE_ARENA_OFFSET -> new Vec3(boss.homeX() + phase.getLeapOffsetX(),
-                    boss.homeY() + phase.getLeapOffsetY(), boss.homeZ() + phase.getLeapOffsetZ());
+            case BossPhaseData.LEAP_MODE_FIXED -> new Vec3(phase.leap().getFixedX() + 0.5D,
+                    phase.leap().getFixedY(), phase.leap().getFixedZ() + 0.5D);
+            case BossPhaseData.LEAP_MODE_ARENA_OFFSET -> new Vec3(boss.homeX() + phase.leap().getOffsetX(),
+                    boss.homeY() + phase.leap().getOffsetY(), boss.homeZ() + phase.leap().getOffsetZ());
             // Straight up: the boss comes back down onto the spot it left.
             default -> npc.position();
         };
@@ -196,7 +198,7 @@ final class BossLeapRuntime {
         // An arc that peaks below where it is meant to come down never gets there, so a
         // destination above the boss raises the jump. The ceiling still has the final say.
         int wanted = Mth.clamp((int) Math.ceil(landing.y - npc.getY()) + 1,
-                phase.getLeapHeight(), BossPhaseData.MAX_LEAP_HEIGHT);
+                phase.leap().getHeight(), BossPhaseData.MAX_LEAP_HEIGHT);
         int height = availableHeight(level, wanted);
         if (height < 1) {
             // Nowhere to jump to - a boss walled in under a slab would only bump its head
@@ -227,7 +229,7 @@ final class BossLeapRuntime {
         airborne = true;
         leftGround = false;
         launchedAt = gameTime;
-        airTimeoutAt = gameTime + phase.getLeapMaxAirTicks();
+        airTimeoutAt = gameTime + phase.leap().getMaxAirTicks();
         boss.holdBusyUntil(gameTime + 1);
 
         level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.RAVAGER_ROAR,
@@ -370,19 +372,19 @@ final class BossLeapRuntime {
         if (phase == null) {
             return;
         }
-        boss.playAnimation(phase.getLeapLandAnimation());
+        boss.playAnimation(phase.leap().getLandAnimation());
         performImpact(level, phase, impact);
     }
 
     void performImpact(ServerLevel level, BossPhaseData phase, Vec3 impact) {
         // Started before the hits so the wave leaves at the same moment the damage lands.
-        BossAreaVfxScheduler.schedule(level, impact, phase.getLeapVfx(), phase.getLeapImpactRadius(),
-                VFX_DURATION_TICKS, phase.isLeapBlockWave());
-        int damage = boss.rageUp(phase.getLeapImpactDamage());
-        for (LivingEntity target : boss.getTargetsAround(level, impact, phase.getLeapImpactRadius(),
+        BossAreaVfxScheduler.schedule(level, impact, phase.leap().getVfx(), phase.leap().getImpactRadius(),
+                VFX_DURATION_TICKS, phase.leap().isBlockWave());
+        int damage = boss.rageUp(phase.leap().getImpactDamage());
+        for (LivingEntity target : boss.getTargetsAround(level, impact, phase.leap().getImpactRadius(),
                 BossAbilityKind.LEAP)) {
             BossAbilityDamageUtil.hit(target, BossAbilityKind.LEAP, npc, damage,
-                    phase.getLeapEffects(), boss.rageUp(phase.getLeapImpactKnockback()),
+                    phase.leap().getEffects(), boss.rageUp(phase.leap().getImpactKnockback()),
                     impact.x - target.getX(), impact.z - target.getZ());
         }
         playImpactFeedback(level, impact);
@@ -439,7 +441,7 @@ final class BossLeapRuntime {
             return;
         }
         BossPhaseData phase = phaseOf(data);
-        if (phase == null || !phase.isLeapTelegraph() || gameTime % MARKER_INTERVAL_TICKS != 0L) {
+        if (phase == null || !phase.leap().isTelegraph() || gameTime % MARKER_INTERVAL_TICKS != 0L) {
             return;
         }
         // Never both marks over one ring: whichever of the two is drawing, it draws alone.
@@ -447,7 +449,7 @@ final class BossLeapRuntime {
                 && data.isTelegraphAbility(BossAbilityKind.LEAP)) {
             return;
         }
-        double radius = phase.getLeapImpactRadius();
+        double radius = phase.leap().getImpactRadius();
         int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / MARKER_SPACING), 8, 48);
         for (int i = 0; i < points; i++) {
             double angle = i * Mth.TWO_PI / points;

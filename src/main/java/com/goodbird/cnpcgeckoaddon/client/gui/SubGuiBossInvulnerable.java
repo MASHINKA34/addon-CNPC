@@ -34,17 +34,17 @@ public final class SubGuiBossInvulnerable extends SubGuiFieldScreen {
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.invulnerable_enabled", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isInvulnerableEnabled()));
+                phase.invulnerable().isEnabled()));
         y += 27;
 
         addLabel(new GuiLabel(END_MODE_BUTTON, "cnpcgeckoaddon.boss.invulnerable_end_mode", guiLeft + 8, y + 6));
         addButton(new GuiButtonNop(this, END_MODE_BUTTON, guiLeft + 92, y, 150, 20,
-                BossPhaseData.INVULNERABLE_END_LABELS, phase.getInvulnerableEndMode()));
+                BossPhaseData.INVULNERABLE_END_LABELS, phase.invulnerable().getEndMode()));
         y += 27;
 
         addLabel(new GuiLabel(DURATION_FIELD, "cnpcgeckoaddon.boss.invulnerable_duration", guiLeft + 8, y + 6));
         GuiTextFieldNop duration = new GuiTextFieldNop(DURATION_FIELD, this, guiLeft + 172, y, 70, 20,
-                Integer.toString(phase.getInvulnerableDurationTicks()));
+                Integer.toString(phase.invulnerable().getDurationTicks()));
         duration.setNumbersOnly();
         duration.setMinMaxDefault(20, 12000, 200);
         addTextField(duration);
@@ -52,12 +52,12 @@ public final class SubGuiBossInvulnerable extends SubGuiFieldScreen {
 
         addLabel(new GuiLabel(TELEPORT_BUTTON, "cnpcgeckoaddon.boss.invulnerable_teleport", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, TELEPORT_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isInvulnerableAllowTeleport()));
+                phase.invulnerable().isAllowTeleport()));
         y += 27;
 
         addLabel(new GuiLabel(SUMMON_NOW_BUTTON, "cnpcgeckoaddon.boss.invulnerable_summon_now", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, SUMMON_NOW_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isInvulnerableSummonImmediately()));
+                phase.invulnerable().isSummonImmediately()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.invulnerable_hint", guiLeft + 8, guiTop + 166, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
@@ -66,18 +66,18 @@ public final class SubGuiBossInvulnerable extends SubGuiFieldScreen {
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == ENABLED_BUTTON) {
-            phase.setInvulnerableEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.invulnerable().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == END_MODE_BUTTON) {
-            phase.setInvulnerableEndMode(button.getValue());
+            phase.invulnerable().setEndMode(button.getValue());
         } else if (button.id == TELEPORT_BUTTON) {
-            phase.setInvulnerableAllowTeleport(((GuiButtonYesNo) button).getBoolean());
+            phase.invulnerable().setAllowTeleport(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == SUMMON_NOW_BUTTON) {
-            phase.setInvulnerableSummonImmediately(((GuiButtonYesNo) button).getBoolean());
+            phase.invulnerable().setSummonImmediately(((GuiButtonYesNo) button).getBoolean());
         }
     }
 
     @Override
     protected void applyFields() {
-        applyNumberField(DURATION_FIELD, phase::setInvulnerableDurationTicks);
+        applyNumberField(DURATION_FIELD, phase.invulnerable()::setDurationTicks);
     }
 }

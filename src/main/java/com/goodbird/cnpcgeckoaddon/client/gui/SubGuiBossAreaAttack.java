@@ -45,25 +45,25 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
         int y = guiTop + 18;
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isAreaAttackEnabled()));
+                phase.areaAttack().isEnabled()));
         y += 21;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getAreaAttackAnimation()));
+                phase.areaAttack().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
-        addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y, phase.getAreaAttackDamage(), 1, 1000, 8);
+        addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y, phase.areaAttack().getDamage(), 1, 1000, 8);
         y += 21;
-        addNumberField(RADIUS_FIELD, "cnpcgeckoaddon.boss.attack_radius", y, phase.getAreaAttackRadius(), 1, 32, 5);
+        addNumberField(RADIUS_FIELD, "cnpcgeckoaddon.boss.attack_radius", y, phase.areaAttack().getRadius(), 1, 32, 5);
         y += 21;
-        addNumberField(KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.knockback", y, phase.getAreaAttackKnockback(), 0, 10, 1);
+        addNumberField(KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.knockback", y, phase.areaAttack().getKnockback(), 0, 10, 1);
         y += 21;
         // The two tick counts share a line so the wave settings below get rows of their own.
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getAreaAttackActionDelayTicks(), 0, 1200, 12,
-                phase.getAreaAttackCooldownTicks(), 1, 12000, 100);
+                phase.areaAttack().getActionDelayTicks(), 0, 1200, 12,
+                phase.areaAttack().getCooldownTicks(), 1, 12000, 100);
         y += 21;
 
         addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 8, y + 6));
@@ -71,11 +71,11 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
                 VFX_STYLE_LABELS, vfxStyleIndex()));
         y += 21;
         addNumberField(VFX_DURATION_FIELD, "cnpcgeckoaddon.boss.area_vfx_duration", y,
-                phase.getAreaAttackVfxDurationTicks(), 5, 100, 20);
+                phase.areaAttack().getVfxDurationTicks(), 5, 100, 20);
         y += 21;
         addLabel(new GuiLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isAreaAttackBlockWave()));
+                phase.areaAttack().isBlockWave()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.area_vfx_hint", guiLeft + 8, guiTop + 209, 0xA0A0A0));
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 221, 0xA0A0A0));
@@ -85,7 +85,7 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
     }
 
     private int vfxStyleIndex() {
-        String id = phase.getAreaAttackVfx();
+        String id = phase.areaAttack().getVfx();
         for (int i = 0; i < AreaVfxStyles.values().size(); i++) {
             if (AreaVfxStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -114,21 +114,21 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == 67) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getAreaAttackEffects(), "cnpcgeckoaddon.boss.effects_area"));
+            setSubGui(new SubGuiBossEffectList(phase.areaAttack().getEffects(), "cnpcgeckoaddon.boss.effects_area"));
             return;
         }
         if (button.id == ENABLED_BUTTON) {
-            phase.setAreaAttackEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.areaAttack().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == BLOCK_WAVE_BUTTON) {
-            phase.setAreaAttackBlockWave(((GuiButtonYesNo) button).getBoolean());
+            phase.areaAttack().setBlockWave(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == VFX_STYLE_BUTTON) {
-            phase.setAreaAttackVfx(AreaVfxStyles.values().get(button.getValue()).id());
+            phase.areaAttack().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting area attack animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setAreaAttackAnimation(name);
+                phase.areaAttack().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
-                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase::setAreaAttackActionDelayTicks);
+                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase.areaAttack()::setActionDelayTicks);
             }));
         }
     }
@@ -138,14 +138,14 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setAreaAttackAnimation(value);
-            else animation.setValue(phase.getAreaAttackAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.areaAttack().setAnimation(value);
+            else animation.setValue(phase.areaAttack().getAnimation());
         }
-        applyNumberField(DAMAGE_FIELD, phase::setAreaAttackDamage);
-        applyNumberField(RADIUS_FIELD, phase::setAreaAttackRadius);
-        applyNumberField(KNOCKBACK_FIELD, phase::setAreaAttackKnockback);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setAreaAttackActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setAreaAttackCooldownTicks);
-        applyNumberField(VFX_DURATION_FIELD, phase::setAreaAttackVfxDurationTicks);
+        applyNumberField(DAMAGE_FIELD, phase.areaAttack()::setDamage);
+        applyNumberField(RADIUS_FIELD, phase.areaAttack()::setRadius);
+        applyNumberField(KNOCKBACK_FIELD, phase.areaAttack()::setKnockback);
+        applyNumberField(ACTION_DELAY_FIELD, phase.areaAttack()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.areaAttack()::setCooldownTicks);
+        applyNumberField(VFX_DURATION_FIELD, phase.areaAttack()::setVfxDurationTicks);
     }
 }

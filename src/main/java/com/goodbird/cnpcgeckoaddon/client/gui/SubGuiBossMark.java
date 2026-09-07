@@ -55,12 +55,12 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isMarkEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.mark().isEnabled()));
         y += 21;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 108, y, 86, 20,
-                phase.getMarkAnimation()));
+                phase.mark().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
@@ -69,43 +69,43 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         // other and change with it.
         addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.mark_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.MARK_MODE_LABELS, phase.getMarkMode()));
+                BossPhaseData.MARK_MODE_LABELS, phase.mark().getMode()));
         y += 21;
 
         // How many marks and who they go on, on one line: the two answer the same question.
         addLabel(new GuiLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.mark_targets", guiLeft + 6, y + 6));
-        addPairedField(TARGET_COUNT_FIELD, guiLeft + 72, y, phase.getMarkTargetCount(), 1, 8, 1, 38);
+        addPairedField(TARGET_COUNT_FIELD, guiLeft + 72, y, phase.mark().getTargetCount(), 1, 8, 1, 38);
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getMarkTargetMode()));
+                BossTargetMode.LABELS, phase.mark().getTargetMode()));
         y += 21;
 
         // The two numbers the whole decision is made of: how long there is, and how far the
         // circle reaches while it lasts.
         addPairRow(FUSE_FIELD, RADIUS_FIELD, "cnpcgeckoaddon.boss.mark_fuse", y,
-                phase.getMarkFuseTicks(), 10, 400, 60,
-                phase.getMarkRadius(), 1, 16, 4);
+                phase.mark().getFuseTicks(), 10, 400, 60,
+                phase.mark().getRadius(), 1, 16, 4);
         y += 21;
 
         addLabel(new GuiLabel(FOLLOW_BUTTON, "cnpcgeckoaddon.boss.mark_follow", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, FOLLOW_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isMarkFollow()));
+                phase.mark().isFollow()));
         y += 21;
 
         // One row, two settings: each rule has exactly one number of its own, and only the
         // rule in force is ever shown here.
         addNumberField(MIN_PLAYERS_FIELD, "cnpcgeckoaddon.boss.mark_min_players", y,
-                phase.getMarkMinPlayers(), 1, 10, 2);
+                phase.mark().getMinPlayers(), 1, 10, 2);
         addNumberField(SELF_DAMAGE_FIELD, "cnpcgeckoaddon.boss.mark_self_damage", y,
-                phase.getMarkSelfDamage(), 0, 1000, 0);
+                phase.mark().getSelfDamage(), 0, 1000, 0);
         y += 21;
 
         addPairRow(DAMAGE_FIELD, FAIL_DAMAGE_FIELD, "cnpcgeckoaddon.boss.mark_damage", y,
-                phase.getMarkDamage(), 0, 1000, 30,
-                phase.getMarkFailDamage(), 0, 1000, 60);
+                phase.mark().getDamage(), 0, 1000, 30,
+                phase.mark().getFailDamage(), 0, 1000, 60);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getMarkActionDelayTicks(), 0, 1200, 12,
-                phase.getMarkCooldownTicks(), 1, 12000, 240);
+                phase.mark().getActionDelayTicks(), 0, 1200, 12,
+                phase.mark().getCooldownTicks(), 1, 12000, 240);
         y += 21;
 
         addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
@@ -134,7 +134,7 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
      * numbers therefore share one line, and only one of them is ever standing on it.</p>
      */
     private void applyModeRows() {
-        boolean gather = phase.getMarkMode() == BossPhaseData.MARK_MODE_SOAK;
+        boolean gather = phase.mark().getMode() == BossPhaseData.MARK_MODE_SOAK;
         showRow(MIN_PLAYERS_FIELD, gather);
         showRow(SELF_DAMAGE_FIELD, !gather);
         GuiTextFieldNop failDamage = getTextField(FAIL_DAMAGE_FIELD);
@@ -169,7 +169,7 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
     }
 
     private int vfxStyleIndex() {
-        String id = phase.getMarkVfx();
+        String id = phase.mark().getVfx();
         for (int i = 0; i < AreaVfxStyles.values().size(); i++) {
             if (AreaVfxStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -214,29 +214,29 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getMarkEffects(), "cnpcgeckoaddon.boss.effects_mark"));
+            setSubGui(new SubGuiBossEffectList(phase.mark().getEffects(), "cnpcgeckoaddon.boss.effects_mark"));
         } else if (button.id == FAIL_EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getMarkFailEffects(),
+            setSubGui(new SubGuiBossEffectList(phase.mark().getFailEffects(),
                     "cnpcgeckoaddon.boss.effects_mark_fail"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setMarkEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.mark().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == FOLLOW_BUTTON) {
-            phase.setMarkFollow(((GuiButtonYesNo) button).getBoolean());
+            phase.mark().setFollow(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {
-            phase.setMarkMode(button.getValue());
+            phase.mark().setMode(button.getValue());
             applyModeRows();
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setMarkTargetMode(button.getValue());
+            phase.mark().setTargetMode(button.getValue());
         } else if (button.id == VFX_STYLE_BUTTON) {
-            phase.setMarkVfx(AreaVfxStyles.values().get(button.getValue()).id());
+            phase.mark().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting mark animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setMarkAnimation(name);
+                phase.mark().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setMarkActionDelayTicks);
+                        phase.mark()::setActionDelayTicks);
             }));
         }
     }
@@ -246,19 +246,19 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setMarkAnimation(value);
-            else animation.setValue(phase.getMarkAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.mark().setAnimation(value);
+            else animation.setValue(phase.mark().getAnimation());
         }
-        applyNumberField(TARGET_COUNT_FIELD, phase::setMarkTargetCount);
-        applyNumberField(FUSE_FIELD, phase::setMarkFuseTicks);
-        applyNumberField(RADIUS_FIELD, phase::setMarkRadius);
+        applyNumberField(TARGET_COUNT_FIELD, phase.mark()::setTargetCount);
+        applyNumberField(FUSE_FIELD, phase.mark()::setFuseTicks);
+        applyNumberField(RADIUS_FIELD, phase.mark()::setRadius);
         // Read whether or not the rule in force shows them: a hidden row keeps the number a
         // builder typed into it under the other rule, rather than losing it on a stray click.
-        applyNumberField(MIN_PLAYERS_FIELD, phase::setMarkMinPlayers);
-        applyNumberField(SELF_DAMAGE_FIELD, phase::setMarkSelfDamage);
-        applyNumberField(DAMAGE_FIELD, phase::setMarkDamage);
-        applyNumberField(FAIL_DAMAGE_FIELD, phase::setMarkFailDamage);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setMarkActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setMarkCooldownTicks);
+        applyNumberField(MIN_PLAYERS_FIELD, phase.mark()::setMinPlayers);
+        applyNumberField(SELF_DAMAGE_FIELD, phase.mark()::setSelfDamage);
+        applyNumberField(DAMAGE_FIELD, phase.mark()::setDamage);
+        applyNumberField(FAIL_DAMAGE_FIELD, phase.mark()::setFailDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase.mark()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.mark()::setCooldownTicks);
     }
 }

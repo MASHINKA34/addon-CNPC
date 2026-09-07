@@ -53,39 +53,39 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isLeapEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.leap().isEnabled()));
         y += 21;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getLeapAnimation()));
+                phase.leap().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
         addLabel(new GuiLabel(LAND_ANIMATION_FIELD, "cnpcgeckoaddon.boss.leap_land_anim", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(LAND_ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getLeapLandAnimation()));
+                phase.leap().getLandAnimation()));
         addButton(new GuiButtonNop(this, LAND_ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
         addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.leap_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.LEAP_MODE_LABELS, phase.getLeapMode()));
+                BossPhaseData.LEAP_MODE_LABELS, phase.leap().getMode()));
         y += 21;
 
         addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getLeapTargetMode()));
+                BossTargetMode.LABELS, phase.leap().getTargetMode()));
         y += 21;
 
-        addNumberField(HEIGHT_FIELD, "cnpcgeckoaddon.boss.leap_height", y, phase.getLeapHeight(),
+        addNumberField(HEIGHT_FIELD, "cnpcgeckoaddon.boss.leap_height", y, phase.leap().getHeight(),
                 1, BossPhaseData.MAX_LEAP_HEIGHT, 8);
         y += 21;
         addPairRow(MIN_RANGE_FIELD, MAX_RANGE_FIELD, "cnpcgeckoaddon.boss.range", y,
-                phase.getLeapMinRange(), 0, 64, 4,
-                phase.getLeapMaxRange(), 1, 128, 24);
+                phase.leap().getMinRange(), 0, 64, 4,
+                phase.leap().getMaxRange(), 1, 128, 24);
 
         // The label sits above the fields rather than beside them, so a coordinate eight
         // digits long still has somewhere to go.
@@ -108,17 +108,17 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
 
     /** Puts the screen in step with the selected mode: labels, values and what is editable. */
     private void refresh() {
-        boolean fixed = phase.getLeapMode() == BossPhaseData.LEAP_MODE_FIXED;
-        boolean arena = phase.getLeapMode() == BossPhaseData.LEAP_MODE_ARENA_OFFSET;
+        boolean fixed = phase.leap().getMode() == BossPhaseData.LEAP_MODE_FIXED;
+        boolean arena = phase.leap().getMode() == BossPhaseData.LEAP_MODE_ARENA_OFFSET;
 
         GuiLabel label = getLabel(COORDS_LABEL);
         if (label != null) {
             label.setMessage(Component.translatable(fixed
                     ? "cnpcgeckoaddon.boss.chest_coords" : "cnpcgeckoaddon.boss.chest_offset"));
         }
-        showValue(X_FIELD, fixed ? phase.getLeapFixedX() : phase.getLeapOffsetX(), fixed || arena);
-        showValue(Y_FIELD, fixed ? phase.getLeapFixedY() : phase.getLeapOffsetY(), fixed || arena);
-        showValue(Z_FIELD, fixed ? phase.getLeapFixedZ() : phase.getLeapOffsetZ(), fixed || arena);
+        showValue(X_FIELD, fixed ? phase.leap().getFixedX() : phase.leap().getOffsetX(), fixed || arena);
+        showValue(Y_FIELD, fixed ? phase.leap().getFixedY() : phase.leap().getOffsetY(), fixed || arena);
+        showValue(Z_FIELD, fixed ? phase.leap().getFixedZ() : phase.leap().getOffsetZ(), fixed || arena);
 
         GuiButtonNop here = getButton(HERE_BUTTON);
         if (here != null) {
@@ -162,35 +162,35 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getLeapEffects(), "cnpcgeckoaddon.boss.effects_leap"));
+            setSubGui(new SubGuiBossEffectList(phase.leap().getEffects(), "cnpcgeckoaddon.boss.effects_leap"));
         } else if (button.id == IMPACT_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossLeapImpact(phase, phaseIndex));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setLeapEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.leap().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {
             // Store what is on screen against the old mode first: the same three fields
             // stand for the offset in one mode and for absolute coordinates in another.
             applyFields();
-            phase.setLeapMode(button.getValue());
+            phase.leap().setMode(button.getValue());
             refresh();
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setLeapTargetMode(button.getValue());
+            phase.leap().setTargetMode(button.getValue());
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting leap animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setLeapAnimation(name);
+                phase.leap().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 // The delay field lives on the impact screen, so only the phase is updated.
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name,
-                        SubGuiBossLeapImpact.ACTION_DELAY_FIELD, phase::setLeapActionDelayTicks);
+                        SubGuiBossLeapImpact.ACTION_DELAY_FIELD, phase.leap()::setActionDelayTicks);
             }));
         } else if (button.id == LAND_ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting landing animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setLeapLandAnimation(name);
+                phase.leap().setLandAnimation(name);
                 getTextField(LAND_ANIMATION_FIELD).setValue(name);
             }));
         }
@@ -199,32 +199,32 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
     /** Fills the fields with the block the editor is standing on. */
     private void takePlayerPosition() {
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null || phase.getLeapMode() != BossPhaseData.LEAP_MODE_FIXED) {
+        if (player == null || phase.leap().getMode() != BossPhaseData.LEAP_MODE_FIXED) {
             return;
         }
         BlockPos pos = player.blockPosition();
-        phase.setLeapFixed(pos.getX(), pos.getY(), pos.getZ());
+        phase.leap().setFixed(pos.getX(), pos.getY(), pos.getZ());
         refresh();
     }
 
     @Override
     protected void applyFields() {
-        applyAnimation(ANIMATION_FIELD, phase.getLeapAnimation(), phase::setLeapAnimation);
-        applyAnimation(LAND_ANIMATION_FIELD, phase.getLeapLandAnimation(), phase::setLeapLandAnimation);
-        applyNumberField(HEIGHT_FIELD, phase::setLeapHeight);
+        applyAnimation(ANIMATION_FIELD, phase.leap().getAnimation(), phase.leap()::setAnimation);
+        applyAnimation(LAND_ANIMATION_FIELD, phase.leap().getLandAnimation(), phase.leap()::setLandAnimation);
+        applyNumberField(HEIGHT_FIELD, phase.leap()::setHeight);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
-        if (min != null && max != null) phase.setLeapRange(min.getInteger(), max.getInteger());
+        if (min != null && max != null) phase.leap().setRange(min.getInteger(), max.getInteger());
 
         int x = signed(X_FIELD);
         int y = signed(Y_FIELD);
         int z = signed(Z_FIELD);
-        if (phase.getLeapMode() == BossPhaseData.LEAP_MODE_FIXED) {
-            phase.setLeapFixed(x, y, z);
+        if (phase.leap().getMode() == BossPhaseData.LEAP_MODE_FIXED) {
+            phase.leap().setFixed(x, y, z);
         } else {
             // The modes with nothing to aim keep writing the offset. It is ignored while
             // they are selected, so anything typed before switching is still there after.
-            phase.setLeapOffset(x, y, z);
+            phase.leap().setOffset(x, y, z);
         }
     }
 

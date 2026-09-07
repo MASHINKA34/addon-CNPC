@@ -90,8 +90,8 @@ final class BossPathRuntime {
 
     /** When the boss is next allowed to blink, somewhere inside this phase's delay window. */
     void scheduleNext(long gameTime, BossPhaseData phase) {
-        int min = boss.rageDown(phase.getTeleportMinDelayTicks());
-        int spread = Math.max(0, boss.rageDown(phase.getTeleportMaxDelayTicks()) - min);
+        int min = boss.rageDown(phase.teleport().getMinDelayTicks());
+        int spread = Math.max(0, boss.rageDown(phase.teleport().getMaxDelayTicks()) - min);
         int delay = min + (spread == 0 ? 0 : npc.getRandom().nextInt(spread + 1));
         boss.setAbilityScheduleAt(BossAbility.TELEPORT, gameTime + delay);
     }

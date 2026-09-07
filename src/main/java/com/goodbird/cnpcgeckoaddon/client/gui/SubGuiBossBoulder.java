@@ -61,27 +61,27 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isBoulderEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.boulder().isEnabled()));
         y += 21;
 
-        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.getBoulderAnimation());
+        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.boulder().getAnimation());
         y += 21;
 
         addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getBoulderTargetMode()));
+                BossTargetMode.LABELS, phase.boulder().getTargetMode()));
         y += 21;
 
         addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.boulder_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.BOULDER_MODE_LABELS, phase.getBoulderMode()));
+                BossPhaseData.BOULDER_MODE_LABELS, phase.boulder().getMode()));
         y += 21;
 
         // Typed rather than picked: any block id works, and a list of every block in the
         // game would bury the four that a dungeon actually wants.
         addLabel(new GuiLabel(BLOCK_FIELD, "cnpcgeckoaddon.boss.boulder_block", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(BLOCK_FIELD, this, guiLeft + 108, y, 134, 20,
-                phase.getBoulderBlock()));
+                phase.boulder().getBlock()));
         y += 21;
 
         addLabel(new GuiLabel(LOOK_BUTTON, "cnpcgeckoaddon.boss.boulder_style", guiLeft + 6, y + 6));
@@ -90,29 +90,29 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
         y += 21;
 
         addPairRow(SCALE_FIELD, SPEED_FIELD, "cnpcgeckoaddon.boss.boulder_size", y,
-                phase.getBoulderScale(), 5, 40, 15,
-                phase.getBoulderSpeed(), 1, 20, 6);
+                phase.boulder().getScale(), 5, 40, 15,
+                phase.boulder().getSpeed(), 1, 20, 6);
         y += 21;
         addPairRow(DAMAGE_FIELD, KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.boulder_hit", y,
-                phase.getBoulderDamage(), 0, 1000, 12,
-                phase.getBoulderKnockback(), 0, 10, 3);
+                phase.boulder().getDamage(), 0, 1000, 12,
+                phase.boulder().getKnockback(), 0, 10, 3);
         y += 21;
         addNumberField(RANGE_FIELD, "cnpcgeckoaddon.boss.boulder_range", y,
-                phase.getBoulderRange(), 4, 64, 20);
+                phase.boulder().getRange(), 4, 64, 20);
         y += 21;
 
         addLabel(new GuiLabel(STOPS_BUTTON, "cnpcgeckoaddon.boss.boulder_stops", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, STOPS_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isBoulderStopsOnHit()));
+                phase.boulder().isStopsOnHit()));
         y += 21;
 
         addPairRow(SHATTER_RADIUS_FIELD, SHATTER_DAMAGE_FIELD, "cnpcgeckoaddon.boss.boulder_shatter", y,
-                phase.getBoulderShatterRadius(), 0, 16, 2,
-                phase.getBoulderShatterDamage(), 0, 1000, 4);
+                phase.boulder().getShatterRadius(), 0, 16, 2,
+                phase.boulder().getShatterDamage(), 0, 1000, 4);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getBoulderActionDelayTicks(), 0, 1200, 16,
-                phase.getBoulderCooldownTicks(), 1, 12000, 180);
+                phase.boulder().getActionDelayTicks(), 0, 1200, 16,
+                phase.boulder().getCooldownTicks(), 1, 12000, 180);
         y += 21;
 
         addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
@@ -127,7 +127,7 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
     }
 
     private int lookIndex() {
-        String id = phase.getBoulderStyle();
+        String id = phase.boulder().getStyle();
         for (int i = 0; i < BoulderStyles.values().size(); i++) {
             if (BoulderStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -137,7 +137,7 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
     }
 
     private int vfxStyleIndex() {
-        String id = phase.getBoulderVfx();
+        String id = phase.boulder().getVfx();
         for (int i = 0; i < AreaVfxStyles.values().size(); i++) {
             if (AreaVfxStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -187,26 +187,26 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getBoulderEffects(), "cnpcgeckoaddon.boss.effects_boulder"));
+            setSubGui(new SubGuiBossEffectList(phase.boulder().getEffects(), "cnpcgeckoaddon.boss.effects_boulder"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setBoulderEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.boulder().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == STOPS_BUTTON) {
-            phase.setBoulderStopsOnHit(((GuiButtonYesNo) button).getBoolean());
+            phase.boulder().setStopsOnHit(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setBoulderTargetMode(button.getValue());
+            phase.boulder().setTargetMode(button.getValue());
         } else if (button.id == MODE_BUTTON) {
-            phase.setBoulderMode(button.getValue());
+            phase.boulder().setMode(button.getValue());
         } else if (button.id == VFX_STYLE_BUTTON) {
-            phase.setBoulderVfx(AreaVfxStyles.values().get(button.getValue()).id());
+            phase.boulder().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == LOOK_BUTTON) {
-            phase.setBoulderStyle(BoulderStyles.values().get(button.getValue()).id());
+            phase.boulder().setStyle(BoulderStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting boulder animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setBoulderAnimation(name);
+                phase.boulder().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setBoulderActionDelayTicks);
+                        phase.boulder()::setActionDelayTicks);
             }));
         }
     }
@@ -216,24 +216,24 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setBoulderAnimation(value);
-            else animation.setValue(phase.getBoulderAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.boulder().setAnimation(value);
+            else animation.setValue(phase.boulder().getAnimation());
         }
         GuiTextFieldNop block = getTextField(BLOCK_FIELD);
         if (block != null) {
             String value = block.getValue().trim();
             // An id that is not a block would silently never launch, so reject it here.
-            if (EntityBossBoulder.resolveBlock(value) != null) phase.setBoulderBlock(value);
-            else block.setValue(phase.getBoulderBlock());
+            if (EntityBossBoulder.resolveBlock(value) != null) phase.boulder().setBlock(value);
+            else block.setValue(phase.boulder().getBlock());
         }
-        applyNumberField(SCALE_FIELD, phase::setBoulderScale);
-        applyNumberField(SPEED_FIELD, phase::setBoulderSpeed);
-        applyNumberField(DAMAGE_FIELD, phase::setBoulderDamage);
-        applyNumberField(KNOCKBACK_FIELD, phase::setBoulderKnockback);
-        applyNumberField(RANGE_FIELD, phase::setBoulderRange);
-        applyNumberField(SHATTER_RADIUS_FIELD, phase::setBoulderShatterRadius);
-        applyNumberField(SHATTER_DAMAGE_FIELD, phase::setBoulderShatterDamage);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setBoulderActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setBoulderCooldownTicks);
+        applyNumberField(SCALE_FIELD, phase.boulder()::setScale);
+        applyNumberField(SPEED_FIELD, phase.boulder()::setSpeed);
+        applyNumberField(DAMAGE_FIELD, phase.boulder()::setDamage);
+        applyNumberField(KNOCKBACK_FIELD, phase.boulder()::setKnockback);
+        applyNumberField(RANGE_FIELD, phase.boulder()::setRange);
+        applyNumberField(SHATTER_RADIUS_FIELD, phase.boulder()::setShatterRadius);
+        applyNumberField(SHATTER_DAMAGE_FIELD, phase.boulder()::setShatterDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase.boulder()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.boulder()::setCooldownTicks);
     }
 }

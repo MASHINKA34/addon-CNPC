@@ -55,24 +55,24 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isHazardEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.hazard().isEnabled()));
         y += 21;
 
         // The first thing to pick, because the four rows further down belong to one shape
         // only and come and go with it.
         addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.hazard_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.HAZARD_MODE_LABELS, phase.getHazardMode()));
+                BossPhaseData.HAZARD_MODE_LABELS, phase.hazard().getMode()));
         y += 21;
 
         // Both shapes: when the arena turns, how long it flashes first, and what it costs.
         addPairRow(DELAY_FIELD, WARN_FIELD, "cnpcgeckoaddon.boss.hazard_delay", y,
-                phase.getHazardDelayTicks(), 0, 12000, 200,
-                phase.getHazardWarnTicks(), 0, 600, 60);
+                phase.hazard().getDelayTicks(), 0, 12000, 200,
+                phase.hazard().getWarnTicks(), 0, 600, 60);
         y += 21;
         addPairRow(DAMAGE_FIELD, INTERVAL_FIELD, "cnpcgeckoaddon.boss.hazard_damage", y,
-                phase.getHazardDamage(), 0, 1000, 4,
-                phase.getHazardIntervalTicks(), 1, 200, 20);
+                phase.hazard().getDamage(), 0, 1000, 4,
+                phase.hazard().getIntervalTicks(), 1, 200, 20);
         y += 21;
 
         // The two shapes' rows share the same four lines: only one set is ever on the
@@ -80,19 +80,19 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
         int shapeY = y;
         addLabel(new GuiLabel(CENTER_BUTTON, "cnpcgeckoaddon.boss.hazard_center", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, CENTER_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.HAZARD_CENTER_LABELS, phase.getHazardCenterMode()));
+                BossPhaseData.HAZARD_CENTER_LABELS, phase.hazard().getCenterMode()));
         y += 21;
-        addTextField(coordinateField(CENTER_X_FIELD, guiLeft + 8, y, 40, phase.getHazardCenterX()));
-        addTextField(coordinateField(CENTER_Z_FIELD, guiLeft + 52, y, 40, phase.getHazardCenterZ()));
+        addTextField(coordinateField(CENTER_X_FIELD, guiLeft + 8, y, 40, phase.hazard().getCenterX()));
+        addTextField(coordinateField(CENTER_Z_FIELD, guiLeft + 52, y, 40, phase.hazard().getCenterZ()));
         addButton(new GuiButtonNop(this, CENTER_HERE_BUTTON, guiLeft + 142, y, 100, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
         y += 21;
         addPairRow(START_RADIUS_FIELD, END_RADIUS_FIELD, "cnpcgeckoaddon.boss.hazard_radius", y,
-                phase.getHazardStartRadius(), 2, 128, 30,
-                phase.getHazardEndRadius(), 1, 127, 6);
+                phase.hazard().getStartRadius(), 2, 128, 30,
+                phase.hazard().getEndRadius(), 1, 127, 6);
         y += 21;
         addNumberField(SHRINK_FIELD, "cnpcgeckoaddon.boss.hazard_shrink", y,
-                phase.getHazardShrinkTicks(), 20, 24000, 1200);
+                phase.hazard().getShrinkTicks(), 20, 24000, 1200);
         y += 21;
 
         // The box is measured the way the aggro zone is: two corners, either order.
@@ -100,12 +100,12 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
         addLabel(new GuiLabel(CORNER1_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner1", guiLeft + 6, boxY + 6));
         boxY += 21;
         addCornerFields(X1_FIELD, Y1_FIELD, Z1_FIELD, CORNER1_HERE_BUTTON, boxY,
-                phase.getHazardX1(), phase.getHazardY1(), phase.getHazardZ1());
+                phase.hazard().getX1(), phase.hazard().getY1(), phase.hazard().getZ1());
         boxY += 21;
         addLabel(new GuiLabel(CORNER2_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner2", guiLeft + 6, boxY + 6));
         boxY += 21;
         addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, boxY,
-                phase.getHazardX2(), phase.getHazardY2(), phase.getHazardZ2());
+                phase.hazard().getX2(), phase.hazard().getY2(), phase.hazard().getZ2());
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.hazard_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 212);
@@ -125,8 +125,8 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
      * their line and simply stop being drawn or clicked.</p>
      */
     private void applyModeRows() {
-        boolean ring = phase.getHazardMode() == BossPhaseData.HAZARD_MODE_RING;
-        boolean point = ring && phase.getHazardCenterMode() == BossPhaseData.HAZARD_CENTER_POINT;
+        boolean ring = phase.hazard().getMode() == BossPhaseData.HAZARD_MODE_RING;
+        boolean point = ring && phase.hazard().getCenterMode() == BossPhaseData.HAZARD_CENTER_POINT;
         showLabel(CENTER_BUTTON, ring);
         showButton(CENTER_BUTTON, ring);
         showField(CENTER_X_FIELD, point);
@@ -223,32 +223,32 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getHazardEffects(), "cnpcgeckoaddon.boss.effects_hazard"));
+            setSubGui(new SubGuiBossEffectList(phase.hazard().getEffects(), "cnpcgeckoaddon.boss.effects_hazard"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setHazardEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.hazard().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {
-            phase.setHazardMode(button.getValue());
+            phase.hazard().setMode(button.getValue());
             applyModeRows();
         } else if (button.id == CENTER_BUTTON) {
-            phase.setHazardCenterMode(button.getValue());
+            phase.hazard().setCenterMode(button.getValue());
             applyModeRows();
         } else if (button.id == CENTER_HERE_BUTTON) {
             BlockPos pos = playerPosition();
             if (pos != null) {
-                phase.setHazardCenter(pos.getX(), pos.getZ());
+                phase.hazard().setCenter(pos.getX(), pos.getZ());
                 getTextField(CENTER_X_FIELD).setValue(Integer.toString(pos.getX()));
                 getTextField(CENTER_Z_FIELD).setValue(Integer.toString(pos.getZ()));
             }
         } else if (button.id == CORNER1_HERE_BUTTON) {
             BlockPos pos = playerPosition();
             if (pos != null) {
-                phase.setHazardCorner1(pos.getX(), pos.getY(), pos.getZ());
+                phase.hazard().setCorner1(pos.getX(), pos.getY(), pos.getZ());
                 showCorner(X1_FIELD, Y1_FIELD, Z1_FIELD, pos);
             }
         } else if (button.id == CORNER2_HERE_BUTTON) {
             BlockPos pos = playerPosition();
             if (pos != null) {
-                phase.setHazardCorner2(pos.getX(), pos.getY(), pos.getZ());
+                phase.hazard().setCorner2(pos.getX(), pos.getY(), pos.getZ());
                 showCorner(X2_FIELD, Y2_FIELD, Z2_FIELD, pos);
             }
         }
@@ -267,22 +267,22 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        applyNumberField(DELAY_FIELD, phase::setHazardDelayTicks);
-        applyNumberField(WARN_FIELD, phase::setHazardWarnTicks);
-        applyNumberField(DAMAGE_FIELD, phase::setHazardDamage);
-        applyNumberField(INTERVAL_FIELD, phase::setHazardIntervalTicks);
+        applyNumberField(DELAY_FIELD, phase.hazard()::setDelayTicks);
+        applyNumberField(WARN_FIELD, phase.hazard()::setWarnTicks);
+        applyNumberField(DAMAGE_FIELD, phase.hazard()::setDamage);
+        applyNumberField(INTERVAL_FIELD, phase.hazard()::setIntervalTicks);
         // Read whether or not the shape in force shows them: a hidden row keeps the numbers
         // a builder typed into it under the other shape, rather than losing them on a click.
-        phase.setHazardCenter(signed(CENTER_X_FIELD), signed(CENTER_Z_FIELD));
+        phase.hazard().setCenter(signed(CENTER_X_FIELD), signed(CENTER_Z_FIELD));
         GuiTextFieldNop start = getTextField(START_RADIUS_FIELD);
         GuiTextFieldNop end = getTextField(END_RADIUS_FIELD);
         // Set as a pair: the end is only legal against the start.
         if (start != null && end != null) {
-            phase.setHazardRadii(start.getInteger(), end.getInteger());
+            phase.hazard().setRadii(start.getInteger(), end.getInteger());
         }
-        applyNumberField(SHRINK_FIELD, phase::setHazardShrinkTicks);
-        phase.setHazardCorner1(signed(X1_FIELD), signed(Y1_FIELD), signed(Z1_FIELD));
-        phase.setHazardCorner2(signed(X2_FIELD), signed(Y2_FIELD), signed(Z2_FIELD));
+        applyNumberField(SHRINK_FIELD, phase.hazard()::setShrinkTicks);
+        phase.hazard().setCorner1(signed(X1_FIELD), signed(Y1_FIELD), signed(Z1_FIELD));
+        phase.hazard().setCorner2(signed(X2_FIELD), signed(Y2_FIELD), signed(Z2_FIELD));
     }
 
 }

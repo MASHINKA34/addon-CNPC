@@ -57,36 +57,36 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addToggleRow(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", y, phase.isHuntEnabled());
+        addToggleRow(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", y, phase.hunt().isEnabled());
         y += 21;
 
-        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.getHuntAnimation());
+        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.hunt().getAnimation());
         y += 21;
 
         addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getHuntTargetMode()));
+                BossTargetMode.LABELS, phase.hunt().getTargetMode()));
         y += 21;
 
         addPairRow(DURATION_FIELD, SPEED_FIELD, "cnpcgeckoaddon.boss.hunt_duration", y,
-                phase.getHuntDurationTicks(), 20, 1200, 160,
-                phase.getHuntSpeedPercent(), 50, 300, 130);
+                phase.hunt().getDurationTicks(), 20, 1200, 160,
+                phase.hunt().getSpeedPercent(), 50, 300, 130);
         y += 21;
         addPairRow(CATCH_RADIUS_FIELD, DAMAGE_FIELD, "cnpcgeckoaddon.boss.hunt_catch", y,
-                phase.getHuntCatchRadius(), 1, 6, 2,
-                phase.getHuntDamage(), 0, 1000, 15);
+                phase.hunt().getCatchRadius(), 1, 6, 2,
+                phase.hunt().getDamage(), 0, 1000, 15);
         y += 21;
 
-        addToggleRow(CATCH_ENDS_BUTTON, "cnpcgeckoaddon.boss.hunt_catch_ends", y, phase.isHuntCatchEnds());
+        addToggleRow(CATCH_ENDS_BUTTON, "cnpcgeckoaddon.boss.hunt_catch_ends", y, phase.hunt().isCatchEnds());
         y += 21;
-        addToggleRow(SILENCE_BUTTON, "cnpcgeckoaddon.boss.hunt_silence", y, phase.isHuntSilence());
+        addToggleRow(SILENCE_BUTTON, "cnpcgeckoaddon.boss.hunt_silence", y, phase.hunt().isSilence());
         y += 21;
-        addToggleRow(GLOW_BUTTON, "cnpcgeckoaddon.boss.hunt_glow", y, phase.isHuntGlow());
+        addToggleRow(GLOW_BUTTON, "cnpcgeckoaddon.boss.hunt_glow", y, phase.hunt().isGlow());
         y += 21;
 
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getHuntActionDelayTicks(), 0, 1200, 10,
-                phase.getHuntCooldownTicks(), 1, 12000, 400);
+                phase.hunt().getActionDelayTicks(), 0, 1200, 10,
+                phase.hunt().getCooldownTicks(), 1, 12000, 400);
         y += 21;
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.hunt_hint", y + 3);
@@ -184,24 +184,24 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getHuntEffects(), "cnpcgeckoaddon.boss.effects_hunt"));
+            setSubGui(new SubGuiBossEffectList(phase.hunt().getEffects(), "cnpcgeckoaddon.boss.effects_hunt"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setHuntEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.hunt().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == CATCH_ENDS_BUTTON) {
-            phase.setHuntCatchEnds(((GuiButtonYesNo) button).getBoolean());
+            phase.hunt().setCatchEnds(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == SILENCE_BUTTON) {
-            phase.setHuntSilence(((GuiButtonYesNo) button).getBoolean());
+            phase.hunt().setSilence(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == GLOW_BUTTON) {
-            phase.setHuntGlow(((GuiButtonYesNo) button).getBoolean());
+            phase.hunt().setGlow(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setHuntTargetMode(button.getValue());
+            phase.hunt().setTargetMode(button.getValue());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting hunt animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setHuntAnimation(name);
+                phase.hunt().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setHuntActionDelayTicks);
+                        phase.hunt()::setActionDelayTicks);
             }));
         }
     }
@@ -211,14 +211,14 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setHuntAnimation(value);
-            else animation.setValue(phase.getHuntAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.hunt().setAnimation(value);
+            else animation.setValue(phase.hunt().getAnimation());
         }
-        applyNumberField(DURATION_FIELD, phase::setHuntDurationTicks);
-        applyNumberField(SPEED_FIELD, phase::setHuntSpeedPercent);
-        applyNumberField(CATCH_RADIUS_FIELD, phase::setHuntCatchRadius);
-        applyNumberField(DAMAGE_FIELD, phase::setHuntDamage);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setHuntActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setHuntCooldownTicks);
+        applyNumberField(DURATION_FIELD, phase.hunt()::setDurationTicks);
+        applyNumberField(SPEED_FIELD, phase.hunt()::setSpeedPercent);
+        applyNumberField(CATCH_RADIUS_FIELD, phase.hunt()::setCatchRadius);
+        applyNumberField(DAMAGE_FIELD, phase.hunt()::setDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase.hunt()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.hunt()::setCooldownTicks);
     }
 }

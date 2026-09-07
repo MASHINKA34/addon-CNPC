@@ -52,24 +52,24 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isHookEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.hook().isEnabled()));
         y += 21;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getHookAnimation()));
+                phase.hook().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
         addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getHookTargetMode()));
+                BossTargetMode.LABELS, phase.hook().getTargetMode()));
         y += 21;
 
         addLabel(new GuiLabel(HOOK_MODE_BUTTON, "cnpcgeckoaddon.boss.hook_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, HOOK_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.HOOK_MODE_LABELS, phase.getHookMode()));
+                BossPhaseData.HOOK_MODE_LABELS, phase.hook().getMode()));
         y += 21;
 
         addLabel(new GuiLabel(CORD_STYLE_BUTTON, "cnpcgeckoaddon.boss.hook_cord", guiLeft + 6, y + 6));
@@ -78,24 +78,24 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
         y += 21;
 
         addPairRow(TARGET_COUNT_FIELD, STOP_FIELD, "cnpcgeckoaddon.boss.hook_targets_stop", y,
-                phase.getHookTargetCount(), 1, 8, 1,
-                phase.getHookStopDistance(), 0, 32, 2);
+                phase.hook().getTargetCount(), 1, 8, 1,
+                phase.hook().getStopDistance(), 0, 32, 2);
         y += 21;
-        addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y, phase.getHookDamage(), 0, 1000, 4);
+        addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y, phase.hook().getDamage(), 0, 1000, 4);
         y += 21;
         addPairRow(STRENGTH_FIELD, DURATION_FIELD, "cnpcgeckoaddon.boss.hook_pull", y,
-                phase.getHookPullStrength(), 1, 20, 8,
-                phase.getHookPullDurationTicks(), 1, 200, 20);
+                phase.hook().getPullStrength(), 1, 20, 8,
+                phase.hook().getPullDurationTicks(), 1, 200, 20);
         y += 21;
         addPairRow(MIN_RANGE_FIELD, MAX_RANGE_FIELD, "cnpcgeckoaddon.boss.range", y,
-                phase.getHookMinRange(), 0, 64, 4,
-                phase.getHookMaxRange(), 1, 128, 24);
+                phase.hook().getMinRange(), 0, 64, 4,
+                phase.hook().getMaxRange(), 1, 128, 24);
         y += 21;
         // The two tick counts share a line so the cord style gets one of its own and the
         // screen still ends above the buttons.
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.hook_timing", y,
-                phase.getHookActionDelayTicks(), 0, 1200, 10,
-                phase.getHookCooldownTicks(), 1, 12000, 160);
+                phase.hook().getActionDelayTicks(), 0, 1200, 10,
+                phase.hook().getCooldownTicks(), 1, 12000, 160);
 
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
@@ -103,7 +103,7 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
     }
 
     private int cordStyleIndex() {
-        String id = phase.getHookCordStyle();
+        String id = phase.hook().getCordStyle();
         for (int i = 0; i < HookCordStyles.values().size(); i++) {
             if (HookCordStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -147,22 +147,22 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getHookEffects(), "cnpcgeckoaddon.boss.effects_hook"));
+            setSubGui(new SubGuiBossEffectList(phase.hook().getEffects(), "cnpcgeckoaddon.boss.effects_hook"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setHookEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.hook().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setHookTargetMode(button.getValue());
+            phase.hook().setTargetMode(button.getValue());
         } else if (button.id == HOOK_MODE_BUTTON) {
-            phase.setHookMode(button.getValue());
+            phase.hook().setMode(button.getValue());
         } else if (button.id == CORD_STYLE_BUTTON) {
-            phase.setHookCordStyle(HookCordStyles.values().get(button.getValue()).id());
+            phase.hook().setCordStyle(HookCordStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting hook animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setHookAnimation(name);
+                phase.hook().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setHookActionDelayTicks);
+                        phase.hook()::setActionDelayTicks);
             }));
         }
     }
@@ -172,18 +172,18 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setHookAnimation(value);
-            else animation.setValue(phase.getHookAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.hook().setAnimation(value);
+            else animation.setValue(phase.hook().getAnimation());
         }
-        applyNumberField(TARGET_COUNT_FIELD, phase::setHookTargetCount);
-        applyNumberField(STOP_FIELD, phase::setHookStopDistance);
-        applyNumberField(DAMAGE_FIELD, phase::setHookDamage);
-        applyNumberField(STRENGTH_FIELD, phase::setHookPullStrength);
-        applyNumberField(DURATION_FIELD, phase::setHookPullDurationTicks);
+        applyNumberField(TARGET_COUNT_FIELD, phase.hook()::setTargetCount);
+        applyNumberField(STOP_FIELD, phase.hook()::setStopDistance);
+        applyNumberField(DAMAGE_FIELD, phase.hook()::setDamage);
+        applyNumberField(STRENGTH_FIELD, phase.hook()::setPullStrength);
+        applyNumberField(DURATION_FIELD, phase.hook()::setPullDurationTicks);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
-        if (min != null && max != null) phase.setHookRange(min.getInteger(), max.getInteger());
-        applyNumberField(ACTION_DELAY_FIELD, phase::setHookActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setHookCooldownTicks);
+        if (min != null && max != null) phase.hook().setRange(min.getInteger(), max.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase.hook()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.hook()::setCooldownTicks);
     }
 }

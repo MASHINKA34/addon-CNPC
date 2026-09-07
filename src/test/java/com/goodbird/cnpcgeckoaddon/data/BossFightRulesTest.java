@@ -49,6 +49,94 @@ class BossFightRulesTest {
     }
 
     @Test
+    @DisplayName("every phase of a boss can actually be reached")
+    void everyPhaseIsReachable() {
+        for (int count = 1; count <= TeleportPathData.MAX_PHASES; count++) {
+            TeleportPathData data = new TeleportPathData();
+            data.setPhaseCount(count);
+            // Every row asked for the same threshold: without the ladder they would all be
+            // the same rung and only the last of them would ever be the answer.
+            for (int index = 1; index < count; index++) {
+                data.setPhaseThreshold(index, 50);
+            }
+            assertLadderIsReachable(data);
+        }
+    }
+
+    @Test
+    @DisplayName("a threshold set above the phase before it is pushed back under it")
+    void aThresholdCannotOvertakeTheOneAboveIt() {
+        TeleportPathData data = new TeleportPathData();
+        data.setPhaseCount(3);
+        data.setPhaseThreshold(1, 40);
+        data.setPhaseThreshold(2, 90);
+
+        assertEquals(40, data.getPhase(1).getStartHealthPercent(),
+                "the row that was already there kept its own number");
+        assertEquals(39, data.getPhase(2).getStartHealthPercent(),
+                "the row under it took the highest number still below its neighbour");
+        assertEquals(2, data.resolvePhaseIndex(39));
+        assertLadderIsReachable(data);
+    }
+
+    @Test
+    @DisplayName("raising a threshold pushes the rows under it down out of the way")
+    void raisingAThresholdMovesTheRowsBelowIt() {
+        TeleportPathData data = new TeleportPathData();
+        data.setPhaseCount(4);
+        data.setPhaseThreshold(1, 75);
+        data.setPhaseThreshold(2, 50);
+        data.setPhaseThreshold(3, 25);
+        data.setPhaseThreshold(2, 20);
+
+        assertEquals(20, data.getPhase(2).getStartHealthPercent(), "the edited row is the intent");
+        assertEquals(19, data.getPhase(3).getStartHealthPercent(),
+                "the row under it was overtaken and had to move");
+        assertLadderIsReachable(data);
+    }
+
+    @Test
+    @DisplayName("phase one is always full health, whatever anyone writes into it")
+    void theFirstPhaseIsNotSettable() {
+        TeleportPathData data = new TeleportPathData();
+        data.setPhaseCount(3);
+        data.setPhaseThreshold(0, 10);
+        assertEquals(100, data.getPhase(0).getStartHealthPercent());
+        assertEquals(0, data.resolvePhaseIndex(100));
+    }
+
+    @Test
+    @DisplayName("a save with its thresholds out of order is repaired on load")
+    void anOutOfOrderSaveIsRepaired() {
+        TeleportPathData saved = new TeleportPathData();
+        saved.setEnabled(true);
+        saved.markConfigured();
+        saved.setPhaseCount(3);
+        // Written past the ladder the way an older save or a script would have left it.
+        saved.getPhase(1).setStartHealthPercent(30);
+        saved.getPhase(2).setStartHealthPercent(60);
+
+        TeleportPathData reloaded = new TeleportPathData();
+        reloaded.readFromNBT(saved.writeToNBT(new net.minecraft.nbt.CompoundTag()));
+
+        assertEquals(3, reloaded.getPhaseCount());
+        assertLadderIsReachable(reloaded);
+    }
+
+    private static void assertLadderIsReachable(TeleportPathData data) {
+        assertEquals(100, data.getPhase(0).getStartHealthPercent(),
+                "the first phase is what the boss starts the fight in");
+        for (int index = 1; index < data.getPhaseCount(); index++) {
+            int threshold = data.getPhase(index).getStartHealthPercent();
+            assertTrue(threshold < data.getPhase(index - 1).getStartHealthPercent(),
+                    "phase " + index + " sits at or above the phase before it, so it never opens");
+            assertTrue(threshold >= 1, "phase " + index + " sits below any health a boss can have");
+            assertEquals(index, data.resolvePhaseIndex(threshold),
+                    "phase " + index + " does not own the health its own threshold names");
+        }
+    }
+
+    @Test
     @DisplayName("the phase lookup never walks off either end")
     void phaseLookupStaysInsideTheList() {
         TeleportPathData data = new TeleportPathData();

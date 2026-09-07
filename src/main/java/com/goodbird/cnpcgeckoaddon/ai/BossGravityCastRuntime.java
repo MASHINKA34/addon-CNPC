@@ -5,6 +5,8 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
 import noppes.npcs.entity.EntityNPCInterface;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
+
 /**
  * The field: a pull, a push or a throw covering everything around the boss.
  *
@@ -16,8 +18,6 @@ import noppes.npcs.entity.EntityNPCInterface;
  */
 final class BossGravityCastRuntime {
 
-    /** How long a cast that found an empty ring waits before looking again. */
-    private static final int RETRY_TICKS = 20;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -28,22 +28,22 @@ final class BossGravityCastRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.isGravityEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.GRAVITY)) return false;
+        if (!phase.gravity().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.GRAVITY)) return false;
         if (!hasTargets(level, phase)) {
-            boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + RETRY_LONG_TICKS);
             return false;
         }
-        boss.beginAction(BossAbility.GRAVITY, phase.getGravityAnimation(),
-                phase.getGravityActionDelayTicks(), gameTime, null, data, phase);
+        boss.beginAction(BossAbility.GRAVITY, phase.gravity().getAnimation(),
+                phase.gravity().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would open the field before the swing does.
-        boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + phase.getGravityActionDelayTicks()
-                + boss.rageDown(phase.getGravityCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + phase.gravity().getActionDelayTicks()
+                + boss.rageDown(phase.gravity().getCooldownTicks()));
         return true;
     }
 
     boolean hasTargets(ServerLevel level, BossPhaseData phase) {
-        return !boss.gravityVictims(level, npc.position(), phase.getGravityRadius()).isEmpty();
+        return !boss.gravityVictims(level, npc.position(), phase.gravity().getRadius()).isEmpty();
     }
 
     /**
@@ -56,6 +56,6 @@ final class BossGravityCastRuntime {
      * run, not a number the fight may turn down.</p>
      */
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
-        BossGravityScheduler.start(level, npc, phase, boss.rageUp(phase.getGravityDamage()), gameTime);
+        BossGravityScheduler.start(level, npc, phase, boss.rageUp(phase.gravity().getDamage()), gameTime);
     }
 }

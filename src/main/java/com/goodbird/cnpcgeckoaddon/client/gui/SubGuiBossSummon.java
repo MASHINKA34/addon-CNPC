@@ -39,30 +39,30 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isSummonEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.summon().isEnabled()));
         y += 23;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
-                phase.getSummonAnimation()));
+                phase.summon().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 23;
-        addTextFieldRow(CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.clone_name", y, phase.getMinionCloneName());
+        addTextFieldRow(CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.clone_name", y, phase.summon().getCloneName());
         y += 23;
-        addNumberField(CLONE_TAB_FIELD, "cnpcgeckoaddon.boss.clone_tab", y, phase.getMinionCloneTab(), 1, 9, 1);
+        addNumberField(CLONE_TAB_FIELD, "cnpcgeckoaddon.boss.clone_tab", y, phase.summon().getCloneTab(), 1, 9, 1);
         y += 23;
-        addNumberField(COUNT_FIELD, "cnpcgeckoaddon.boss.minion_count", y, phase.getMinionCount(), 1, 32, 3);
+        addNumberField(COUNT_FIELD, "cnpcgeckoaddon.boss.minion_count", y, phase.summon().getCount(), 1, 32, 3);
         y += 23;
-        addNumberField(RADIUS_FIELD, "cnpcgeckoaddon.boss.minion_radius", y, phase.getMinionRadius(), 1, 32, 4);
+        addNumberField(RADIUS_FIELD, "cnpcgeckoaddon.boss.minion_radius", y, phase.summon().getRadius(), 1, 32, 4);
         y += 23;
-        addNumberField(MAX_ALIVE_FIELD, "cnpcgeckoaddon.boss.max_minions", y, phase.getMaxAliveMinions(), 1, 128, 6);
+        addNumberField(MAX_ALIVE_FIELD, "cnpcgeckoaddon.boss.max_minions", y, phase.summon().getMaxAlives(), 1, 128, 6);
         y += 23;
         addNumberField(ACTION_DELAY_FIELD, "cnpcgeckoaddon.boss.action_delay", y,
-                phase.getSummonActionDelayTicks(), 0, 1200, 20);
+                phase.summon().getActionDelayTicks(), 0, 1200, 20);
         y += 23;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
-                phase.getSummonCooldownTicks(), 20, 12000, 400);
+                phase.summon().getCooldownTicks(), 20, 12000, 400);
 
         addButton(new GuiButtonNop(this, SPAWN_POINTS_BUTTON, guiLeft + 8, guiTop + 230, 168, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_settings"));
@@ -92,13 +92,13 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == ENABLED_BUTTON) {
-            phase.setSummonEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.summon().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting minion summon animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setSummonAnimation(name);
+                phase.summon().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
-                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase::setSummonActionDelayTicks);
+                BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase.summon()::setActionDelayTicks);
             }));
         } else if (button.id == SPAWN_POINTS_BUTTON) {
             applyFields();
@@ -111,16 +111,16 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setSummonAnimation(value);
-            else animation.setValue(phase.getSummonAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.summon().setAnimation(value);
+            else animation.setValue(phase.summon().getAnimation());
         }
         GuiTextFieldNop clone = getTextField(CLONE_NAME_FIELD);
-        if (clone != null) phase.setMinionCloneName(clone.getValue());
-        applyNumberField(CLONE_TAB_FIELD, phase::setMinionCloneTab);
-        applyNumberField(COUNT_FIELD, phase::setMinionCount);
-        applyNumberField(RADIUS_FIELD, phase::setMinionRadius);
-        applyNumberField(MAX_ALIVE_FIELD, phase::setMaxAliveMinions);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setSummonActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setSummonCooldownTicks);
+        if (clone != null) phase.summon().setCloneName(clone.getValue());
+        applyNumberField(CLONE_TAB_FIELD, phase.summon()::setCloneTab);
+        applyNumberField(COUNT_FIELD, phase.summon()::setCount);
+        applyNumberField(RADIUS_FIELD, phase.summon()::setRadius);
+        applyNumberField(MAX_ALIVE_FIELD, phase.summon()::setMaxAlives);
+        applyNumberField(ACTION_DELAY_FIELD, phase.summon()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.summon()::setCooldownTicks);
     }
 }

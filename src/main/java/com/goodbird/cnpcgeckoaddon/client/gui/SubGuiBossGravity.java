@@ -48,36 +48,36 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isGravityEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.gravity().isEnabled()));
         y += 21;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 108, y, 86, 20,
-                phase.getGravityAnimation()));
+                phase.gravity().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
         addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.gravity_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.GRAVITY_MODE_LABELS, phase.getGravityMode()));
+                BossPhaseData.GRAVITY_MODE_LABELS, phase.gravity().getMode()));
         y += 21;
 
         // The shape and its clock share a line, and the force and its bite the next: each
         // pair is read against the other, and a throw ignores the right-hand half of both.
         addPairRow(RADIUS_FIELD, DURATION_FIELD, "cnpcgeckoaddon.boss.gravity_field", y,
-                phase.getGravityRadius(), 3, 48, 16,
-                phase.getGravityDurationTicks(), 5, 400, 60);
+                phase.gravity().getRadius(), 3, 48, 16,
+                phase.gravity().getDurationTicks(), 5, 400, 60);
         y += 21;
         addPairRow(STRENGTH_FIELD, TOUCH_RADIUS_FIELD, "cnpcgeckoaddon.boss.gravity_strength", y,
-                phase.getGravityStrength(), 1, 20, 10,
-                phase.getGravityTouchRadius(), 1, 6, 2);
+                phase.gravity().getStrength(), 1, 20, 10,
+                phase.gravity().getTouchRadius(), 1, 6, 2);
         y += 21;
-        addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y, phase.getGravityDamage(), 0, 1000, 8);
+        addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y, phase.gravity().getDamage(), 0, 1000, 8);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getGravityActionDelayTicks(), 0, 1200, 20,
-                phase.getGravityCooldownTicks(), 1, 12000, 300);
+                phase.gravity().getActionDelayTicks(), 0, 1200, 20,
+                phase.gravity().getCooldownTicks(), 1, 12000, 300);
         y += 21;
 
         addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
@@ -93,7 +93,7 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
     }
 
     private int vfxStyleIndex() {
-        String id = phase.getGravityVfx();
+        String id = phase.gravity().getVfx();
         for (int i = 0; i < AreaVfxStyles.values().size(); i++) {
             if (AreaVfxStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -137,20 +137,20 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getGravityEffects(), "cnpcgeckoaddon.boss.effects_gravity"));
+            setSubGui(new SubGuiBossEffectList(phase.gravity().getEffects(), "cnpcgeckoaddon.boss.effects_gravity"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setGravityEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.gravity().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {
-            phase.setGravityMode(button.getValue());
+            phase.gravity().setMode(button.getValue());
         } else if (button.id == VFX_STYLE_BUTTON) {
-            phase.setGravityVfx(AreaVfxStyles.values().get(button.getValue()).id());
+            phase.gravity().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting gravity animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setGravityAnimation(name);
+                phase.gravity().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setGravityActionDelayTicks);
+                        phase.gravity()::setActionDelayTicks);
             }));
         }
     }
@@ -160,15 +160,15 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setGravityAnimation(value);
-            else animation.setValue(phase.getGravityAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.gravity().setAnimation(value);
+            else animation.setValue(phase.gravity().getAnimation());
         }
-        applyNumberField(RADIUS_FIELD, phase::setGravityRadius);
-        applyNumberField(DURATION_FIELD, phase::setGravityDurationTicks);
-        applyNumberField(STRENGTH_FIELD, phase::setGravityStrength);
-        applyNumberField(TOUCH_RADIUS_FIELD, phase::setGravityTouchRadius);
-        applyNumberField(DAMAGE_FIELD, phase::setGravityDamage);
-        applyNumberField(ACTION_DELAY_FIELD, phase::setGravityActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setGravityCooldownTicks);
+        applyNumberField(RADIUS_FIELD, phase.gravity()::setRadius);
+        applyNumberField(DURATION_FIELD, phase.gravity()::setDurationTicks);
+        applyNumberField(STRENGTH_FIELD, phase.gravity()::setStrength);
+        applyNumberField(TOUCH_RADIUS_FIELD, phase.gravity()::setTouchRadius);
+        applyNumberField(DAMAGE_FIELD, phase.gravity()::setDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase.gravity()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.gravity()::setCooldownTicks);
     }
 }

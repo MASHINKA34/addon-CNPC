@@ -50,12 +50,12 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isCoverEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.cover().isEnabled()));
         y += 21;
 
         addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
         addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 108, y, 86, 20,
-                phase.getCoverAnimation()));
+                phase.cover().getAnimation()));
         addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
@@ -64,33 +64,33 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
         // rules only and come and go with it.
         addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.cover_mode", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossPhaseData.COVER_MODE_LABELS, phase.getCoverMode()));
+                BossPhaseData.COVER_MODE_LABELS, phase.cover().getMode()));
         y += 21;
 
         // How far the strike reaches and what it costs to be caught in it, on one line.
         addPairRow(RANGE_FIELD, DAMAGE_FIELD, "cnpcgeckoaddon.boss.cover_range", y,
-                phase.getCoverRange(), 4, 96, 40,
-                phase.getCoverDamage(), 0, 1000, 40);
+                phase.cover().getRange(), 4, 96, 40,
+                phase.cover().getDamage(), 0, 1000, 40);
         y += 21;
         addNumberField(KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.knockback", y,
-                phase.getCoverKnockback(), 0, 10, 2);
+                phase.cover().getKnockback(), 0, 10, 2);
         y += 21;
 
         // Shelter rule only: how many circles, how wide, and the ring they are scattered in.
         addPairRow(SHELTER_COUNT_FIELD, SHELTER_RADIUS_FIELD, "cnpcgeckoaddon.boss.cover_shelters", y,
-                phase.getCoverShelterCount(), 1, 6, 2,
-                phase.getCoverShelterRadius(), 1, 16, 3);
+                phase.cover().getShelterCount(), 1, 6, 2,
+                phase.cover().getShelterRadius(), 1, 16, 3);
         y += 21;
         addPairRow(SHELTER_MIN_FIELD, SHELTER_MAX_FIELD, "cnpcgeckoaddon.boss.cover_shelter_ring", y,
-                phase.getCoverShelterMinRange(), 1, 48, 4,
-                phase.getCoverShelterMaxRange(), 2, 64, 14);
+                phase.cover().getShelterMinRange(), 1, 48, 4,
+                phase.cover().getShelterMaxRange(), 2, 64, 14);
         y += 21;
 
         // The wind-up is the time to hide and the one warning, which is why it cannot go
         // under a second here any more than it can in the phase itself.
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getCoverActionDelayTicks(), 20, 1200, 80,
-                phase.getCoverCooldownTicks(), 1, 12000, 500);
+                phase.cover().getActionDelayTicks(), 20, 1200, 80,
+                phase.cover().getCooldownTicks(), 1, 12000, 500);
         y += 21;
 
         addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
@@ -115,7 +115,7 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
      * and simply stop being drawn or clicked.</p>
      */
     private void applyModeRows() {
-        boolean shelters = phase.getCoverMode() == BossPhaseData.COVER_MODE_SHELTER;
+        boolean shelters = phase.cover().getMode() == BossPhaseData.COVER_MODE_SHELTER;
         showRow(SHELTER_COUNT_FIELD, shelters);
         showField(SHELTER_RADIUS_FIELD, shelters);
         showRow(SHELTER_MIN_FIELD, shelters);
@@ -140,7 +140,7 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
     }
 
     private int vfxStyleIndex() {
-        String id = phase.getCoverVfx();
+        String id = phase.cover().getVfx();
         for (int i = 0; i < AreaVfxStyles.values().size(); i++) {
             if (AreaVfxStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -184,24 +184,24 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getCoverEffects(), "cnpcgeckoaddon.boss.effects_cover"));
+            setSubGui(new SubGuiBossEffectList(phase.cover().getEffects(), "cnpcgeckoaddon.boss.effects_cover"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setCoverEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.cover().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {
-            phase.setCoverMode(button.getValue());
+            phase.cover().setMode(button.getValue());
             applyModeRows();
         } else if (button.id == VFX_STYLE_BUTTON) {
-            phase.setCoverVfx(AreaVfxStyles.values().get(button.getValue()).id());
+            phase.cover().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting take cover animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setCoverAnimation(name);
+                phase.cover().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setCoverActionDelayTicks);
+                        phase.cover()::setActionDelayTicks);
                 // A clip shorter than the second the wind-up is held at leaves the phase on
                 // that floor, and the field has to say so rather than show the clip's length.
-                getTextField(ACTION_DELAY_FIELD).setValue(Integer.toString(phase.getCoverActionDelayTicks()));
+                getTextField(ACTION_DELAY_FIELD).setValue(Integer.toString(phase.cover().getActionDelayTicks()));
             }));
         }
     }
@@ -211,23 +211,23 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setCoverAnimation(value);
-            else animation.setValue(phase.getCoverAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.cover().setAnimation(value);
+            else animation.setValue(phase.cover().getAnimation());
         }
-        applyNumberField(RANGE_FIELD, phase::setCoverRange);
-        applyNumberField(DAMAGE_FIELD, phase::setCoverDamage);
-        applyNumberField(KNOCKBACK_FIELD, phase::setCoverKnockback);
+        applyNumberField(RANGE_FIELD, phase.cover()::setRange);
+        applyNumberField(DAMAGE_FIELD, phase.cover()::setDamage);
+        applyNumberField(KNOCKBACK_FIELD, phase.cover()::setKnockback);
         // Read whether or not the rule in force shows them: a hidden row keeps the numbers a
         // builder typed into it under the other rule, rather than losing them on a stray click.
-        applyNumberField(SHELTER_COUNT_FIELD, phase::setCoverShelterCount);
-        applyNumberField(SHELTER_RADIUS_FIELD, phase::setCoverShelterRadius);
+        applyNumberField(SHELTER_COUNT_FIELD, phase.cover()::setShelterCount);
+        applyNumberField(SHELTER_RADIUS_FIELD, phase.cover()::setShelterRadius);
         GuiTextFieldNop shelterMin = getTextField(SHELTER_MIN_FIELD);
         GuiTextFieldNop shelterMax = getTextField(SHELTER_MAX_FIELD);
         // Set as a pair: the inner edge is only legal against the outer one.
         if (shelterMin != null && shelterMax != null) {
-            phase.setCoverShelterRing(shelterMin.getInteger(), shelterMax.getInteger());
+            phase.cover().setShelterRing(shelterMin.getInteger(), shelterMax.getInteger());
         }
-        applyNumberField(ACTION_DELAY_FIELD, phase::setCoverActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setCoverCooldownTicks);
+        applyNumberField(ACTION_DELAY_FIELD, phase.cover()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.cover()::setCooldownTicks);
     }
 }

@@ -41,69 +41,69 @@ class BossAbilityTableTest {
 
     private static final Map<BossAbility, Wiring> WIRING = new EnumMap<>(Map.ofEntries(
             Map.entry(BossAbility.GROUND_ATTACK, new Wiring(
-                    phase -> phase.setAreaAttackEnabled(true),
-                    BossPhaseData::setAreaAttackCooldownTicks)),
+                    phase -> phase.areaAttack().setEnabled(true),
+                    (phase, ticks) -> phase.areaAttack().setCooldownTicks(ticks))),
             Map.entry(BossAbility.RANGED_ATTACK, new Wiring(
-                    phase -> phase.setRangedAttackEnabled(true),
-                    BossPhaseData::setRangedAttackCooldownTicks)),
+                    phase -> phase.rangedAttack().setEnabled(true),
+                    (phase, ticks) -> phase.rangedAttack().setCooldownTicks(ticks))),
             Map.entry(BossAbility.MELEE_ATTACK, new Wiring(
-                    phase -> phase.setMeleeAttackEnabled(true),
-                    BossPhaseData::setMeleeAttackCooldownTicks)),
+                    phase -> phase.meleeAttack().setEnabled(true),
+                    (phase, ticks) -> phase.meleeAttack().setCooldownTicks(ticks))),
             Map.entry(BossAbility.FLUID_SPIT, new Wiring(
-                    phase -> phase.setFluidSpitEnabled(true),
-                    BossPhaseData::setFluidSpitCooldownTicks)),
+                    phase -> phase.fluidSpit().setEnabled(true),
+                    (phase, ticks) -> phase.fluidSpit().setCooldownTicks(ticks))),
             Map.entry(BossAbility.HOOK, new Wiring(
-                    phase -> phase.setHookEnabled(true),
-                    BossPhaseData::setHookCooldownTicks)),
+                    phase -> phase.hook().setEnabled(true),
+                    (phase, ticks) -> phase.hook().setCooldownTicks(ticks))),
             Map.entry(BossAbility.CAPTURE, new Wiring(
-                    phase -> phase.setCaptureEnabled(true),
-                    BossPhaseData::setCaptureCooldownTicks)),
+                    phase -> phase.capture().setEnabled(true),
+                    (phase, ticks) -> phase.capture().setCooldownTicks(ticks))),
             Map.entry(BossAbility.LEAP, new Wiring(
-                    phase -> phase.setLeapEnabled(true),
-                    BossPhaseData::setLeapCooldownTicks)),
+                    phase -> phase.leap().setEnabled(true),
+                    (phase, ticks) -> phase.leap().setCooldownTicks(ticks))),
             Map.entry(BossAbility.LINE_ATTACK, new Wiring(
-                    phase -> phase.setLineAttackEnabled(true),
-                    BossPhaseData::setLineAttackCooldownTicks)),
+                    phase -> phase.lineAttack().setEnabled(true),
+                    (phase, ticks) -> phase.lineAttack().setCooldownTicks(ticks))),
             Map.entry(BossAbility.GEYSER, new Wiring(
-                    phase -> phase.setGeyserEnabled(true),
-                    BossPhaseData::setGeyserCooldownTicks)),
+                    phase -> phase.geyser().setEnabled(true),
+                    (phase, ticks) -> phase.geyser().setCooldownTicks(ticks))),
             Map.entry(BossAbility.BOULDER, new Wiring(
-                    phase -> phase.setBoulderEnabled(true),
-                    BossPhaseData::setBoulderCooldownTicks)),
+                    phase -> phase.boulder().setEnabled(true),
+                    (phase, ticks) -> phase.boulder().setCooldownTicks(ticks))),
             Map.entry(BossAbility.BOULDER_RAIN, new Wiring(
-                    phase -> phase.setBoulderRainEnabled(true),
-                    BossPhaseData::setBoulderRainCooldownTicks)),
+                    phase -> phase.boulderRain().setEnabled(true),
+                    (phase, ticks) -> phase.boulderRain().setCooldownTicks(ticks))),
             Map.entry(BossAbility.TETHER, new Wiring(
-                    phase -> phase.setTetherEnabled(true),
-                    BossPhaseData::setTetherCooldownTicks)),
+                    phase -> phase.tether().setEnabled(true),
+                    (phase, ticks) -> phase.tether().setCooldownTicks(ticks))),
             Map.entry(BossAbility.GRAVITY, new Wiring(
-                    phase -> phase.setGravityEnabled(true),
-                    BossPhaseData::setGravityCooldownTicks)),
+                    phase -> phase.gravity().setEnabled(true),
+                    (phase, ticks) -> phase.gravity().setCooldownTicks(ticks))),
             Map.entry(BossAbility.MARK, new Wiring(
-                    phase -> phase.setMarkEnabled(true),
-                    BossPhaseData::setMarkCooldownTicks)),
+                    phase -> phase.mark().setEnabled(true),
+                    (phase, ticks) -> phase.mark().setCooldownTicks(ticks))),
             Map.entry(BossAbility.COVER, new Wiring(
-                    phase -> phase.setCoverEnabled(true),
-                    BossPhaseData::setCoverCooldownTicks)),
+                    phase -> phase.cover().setEnabled(true),
+                    (phase, ticks) -> phase.cover().setCooldownTicks(ticks))),
             Map.entry(BossAbility.HUNT, new Wiring(
-                    phase -> phase.setHuntEnabled(true),
-                    BossPhaseData::setHuntCooldownTicks)),
+                    phase -> phase.hunt().setEnabled(true),
+                    (phase, ticks) -> phase.hunt().setCooldownTicks(ticks))),
             Map.entry(BossAbility.BEAM, new Wiring(
-                    phase -> phase.setBeamEnabled(true),
-                    BossPhaseData::setBeamCooldownTicks)),
+                    phase -> phase.beam().setEnabled(true),
+                    (phase, ticks) -> phase.beam().setCooldownTicks(ticks))),
             Map.entry(BossAbility.COCOON, new Wiring(
                     phase -> {
-                        phase.setCocoonEnabled(true);
+                        phase.cocoon().setEnabled(true);
                         // A cocoon with no clone to build it out of is not an ability yet.
-                        phase.setCocoonCloneName("cocoon");
+                        phase.cocoon().setCloneName("cocoon");
                     },
-                    BossPhaseData::setCocoonCooldownTicks)),
+                    (phase, ticks) -> phase.cocoon().setCooldownTicks(ticks))),
             Map.entry(BossAbility.SUMMON, new Wiring(
                     phase -> {
-                        phase.setSummonEnabled(true);
-                        phase.setMinionCloneName("minion");
+                        phase.summon().setEnabled(true);
+                        phase.summon().setCloneName("minion");
                     },
-                    BossPhaseData::setSummonCooldownTicks))));
+                    (phase, ticks) -> phase.summon().setCooldownTicks(ticks)))));
 
     @Test
     @DisplayName("the rotation is exactly the abilities that run off a cooldown")

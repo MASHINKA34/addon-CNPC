@@ -59,50 +59,50 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         int y = guiTop + 18;
 
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.isGeyserEnabled()));
+        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.geyser().isEnabled()));
         y += 21;
 
-        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.getGeyserAnimation());
+        addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.geyser().getAnimation());
         y += 21;
 
         // How many marks and who they go under, on one line: the two answer the same
         // question and are always read together.
         addLabel(new GuiLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.geyser_targets", guiLeft + 6, y + 6));
-        addPairedField(TARGET_COUNT_FIELD, guiLeft + 72, y, phase.getGeyserTargetCount(), 1, 8, 1, 38);
+        addPairedField(TARGET_COUNT_FIELD, guiLeft + 72, y, phase.geyser().getTargetCount(), 1, 8, 1, 38);
         addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
-                BossTargetMode.LABELS, phase.getGeyserTargetMode()));
+                BossTargetMode.LABELS, phase.geyser().getTargetMode()));
         y += 21;
 
         addNumberField(FUSE_FIELD, "cnpcgeckoaddon.boss.geyser_fuse", y,
-                phase.getGeyserFuseTicks(), 5, 200, 25);
+                phase.geyser().getFuseTicks(), 5, 200, 25);
         y += 21;
         addPairRow(DAMAGE_FIELD, RADIUS_FIELD, "cnpcgeckoaddon.boss.geyser_area", y,
-                phase.getGeyserDamage(), 0, 1000, 8,
-                phase.getGeyserRadius(), 1, 16, 3);
+                phase.geyser().getDamage(), 0, 1000, 8,
+                phase.geyser().getRadius(), 1, 16, 3);
         y += 21;
         addNumberField(LAUNCH_FIELD, "cnpcgeckoaddon.boss.geyser_launch", y,
-                phase.getGeyserLaunch(), 0, 20, 8);
+                phase.geyser().getLaunch(), 0, 20, 8);
         y += 21;
         addPairRow(MIN_RANGE_FIELD, MAX_RANGE_FIELD, "cnpcgeckoaddon.boss.range", y,
-                phase.getGeyserMinRange(), 0, 64, 3,
-                phase.getGeyserMaxRange(), 1, 128, 24);
+                phase.geyser().getMinRange(), 0, 64, 3,
+                phase.geyser().getMaxRange(), 1, 128, 24);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
-                phase.getGeyserActionDelayTicks(), 0, 1200, 12,
-                phase.getGeyserCooldownTicks(), 1, 12000, 160);
+                phase.geyser().getActionDelayTicks(), 0, 1200, 12,
+                phase.geyser().getCooldownTicks(), 1, 12000, 160);
         y += 21;
 
         addLabel(new GuiLabel(FOLLOW_BUTTON, "cnpcgeckoaddon.boss.geyser_follow", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, FOLLOW_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isGeyserFollowTarget()));
+                phase.geyser().isFollowTarget()));
         y += 21;
 
         // Left empty the eruption pools nothing, which is why this field is not validated
         // the way the fluid spit's is.
-        addSelectRow(FLUID_FIELD, "cnpcgeckoaddon.boss.geyser_fluid", y, phase.getGeyserFluid());
+        addSelectRow(FLUID_FIELD, "cnpcgeckoaddon.boss.geyser_fluid", y, phase.geyser().getFluid());
         y += 21;
         addNumberField(FLUID_LIFE_FIELD, "cnpcgeckoaddon.boss.geyser_fluid_life", y,
-                phase.getGeyserFluidLifetimeTicks(), 5, 1200, 60);
+                phase.geyser().getFluidLifetimeTicks(), 5, 1200, 60);
         y += 21;
 
         addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
@@ -111,7 +111,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         y += 21;
         addLabel(new GuiLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
-                phase.isGeyserBlockWave()));
+                phase.geyser().isBlockWave()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.geyser_hint", guiLeft + 6, guiTop + 292, 0xA0A0A0));
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 302, 120, 20,
@@ -120,7 +120,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
     }
 
     private int vfxStyleIndex() {
-        String id = phase.getGeyserVfx();
+        String id = phase.geyser().getVfx();
         for (int i = 0; i < AreaVfxStyles.values().size(); i++) {
             if (AreaVfxStyles.values().get(i).id().equals(id)) {
                 return i;
@@ -172,29 +172,29 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
-            setSubGui(new SubGuiBossEffectList(phase.getGeyserEffects(), "cnpcgeckoaddon.boss.effects_geyser"));
+            setSubGui(new SubGuiBossEffectList(phase.geyser().getEffects(), "cnpcgeckoaddon.boss.effects_geyser"));
         } else if (button.id == ENABLED_BUTTON) {
-            phase.setGeyserEnabled(((GuiButtonYesNo) button).getBoolean());
+            phase.geyser().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == FOLLOW_BUTTON) {
-            phase.setGeyserFollowTarget(((GuiButtonYesNo) button).getBoolean());
+            phase.geyser().setFollowTarget(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == BLOCK_WAVE_BUTTON) {
-            phase.setGeyserBlockWave(((GuiButtonYesNo) button).getBoolean());
+            phase.geyser().setBlockWave(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {
-            phase.setGeyserTargetMode(button.getValue());
+            phase.geyser().setTargetMode(button.getValue());
         } else if (button.id == VFX_STYLE_BUTTON) {
-            phase.setGeyserVfx(AreaVfxStyles.values().get(button.getValue()).id());
+            phase.geyser().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting geyser animation:",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
-                phase.setGeyserAnimation(name);
+                phase.geyser().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD,
-                        phase::setGeyserActionDelayTicks);
+                        phase.geyser()::setActionDelayTicks);
             }));
         } else if (button.id == FLUID_FIELD) {
             setSubGui(new GuiStringSelection(this, "Selecting geyser fluid:",
                     FluidBlockUtil.getSelectableIds(), name -> {
-                phase.setGeyserFluid(name);
+                phase.geyser().setFluid(name);
                 getTextField(FLUID_FIELD).setValue(name);
             }));
         }
@@ -205,27 +205,27 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
-            if (BossAnimationGuiUtil.isValid(npc, value)) phase.setGeyserAnimation(value);
-            else animation.setValue(phase.getGeyserAnimation());
+            if (BossAnimationGuiUtil.isValid(npc, value)) phase.geyser().setAnimation(value);
+            else animation.setValue(phase.geyser().getAnimation());
         }
         GuiTextFieldNop fluid = getTextField(FLUID_FIELD);
         if (fluid != null) {
             String value = fluid.getValue().trim();
             // Empty is a real answer - the eruption simply leaves nothing behind - so only a
             // filled-in id that is not a fluid is rejected.
-            if (value.isEmpty() || FluidBlockUtil.isFluidBlock(value)) phase.setGeyserFluid(value);
-            else fluid.setValue(phase.getGeyserFluid());
+            if (value.isEmpty() || FluidBlockUtil.isFluidBlock(value)) phase.geyser().setFluid(value);
+            else fluid.setValue(phase.geyser().getFluid());
         }
-        applyNumberField(TARGET_COUNT_FIELD, phase::setGeyserTargetCount);
-        applyNumberField(FUSE_FIELD, phase::setGeyserFuseTicks);
-        applyNumberField(DAMAGE_FIELD, phase::setGeyserDamage);
-        applyNumberField(RADIUS_FIELD, phase::setGeyserRadius);
-        applyNumberField(LAUNCH_FIELD, phase::setGeyserLaunch);
+        applyNumberField(TARGET_COUNT_FIELD, phase.geyser()::setTargetCount);
+        applyNumberField(FUSE_FIELD, phase.geyser()::setFuseTicks);
+        applyNumberField(DAMAGE_FIELD, phase.geyser()::setDamage);
+        applyNumberField(RADIUS_FIELD, phase.geyser()::setRadius);
+        applyNumberField(LAUNCH_FIELD, phase.geyser()::setLaunch);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
-        if (min != null && max != null) phase.setGeyserRange(min.getInteger(), max.getInteger());
-        applyNumberField(ACTION_DELAY_FIELD, phase::setGeyserActionDelayTicks);
-        applyNumberField(COOLDOWN_FIELD, phase::setGeyserCooldownTicks);
-        applyNumberField(FLUID_LIFE_FIELD, phase::setGeyserFluidLifetimeTicks);
+        if (min != null && max != null) phase.geyser().setRange(min.getInteger(), max.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase.geyser()::setActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase.geyser()::setCooldownTicks);
+        applyNumberField(FLUID_LIFE_FIELD, phase.geyser()::setFluidLifetimeTicks);
     }
 }
