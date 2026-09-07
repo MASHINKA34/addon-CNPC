@@ -11,7 +11,6 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class SubGuiRangedExtras extends GuiBasic implements ITextfieldListener {

@@ -5,7 +5,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import noppes.npcs.blocks.tiles.TileScripted;
 import noppes.npcs.client.renderer.blocks.BlockScriptedRenderer;
 import org.spongepowered.asm.mixin.Mixin;

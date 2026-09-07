@@ -1,7 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.model;
 
 
-import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.tile.TileEntityCustomModel;
 import net.minecraft.resources.ResourceLocation;
 import software.bernie.geckolib.cache.GeckoLibCache;

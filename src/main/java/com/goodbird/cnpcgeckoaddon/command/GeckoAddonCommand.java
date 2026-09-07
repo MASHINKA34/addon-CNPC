@@ -6,7 +6,6 @@ import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
-import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
@@ -32,6 +31,8 @@ import java.util.List;
 
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
 public class GeckoAddonCommand {
+
+    private static final int MAX_REPORTED_BOSSES = 10;
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
@@ -73,6 +74,9 @@ public class GeckoAddonCommand {
                     continue;
                 }
                 found++;
+                if (found > MAX_REPORTED_BOSSES) {
+                    continue;
+                }
                 TeleportPathController controller = npc instanceof IBossController holder
                         ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
                 int configured = controller == null
@@ -141,6 +145,10 @@ public class GeckoAddonCommand {
         }
         if (found == 0) {
             source.sendSuccess(() -> Component.literal("No loaded configured bosses found"), false);
+        } else if (found > MAX_REPORTED_BOSSES) {
+            int hidden = found - MAX_REPORTED_BOSSES;
+            source.sendSuccess(() -> Component.literal(
+                    "... and " + hidden + " more loaded bosses not listed"), false);
         }
         return found;
     }

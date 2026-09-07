@@ -3,7 +3,6 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.NpcCarryData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryData;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
-import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.entity.data.DataAI;

@@ -8,7 +8,6 @@ import noppes.npcs.api.entity.IPlayer;
 import noppes.npcs.api.wrapper.EntityLivingWrapper;
 import noppes.npcs.api.wrapper.NPCWrapper;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.packets.Packets;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import software.bernie.geckolib.animation.RawAnimation;

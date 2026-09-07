@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketRestoreBossTotems;
-import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;

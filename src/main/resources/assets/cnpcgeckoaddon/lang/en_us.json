@@ -85,6 +85,8 @@
   "cnpcgeckoaddon.boss.ability_target_all": "Everything alive",
   "cnpcgeckoaddon.boss.ability_target_hint": "Nearest/farthest/random pick from this set. \"Everything alive\" also picks up passing animals.",
   "entity.cnpcgeckoaddon.fluidspit": "Fluid Spit",
+  "entity.cnpcgeckoaddon.bossboulder": "Boss Boulder",
+  "entity.cnpcgeckoaddon.bosstetheranchor": "Boss Tether Anchor",
   "cnpcgeckoaddon.boss.fluid_settings": "Fluid spit...",
   "cnpcgeckoaddon.boss.fluid_block": "Fluid block",
   "cnpcgeckoaddon.boss.fluid_lifetime": "Puddle lifetime (ticks)",

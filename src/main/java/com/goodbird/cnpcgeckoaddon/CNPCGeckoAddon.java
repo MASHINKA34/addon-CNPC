@@ -1,6 +1,5 @@
 package com.goodbird.cnpcgeckoaddon;
 
-import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import net.neoforged.fml.common.Mod;
 
 @Mod(CNPCGeckoAddon.MODID)
