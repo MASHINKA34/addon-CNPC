@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -14,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(EntityNPCInterface.class)
+@Mixin(value = EntityNPCInterface.class, priority = 1100)
 public abstract class MixinEntityNPCInterfaceTeleportPath extends PathfinderMob implements IBossController {
 
     @Unique
@@ -32,13 +33,17 @@ public abstract class MixinEntityNPCInterfaceTeleportPath extends PathfinderMob 
 
     @Inject(method = "tick", at = @At("TAIL"), remap = false)
     private void cnpcgeckoaddon$tickTeleportPath(CallbackInfo ci) {
-        if (!level().isClientSide) {
-            if (cnpcgeckoaddon$teleportPathController == null) {
-                cnpcgeckoaddon$teleportPathController =
-                        new TeleportPathController((EntityNPCInterface) (Object) this);
-            }
-            cnpcgeckoaddon$teleportPathController.tick();
+        if (level().isClientSide) {
+            return;
         }
+        EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
+        if (cnpcgeckoaddon$teleportPathController == null) {
+            if (!((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData().isEnabled()) {
+                return;
+            }
+            cnpcgeckoaddon$teleportPathController = new TeleportPathController(npc);
+        }
+        cnpcgeckoaddon$teleportPathController.tick();
     }
 
     @Inject(method = "stopSeenByPlayer", at = @At("HEAD"), remap = false)

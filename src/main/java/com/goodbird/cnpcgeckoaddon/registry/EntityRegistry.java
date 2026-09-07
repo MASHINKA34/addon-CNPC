@@ -19,7 +19,7 @@ import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD, modid = CNPCGeckoAddon.MODID)
+@EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
 public class EntityRegistry {
 
     public static EntityType<? extends EntityCustomModel> entityCustomModel;

@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.world;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossMinionUtil;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -10,7 +11,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.saveddata.SavedData;
 
-import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,7 +21,9 @@ public final class BossMinionCleanupStore extends SavedData {
     private static final String NAME = "cnpcgeckoaddon_minion_cleanup";
     private static final Factory<BossMinionCleanupStore> FACTORY =
             new Factory<>(BossMinionCleanupStore::new, BossMinionCleanupStore::load);
-    private final Map<UUID, Cleanup> cleanups = new HashMap<>();
+    private static final int MAX_ENTRIES = 4096;
+
+    private final Map<UUID, Cleanup> cleanups = new LinkedHashMap<>();
 
     private record Cleanup(long generation, int removalMode) {
     }
@@ -34,12 +38,24 @@ public final class BossMinionCleanupStore extends SavedData {
     }
 
     public void invalidate(UUID owner, int removalMode) {
-        cleanups.put(owner, new Cleanup(generation(owner) + 1L, removalMode));
+        Cleanup cleanup = new Cleanup(generation(owner) + 1L, removalMode);
+        cleanups.remove(owner);
+        cleanups.put(owner, cleanup);
+        trim();
         setDirty();
     }
 
+    private void trim() {
+        Iterator<UUID> owners = cleanups.keySet().iterator();
+        while (cleanups.size() > MAX_ENTRIES && owners.hasNext()) {
+            owners.next();
+            owners.remove();
+        }
+    }
+
     public int pendingRemovalMode(Entity minion) {
-        String owner = minion.getPersistentData().getString(BossMinionUtil.MINION_OWNER_KEY);
+        CompoundTag data = PersistentDataUtil.read(minion);
+        String owner = data.getString(BossMinionUtil.MINION_OWNER_KEY);
         if (owner.isEmpty()) {
             return -1;
         }
@@ -50,8 +66,7 @@ public final class BossMinionCleanupStore extends SavedData {
             return -1;
         }
         Cleanup cleanup = cleanups.get(ownerId);
-        return cleanup != null
-                && minion.getPersistentData().getLong(GENERATION_KEY) < cleanup.generation()
+        return cleanup != null && data.getLong(GENERATION_KEY) < cleanup.generation()
                 ? cleanup.removalMode() : -1;
     }
 
@@ -66,6 +81,7 @@ public final class BossMinionCleanupStore extends SavedData {
                 store.cleanups.put(entry.getUUID("Owner"), new Cleanup(entry.getLong("Generation"), mode));
             }
         }
+        store.trim();
         return store;
     }
 

@@ -8,8 +8,8 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.Level;
 import noppes.npcs.entity.EntityNPCInterface;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 public class ProjectileEntityUtil {
-    private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
     private static final Map<EntityType<?>, Boolean> USABLE = Collections.synchronizedMap(new WeakHashMap<>());
     private static final Set<String> PROJECTILE_NAMES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "minecraft:arrow",

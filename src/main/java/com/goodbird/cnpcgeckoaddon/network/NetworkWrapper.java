@@ -13,16 +13,19 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import noppes.npcs.CustomNpcs;
-import org.apache.logging.log4j.util.TriConsumer;
 
 import java.util.Locale;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-@EventBusSubscriber(bus=EventBusSubscriber.Bus.MOD, modid=CNPCGeckoAddon.MODID)
+@EventBusSubscriber(modid=CNPCGeckoAddon.MODID)
 public class NetworkWrapper {
 
+    @FunctionalInterface
+    public interface ServerHandler<MSG> {
+        void accept(MSG packet, MinecraftServer server, ServerPlayer player);
+    }
 
     @SubscribeEvent
     public static void register(final RegisterPayloadHandlersEvent event) {
@@ -56,11 +59,20 @@ public class NetworkWrapper {
                 CNPCGeckoAddon.MODID, messageType.getSimpleName().toLowerCase(Locale.ROOT)));
     }
 
-    public static <MSG extends CustomPacketPayload> void registerPacket(PayloadRegistrar registrar , CustomPacketPayload.Type<MSG> type, BiConsumer<MSG, FriendlyByteBuf> encoder, Function<FriendlyByteBuf, MSG> decoder, TriConsumer<MSG, MinecraftServer, ServerPlayer> handle) {
-        registrar.commonToServer(
+    public static <MSG extends CustomPacketPayload> void registerPacket(PayloadRegistrar registrar , CustomPacketPayload.Type<MSG> type, BiConsumer<MSG, FriendlyByteBuf> encoder, Function<FriendlyByteBuf, MSG> decoder, ServerHandler<MSG> handle) {
+        registrar.playToServer(
                 type,
                 CustomPacketPayload.codec(encoder::accept, decoder::apply),
-                (packet, context) -> handle.accept(packet, context.player().getServer(), (ServerPlayer) context.player())
+                (packet, context) -> {
+                    if (!(context.player() instanceof ServerPlayer player)) {
+                        return;
+                    }
+                    MinecraftServer server = player.getServer();
+                    if (server == null) {
+                        return;
+                    }
+                    context.enqueueWork(() -> handle.accept(packet, server, player));
+                }
         );
     }
 

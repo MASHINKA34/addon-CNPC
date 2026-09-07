@@ -25,6 +25,7 @@ import java.util.UUID;
 public final class CustomBossBarOverlay {
     private static final int VANILLA_WIDTH = 182;
     private static final Map<UUID, BossBarStyleClientBridge.Bar> STYLES = new HashMap<>();
+    private static final Map<String, ResourceLocation> TEXTURES = new HashMap<>();
 
     static {
         BossBarStyleClientBridge.setHandler(CustomBossBarOverlay::updateStyle);
@@ -138,8 +139,9 @@ public final class CustomBossBarOverlay {
     }
 
     private static ResourceLocation texture(String styleId, String fileName) {
-        return ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID,
-                "textures/gui/boss_bar/" + styleId + "/" + fileName);
+        return TEXTURES.computeIfAbsent(styleId + "/" + fileName,
+                path -> ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID,
+                        "textures/gui/boss_bar/" + path));
     }
 
     private static String fitName(Font font, String name, int maxWidth) {

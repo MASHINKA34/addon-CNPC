@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import net.minecraft.core.particles.ParticleTypes;
@@ -50,12 +51,12 @@ public final class BossMinionUtil {
 
     public static boolean isMinionOf(Entity entity, Entity boss) {
         return entity != boss
-                && boss.getUUID().toString().equals(entity.getPersistentData().getString(MINION_OWNER_KEY));
+                && boss.getUUID().toString().equals(PersistentDataUtil.read(entity).getString(MINION_OWNER_KEY));
     }
 
     /** Whether some boss summoned this, without caring which one - the owner may be unloaded. */
     public static boolean isMinion(Entity entity) {
-        return entity != null && !entity.getPersistentData().getString(MINION_OWNER_KEY).isEmpty();
+        return !PersistentDataUtil.read(entity).getString(MINION_OWNER_KEY).isEmpty();
     }
 
     public static int countAlive(ServerLevel level, Entity boss) {
@@ -92,8 +93,8 @@ public final class BossMinionUtil {
     public static boolean isSlotOccupied(ServerLevel level, Entity boss, int phaseIndex, int pointId) {
         for (Entity entity : level.getAllEntities()) {
             if (entity.isAlive() && isMinionOf(entity, boss)
-                    && entity.getPersistentData().getInt(MINION_PHASE_KEY) == phaseIndex
-                    && entity.getPersistentData().getInt(MINION_SLOT_KEY) == pointId) {
+                    && PersistentDataUtil.read(entity).getInt(MINION_PHASE_KEY) == phaseIndex
+                    && PersistentDataUtil.read(entity).getInt(MINION_SLOT_KEY) == pointId) {
                 return true;
             }
         }

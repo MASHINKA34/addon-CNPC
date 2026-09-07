@@ -4,6 +4,7 @@
   "package": "com.goodbird.cnpcgeckoaddon.mixin.impl",
   "mixins": [
     "BlockEntityAccessor",
+    "EntityPersistentDataAccessor",
     "MixinBlockScriptedWrapper",
     "MixinCustomNpcsGameTest",
     "MixinDataAI",

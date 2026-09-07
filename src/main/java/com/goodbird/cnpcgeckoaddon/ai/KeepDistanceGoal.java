@@ -6,12 +6,15 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
+import java.util.EnumSet;
+
 public class KeepDistanceGoal extends Goal {
     private final EntityNPCInterface npc;
     private LivingEntity target;
 
     public KeepDistanceGoal(EntityNPCInterface npc) {
         this.npc = npc;
+        setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
     }
 
     private int getKeepDistance() {

@@ -63,6 +63,7 @@ public final class BossTimerOverlay {
     private static final int FLAT_IMMUNE_RGB = 0x8FD4FF;
 
     private static final Map<UUID, TimerState> TIMERS = new HashMap<>();
+    private static final Map<String, ResourceLocation> TEXTURES = new HashMap<>();
     private static long clientTick;
 
     static {
@@ -316,7 +317,8 @@ public final class BossTimerOverlay {
     }
 
     private static ResourceLocation texture(String styleId, String fileName) {
-        return ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID,
-                "textures/gui/boss_bar/" + styleId + "/" + fileName);
+        return TEXTURES.computeIfAbsent(styleId + "/" + fileName,
+                path -> ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID,
+                        "textures/gui/boss_bar/" + path));
     }
 }

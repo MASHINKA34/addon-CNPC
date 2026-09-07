@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(EntityNPCInterface.class)
+@Mixin(value = EntityNPCInterface.class, priority = 950)
 public abstract class MixinEntityNPCInterfaceCarry extends PathfinderMob implements INpcCarryState {
     @Unique
     private boolean cnpcgeckoaddon$carried;

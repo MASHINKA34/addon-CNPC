@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 
@@ -43,16 +44,16 @@ public final class BossCocoonUtil {
     }
 
     public static boolean isCocoon(Entity entity) {
-        return entity != null && ROLE_COCOON.equals(entity.getPersistentData().getString(ROLE_KEY));
+        return ROLE_COCOON.equals(PersistentDataUtil.read(entity).getString(ROLE_KEY));
     }
 
     public static boolean isGuard(Entity entity) {
-        return entity != null && ROLE_GUARD.equals(entity.getPersistentData().getString(ROLE_KEY));
+        return ROLE_GUARD.equals(PersistentDataUtil.read(entity).getString(ROLE_KEY));
     }
 
     /** Whether this minion is a cocoon or a guard: the two the summon's caps leave out. */
     public static boolean hasRole(Entity entity) {
-        return entity != null && !entity.getPersistentData().getString(ROLE_KEY).isEmpty();
+        return !PersistentDataUtil.read(entity).getString(ROLE_KEY).isEmpty();
     }
 
     public static boolean isCocoonOf(Entity entity, Entity boss) {

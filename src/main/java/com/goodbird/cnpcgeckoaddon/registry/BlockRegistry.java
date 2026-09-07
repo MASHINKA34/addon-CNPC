@@ -12,7 +12,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD, modid = CNPCGeckoAddon.MODID)
+@EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
 public class BlockRegistry {
 
     public static final String BOSS_CHEST_NAME = "boss_chest";

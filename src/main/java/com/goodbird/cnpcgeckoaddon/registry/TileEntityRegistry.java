@@ -15,7 +15,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import noppes.npcs.CustomBlocks;
 
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD, modid = CNPCGeckoAddon.MODID)
+@EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
 public class TileEntityRegistry {
 
     public static BlockEntityType<? extends TileEntityCustomModel> tileEntityCustomModel;

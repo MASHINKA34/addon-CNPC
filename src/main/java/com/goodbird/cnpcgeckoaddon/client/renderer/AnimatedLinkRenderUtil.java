@@ -16,15 +16,15 @@ import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.Set;
 
 /** Shared filmstrip-ribbon geometry for hooks and every persistent boss link. */
 public final class AnimatedLinkRenderUtil {
-    private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
     private static final double SEGMENTS_PER_BLOCK = 2.0D;
     private static final int MIN_SEGMENTS = 2;
     private static final int MAX_SEGMENTS = 64;

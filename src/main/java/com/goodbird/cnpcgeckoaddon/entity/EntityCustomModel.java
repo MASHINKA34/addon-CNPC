@@ -9,6 +9,7 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -43,6 +44,10 @@ public class EntityCustomModel extends Animal implements GeoAnimatable, GeoEntit
     private RawAnimation actionAnim = null;
     private RawAnimation deathRawAnim = null;
     private String deathRawAnimName = "";
+    private RawAnimation idleRawAnim = null;
+    private String idleRawAnimName = "";
+    private RawAnimation walkRawAnim = null;
+    private String walkRawAnimName = "";
     private boolean needsAnimationReset = false;
     private boolean killed = false;
     private boolean prevKilled = false;
@@ -127,12 +132,20 @@ public class EntityCustomModel extends Animal implements GeoAnimatable, GeoEntit
         }
         if ((event.getLimbSwingAmount() > -0.15F && event.getLimbSwingAmount() < 0.15F) || walkAnim.isEmpty()) {
             if (!idleAnim.isEmpty()) {
-                event.getController().setAnimation(RawAnimation.begin().thenLoop(idleAnim));
+                if (idleRawAnim == null || !idleRawAnimName.equals(idleAnim)) {
+                    idleRawAnim = RawAnimation.begin().thenLoop(idleAnim);
+                    idleRawAnimName = idleAnim;
+                }
+                event.getController().setAnimation(idleRawAnim);
             } else {
                 return PlayState.STOP;
             }
         } else {
-            event.getController().setAnimation(RawAnimation.begin().thenLoop(walkAnim));
+            if (walkRawAnim == null || !walkRawAnimName.equals(walkAnim)) {
+                walkRawAnim = RawAnimation.begin().thenLoop(walkAnim);
+                walkRawAnimName = walkAnim;
+            }
+            event.getController().setAnimation(walkRawAnim);
         }
         return PlayState.CONTINUE;
     }
@@ -181,23 +194,15 @@ public class EntityCustomModel extends Animal implements GeoAnimatable, GeoEntit
     }
 
     @Override
-    public void tick() {
-        super.tick();
-    }
-
-    @Override
     public AgeableMob getBreedOffspring(ServerLevel p_146743_, AgeableMob p_146744_) {
         return null;
     }
 
     public double getAttributeValue(Holder<Attribute> p_233637_1_) {
-        try {
-            return this.getAttributes().getValue(p_233637_1_);
-        }catch (Exception e){
-            // Deliberately quiet: this is the render-side stand-in entity, and GeckoLib asks
-            // it for attributes the real NPC owns - vanilla throws on any it does not carry.
-            // Logging would spam once per frame; a neutral 1.0 is the correct stand-in value.
-            return 1.0;
-        }
+        // This is the render-side stand-in entity, and GeckoLib asks it for attributes the
+        // real NPC owns. Looked up rather than caught: vanilla throws on any it does not
+        // carry, and building that exception once per frame is not free.
+        AttributeInstance instance = this.getAttributes().getInstance(p_233637_1_);
+        return instance == null ? 1.0 : instance.getValue();
     }
 }

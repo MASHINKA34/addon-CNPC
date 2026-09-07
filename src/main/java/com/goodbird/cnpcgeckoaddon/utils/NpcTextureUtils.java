@@ -7,6 +7,8 @@ import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import noppes.npcs.entity.EntityCustomNpc;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.util.ImageDownloadAlt;
@@ -17,6 +19,8 @@ import java.io.File;
 import static noppes.npcs.client.renderer.RenderNPCInterface.LastTextureTick;
 
 public class NpcTextureUtils {
+    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+
     public static ResourceLocation getNpcTexture(EntityNPCInterface npc) {
         if(npc.textureLocation == null){
             if(npc.display.skinType == 0)// normal skin
@@ -37,7 +41,8 @@ public class NpcTextureUtils {
                     loadSkin(file, npc.textureLocation, npc.display.getSkinUrl(), fixSkin);
                 }
                 catch(Exception ex){
-                    ex.printStackTrace();
+                    LOGGER.warn("Could not load the url skin {} for npc {}",
+                            npc.display.getSkinUrl(), npc.getName().getString(), ex);
                 }
             }
         }

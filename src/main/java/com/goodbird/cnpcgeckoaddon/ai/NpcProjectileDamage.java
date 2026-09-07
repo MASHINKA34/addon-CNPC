@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -25,7 +26,7 @@ public final class NpcProjectileDamage {
         if (!(event.getSource().getDirectEntity() instanceof Projectile projectile)) {
             return;
         }
-        CompoundTag data = projectile.getPersistentData();
+        CompoundTag data = PersistentDataUtil.read(projectile);
         if (data.contains(DAMAGE_KEY, Tag.TAG_INT)) {
             event.setAmount(Math.max(0, data.getInt(DAMAGE_KEY)));
         }

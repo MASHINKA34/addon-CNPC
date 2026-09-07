@@ -31,20 +31,18 @@ public final class PacketRestoreBossTotems implements CustomPacketPayload {
 
     public static void handle(PacketRestoreBossTotems packet, MinecraftServer server,
                               ServerPlayer player) {
-        server.execute(() -> {
-            if (!player.hasPermissions(2)
-                    || !(player.serverLevel().getEntity(packet.bossEntityId)
-                    instanceof EntityNPCInterface npc)) {
-                return;
+        if (!player.hasPermissions(2)
+                || !(player.serverLevel().getEntity(packet.bossEntityId)
+                instanceof EntityNPCInterface npc)) {
+            return;
+        }
+        BossTotemUtil.writeDeadSlots(npc, Set.of());
+        if (npc instanceof IBossController holder) {
+            TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+            if (controller != null) {
+                controller.restoreAllTotemsNow();
             }
-            BossTotemUtil.writeDeadSlots(npc, Set.of());
-            if (npc instanceof IBossController holder) {
-                TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
-                if (controller != null) {
-                    controller.restoreAllTotemsNow();
-                }
-            }
-        });
+        }
     }
 
     @Override

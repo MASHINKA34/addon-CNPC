@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -37,16 +38,16 @@ public final class BossTotemUtil {
 
     public static boolean isTotemOf(Entity entity, Entity boss) {
         return entity != boss && isTotem(entity)
-                && boss.getUUID().toString().equals(entity.getPersistentData().getString(TOTEM_OWNER_KEY));
+                && boss.getUUID().toString().equals(PersistentDataUtil.read(entity).getString(TOTEM_OWNER_KEY));
     }
 
     public static boolean isTotem(Entity entity) {
-        return entity != null && !entity.getPersistentData().getString(TOTEM_OWNER_KEY).isEmpty()
-                && entity.getPersistentData().getInt(TOTEM_SLOT_KEY) > 0;
+        CompoundTag data = PersistentDataUtil.read(entity);
+        return !data.getString(TOTEM_OWNER_KEY).isEmpty() && data.getInt(TOTEM_SLOT_KEY) > 0;
     }
 
     public static int slotId(Entity entity) {
-        return entity.getPersistentData().getInt(TOTEM_SLOT_KEY);
+        return PersistentDataUtil.read(entity).getInt(TOTEM_SLOT_KEY);
     }
 
     /**
@@ -71,7 +72,7 @@ public final class BossTotemUtil {
         if (!isTotem(totem)) {
             return false;
         }
-        CompoundTag tag = totem.getPersistentData();
+        CompoundTag tag = PersistentDataUtil.read(totem);
         // A totem saved before this setting existed carries no copy, and getInt answers 0 for
         // a missing key: that is mode "any damage", so an old world keeps its old fights.
         if (tag.getInt(VULNERABILITY_MODE_KEY) != BossTotemEntry.VULNERABILITY_LISTED_ABILITIES) {
@@ -110,7 +111,7 @@ public final class BossTotemUtil {
 
     public static Set<Integer> readDeadSlots(Entity boss) {
         Set<Integer> result = new HashSet<>();
-        for (int slotId : boss.getPersistentData().getIntArray(DEAD_SLOTS_KEY)) {
+        for (int slotId : PersistentDataUtil.read(boss).getIntArray(DEAD_SLOTS_KEY)) {
             if (slotId > 0) {
                 result.add(slotId);
             }

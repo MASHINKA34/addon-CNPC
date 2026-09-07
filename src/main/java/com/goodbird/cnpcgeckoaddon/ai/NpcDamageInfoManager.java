@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.NpcDamageResistEntry;
 import net.minecraft.ChatFormatting;
@@ -10,7 +11,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,6 +33,7 @@ import java.util.stream.Collectors;
  * one test shot against any npc names the exact string to put into the resistance list,
  * instead of an hour spent in someone else's sources.</p>
  */
+@EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
 public final class NpcDamageInfoManager {
     private static final Set<UUID> ENABLED = new HashSet<>();
 
@@ -36,6 +41,13 @@ public final class NpcDamageInfoManager {
     private static final double TOTEM_REPORT_RANGE = 48.0D;
 
     private NpcDamageInfoManager() {
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!ENABLED.isEmpty()) {
+            ENABLED.remove(event.getEntity().getUUID());
+        }
     }
 
     /** @return true when the breakdown is on for this player after the toggle */

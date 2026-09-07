@@ -1,7 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.utils;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -35,7 +35,7 @@ import java.util.function.Predicate;
  */
 public final class TickQueue<T> {
 
-    private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
 
     /** Names the queue in the log, as a plural: "16 boss explosions came due". */
     private final String name;

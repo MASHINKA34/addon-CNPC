@@ -36,8 +36,8 @@ import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.Vec3;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,7 +59,7 @@ import java.util.UUID;
  */
 public final class BossChestScheduler {
 
-    private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
 
     /** How far around the death spot a replaceable block is looked for, horizontally. */
     private static final int SEARCH_RADIUS = 2;

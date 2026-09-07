@@ -10,6 +10,7 @@ import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.Tag;
@@ -486,7 +487,7 @@ public final class BossDeathEvents {
     public static void onProjectileJoinLevel(final EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide || event.loadedFromDisk()
                 || !(event.getEntity() instanceof Projectile projectile)
-                || projectile.getPersistentData().contains(PROJECTILE_EFFECTS_KEY, Tag.TAG_LIST)
+                || PersistentDataUtil.read(projectile).contains(PROJECTILE_EFFECTS_KEY, Tag.TAG_LIST)
                 || !(projectile.getOwner() instanceof EntityNPCInterface npc)
                 || !(npc instanceof IBossController holder)) {
             return;
@@ -519,7 +520,7 @@ public final class BossDeathEvents {
             return;
         }
         BossEffectSet effects = new BossEffectSet();
-        effects.readFromNBT(projectile.getPersistentData(), PROJECTILE_EFFECTS_KEY);
+        effects.readFromNBT(PersistentDataUtil.read(projectile), PROJECTILE_EFFECTS_KEY);
         BossAbilityDamageUtil.applyEffects(victim, ability, npc, effects);
     }
 

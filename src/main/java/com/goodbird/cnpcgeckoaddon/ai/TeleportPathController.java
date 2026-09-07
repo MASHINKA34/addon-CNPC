@@ -60,8 +60,8 @@ import noppes.npcs.api.NpcAPI;
 import noppes.npcs.api.entity.IEntity;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.data.DataRanged;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.bernie.geckolib.animation.Animation;
 import software.bernie.geckolib.animation.RawAnimation;
 
@@ -84,7 +84,7 @@ import java.util.function.Predicate;
  * phases, clone minion summoning and three independently timed attacks.
  */
 public final class TeleportPathController {
-    private static final Logger LOGGER = LogManager.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;

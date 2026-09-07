@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.function.BiConsumer;
 
-@Mixin(EntityNPCInterface.class)
+@Mixin(value = EntityNPCInterface.class, priority = 900)
 public abstract class MixinEntityNPCInterfaceSoundReaction extends PathfinderMob implements ISoundReactiveNpc {
 
     @Shadow(remap = false)
