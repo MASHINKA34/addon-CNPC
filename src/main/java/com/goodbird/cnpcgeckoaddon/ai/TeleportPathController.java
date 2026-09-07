@@ -7,7 +7,6 @@ import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
-import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
@@ -19,7 +18,6 @@ import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossBarStyle;
-import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossLink;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossTimer;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
@@ -205,9 +203,6 @@ public final class TeleportPathController {
     private static final float LINE_FACE_TURN_DEGREES_PER_TICK = 15.0F;
     /** The client counts down on its own, so the server only has to correct it now and then. */
     private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
-    private static final int TOTEM_RETRY_INTERVAL_TICKS = 20;
-    private static final int TOTEM_LINK_DURATION_TICKS = 200;
-    private static final int TOTEM_LINK_REFRESH_TICKS = 160;
     private static final ResourceLocation RAGE_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_rage");
     private static final int MINION_ALIVE_SCAN_INTERVAL_TICKS = 5;
@@ -305,6 +300,8 @@ public final class TeleportPathController {
     private final BossHuntRuntime huntRuntime;
     /** The boss' health scaled to how many players turned up. */
     private final BossHealthScalingRuntime healthScalingRuntime;
+    /** The protection totems standing round this boss and the beams that tie them to it. */
+    private final BossTotemRuntime totems;
     private CoverCast coverCast;
 
     /**
@@ -391,31 +388,8 @@ public final class TeleportPathController {
     private String reportedBrokenGeyserFluid = "";
     private String reportedBrokenBoulderBlock = "";
     private String reportedBrokenBoulderRainBlock = "";
-    private final Map<Integer, TotemRuntime> totemRuntime = new HashMap<>();
-    private final Set<Integer> deadTotemSlots = new HashSet<>();
-    private final Set<Integer> resetTotemHealthSlots = new HashSet<>();
-    private final Set<Integer> reportedEmptyTotemSlots = new HashSet<>();
-    private final Set<Integer> reportedBlockedTotemSlots = new HashSet<>();
-    private final Set<String> reportedBrokenTotemClones = new HashSet<>();
-    private boolean totemWaveActivated;
-    private long totemActivationDeadline = NOT_SCHEDULED;
-    private long nextTotemStructuralReconcileAt;
-    /** Game time the shared totem scan below was collected on. */
-    private long totemScanAt = NOT_SCHEDULED;
-    /** Every loaded totem of this boss, collected at most once per tick and shared. */
-    private List<Entity> totemScan = List.of();
     private long minionAliveScanAt = NOT_SCHEDULED;
     private boolean minionAliveScan;
-
-    private static final class TotemRuntime {
-        private UUID entityId;
-        private long nextRespawnAt = NOT_SCHEDULED;
-        private long nextLinkSyncAt;
-
-        private TotemRuntime(UUID entityId) {
-            this.entityId = entityId;
-        }
-    }
 
     public TeleportPathController(EntityNPCInterface npc) {
         this.npc = npc;
@@ -425,6 +399,7 @@ public final class TeleportPathController {
         this.barrierRuntime = new BossBarrierRuntime(this, npc);
         this.huntRuntime = new BossHuntRuntime(this, npc);
         this.healthScalingRuntime = new BossHealthScalingRuntime(this, npc);
+        this.totems = new BossTotemRuntime(this, npc);
         INSTANCES.add(this);
     }
 
@@ -460,9 +435,9 @@ public final class TeleportPathController {
                     if (data.isClearMinionsOnDeath()) {
                         BossMinionUtil.clear(inactiveLevel, npc, data.getMinionRemovalMode());
                     }
-                    removeTotemsOnBossDeath(inactiveLevel, data);
+                    totems.removeOnBossDeath(inactiveLevel, data);
                 } else if (!data.isEnabled()) {
-                    removeConfiguredTotems(inactiveLevel);
+                    totems.removeConfigured(inactiveLevel);
                 }
             }
             reset();
@@ -500,7 +475,7 @@ public final class TeleportPathController {
         // hold has to outlive that deadline so the end of a cast cannot set the boss loose.
         // A boss stunned by its broken barrier is pinned the way a held one is, and for as
         // long: the pin is the stun.
-        if ((data.isStationary() || isTotemHeld() || isBarrierStunned()) && !leapAirborne) {
+        if ((data.isStationary() || totems.isHolding() || isBarrierStunned()) && !leapAirborne) {
             keepStationary();
         } else if (castRootActive) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
@@ -517,7 +492,7 @@ public final class TeleportPathController {
         // and above the busy/no-target early returns so a locked boss cannot stay immune.
         tickInvulnerability(level, gameTime, data);
         updatePhase(level, gameTime, data);
-        tickTotems(level, gameTime, data);
+        totems.tick(level, gameTime, data);
         tickRage(level, gameTime, data);
         updateBossBar(level, data);
         syncBossTimer(gameTime, data);
@@ -566,7 +541,7 @@ public final class TeleportPathController {
         // totems pin it to is exactly what the hold is there to stop, however it is done. A
         // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
         // And a stun: a boss that cannot walk cannot blink out of the window either.
-        if (points.size() >= 2 && gameTime >= nextTeleportAt && !isTotemHeld() && !huntRuntime.isSilenced()
+        if (points.size() >= 2 && gameTime >= nextTeleportAt && !totems.isHolding() && !huntRuntime.isSilenced()
                 && !isBarrierStunned() && (!isInvulnerable() || phase.isInvulnerableAllowTeleport())) {
             nextTeleportAt = NOT_SCHEDULED;
             beginAction(PendingAction.TELEPORT, phase.getTeleportPreparationAnimation(),
@@ -647,7 +622,7 @@ public final class TeleportPathController {
         encounterResetDone = false;
         lastPathIndex = -1;
         previousPathSize = 0;
-        initializeTotems(level, gameTime, data);
+        totems.initialize(level, gameTime, data);
         // A cocoon that outlived its hold - the server went down with somebody inside - is
         // a shell with nobody in it, and goes the way a totem the boss no longer knows does.
         BossCocoonUtil.removeStrayCocoons(level, npc);
@@ -676,16 +651,7 @@ public final class TeleportPathController {
         barrierRuntime.arm(level, gameTime, data.getPhase(currentPhase));
         armPhaseInvulnerability(gameTime, data.getPhase(currentPhase));
         healthScalingRuntime.beginEncounter(level, gameTime, data);
-        if (!data.isTotemsEnabled()) {
-            return;
-        }
-        if (data.getTotemActivationMode() == TeleportPathData.TOTEM_ACTIVATION_ENCOUNTER_START
-                || data.getTotemActivationMode() == TeleportPathData.TOTEM_ACTIVATION_PHASE_ENTER
-                && currentPhase + 1 == data.getTotemActivationPhase()) {
-            activateTotemWave(gameTime, data);
-        } else if (data.getTotemActivationMode() == TeleportPathData.TOTEM_ACTIVATION_ENCOUNTER_TIMER) {
-            totemActivationDeadline = gameTime + data.getTotemActivationDelayTicks();
-        }
+        totems.beginEncounter(gameTime, data);
     }
 
     /** Whether a target has started a fight which has not yet completed its reset. */
@@ -759,432 +725,6 @@ public final class TeleportPathController {
         return prefix + "resets in " + remaining + " ticks";
     }
 
-    private void initializeTotems(ServerLevel level, long gameTime, TeleportPathData data) {
-        totemRuntime.clear();
-        deadTotemSlots.clear();
-        deadTotemSlots.addAll(BossTotemUtil.readDeadSlots(npc));
-        resetTotemHealthSlots.clear();
-        totemWaveActivated = false;
-        totemActivationDeadline = NOT_SCHEDULED;
-        nextTotemStructuralReconcileAt = 0L;
-        reconcileTotemStructure(level, gameTime, data);
-        adoptLoadedTotems(level, gameTime, data);
-        if (data.isTotemsEnabled()
-                && data.getTotemActivationMode() == TeleportPathData.TOTEM_ACTIVATION_ALWAYS) {
-            activateTotemWave(gameTime, data);
-        } else {
-            // A server stopped during a triggered wave can save its clones. The next load
-            // must restore the configured trigger instead of leaving those clones visible.
-            removeConfiguredTotems(level);
-        }
-    }
-
-    private void tickTotems(ServerLevel level, long gameTime, TeleportPathData data) {
-        if (!data.isTotemsEnabled()) {
-            if (totemWaveActivated || !totemRuntime.isEmpty()) {
-                removeConfiguredTotems(level);
-                clearTotemRuntime();
-            }
-            return;
-        }
-
-        if (gameTime >= nextTotemStructuralReconcileAt) {
-            nextTotemStructuralReconcileAt = gameTime + TOTEM_RETRY_INTERVAL_TICKS;
-            reconcileTotemStructure(level, gameTime, data);
-            adoptLoadedTotems(level, gameTime, data);
-        }
-
-        if (!totemWaveActivated) {
-            int activation = data.getTotemActivationMode();
-            if (activation == TeleportPathData.TOTEM_ACTIVATION_ALWAYS) {
-                activateTotemWave(gameTime, data);
-            } else if (encounterRunning
-                    && activation == TeleportPathData.TOTEM_ACTIVATION_ENCOUNTER_START) {
-                activateTotemWave(gameTime, data);
-            } else if (encounterRunning
-                    && activation == TeleportPathData.TOTEM_ACTIVATION_PHASE_ENTER
-                    && currentPhase + 1 == data.getTotemActivationPhase()) {
-                activateTotemWave(gameTime, data);
-            } else if (encounterRunning
-                    && activation == TeleportPathData.TOTEM_ACTIVATION_ENCOUNTER_TIMER) {
-                if (totemActivationDeadline == NOT_SCHEDULED) {
-                    totemActivationDeadline = gameTime + data.getTotemActivationDelayTicks();
-                } else if (!hasCombatTarget()) {
-                    // Moving the deadline forward freezes the remaining duration exactly,
-                    // matching the rage clock rather than buying a new full delay.
-                    totemActivationDeadline++;
-                } else if (gameTime >= totemActivationDeadline) {
-                    activateTotemWave(gameTime, data);
-                }
-            }
-        }
-        if (!totemWaveActivated) {
-            return;
-        }
-
-        for (BossTotemEntry entry : data.getTotems().entries()) {
-            tickTotemSlot(level, gameTime, data, entry);
-        }
-    }
-
-    private void activateTotemWave(long gameTime, TeleportPathData data) {
-        if (totemWaveActivated) {
-            return;
-        }
-        totemWaveActivated = true;
-        totemActivationDeadline = NOT_SCHEDULED;
-        if (data.getTotemRespawnMode() == TeleportPathData.TOTEM_RESPAWN_DELAYED) {
-            for (int slotId : deadTotemSlots) {
-                TotemRuntime runtime = totemRuntime.computeIfAbsent(slotId,
-                        ignored -> new TotemRuntime(null));
-                runtime.nextRespawnAt = gameTime + data.getTotemRespawnDelayTicks();
-            }
-        }
-    }
-
-    private void tickTotemSlot(ServerLevel level, long gameTime, TeleportPathData data,
-                               BossTotemEntry entry) {
-        int slotId = entry.getSlotId();
-        if (!entry.isEnabled() || entry.getCloneName().isEmpty()) {
-            if (entry.isEnabled() && entry.getCloneName().isEmpty()
-                    && reportedEmptyTotemSlots.add(slotId)) {
-                LOGGER.warn("Boss {} protection-totem slot {} has no clone name",
-                        npc.getName().getString(), slotId);
-            }
-            discardRuntimeTotem(level, slotId);
-            return;
-        }
-
-        Vec3 anchor = totemAnchor(entry);
-        BlockPos anchorBlock = BlockPos.containing(anchor);
-        // This is the duplicate-prevention boundary. A missing UUID says nothing while
-        // the anchor chunk is absent, because the saved entity is absent from level lookups too.
-        if (!level.hasChunkAt(anchorBlock)) {
-            return;
-        }
-
-        TotemRuntime runtime = totemRuntime.get(slotId);
-        Entity totem = runtime == null || runtime.entityId == null
-                ? null : level.getEntity(runtime.entityId);
-        if (!isUsableTotem(totem, slotId)) {
-            Entity adopted = findAliveTotem(level, gameTime, slotId);
-            if (adopted != null) {
-                runtime = totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(null));
-                runtime.entityId = adopted.getUUID();
-                runtime.nextRespawnAt = NOT_SCHEDULED;
-                deadTotemSlots.remove(slotId);
-                saveDeadTotemSlots();
-                totem = adopted;
-            } else if (runtime != null && runtime.entityId != null) {
-                markTotemDead(slotId, gameTime, data);
-                runtime = totemRuntime.get(slotId);
-                totem = null;
-            }
-        }
-
-        if (totem != null) {
-            pinTotem(totem, entry, anchor);
-            if (resetTotemHealthSlots.remove(slotId) && totem instanceof LivingEntity living) {
-                living.setHealth(living.getMaxHealth());
-            }
-            syncTotemLink(data, entry, totem, runtime, gameTime, false);
-            return;
-        }
-
-        if (deadTotemSlots.contains(slotId)) {
-            if (data.getTotemRespawnMode() != TeleportPathData.TOTEM_RESPAWN_DELAYED) {
-                return;
-            }
-            runtime = totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(null));
-            if (runtime.nextRespawnAt == NOT_SCHEDULED) {
-                runtime.nextRespawnAt = gameTime + data.getTotemRespawnDelayTicks();
-            }
-            if (gameTime < runtime.nextRespawnAt) {
-                return;
-            }
-        } else if (runtime != null && runtime.nextRespawnAt != NOT_SCHEDULED
-                && gameTime < runtime.nextRespawnAt) {
-            return;
-        }
-
-        Entity spawned = spawnTotem(level, entry, anchor);
-        runtime = totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(null));
-        if (spawned == null) {
-            runtime.nextRespawnAt = gameTime + TOTEM_RETRY_INTERVAL_TICKS;
-            return;
-        }
-        runtime.entityId = spawned.getUUID();
-        runtime.nextRespawnAt = NOT_SCHEDULED;
-        syncTotemLink(data, entry, spawned, runtime, gameTime, true);
-        deadTotemSlots.remove(slotId);
-        resetTotemHealthSlots.remove(slotId);
-        saveDeadTotemSlots();
-    }
-
-    private Entity spawnTotem(ServerLevel level, BossTotemEntry entry, Vec3 anchor) {
-        int slotId = entry.getSlotId();
-        BlockPos pos = BlockPos.containing(anchor);
-        if (!level.getWorldBorder().isWithinBounds(pos)
-                || anchor.y < level.getMinBuildHeight()
-                || anchor.y + 1.8D >= level.getMaxBuildHeight()) {
-            warnBlockedTotem(slotId, "outside the world border or build height");
-            return null;
-        }
-        AABB box = new AABB(anchor.x - 0.3D, anchor.y, anchor.z - 0.3D,
-                anchor.x + 0.3D, anchor.y + 1.8D, anchor.z + 0.3D);
-        if (!level.noCollision(box)) {
-            warnBlockedTotem(slotId, "spawn box is occupied");
-            return null;
-        }
-
-        String cloneKey = entry.getCloneTab() + ":" + entry.getCloneName();
-        try {
-            IEntity<?> wrapper = NpcAPI.Instance().getClones().spawn(anchor.x, anchor.y, anchor.z,
-                    entry.getCloneTab(), entry.getCloneName(), NpcAPI.Instance().getIWorld(level));
-            if (wrapper == null || wrapper.getMCEntity() == null) {
-                if (reportedBrokenTotemClones.add(cloneKey)) {
-                    LOGGER.warn("Cannot summon protection-totem clone {} for boss {}: clone returned no entity",
-                            cloneKey, npc.getName().getString());
-                }
-                return null;
-            }
-            Entity spawned = wrapper.getMCEntity();
-            BossTotemUtil.markAsTotem(spawned, npc, slotId);
-            BossTotemUtil.cacheVulnerability(spawned, entry);
-            BossCloneRespawnGuard.suppressSelfRespawn(spawned);
-            pinTotem(spawned, entry, anchor);
-            reportedBlockedTotemSlots.remove(slotId);
-            return spawned;
-        } catch (Throwable error) {
-            if (reportedBrokenTotemClones.add(cloneKey)) {
-                LOGGER.warn("Cannot summon protection-totem clone {} for boss {}: {}", cloneKey,
-                        npc.getName().getString(), error.getMessage());
-            }
-            return null;
-        }
-    }
-
-    private void warnBlockedTotem(int slotId, String reason) {
-        if (reportedBlockedTotemSlots.add(slotId)) {
-            LOGGER.warn("Cannot place protection-totem slot {} for boss {}: {}", slotId,
-                    npc.getName().getString(), reason);
-        }
-    }
-
-    private void pinTotem(Entity totem, BossTotemEntry entry, Vec3 anchor) {
-        if (Math.abs(totem.getX() - anchor.x) > 1.0E-4D
-                || Math.abs(totem.getY() - anchor.y) > 1.0E-4D
-                || Math.abs(totem.getZ() - anchor.z) > 1.0E-4D
-                || Math.abs(Mth.wrapDegrees(totem.getYRot() - entry.getYaw())) > 0.01F) {
-            totem.moveTo(anchor.x, anchor.y, anchor.z, entry.getYaw(), 0.0F);
-        }
-        totem.setDeltaMovement(Vec3.ZERO);
-        totem.fallDistance = 0.0F;
-        if (totem instanceof Mob mob) {
-            mob.setTarget(null);
-            mob.getNavigation().stop();
-            mob.yBodyRot = entry.getYaw();
-            mob.yHeadRot = entry.getYaw();
-        }
-    }
-
-    private Vec3 totemAnchor(BossTotemEntry entry) {
-        if (entry.getCoordinateMode() == BossTotemEntry.COORDINATE_FIXED) {
-            return new Vec3(entry.getX(), entry.getY(), entry.getZ());
-        }
-        return new Vec3(homeX + entry.getX(), homeY + entry.getY(), homeZ + entry.getZ());
-    }
-
-    private boolean isUsableTotem(Entity entity, int slotId) {
-        return entity != null && entity.isAlive() && !entity.isRemoved()
-                && BossTotemUtil.isTotemOf(entity, npc) && BossTotemUtil.slotId(entity) == slotId;
-    }
-
-    private void markTotemDead(int slotId, long gameTime, TeleportPathData data) {
-        deadTotemSlots.add(slotId);
-        TotemRuntime runtime = totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(null));
-        if (runtime.entityId != null && npc.level() instanceof ServerLevel level) {
-            Entity dead = level.getEntity(runtime.entityId);
-            if (dead != null) {
-                dropTotemLink(dead, slotId);
-            }
-        }
-        runtime.entityId = null;
-        runtime.nextRespawnAt = data.getTotemRespawnMode() == TeleportPathData.TOTEM_RESPAWN_DELAYED
-                ? gameTime + data.getTotemRespawnDelayTicks() : NOT_SCHEDULED;
-        saveDeadTotemSlots();
-    }
-
-    private void saveDeadTotemSlots() {
-        BossTotemUtil.writeDeadSlots(npc, deadTotemSlots);
-    }
-
-    private void adoptLoadedTotems(ServerLevel level, long gameTime, TeleportPathData data) {
-        Set<Integer> configured = configuredTotemSlotIds(data, true);
-        for (Entity totem : loadedTotems(level, gameTime)) {
-            if (totem.isRemoved()) {
-                // Discarded earlier in this same tick, by the reconcile that shares the scan.
-                continue;
-            }
-            int slotId = BossTotemUtil.slotId(totem);
-            if (!configured.contains(slotId) || !totemWaveActivated && data.getTotemActivationMode()
-                    != TeleportPathData.TOTEM_ACTIVATION_ALWAYS) {
-                dropTotemLink(totem, slotId);
-                totem.discard();
-                totemRuntime.remove(slotId);
-                continue;
-            }
-            if (!totem.isAlive()) {
-                continue;
-            }
-            TotemRuntime runtime = totemRuntime.get(slotId);
-            if (runtime != null && runtime.entityId != null && !runtime.entityId.equals(totem.getUUID())) {
-                // A duplicate can only be stale data from an interrupted older reconcile.
-                dropTotemLink(totem, slotId);
-                totem.discard();
-                continue;
-            }
-            totemRuntime.computeIfAbsent(slotId, ignored -> new TotemRuntime(totem.getUUID()))
-                    .entityId = totem.getUUID();
-        }
-    }
-
-    private void reconcileTotemStructure(ServerLevel level, long gameTime, TeleportPathData data) {
-        Set<Integer> allConfigured = configuredTotemSlotIds(data, false);
-        Set<Integer> enabledConfigured = configuredTotemSlotIds(data, true);
-        boolean changed = deadTotemSlots.retainAll(allConfigured);
-        totemRuntime.keySet().removeIf(slotId -> !enabledConfigured.contains(slotId));
-        resetTotemHealthSlots.retainAll(enabledConfigured);
-        for (Entity totem : loadedTotems(level, gameTime)) {
-            if (totem.isRemoved()) {
-                continue;
-            }
-            int slotId = BossTotemUtil.slotId(totem);
-            if (!enabledConfigured.contains(slotId)) {
-                dropTotemLink(totem, slotId);
-                totem.discard();
-                continue;
-            }
-            // Refreshed here rather than only at spawn, so an edited vulnerability list is
-            // obeyed by the totems already standing instead of only by the next wave.
-            BossTotemEntry entry = totemEntry(data, slotId);
-            if (entry != null) {
-                BossTotemUtil.cacheVulnerability(totem, entry);
-            }
-        }
-        if (changed) {
-            saveDeadTotemSlots();
-        }
-    }
-
-    private BossTotemEntry totemEntry(TeleportPathData data, int slotId) {
-        for (BossTotemEntry entry : data.getTotems().entries()) {
-            if (entry.getSlotId() == slotId) {
-                return entry;
-            }
-        }
-        return null;
-    }
-
-    private Set<Integer> configuredTotemSlotIds(TeleportPathData data, boolean enabledOnly) {
-        Set<Integer> result = new HashSet<>();
-        for (BossTotemEntry entry : data.getTotems().entries()) {
-            if (!enabledOnly || entry.isEnabled() && !entry.getCloneName().isEmpty()) {
-                result.add(entry.getSlotId());
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Every loaded totem of this boss, scanned at most once per tick.
-     *
-     * <p>The scan walks every entity in the level. Without the memo it ran once per empty
-     * slot per tick, plus twice per structural reconcile - on a populated server that is
-     * most of what a totem boss cost. Entities discarded after the scan was taken are
-     * filtered out again wherever the list is read.</p>
-     */
-    private List<Entity> loadedTotems(ServerLevel level, long gameTime) {
-        if (totemScanAt != gameTime) {
-            totemScanAt = gameTime;
-            totemScan = BossTotemUtil.findAllLoaded(level, npc);
-        }
-        return totemScan;
-    }
-
-    /** The shared-scan form of {@link BossTotemUtil#findAlive}, with the same answer. */
-    private Entity findAliveTotem(ServerLevel level, long gameTime, int slotId) {
-        for (Entity entity : loadedTotems(level, gameTime)) {
-            if (entity.isAlive() && !entity.isRemoved()
-                    && BossTotemUtil.slotId(entity) == slotId && BossTotemUtil.isTotemOf(entity, npc)) {
-                return entity;
-            }
-        }
-        return null;
-    }
-
-    private void discardRuntimeTotem(ServerLevel level, int slotId) {
-        TotemRuntime runtime = totemRuntime.remove(slotId);
-        if (runtime != null && runtime.entityId != null) {
-            Entity entity = level.getEntity(runtime.entityId);
-            if (entity != null && BossTotemUtil.isTotemOf(entity, npc)) {
-                dropTotemLink(entity, slotId);
-                entity.discard();
-            }
-        }
-    }
-
-    private void removeConfiguredTotems(ServerLevel level) {
-        for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
-            dropTotemLink(totem, BossTotemUtil.slotId(totem));
-            totem.discard();
-        }
-        totemRuntime.clear();
-        resetTotemHealthSlots.clear();
-    }
-
-    private void clearTotemRuntime() {
-        totemRuntime.clear();
-        resetTotemHealthSlots.clear();
-        totemWaveActivated = false;
-        totemActivationDeadline = NOT_SCHEDULED;
-        nextTotemStructuralReconcileAt = 0L;
-        // Dropped so the memo cannot keep entity references alive past the fight.
-        totemScanAt = NOT_SCHEDULED;
-        totemScan = List.of();
-    }
-
-    private void syncTotemLink(TeleportPathData data, BossTotemEntry entry, Entity totem,
-                               TotemRuntime runtime, long gameTime, boolean force) {
-        if (!force && gameTime < runtime.nextLinkSyncAt) {
-            return;
-        }
-        runtime.nextLinkSyncAt = gameTime + TOTEM_LINK_REFRESH_TICKS;
-        PacketSyncBossLink packet = totemLinkPacket(data, entry, totem, TOTEM_LINK_DURATION_TICKS);
-        // Either endpoint can enter a player's tracking range first. Duplicate delivery is
-        // harmless because the client replaces the same keyed link.
-        NetworkWrapper.sendToTracking(npc, packet);
-        NetworkWrapper.sendToTracking(totem, packet);
-    }
-
-    private PacketSyncBossLink totemLinkPacket(TeleportPathData data, BossTotemEntry entry,
-                                               Entity totem, int durationTicks) {
-        String style = entry.getBeamStyleOverride().isEmpty()
-                ? data.getTotemBeamStyle() : entry.getBeamStyleOverride();
-        int width = entry.getBeamWidthPercentOverride() == 0
-                ? data.getTotemBeamWidthPercent() : entry.getBeamWidthPercentOverride();
-        return new PacketSyncBossLink(PacketSyncBossLink.KIND_PROTECTION_TOTEM,
-                totem.getId(), npc.getId(), entry.getSlotId(), style, durationTicks,
-                width, data.getTotemBeamSagPercent(), false);
-    }
-
-    private void dropTotemLink(Entity totem, int slotId) {
-        PacketSyncBossLink packet = new PacketSyncBossLink(PacketSyncBossLink.KIND_PROTECTION_TOTEM,
-                totem.getId(), npc.getId(), slotId, HookCordStyles.PARTICLES, 0, 100, 0, false);
-        NetworkWrapper.sendToTracking(npc, packet);
-        NetworkWrapper.sendToTracking(totem, packet);
-    }
-
     private void updatePhase(ServerLevel level, long gameTime, TeleportPathData data) {
         if (hasCombatTarget()) {
             outOfCombatSince = NOT_SCHEDULED;
@@ -1237,11 +777,7 @@ public final class TeleportPathController {
         // Asked outside a fight too: it only drops the last phase's barrier then, and a
         // window or a count left over from the last fight must not survive into this one.
         barrierRuntime.arm(level, gameTime, phase);
-        if (encounterRunning && data.isTotemsEnabled() && !totemWaveActivated
-                && data.getTotemActivationMode() == TeleportPathData.TOTEM_ACTIVATION_PHASE_ENTER
-                && currentPhase + 1 == data.getTotemActivationPhase()) {
-            activateTotemWave(gameTime, data);
-        }
+        totems.onPhaseEntered(gameTime, data);
         if (encounterRunning || !data.isCombatOnly()) {
             armPhaseInvulnerability(gameTime, phase);
         }
@@ -1362,7 +898,7 @@ public final class TeleportPathController {
         level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE,
                 SoundSource.HOSTILE, 1.0F, 1.2F + npc.getRandom().nextFloat() * 0.15F);
 
-        Entity linked = firstLoadedAliveTotem(level);
+        Entity linked = totems.firstLoadedAlive(level);
         Vec3 from = npc.position().add(0.0D, npc.getBbHeight() * 0.6D, 0.0D);
         Vec3 to = linked == null
                 ? from.add(0.0D, npc.getBbHeight() * 0.5D, 0.0D)
@@ -1374,16 +910,6 @@ public final class TeleportPathController {
             level.sendParticles(ParticleTypes.END_ROD, point.x, point.y, point.z,
                     1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
-    }
-
-    private Entity firstLoadedAliveTotem(ServerLevel level) {
-        for (TotemRuntime runtime : totemRuntime.values()) {
-            Entity entity = runtime.entityId == null ? null : level.getEntity(runtime.entityId);
-            if (entity != null && entity.isAlive() && BossTotemUtil.isTotemOf(entity, npc)) {
-                return entity;
-            }
-        }
-        return null;
     }
 
     /** @return ticks left on the immune window, or 0 when the boss is vulnerable */
@@ -1455,7 +981,7 @@ public final class TeleportPathController {
         // After the clear, so a guard goes the way the builder's removal mode says when
         // that is on; and whatever it says, a guard was posted for a fight that is over.
         BossCocoonUtil.removeGuards(level, npc);
-        resetTotemsAfterEncounter(level, data);
+        totems.resetAfterEncounter(level, data);
         hideBossBar();
 
         if (data.isResetReturn()) {
@@ -1468,41 +994,6 @@ public final class TeleportPathController {
             lockedX = homeX;
             lockedZ = homeZ;
         }
-    }
-
-    private void resetTotemsAfterEncounter(ServerLevel level, TeleportPathData data) {
-        if (!data.isTotemsEnabled()) {
-            removeConfiguredTotems(level);
-            clearTotemRuntime();
-            return;
-        }
-        if (data.getTotemRespawnMode() == TeleportPathData.TOTEM_RESPAWN_NEXT_ENCOUNTER) {
-            deadTotemSlots.clear();
-            saveDeadTotemSlots();
-        }
-        if (data.isTotemResetHealth()) {
-            for (BossTotemEntry entry : data.getTotems().entries()) {
-                if (entry.isEnabled() && !entry.getCloneName().isEmpty()) {
-                    resetTotemHealthSlots.add(entry.getSlotId());
-                }
-            }
-            for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
-                if (totem instanceof LivingEntity living && living.isAlive()) {
-                    living.setHealth(living.getMaxHealth());
-                    resetTotemHealthSlots.remove(BossTotemUtil.slotId(totem));
-                }
-            }
-        }
-
-        if (data.getTotemActivationMode() != TeleportPathData.TOTEM_ACTIVATION_ALWAYS) {
-            removeConfiguredTotems(level);
-            totemWaveActivated = false;
-            totemActivationDeadline = NOT_SCHEDULED;
-            return;
-        }
-        // ALWAYS remains active in idle. NEXT_ENCOUNTER slots are now immediately ready,
-        // while NEVER keeps its persisted holes and DELAYED keeps its remaining deadline.
-        totemWaveActivated = true;
     }
 
     /**
@@ -1929,7 +1420,7 @@ public final class TeleportPathController {
      * from the boss' search radius and is routinely far wider, so a player who just walked
      * off would otherwise keep the encounter alive forever.</p>
      */
-    private boolean hasCombatTarget() {
+    boolean hasCombatTarget() {
         LivingEntity target = npc.getTarget();
         if (target == null || target.isRemoved() || !target.isAlive()
                 || target.level() != npc.level()) {
@@ -2055,6 +1546,58 @@ public final class TeleportPathController {
         return healthScalingRuntime.status(data);
     }
 
+    /** Clears administrative NEVER holes and reconciles every enabled slot on the next tick. */
+    public void restoreAllTotemsNow() {
+        totems.restoreAllNow();
+    }
+
+    /** True only while at least one configured wave entity is known to be alive. */
+    public boolean isTotemWardStanding() {
+        return totems.isWardStanding();
+    }
+
+    /** True while a standing formation is the reason the boss cannot be hurt. */
+    public boolean isTotemProtected() {
+        return totems.isProtecting();
+    }
+
+    /** True while a standing formation nails the boss to the spot it is fighting on. */
+    public boolean isTotemHeld() {
+        return totems.isHolding();
+    }
+
+    /** True while a standing formation keeps the boss from starting anything of its own. */
+    public boolean isTotemSilenced() {
+        return totems.isSilencing();
+    }
+
+    /** True while a standing formation keeps the boss off everyone else's aiming list. */
+    public boolean isTotemHidden() {
+        return totems.isHiding();
+    }
+
+    public int aliveTotemCount() {
+        return totems.aliveCount();
+    }
+
+    public int configuredTotemCount() {
+        return totems.configuredCount();
+    }
+
+    public int getTotemProtectionMode() {
+        return settings().getTotemProtectionMode();
+    }
+
+    /** Gives a viewer an immediate snapshot when either endpoint starts being tracked. */
+    public void syncTotemLinksTo(ServerPlayer player) {
+        totems.syncLinksTo(player);
+    }
+
+    /** Where this boss was standing when it was last at rest; the totems anchor off it. */
+    Vec3 homePosition() {
+        return new Vec3(homeX, homeY, homeZ);
+    }
+
     /** Health as a status line wants it: whole where it is whole, and never a trailing zero. */
     static String formatHealth(double value) {
         if (Math.rint(value) == value) {
@@ -2077,80 +1620,6 @@ public final class TeleportPathController {
         // Keep encounter history so a dynamic participant is counted again after returning.
         healthScalingRuntime.recountSoon();
         removeBossBarPlayer(player);
-    }
-
-    /** Clears administrative NEVER holes and reconciles every enabled slot on the next tick. */
-    public void restoreAllTotemsNow() {
-        deadTotemSlots.clear();
-        saveDeadTotemSlots();
-        for (TotemRuntime runtime : totemRuntime.values()) {
-            if (runtime.entityId == null) {
-                runtime.nextRespawnAt = NOT_SCHEDULED;
-            }
-        }
-        nextTotemStructuralReconcileAt = 0L;
-    }
-
-    /**
-     * True only while at least one configured wave entity is known to be alive.
-     *
-     * <p>What a standing formation is worth is left to the two formation flags - it may ward,
-     * hold, do both, or nothing but draw its beams - so this is only the condition they
-     * share. It counts adopted runtime entries rather than a world scan on purpose: a totem
-     * in an unloaded chunk is still standing.</p>
-     */
-    public boolean isTotemWardStanding() {
-        TeleportPathData data = settings();
-        return active && npc.isAlive() && data.isEnabled() && data.isTotemsEnabled()
-                && totemWaveActivated && aliveTotemCount() > 0;
-    }
-
-    /** True while a standing formation is the reason the boss cannot be hurt. */
-    public boolean isTotemProtected() {
-        return settings().isTotemGrantInvulnerability() && isTotemWardStanding();
-    }
-
-    /**
-     * True while a standing formation nails the boss to the spot it is fighting on.
-     *
-     * <p>The flag is read before the formation, not after: this is asked twice a tick and
-     * again by the pounce ai, and a boss whose totems only ward should not be counting them
-     * over and over to be told the same no.</p>
-     */
-    public boolean isTotemHeld() {
-        return settings().isTotemHoldBoss() && isTotemWardStanding();
-    }
-
-    /** True while a standing formation keeps the boss from starting anything of its own. */
-    public boolean isTotemSilenced() {
-        return settings().isTotemSuppressAbilities() && isTotemWardStanding();
-    }
-
-    /** True while a standing formation keeps the boss off everyone else's aiming list. */
-    public boolean isTotemHidden() {
-        return settings().isTotemUntargetable() && isTotemWardStanding();
-    }
-
-    public int aliveTotemCount() {
-        if (!totemWaveActivated) {
-            return 0;
-        }
-        Set<Integer> enabled = configuredTotemSlotIds(settings(), true);
-        int result = 0;
-        for (Map.Entry<Integer, TotemRuntime> runtime : totemRuntime.entrySet()) {
-            if (enabled.contains(runtime.getKey()) && runtime.getValue().entityId != null) {
-                result++;
-            }
-        }
-        return result;
-    }
-
-    public int configuredTotemCount() {
-        return configuredTotemSlotIds(settings(), true).size();
-    }
-
-    public int getTotemProtectionMode() {
-        return settings().getTotemProtectionMode();
     }
 
     public String captureStatus(long gameTime) {
@@ -2192,30 +1661,11 @@ public final class TeleportPathController {
         return remaining > 0L ? "Gravity: cooldown " + remaining : "Gravity: ready";
     }
 
-    /** Gives a viewer an immediate snapshot when either endpoint starts being tracked. */
-    public void syncTotemLinksTo(ServerPlayer player) {
-        if (!totemWaveActivated || player.level() != npc.level()
-                || !(npc.level() instanceof ServerLevel level)) {
-            return;
-        }
-        TeleportPathData data = settings();
-        for (BossTotemEntry entry : data.getTotems().entries()) {
-            TotemRuntime runtime = totemRuntime.get(entry.getSlotId());
-            Entity totem = runtime == null || runtime.entityId == null
-                    ? null : level.getEntity(runtime.entityId);
-            if (entry.isEnabled() && !entry.getCloneName().isEmpty()
-                    && isUsableTotem(totem, entry.getSlotId())) {
-                NetworkWrapper.send(player, totemLinkPacket(data, entry, totem,
-                        TOTEM_LINK_DURATION_TICKS));
-            }
-        }
-    }
-
     public static void syncTotemLinksForTracking(ServerPlayer player, Entity tracked) {
         for (TeleportPathController controller : List.copyOf(INSTANCES)) {
             if (controller.npc.level() == player.level()
                     && (tracked == controller.npc || BossTotemUtil.isTotemOf(tracked, controller.npc))) {
-                controller.syncTotemLinksTo(player);
+                controller.totems.syncLinksTo(player);
             }
         }
     }
@@ -2227,7 +1677,7 @@ public final class TeleportPathController {
         }
         for (TeleportPathController controller : List.copyOf(INSTANCES)) {
             if (controller.npc.level() == level && BossTotemUtil.isTotemOf(deadTotem, controller.npc)) {
-                controller.markTotemDead(BossTotemUtil.slotId(deadTotem), level.getGameTime(),
+                controller.totems.markDead(BossTotemUtil.slotId(deadTotem), level.getGameTime(),
                         controller.settings());
                 return;
             }
@@ -2238,7 +1688,7 @@ public final class TeleportPathController {
     public void onDeath() {
         releaseRuntime();
         if (npc.level() instanceof ServerLevel level) {
-            removeTotemsOnBossDeath(level, settings());
+            totems.removeOnBossDeath(level, settings());
         }
     }
 
@@ -2259,27 +1709,15 @@ public final class TeleportPathController {
         BossBeamScheduler.clearBoss(npc);
     }
 
-    private void removeTotemsOnBossDeath(ServerLevel level, TeleportPathData data) {
-        for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
-            dropTotemLink(totem, BossTotemUtil.slotId(totem));
-        }
-        if (data.isTotemRemoveOnBossDeath()) {
-            BossTotemUtil.removeLoaded(level, npc);
-        }
-        clearTotemRuntime();
-    }
-
     public void shutdown() {
         // The level is going away with the boss still enraged: the modifier is transient and
         // never reaches the save file, but the entity object outlives an unload, so it is
         // taken off here rather than left for a tick that may never come.
         releaseRuntime();
         if (npc.level() instanceof ServerLevel level) {
-            for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
-                dropTotemLink(totem, BossTotemUtil.slotId(totem));
-            }
+            totems.dropAllLinks(level);
         }
-        clearTotemRuntime();
+        totems.clearRuntime();
         INSTANCES.remove(this);
     }
 
@@ -2650,7 +2088,7 @@ public final class TeleportPathController {
         // cooldowns keep running down underneath, so a boss whose last totem falls after two
         // hours of silence swings on the very tick it comes loose. A stunned boss is quiet
         // the same way, and its wind-up was already dropped when the stun landed.
-        if (isTotemSilenced() || huntRuntime.isSilenced() || isBarrierStunned()) {
+        if (totems.isSilencing() || huntRuntime.isSilenced() || isBarrierStunned()) {
             return false;
         }
         if (isInvulnerable()) {
@@ -5997,7 +5435,7 @@ public final class TeleportPathController {
         nextRetargetAt = NOT_SCHEDULED;
         nextAggroZoneAt = NOT_SCHEDULED;
         clearEncounter();
-        clearTotemRuntime();
+        totems.clearRuntime();
         reportedBrokenMinionClones.clear();
         reportedBlockedMinionPoints.clear();
         reportedBrokenCocoonClones.clear();
