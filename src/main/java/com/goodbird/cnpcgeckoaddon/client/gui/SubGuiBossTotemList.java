@@ -89,14 +89,11 @@ public final class SubGuiBossTotemList extends SubGuiFieldScreen {
                     + entry.getX() + "/" + entry.getY() + "/" + entry.getZ();
         } else {
             coordinates = I18n.get("cnpcgeckoaddon.boss.totem_arena_short") + " "
-                    + signed(entry.getX()) + "/" + signed(entry.getY()) + "/" + signed(entry.getZ());
+                    + withSign(entry.getX()) + "/" + withSign(entry.getY()) + "/" + withSign(entry.getZ());
         }
         return (index + 1) + ". " + clone + " · " + coordinates;
     }
 
-    private static String signed(int value) {
-        return value >= 0 ? "+" + value : Integer.toString(value);
-    }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {

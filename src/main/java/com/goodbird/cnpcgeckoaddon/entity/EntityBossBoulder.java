@@ -14,6 +14,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -85,6 +86,16 @@ public class EntityBossBoulder extends Projectile {
     private static final double MAX_PIT_DEPTH = 16.0D;
     private static final double THROW_GRAVITY = 0.05D;
 
+    /**
+     * The block by name, which is the one that survives a modpack change.
+     *
+     * <p>The synced value next to it is the numeric state id, and that is fine over the wire -
+     * both ends are the same session. On disk it is not: the numbering shifts the moment the
+     * pack gains or loses a mod, and a stone that came back as somebody else's ore would be
+     * shattering into the wrong debris. The old int key is still written so a downgrade keeps
+     * working, exactly as the fluid and chest stores do it.</p>
+     */
+    private static final String BLOCK_NAME_KEY = "GeckoBoulderBlockName";
     private static final String BLOCK_KEY = "GeckoBoulderBlock";
     private static final String STYLE_KEY = "GeckoBoulderStyle";
     private static final String SCALE_KEY = "GeckoBoulderScale";
@@ -555,6 +566,12 @@ public class EntityBossBoulder extends Projectile {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
+        // Guarded rather than chained: a throw out of here would take the world save with it,
+        // and the numeric key below still carries the block for this session either way.
+        ResourceLocation blockName = BuiltInRegistries.BLOCK.getKey(getBlockState().getBlock());
+        if (blockName != null) {
+            tag.putString(BLOCK_NAME_KEY, blockName.toString());
+        }
         tag.putInt(BLOCK_KEY, this.entityData.get(BLOCK_STATE));
         tag.putInt(SCALE_KEY, this.entityData.get(SCALE_TENTHS));
         tag.putString(STYLE_KEY, this.entityData.get(STYLE));
@@ -576,7 +593,13 @@ public class EntityBossBoulder extends Projectile {
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
-        if (tag.contains(BLOCK_KEY)) {
+        BlockState named = tag.contains(BLOCK_NAME_KEY, Tag.TAG_STRING)
+                ? resolveBlock(tag.getString(BLOCK_NAME_KEY)) : null;
+        if (named != null) {
+            this.entityData.set(BLOCK_STATE, Block.getId(named));
+        } else if (tag.contains(BLOCK_KEY)) {
+            // A stone saved before the name was written, or one whose block is gone from the
+            // pack: the id is all there is, and getBlockState() falls back to plain stone.
             this.entityData.set(BLOCK_STATE, tag.getInt(BLOCK_KEY));
         }
         if (tag.contains(SCALE_KEY)) {

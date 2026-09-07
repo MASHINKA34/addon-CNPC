@@ -211,14 +211,4 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
         applyNumberField(BEAM_WIDTH_FIELD, entry::setBeamWidthPercentOverride);
     }
 
-    private int signed(int id) {
-        GuiTextFieldNop field = getTextField(id);
-        if (field == null) return 0;
-        String value = field.getValue().trim();
-        try {
-            return value.isEmpty() || value.equals("-") ? 0 : Integer.parseInt(value);
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
-    }
 }

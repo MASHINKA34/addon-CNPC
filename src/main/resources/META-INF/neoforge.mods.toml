@@ -46,7 +46,10 @@ side="BOTH"
 modId="customnpcs"
 type="required"
 # The unofficial 1.21.1 port does not use a predictable version scheme, so this
-# stays unbounded on purpose - only the presence of the mod is required.
+# stays unbounded on purpose - only the presence of the mod is required. Written
+# out rather than left off: an omitted range falls back to a loader default, and
+# "any version" is a decision worth reading in the file instead of guessing at.
+versionRange="[0,)"
 ordering="AFTER"
 side="BOTH"
 

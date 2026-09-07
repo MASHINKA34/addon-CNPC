@@ -12,6 +12,7 @@ import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
 import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
@@ -26,6 +27,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.Util;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
@@ -48,6 +50,7 @@ import software.bernie.geckolib.animation.RawAnimation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -89,25 +92,106 @@ public final class TeleportPathController {
             Map.entry(BossAbility.GROUND_ATTACK, TeleportPathController::tryStartGroundAttack),
             Map.entry(BossAbility.RANGED_ATTACK, TeleportPathController::tryStartRangedAttack),
             Map.entry(BossAbility.MELEE_ATTACK, TeleportPathController::tryStartMeleeAttack),
-            Map.entry(BossAbility.FLUID_SPIT, TeleportPathController::tryStartFluidSpit),
+            Map.entry(BossAbility.FLUID_SPIT, (controller, level, data, phase, gameTime) ->
+                    controller.fluidSpit.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.HOOK, (controller, level, data, phase, gameTime) ->
                     controller.hook.tryStart(level, data, phase, gameTime)),
-            Map.entry(BossAbility.CAPTURE, TeleportPathController::tryStartCapture),
+            Map.entry(BossAbility.CAPTURE, (controller, level, data, phase, gameTime) ->
+                    controller.capture.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.LEAP, (controller, level, data, phase, gameTime) ->
                     controller.leap.tryStart(level, data, phase, gameTime)),
-            Map.entry(BossAbility.LINE_ATTACK, TeleportPathController::tryStartLineAttack),
-            Map.entry(BossAbility.GEYSER, TeleportPathController::tryStartGeyser),
-            Map.entry(BossAbility.BOULDER, TeleportPathController::tryStartBoulder),
-            Map.entry(BossAbility.BOULDER_RAIN, TeleportPathController::tryStartBoulderRain),
-            Map.entry(BossAbility.TETHER, TeleportPathController::tryStartTether),
-            Map.entry(BossAbility.GRAVITY, TeleportPathController::tryStartGravity),
-            Map.entry(BossAbility.MARK, TeleportPathController::tryStartMark),
+            Map.entry(BossAbility.LINE_ATTACK, (controller, level, data, phase, gameTime) ->
+                    controller.lineAttack.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.GEYSER, (controller, level, data, phase, gameTime) ->
+                    controller.geyser.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.BOULDER, (controller, level, data, phase, gameTime) ->
+                    controller.boulder.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.BOULDER_RAIN, (controller, level, data, phase, gameTime) ->
+                    controller.boulder.tryStartRain(level, data, phase, gameTime)),
+            Map.entry(BossAbility.TETHER, (controller, level, data, phase, gameTime) ->
+                    controller.tether.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.GRAVITY, (controller, level, data, phase, gameTime) ->
+                    controller.gravity.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.MARK, (controller, level, data, phase, gameTime) ->
+                    controller.mark.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.COVER, (controller, level, data, phase, gameTime) ->
                     controller.coverRuntime.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.HUNT, TeleportPathController::tryStartHunt),
-            Map.entry(BossAbility.BEAM, TeleportPathController::tryStartBeam),
-            Map.entry(BossAbility.COCOON, TeleportPathController::tryStartCocoon),
+            Map.entry(BossAbility.BEAM, (controller, level, data, phase, gameTime) ->
+                    controller.beam.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.COCOON, (controller, level, data, phase, gameTime) ->
+                    controller.cocoon.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, TeleportPathController::tryStartSummon)));
+
+    @FunctionalInterface
+    private interface AbilityPerformer {
+        void perform(TeleportPathController controller, ServerLevel level, TeleportPathData data,
+                     BossPhaseData phase, long gameTime);
+    }
+
+    /**
+     * What each wound-up action actually does when its delay runs out.
+     *
+     * <p>The twin of {@link #ABILITY_STARTERS}, and keyed for the same reason. This was a
+     * chain of twenty {@code else if}s comparing the same field against a different constant
+     * each time, which reads as a table anyway - except that a chain cannot be checked and a
+     * table can. An action with no branch simply fell off the end of the chain: the boss wound
+     * up, the wind-up expired, and nothing happened, for the life of the server.</p>
+     *
+     * <p>The teleport is here as well as on the rotation, because a hop is wound up and
+     * executed exactly like an attack even though its clock is its own.</p>
+     */
+    private static final Map<BossAbility, AbilityPerformer> ABILITY_PERFORMERS =
+            new EnumMap<>(Map.ofEntries(
+            Map.entry(BossAbility.GROUND_ATTACK, (controller, level, data, phase, gameTime) ->
+                    controller.performAreaAttack(level, phase)),
+            Map.entry(BossAbility.RANGED_ATTACK, (controller, level, data, phase, gameTime) ->
+                    controller.performRangedAttack(level, phase)),
+            Map.entry(BossAbility.MELEE_ATTACK, (controller, level, data, phase, gameTime) ->
+                    controller.performMeleeAttack(level, phase)),
+            Map.entry(BossAbility.FLUID_SPIT, (controller, level, data, phase, gameTime) ->
+                    controller.fluidSpit.perform(level, phase)),
+            Map.entry(BossAbility.HOOK, (controller, level, data, phase, gameTime) ->
+                    controller.hook.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.CAPTURE, (controller, level, data, phase, gameTime) ->
+                    controller.capture.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.LEAP, (controller, level, data, phase, gameTime) ->
+                    controller.leap.perform(level, data, phase, gameTime)),
+            Map.entry(BossAbility.LINE_ATTACK, (controller, level, data, phase, gameTime) ->
+                    controller.lineAttack.perform(level, phase)),
+            Map.entry(BossAbility.GEYSER, (controller, level, data, phase, gameTime) ->
+                    controller.geyser.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.BOULDER, (controller, level, data, phase, gameTime) ->
+                    controller.boulder.perform(level, phase)),
+            Map.entry(BossAbility.BOULDER_RAIN, (controller, level, data, phase, gameTime) ->
+                    controller.boulder.performRain(level, phase, gameTime)),
+            Map.entry(BossAbility.TETHER, (controller, level, data, phase, gameTime) ->
+                    controller.tether.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.GRAVITY, (controller, level, data, phase, gameTime) ->
+                    controller.gravity.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.MARK, (controller, level, data, phase, gameTime) ->
+                    controller.mark.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.COVER, (controller, level, data, phase, gameTime) ->
+                    controller.coverRuntime.perform(level)),
+            Map.entry(BossAbility.HUNT, (controller, level, data, phase, gameTime) ->
+                    controller.huntRuntime.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.BEAM, (controller, level, data, phase, gameTime) ->
+                    controller.beam.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.COCOON, (controller, level, data, phase, gameTime) ->
+                    controller.cocoon.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
+                    controller.performSummon(level, phase)),
+            Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
+                    controller.path.perform(level, data, phase, gameTime))));
+
+    /** Every action that is wound up and then carried out: the rotation, plus the teleport. */
+    static final Set<BossAbility> PERFORMED_ACTIONS = performedActions();
+
+    private static Set<BossAbility> performedActions() {
+        Set<BossAbility> all = EnumSet.copyOf(BossAbility.ROTATION);
+        all.add(BossAbility.TELEPORT);
+        return Set.copyOf(all);
+    }
 
     static {
         // An ability on the rotation with nothing to start it would be skipped in silence
@@ -116,27 +200,13 @@ public final class TeleportPathController {
             throw new IllegalStateException("Boss ability rotation and starter table disagree: "
                     + BossAbility.ROTATION + " vs " + ABILITY_STARTERS.keySet());
         }
+        // And one that starts but never lands is the same mistake one step later.
+        if (!ABILITY_PERFORMERS.keySet().equals(PERFORMED_ACTIONS)) {
+            throw new IllegalStateException("Boss ability rotation and performer table disagree: "
+                    + PERFORMED_ACTIONS + " vs " + ABILITY_PERFORMERS.keySet());
+        }
     }
 
-    /**
-     * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
-     * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
-     * leashed already standing outside the ring.
-     */
-    private static final double TETHER_REACH = 32.0D;
-    /**
-     * How far a mark is handed out: the arena, not the world. A mark has no reach of its
-     * own - what it does happens where its carrier takes it - so it borrows the leash's.
-     */
-    private static final double MARK_REACH = 32.0D;
-    /**
-     * How far a cocoon is handed out: the arena, not the world. A cocoon has no reach of
-     * its own - it closes wherever its victim is standing - so it borrows the mark's.
-     */
-    private static final double COCOON_REACH = 32.0D;
-    /** How far from a cocoon its guard is posted, and how many spots round it are tried. */
-    private static final double COCOON_GUARD_DISTANCE = 2.0D;
-    private static final int COCOON_GUARD_ATTEMPTS = 8;
     /** Tries at finding floor and room for one shelter before the wind-up gives it up. */
     /**
      * Where the lower sight line is aimed, above the victim's feet. A slab hides the legs
@@ -255,30 +325,51 @@ public final class TeleportPathController {
     private final BossHookRuntime hook;
     /** The jump, its flight and the slam it lands with. */
     private final BossLeapRuntime leap;
+    /** Where a summon puts its clones, and the order it takes its points in. */
+    private final BossMinionSpawnRuntime minionSpawns;
+    /** The walk over the teleport path: which point is next, and when. */
+    private final BossPathRuntime path;
+    /** The shell the boss closes round a victim, and the guard posted beside it. */
+    private final BossCocoonRuntime cocoon;
+    /** The grab, and the beam it holds its victim in. */
+    private final BossCaptureRuntime capture;
+    /** The fuse under a victim's feet and the column that follows it. */
+    private final BossGeyserRuntime geyser;
+    /** The circle handed to a victim that goes off wherever they take it. */
+    private final BossMarkRuntime mark;
+    /** The leash tied to the boss, to a spot or between two victims. */
+    private final BossTetherCastRuntime tether;
+    /** The field that pulls, pushes or throws everything around the boss. */
+    private final BossGravityCastRuntime gravity;
+    /** The stone rolled down a corridor, and the ring of them dropped out of the sky. */
+    private final BossBoulderRuntime boulder;
+    /** The corridor struck straight out in front of the boss, and its two flank waves. */
+    private final BossLineAttackRuntime lineAttack;
+    /** The lobbed ball of fluid and the puddle it leaves. */
+    private final BossFluidSpitRuntime fluidSpit;
+    /** The beams swept round the boss after the cast. */
+    private final BossBeamCastRuntime beam;
 
     /**
-     * Which way the line strike being wound up is going to go, unit length and flat.
+     * Which way the action being wound up is going to go, unit length and flat, or null for
+     * one that is not aimed along a line at all.
      *
      * <p>Fixed the moment the boss commits and never touched again: a corridor that swung
-     * round after a running player would turn its own warning into a lie.</p>
+     * round after a running player would turn its own warning into a lie. One field rather
+     * than one per aimed ability, because exactly one action is ever pending - three fields
+     * only made it possible for the wrong one to be left standing.</p>
      */
-    private Vec3 lineAttackAxis;
+    private Vec3 committedAxis;
 
     /**
-     * Which way the boulder being wound up is going to travel, unit length and flat.
-     * Committed the same way the line strike's axis is, and for the same reason: the
-     * corridor on the floor is a promise.
-     */
-    private Vec3 boulderAxis;
-
-    /**
-     * The Minecraft yaw the first beam being wound up leaves at, in degrees.
+     * The Minecraft yaw the action being wound up leaves at, in degrees, for the one that
+     * is aimed by angle rather than by direction.
      *
-     * <p>Committed the same way the line strike's axis is, and for the same reason: the
-     * lines the wind-up draws promise where the beams start, and a boss that went on
-     * turning after its target would break that promise on the sweep's first tick.</p>
+     * <p>Committed the same way the axis is, and for the same reason: the lines the wind-up
+     * draws promise where the beams start, and a boss that went on turning after its target
+     * would break that promise on the sweep's first tick.</p>
      */
-    private float beamStartYaw;
+    private float committedYaw;
 
 
     /** Victims beyond the first, captured when a multi-target ability starts winding up. */
@@ -303,21 +394,7 @@ public final class TeleportPathController {
     private boolean castRootActive;
     /** Game time the pin a finished action left behind lets go, or NOT_SCHEDULED mid wind-up. */
     private long castRootUntil = NOT_SCHEDULED;
-    private int lastPathIndex = -1;
-    private int pingPongDirection = 1;
-    private int previousPathSize;
     private int nextAbilityPriority;
-    private final Set<String> reportedBrokenMinionClones = new HashSet<>();
-    private final Set<String> reportedBlockedMinionPoints = new HashSet<>();
-    private final Set<String> reportedBrokenCocoonClones = new HashSet<>();
-    /** Phases already told off for a cocoon with no clone name; never cleared, one line is the deal. */
-    private final Set<Integer> reportedEmptyCocoonPhases = new HashSet<>();
-    /** Phase index -> the last point that successfully spawned in round-robin order. */
-    private final Map<Integer, Integer> minionRoundRobinCursor = new HashMap<>();
-    private String reportedBrokenFluid = "";
-    private String reportedBrokenGeyserFluid = "";
-    private String reportedBrokenBoulderBlock = "";
-    private String reportedBrokenBoulderRainBlock = "";
     private long minionAliveScanAt = NOT_SCHEDULED;
     private boolean minionAliveScan;
 
@@ -334,6 +411,18 @@ public final class TeleportPathController {
         this.coverRuntime = new BossCoverRuntime(this, npc);
         this.hook = new BossHookRuntime(this, npc);
         this.leap = new BossLeapRuntime(this, npc);
+        this.minionSpawns = new BossMinionSpawnRuntime(this, npc);
+        this.path = new BossPathRuntime(this, npc);
+        this.cocoon = new BossCocoonRuntime(this, npc);
+        this.capture = new BossCaptureRuntime(this, npc);
+        this.geyser = new BossGeyserRuntime(this, npc);
+        this.mark = new BossMarkRuntime(this, npc);
+        this.tether = new BossTetherCastRuntime(this, npc);
+        this.gravity = new BossGravityCastRuntime(this, npc);
+        this.boulder = new BossBoulderRuntime(this, npc);
+        this.lineAttack = new BossLineAttackRuntime(this, npc);
+        this.fluidSpit = new BossFluidSpitRuntime(this, npc);
+        this.beam = new BossBeamCastRuntime(this, npc);
         INSTANCES.add(this);
     }
 
@@ -468,7 +557,7 @@ public final class TeleportPathController {
         }
 
         List<int[]> points = npc.ais.getMovingPath();
-        preparePath(points);
+        path.prepare(points);
         scheduleMissingAbilities(gameTime, phase, points.size() >= 2);
 
         // A held boss is barred from the path as well as from walking it: leaving the spot the
@@ -594,6 +683,11 @@ public final class TeleportPathController {
         return rage.down(value);
     }
 
+    /** What the enrage multiplies by, for the hit scaling that cannot go through {@link #rageUp}. */
+    double rageMultiplier() {
+        return rage.multiplier();
+    }
+
     /** Everyone this fight is being run against, read-only for the subsystems that address them. */
     Set<UUID> encounterParticipants() {
         return encounterParticipants;
@@ -611,8 +705,7 @@ public final class TeleportPathController {
         currentPhase = highestPhaseReached;
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
-        lastPathIndex = -1;
-        previousPathSize = 0;
+        path.forgetPosition();
         totems.initialize(level, gameTime, data);
         // A cocoon that outlived its hold - the server went down with somebody inside - is
         // a shell with nobody in it, and goes the way a totem the boss no longer knows does.
@@ -946,7 +1039,7 @@ public final class TeleportPathController {
         healthScalingRuntime.clear(data, data.isResetHeal());
         clearEncounter();
         clearInvulnerability();
-        minionRoundRobinCursor.clear();
+        minionSpawns.clearCursor();
         rage.clear();
         cancelPendingAndSchedules();
         hook.clear();
@@ -1231,6 +1324,12 @@ public final class TeleportPathController {
         }
         totems.clearRuntime();
         INSTANCES.remove(this);
+        // Off the npc as well as off the list. A controller that stayed on a reviving npc
+        // would keep ticking outside every static sweep, which is worse than none at all;
+        // dropped, the next tick simply builds one that is on the list again.
+        if (npc instanceof IBossController holder) {
+            holder.cnpcgeckoaddon$clearTeleportPathController();
+        }
     }
 
     public void stopBossBar() {
@@ -1263,6 +1362,30 @@ public final class TeleportPathController {
     void rememberCurrentPosition() {
         lockedX = npc.getX();
         lockedZ = npc.getZ();
+    }
+
+    /**
+     * Fixes which way the action now being wound up is aimed.
+     *
+     * <p>Set by the ability as it commits and read by everything downstream that has to keep
+     * the same promise - the eased turn, the corridor drawn on the floor, and the ability's
+     * own landing. Cleared with the rest of the pending action.</p>
+     */
+    void commitAxis(Vec3 axis) {
+        committedAxis = axis;
+    }
+
+    Vec3 committedAxis() {
+        return committedAxis;
+    }
+
+    /** The same, for an ability aimed by angle rather than by direction. */
+    void commitYaw(float yaw) {
+        committedYaw = yaw;
+    }
+
+    float committedYaw() {
+        return committedYaw;
     }
 
     /**
@@ -1377,23 +1500,23 @@ public final class TeleportPathController {
         }
         BossPhaseData phase = data.getPhase(currentPhase);
         if (pendingAction == BossAbility.LINE_ATTACK) {
-            if (lineAttackAxis == null || !phase.isLineAttackFaceAxis()) {
+            if (committedAxis == null || !phase.isLineAttackFaceAxis()) {
                 return false;
             }
-            turnTowardAxis(lineAttackAxis, phase.getLineAttackLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
+            turnTowardAxis(committedAxis, phase.getLineAttackLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
             return true;
         }
         // The boulder has no opt-out: its corridor is exactly as wide as the stone, so one
         // launched off the boss' shoulder reads as broken rather than as a style choice.
-        if (boulderAxis == null) {
+        if (committedAxis == null) {
             return false;
         }
-        turnTowardAxis(boulderAxis, phase.getBoulderRange(), LINE_FACE_TURN_DEGREES_PER_TICK);
+        turnTowardAxis(committedAxis, phase.getBoulderRange(), LINE_FACE_TURN_DEGREES_PER_TICK);
         return true;
     }
 
     /** Body, head and gaze onto the committed axis, moving at most {@code maxTurn} degrees. */
-    private void turnTowardAxis(Vec3 axis, double lookDistance, float maxTurn) {
+    void turnTowardAxis(Vec3 axis, double lookDistance, float maxTurn) {
         if (axis == null) {
             return;
         }
@@ -1409,21 +1532,6 @@ public final class TeleportPathController {
         // head straight back to the target between two of these.
         npc.getLookControl().setLookAt(npc.getX() + axis.x * lookDistance,
                 npc.getEyeY(), npc.getZ() + axis.z * lookDistance, 90.0F, 90.0F);
-    }
-
-    private void preparePath(List<int[]> points) {
-        if (points.size() < 2) {
-            setAbilityScheduleAt(BossAbility.TELEPORT, NOT_SCHEDULED);
-            lastPathIndex = -1;
-            previousPathSize = points.size();
-            return;
-        }
-        if (points.size() != previousPathSize || lastPathIndex < 0 || lastPathIndex >= points.size()) {
-            lastPathIndex = findClosestPoint(points);
-            pingPongDirection = 1;
-            previousPathSize = points.size();
-            setAbilityScheduleAt(BossAbility.TELEPORT, NOT_SCHEDULED);
-        }
     }
 
     /**
@@ -1442,7 +1550,7 @@ public final class TeleportPathController {
         // The teleport keeps its own arming: it runs off a random delay range rather than a
         // flat cooldown, and a boss with fewer than two path points has nowhere to go.
         if (hasPath && abilityScheduleAt(BossAbility.TELEPORT) == NOT_SCHEDULED) {
-            scheduleNextTeleport(gameTime, phase);
+            path.scheduleNext(gameTime, phase);
         }
         for (BossAbility ability : BossAbility.ROTATION) {
             if (!ability.isEnabledIn(phase)) {
@@ -1451,13 +1559,6 @@ public final class TeleportPathController {
                 setAbilityScheduleAt(ability, gameTime + rageDown(ability.cooldownTicks(phase)));
             }
         }
-    }
-
-    private void scheduleNextTeleport(long gameTime, BossPhaseData phase) {
-        int min = rageDown(phase.getTeleportMinDelayTicks());
-        int spread = Math.max(0, rageDown(phase.getTeleportMaxDelayTicks()) - min);
-        int delay = min + (spread == 0 ? 0 : npc.getRandom().nextInt(spread + 1));
-        setAbilityScheduleAt(BossAbility.TELEPORT, gameTime + delay);
     }
 
     /** Rotates ability priority so short cooldowns cannot permanently starve another attack. */
@@ -1504,68 +1605,10 @@ public final class TeleportPathController {
         return true;
     }
 
-    /**
-     * A strike straight down a corridor in front of the boss.
-     *
-     * <p>Where it goes is settled here rather than when the hit lands: the warning on the
-     * floor promises one corridor, and the boss has to keep that promise even if whoever it
-     * picked spends the whole wind-up running sideways.</p>
-     */
-    private boolean tryStartLineAttack(ServerLevel level, TeleportPathData data,
-                                       BossPhaseData phase, long gameTime) {
-        if (!phase.isLineAttackEnabled() || gameTime < abilityScheduleAt(BossAbility.LINE_ATTACK)) return false;
-        LivingEntity target = selectAbilityTarget(level, phase.getLineAttackTargetMode(),
-                phase.getLineAttackLength(), candidate -> isValidLineTarget(candidate, phase));
-        Vec3 axis = resolveLineAxis(phase, target);
-        // An empty corridor is no reason to swing: the strike would land on bare floor and
-        // spend a whole cooldown doing it.
-        if (axis == null || lineTargets(level, npc.position(), axis, phase).isEmpty()) {
-            setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + 10);
-            return false;
-        }
-        lineAttackAxis = axis;
-        beginAction(BossAbility.LINE_ATTACK, phase.getLineAttackAnimation(),
-                phase.getLineAttackActionDelayTicks(), gameTime, target, data, phase);
-        // Only the cooldown is scaled: the action delay is measured against the attack
-        // animation, and shortening it would land the hit before the swing does.
-        setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + phase.getLineAttackActionDelayTicks()
-                + rageDown(phase.getLineAttackCooldownTicks()));
-        return true;
-    }
-
-    /** Which way this strike goes: at whoever it picked, or wherever the boss is looking. */
-    private Vec3 resolveLineAxis(BossPhaseData phase, LivingEntity target) {
-        if (phase.getLineAttackDirection() != BossPhaseData.LINE_DIRECTION_TARGET) {
-            return facingAxis();
-        }
-        if (target == null) {
-            return null;
-        }
-        Vec3 flat = new Vec3(target.getX() - npc.getX(), 0.0D, target.getZ() - npc.getZ());
-        // Somebody standing inside the boss leaves no direction to read off them, so the
-        // gaze decides rather than the aim collapsing to nothing.
-        return flat.lengthSqr() < 1.0E-6D ? facingAxis() : flat.normalize();
-    }
-
     /** Where the boss is looking, flattened onto the plane the corridor is worked out in. */
-    private Vec3 facingAxis() {
+    Vec3 facingAxis() {
         double yaw = npc.getYRot() * Mth.DEG_TO_RAD;
         return new Vec3(-Math.sin(yaw), 0.0D, Math.cos(yaw));
-    }
-
-    /**
-     * Whether one candidate is worth aiming a line strike at.
-     *
-     * <p>Measured flat and against the same height band the strike itself uses, so the
-     * corridor laid down toward whoever this picks really does cover them.</p>
-     */
-    private boolean isValidLineTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.LINE)) return false;
-        if (Math.abs(target.getY() - npc.getY()) > phase.getLineAttackHeight()) return false;
-        double dx = target.getX() - npc.getX();
-        double dz = target.getZ() - npc.getZ();
-        double length = phase.getLineAttackLength();
-        return dx * dx + dz * dz <= length * length;
     }
 
     private boolean tryStartRangedAttack(ServerLevel level, TeleportPathData data,
@@ -1603,319 +1646,6 @@ public final class TeleportPathController {
         return true;
     }
 
-    private boolean tryStartFluidSpit(ServerLevel level, TeleportPathData data,
-                                      BossPhaseData phase, long gameTime) {
-        if (!phase.canSpitFluid() || gameTime < abilityScheduleAt(BossAbility.FLUID_SPIT)) return false;
-        LivingEntity target = selectAbilityTarget(level, phase.getFluidSpitTargetMode(),
-                phase.getFluidSpitMaxRange(), candidate -> isValidFluidSpitTarget(candidate, phase));
-        if (target == null || FluidBlockUtil.resolve(phase.getFluidSpitBlock()) == null) {
-            setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + 20);
-            return false;
-        }
-        beginAction(BossAbility.FLUID_SPIT, phase.getFluidSpitAnimation(),
-                phase.getFluidSpitActionDelayTicks(), gameTime, target, data, phase);
-        setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + phase.getFluidSpitActionDelayTicks()
-                + rageDown(phase.getFluidSpitCooldownTicks()));
-        return true;
-    }
-
-    private boolean isValidFluidSpitTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.FLUID)) return false;
-        double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getFluidSpitMinRange();
-        double max = phase.getFluidSpitMaxRange();
-        return distanceSquared >= min * min && distanceSquared <= max * max;
-    }
-
-    private void performFluidSpit(ServerLevel level, BossPhaseData phase) {
-        LivingEntity target = pendingTarget(level);
-        if (!isValidFluidSpitTarget(target, phase)) return;
-        BlockState fluid = FluidBlockUtil.resolve(phase.getFluidSpitBlock());
-        if (fluid == null) {
-            if (!phase.getFluidSpitBlock().equals(reportedBrokenFluid)) {
-                reportedBrokenFluid = phase.getFluidSpitBlock();
-                LOGGER.warn("Boss {} cannot spit {}: that block is not a fluid",
-                        npc.getName().getString(), phase.getFluidSpitBlock());
-            }
-            return;
-        }
-        reportedBrokenFluid = "";
-
-        npc.getLookControl().setLookAt(target, 30.0F, 30.0F);
-        EntityFluidSpit spit = new EntityFluidSpit(EntityRegistry.entityFluidSpit, npc, level);
-        spit.configure(fluid, phase.getFluidSpitLifetimeTicks(), phase.getFluidSpitRadius(),
-                rageUp(phase.getFluidSpitDamage()));
-        spit.setPos(npc.getX(), npc.getEyeY() - 0.1D, npc.getZ());
-
-        // Aim at the feet with a slight arc so the puddle lands on the ground the target
-        // stands on instead of splashing against their chest.
-        double dx = target.getX() - spit.getX();
-        double dy = target.getY() - spit.getY();
-        double dz = target.getZ() - spit.getZ();
-        double horizontal = Math.sqrt(dx * dx + dz * dz);
-        spit.shoot(dx, dy + horizontal * 0.2D, dz, 1.2F, 4.0F);
-
-        if (!level.addFreshEntity(spit)) {
-            return;
-        }
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.LLAMA_SPIT,
-                SoundSource.HOSTILE, 1.0F, 0.8F);
-    }
-
-    private boolean tryStartCapture(ServerLevel level, TeleportPathData data,
-                                    BossPhaseData phase, long gameTime) {
-        if (!phase.isCaptureEnabled() || gameTime < abilityScheduleAt(BossAbility.CAPTURE)
-                || BossCaptureManager.hasCaptureForBoss(npc.getUUID())) return false;
-        LivingEntity target = selectCaptureTarget(level, phase);
-        if (target == null) {
-            setAbilityScheduleAt(BossAbility.CAPTURE, gameTime + 10);
-            return false;
-        }
-        beginAction(BossAbility.CAPTURE, phase.getCaptureAnimation(),
-                phase.getCaptureActionDelayTicks(), gameTime, target, data, phase);
-        // Windup and hold timing stay aligned with the animation; rage only shortens cooldown.
-        setAbilityScheduleAt(BossAbility.CAPTURE, gameTime + phase.getCaptureActionDelayTicks()
-                + rageDown(phase.getCaptureCooldownTicks()));
-        return true;
-    }
-
-    /**
-     * Capture keeps its own mode handling because MAIN falls back to a random victim here:
-     * a grab animation that plays with nobody in the beam would look broken.
-     */
-    private LivingEntity selectCaptureTarget(ServerLevel level, BossPhaseData phase) {
-        List<LivingEntity> candidates = abilityCandidates(level, phase.getCaptureMaxRange(),
-                candidate -> isValidCaptureTarget(candidate, phase));
-        if (candidates.isEmpty()) {
-            return null;
-        }
-        LivingEntity main = npc.getTarget();
-        if (phase.getCaptureTargetMode() == BossTargetMode.MAIN && candidates.contains(main)) {
-            return main;
-        }
-        if (phase.getCaptureTargetMode() == BossTargetMode.RANDOM
-                || phase.getCaptureTargetMode() == BossTargetMode.MAIN) {
-            return candidates.get(npc.getRandom().nextInt(candidates.size()));
-        }
-        boolean farthest = phase.getCaptureTargetMode() == BossTargetMode.FARTHEST;
-        LivingEntity best = candidates.getFirst();
-        double bestDistance = npc.distanceToSqr(best);
-        for (int i = 1; i < candidates.size(); i++) {
-            LivingEntity candidate = candidates.get(i);
-            double distance = npc.distanceToSqr(candidate);
-            if (farthest ? distance > bestDistance : distance < bestDistance) {
-                best = candidate;
-                bestDistance = distance;
-            }
-        }
-        return best;
-    }
-
-    private boolean isValidCaptureTarget(LivingEntity target, BossPhaseData phase) {
-        // Somebody in a cocoon is left alone too: the two holds share the victim's client
-        // lock, and a capture ending would let go of a player the cocoon still has.
-        if (target == null || target.level() != npc.level() || !target.isAlive()
-                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.CAPTURE)
-                || BossCaptureManager.isCaptured(target.getUUID())
-                || BossCocoonManager.isCocooned(target.getUUID())) {
-            return false;
-        }
-        double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getCaptureMinRange();
-        double max = phase.getCaptureMaxRange();
-        if (distanceSquared < min * min || distanceSquared > max * max) {
-            return false;
-        }
-        return !npc.ais.directLOS || npc.canNpcSee(target);
-    }
-
-    private void performCapture(ServerLevel level, BossPhaseData phase, long gameTime) {
-        LivingEntity victim = pendingTarget(level);
-        if (!isValidCaptureTarget(victim, phase)) {
-            return;
-        }
-        if (!BossCaptureManager.start(npc, victim, phase, currentPhase, gameTime)) {
-            return;
-        }
-        int receiver = phase.getCaptureEffectTarget();
-        if (receiver == BossPhaseData.CAPTURE_EFFECT_PLAYER
-                || receiver == BossPhaseData.CAPTURE_EFFECT_BOTH) {
-            BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.CAPTURE, npc,
-                    phase.getCaptureEffects());
-        }
-        if (receiver == BossPhaseData.CAPTURE_EFFECT_BOSS
-                || receiver == BossPhaseData.CAPTURE_EFFECT_BOTH) {
-            // Ungated on purpose: this half is the boss rewarding itself for a grab it pulled
-            // off, not the grab landing on it.
-            phase.getCaptureEffects().applyAll(npc, npc);
-        }
-        if (victim instanceof ServerPlayer player) {
-            trackParticipant(player);
-        }
-        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
-                SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 0.8F, 1.4F);
-        level.sendParticles(ParticleTypes.END_ROD, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
-                victim.getZ(), 12, 0.25D, 0.5D, 0.25D, 0.02D);
-    }
-
-    private boolean tryStartGeyser(ServerLevel level, TeleportPathData data,
-                                   BossPhaseData phase, long gameTime) {
-        if (!phase.isGeyserEnabled() || gameTime < abilityScheduleAt(BossAbility.GEYSER)) return false;
-        List<LivingEntity> targets = selectAbilityTargets(level, phase.getGeyserTargetMode(),
-                phase.getGeyserMaxRange(), candidate -> isValidGeyserTarget(candidate, phase),
-                phase.getGeyserTargetCount());
-        if (targets.isEmpty()) {
-            setAbilityScheduleAt(BossAbility.GEYSER, gameTime + 10);
-            return false;
-        }
-        rememberExtraTargets(targets);
-        beginAction(BossAbility.GEYSER, phase.getGeyserAnimation(),
-                phase.getGeyserActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        setAbilityScheduleAt(BossAbility.GEYSER, gameTime + phase.getGeyserActionDelayTicks()
-                + rageDown(phase.getGeyserCooldownTicks()));
-        return true;
-    }
-
-    /**
-     * Line of sight is deliberately not required: the column comes up through the floor, so
-     * a wall someone is standing behind is nothing for it to reach around.
-     */
-    private boolean isValidGeyserTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.GEYSER)) {
-            return false;
-        }
-        double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getGeyserMinRange();
-        double max = phase.getGeyserMaxRange();
-        return distanceSquared >= min * min && distanceSquared <= max * max;
-    }
-
-    /**
-     * Lights a fuse under everyone this cast wound up on.
-     *
-     * <p>Nothing erupts here. The mark goes on the floor and {@link BossGeyserScheduler}
-     * owns it from now on, because the boss is back on its rotation long before the column
-     * comes up - which is the whole point of the ability.</p>
-     */
-    private void performGeyser(ServerLevel level, BossPhaseData phase, long gameTime) {
-        List<LivingEntity> victims = new ArrayList<>();
-        LivingEntity primary = pendingTarget(level);
-        if (primary != null && isValidGeyserTarget(primary, phase)) {
-            victims.add(primary);
-        }
-        for (int id : pendingExtraTargets) {
-            if (level.getEntity(id) instanceof LivingEntity extra
-                    && isValidGeyserTarget(extra, phase) && !victims.contains(extra)) {
-                victims.add(extra);
-            }
-        }
-        if (victims.isEmpty()) {
-            return;
-        }
-        BlockState fluid = geyserFluid(phase);
-        // The fuse is deliberately left alone by the enrage: it is the window a player gets
-        // to read the mark and step off it, not a number the fight is allowed to turn up.
-        int damage = rageUp(phase.getGeyserDamage());
-        int launch = rageUp(phase.getGeyserLaunch());
-        for (LivingEntity victim : victims) {
-            BossGeyserScheduler.schedule(level, npc, victim, phase, fluid, damage, launch, gameTime);
-        }
-    }
-
-    private boolean tryStartMark(ServerLevel level, TeleportPathData data,
-                                 BossPhaseData phase, long gameTime) {
-        if (!phase.isMarkEnabled() || gameTime < abilityScheduleAt(BossAbility.MARK)) return false;
-        List<LivingEntity> targets = selectAbilityTargets(level, phase.getMarkTargetMode(),
-                MARK_REACH, this::isValidMarkTarget, phase.getMarkTargetCount());
-        if (targets.isEmpty()) {
-            setAbilityScheduleAt(BossAbility.MARK, gameTime + 10);
-            return false;
-        }
-        rememberExtraTargets(targets);
-        beginAction(BossAbility.MARK, phase.getMarkAnimation(),
-                phase.getMarkActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        setAbilityScheduleAt(BossAbility.MARK, gameTime + phase.getMarkActionDelayTicks()
-                + rageDown(phase.getMarkCooldownTicks()));
-        return true;
-    }
-
-    /**
-     * Line of sight is deliberately not required, for the reason the geyser does not need
-     * it either: a mark is put on somebody rather than thrown at them.
-     *
-     * <p>Anyone already carrying one is passed over, this boss' marks and another boss'
-     * alike. Two circles on one person is two countdowns in one action bar and two answers
-     * to give at once, which is not a harder mechanic, only an unreadable one.</p>
-     */
-    private boolean isValidMarkTarget(LivingEntity target) {
-        if (target == null || target.level() != npc.level() || !target.isAlive()
-                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.MARK)
-                || BossMarkScheduler.isMarked(target.getUUID())) {
-            return false;
-        }
-        return npc.distanceToSqr(target) <= MARK_REACH * MARK_REACH;
-    }
-
-    /**
-     * Marks everyone this cast wound up on.
-     *
-     * <p>Nothing goes off here. The marks go to {@link BossMarkScheduler}, which owns them
-     * from now on, because the boss is back on its rotation long before any of them burns
-     * down - which is the whole point of the ability.</p>
-     */
-    private void performMark(ServerLevel level, BossPhaseData phase, long gameTime) {
-        List<LivingEntity> victims = new ArrayList<>();
-        LivingEntity primary = pendingTarget(level);
-        if (primary != null && isValidMarkTarget(primary)) {
-            victims.add(primary);
-        }
-        for (int id : pendingExtraTargets) {
-            if (level.getEntity(id) instanceof LivingEntity extra && isValidMarkTarget(extra)
-                    && !victims.contains(extra)) {
-                victims.add(extra);
-            }
-        }
-        if (victims.isEmpty()) {
-            return;
-        }
-        // The fuse, the radius and the head count are deliberately left alone by the enrage:
-        // they are the problem the party is set, not numbers the fight is allowed to turn.
-        int damage = rageUp(phase.getMarkDamage());
-        int failDamage = rageUp(phase.getMarkFailDamage());
-        int selfDamage = rageUp(phase.getMarkSelfDamage());
-        for (LivingEntity victim : victims) {
-            if (!BossMarkScheduler.schedule(level, npc, victim, phase, damage, failDamage,
-                    selfDamage, gameTime)) {
-                continue;
-            }
-            // The head count only counts this fight's own members, and a carrier is one of
-            // them by the fact that the boss has just picked them out.
-            if (victim instanceof ServerPlayer player) {
-                trackParticipant(player);
-            }
-        }
-    }
-
-    /** What the eruption pools, or null when it pools nothing or the id is not a fluid. */
-    private BlockState geyserFluid(BossPhaseData phase) {
-        if (!phase.leavesGeyserFluid()) {
-            return null;
-        }
-        BlockState fluid = FluidBlockUtil.resolve(phase.getGeyserFluid());
-        if (fluid == null) {
-            // The geyser still goes off; only the puddle is dropped. Reported once per broken
-            // id rather than once per eruption.
-            if (!phase.getGeyserFluid().equals(reportedBrokenGeyserFluid)) {
-                reportedBrokenGeyserFluid = phase.getGeyserFluid();
-                LOGGER.warn("Boss {} cannot pool {}: that block is not a fluid",
-                        npc.getName().getString(), phase.getGeyserFluid());
-            }
-            return null;
-        }
-        reportedBrokenGeyserFluid = "";
-        return fluid;
-    }
-
     /**
      * Singles one victim out and winds up to go after them.
      *
@@ -1947,264 +1677,16 @@ public final class TeleportPathController {
         return true;
     }
 
-    /**
-     * Beams swept round the boss for a while after the cast.
-     *
-     * <p>Nothing is aimed, exactly as the gravity field is not: the length is the shape,
-     * and the cast only asks whether anybody is inside it worth spending a cooldown on.
-     * Where the first beam starts is settled here rather than when the sweep begins, for
-     * the reason the line strike's corridor is: the lines the wind-up draws are a promise.
-     * What the beams do from then on belongs to {@link BossBeamScheduler}, because a sweep
-     * lasts seconds and the boss is back on its rotation the moment the cast lands.</p>
-     */
-    private boolean tryStartBeam(ServerLevel level, TeleportPathData data,
-                                 BossPhaseData phase, long gameTime) {
-        if (!phase.isBeamEnabled() || gameTime < abilityScheduleAt(BossAbility.BEAM)) return false;
-        // One sweep at a time: a second set of beams on top of the first would double the
-        // hits and leave nowhere to walk to.
-        if (BossBeamScheduler.isSweeping(npc)) {
-            setAbilityScheduleAt(BossAbility.BEAM, gameTime + 20);
-            return false;
-        }
-        if (!hasBeamTargets(level, phase)) {
-            setAbilityScheduleAt(BossAbility.BEAM, gameTime + 20);
-            return false;
-        }
-        beamStartYaw = phase.getBeamStartMode() == BossPhaseData.BEAM_START_RANDOM
-                ? npc.getRandom().nextFloat() * 360.0F : npc.getYRot();
-        beginAction(BossAbility.BEAM, phase.getBeamAnimation(),
-                phase.getBeamActionDelayTicks(), gameTime, null, data, phase);
-        // Only the cooldown is scaled: the action delay is measured against the attack
-        // animation, and shortening it would switch the beams on before the charge does.
-        setAbilityScheduleAt(BossAbility.BEAM, gameTime + phase.getBeamActionDelayTicks()
-                + rageDown(phase.getBeamCooldownTicks()));
-        return true;
-    }
-
-    private boolean hasBeamTargets(ServerLevel level, BossPhaseData phase) {
-        return !beamVictims(level, BossBeamScheduler.centreOf(npc), phase.getBeamLength()).isEmpty();
-    }
-
-    /**
-     * Hands the sweep over, and nothing else.
-     *
-     * <p>Nobody is hurt here: the shape, the turn and the damage - with the enrage bonus on
-     * it - are snapshotted on this tick and the scheduler drives the beams on its own
-     * clock, following the boss wherever it walks in the meantime if it was told to.</p>
-     */
-    private void performBeam(ServerLevel level, BossPhaseData phase, long gameTime) {
-        // The length, the speed and the timer are deliberately left alone by the enrage:
-        // they are the room a player gets to walk, not a number the fight may turn down.
-        BossBeamScheduler.start(level, npc, phase, beamStartYaw, rageUp(phase.getBeamDamage()),
-                rageUp(phase.getBeamKnockback()), gameTime);
-    }
-
     /** Read-only status used by the boss diagnostic command. */
     public String beamStatus(long gameTime) {
-        long left = BossBeamScheduler.remainingTicks(npc, gameTime);
-        if (left > 0L) {
-            return "Beam: sweeping " + left;
-        }
-        BossPhaseData phase = activePhase();
-        if (phase == null || !phase.isBeamEnabled()) {
-            return "Beam: disabled";
-        }
-        long remaining = abilityCooldownLeft(BossAbility.BEAM, gameTime);
-        return remaining > 0L ? "Beam: cooldown " + remaining : "Beam: ready";
-    }
-
-    /**
-     * A cocoon closed round each victim: a clone spawned on the spot they stand on, with
-     * them held inside it until the party lets them out or the time runs out on them.
-     *
-     * <p>Aimed the way the marks are, at up to a handful of victims anywhere in the arena.
-     * What a cocoon does from then on belongs to {@link BossCocoonManager}, because a lock
-     * lasts a while and the boss is back on its rotation the moment the cast lands.</p>
-     */
-    private boolean tryStartCocoon(ServerLevel level, TeleportPathData data,
-                                   BossPhaseData phase, long gameTime) {
-        if (!phase.isCocoonEnabled() || gameTime < abilityScheduleAt(BossAbility.COCOON)) return false;
-        if (!phase.canCocoon()) {
-            // Switched on with no clone to close round anybody: said once, then left quiet.
-            if (reportedEmptyCocoonPhases.add(currentPhase)) {
-                LOGGER.warn("Boss {} phase {} has the cocoon on but no cocoon clone name; it will not fire",
-                        npc.getName().getString(), currentPhase + 1);
-            }
-            return false;
-        }
-        List<LivingEntity> targets = selectAbilityTargets(level, phase.getCocoonTargetMode(),
-                COCOON_REACH, this::isValidCocoonTarget, phase.getCocoonTargetCount());
-        if (targets.isEmpty()) {
-            setAbilityScheduleAt(BossAbility.COCOON, gameTime + 10);
-            return false;
-        }
-        rememberExtraTargets(targets);
-        beginAction(BossAbility.COCOON, phase.getCocoonAnimation(),
-                phase.getCocoonActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        // Only the cooldown is scaled: the action delay is measured against the attack
-        // animation, and shortening it would close the cocoons before the cast does.
-        setAbilityScheduleAt(BossAbility.COCOON, gameTime + phase.getCocoonActionDelayTicks()
-                + rageDown(phase.getCocoonCooldownTicks()));
-        return true;
-    }
-
-    private boolean isValidCocoonTarget(LivingEntity target) {
-        // Somebody already held, by a cocoon or a capture, is left alone: two holds on one
-        // victim would fight over their spot and their client's lock.
-        if (target == null || target.level() != npc.level() || !target.isAlive()
-                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.COCOON)
-                || BossCocoonManager.isCocooned(target.getUUID())
-                || BossCaptureManager.isCaptured(target.getUUID())) {
-            return false;
-        }
-        return npc.distanceToSqr(target) <= COCOON_REACH * COCOON_REACH;
-    }
-
-    /**
-     * Closes a cocoon round everyone this cast wound up on.
-     *
-     * <p>Each victim gets a clone of their own, spawned on the spot they are standing on;
-     * one whose clone cannot be spawned is simply not held, and the reason is said once.
-     * Nothing is measured here: the shells go to {@link BossCocoonManager}, which owns
-     * them from now on.</p>
-     */
-    private void performCocoon(ServerLevel level, BossPhaseData phase, long gameTime) {
-        List<LivingEntity> victims = new ArrayList<>();
-        LivingEntity primary = pendingTarget(level);
-        if (primary != null && isValidCocoonTarget(primary)) {
-            victims.add(primary);
-        }
-        for (int id : pendingExtraTargets) {
-            if (level.getEntity(id) instanceof LivingEntity extra
-                    && isValidCocoonTarget(extra) && !victims.contains(extra)) {
-                victims.add(extra);
-            }
-        }
-        for (LivingEntity victim : victims) {
-            Entity shell = spawnCocoonClone(level, phase.getCocoonCloneName(), phase.getCocoonCloneTab(),
-                    victim.position(), victim.getYRot());
-            if (shell == null) {
-                continue;
-            }
-            BossCocoonUtil.markAsCocoon(shell, npc);
-            // The time limit and the rescue are deliberately left alone by the enrage: they
-            // are the room a party gets to answer, not a number the fight may turn down.
-            if (!BossCocoonManager.start(level, npc, victim, shell, phase, currentPhase,
-                    rageUp(phase.getCocoonFailDamage()), gameTime)) {
-                // Refused - held by somebody else after all, or standing in a wall - so the
-                // shell goes back the way it came, without a death.
-                shell.discard();
-                continue;
-            }
-            spawnCocoonGuard(level, phase, victim.position());
-            if (victim instanceof ServerPlayer player) {
-                trackParticipant(player);
-            }
-        }
-    }
-
-    /**
-     * The guard posted beside a cocoon, on the first free spot round it.
-     *
-     * <p>Optional, and never on the cocoon itself: it is there to be fought past on the way
-     * to the rescue, and one standing inside the shell would take every swing meant for
-     * the shell. A guard is an ordinary minion in everything but the caps: it fights, it
-     * stays when the cocoon opens, and it goes when the fight does.</p>
-     */
-    private void spawnCocoonGuard(ServerLevel level, BossPhaseData phase, Vec3 cocoon) {
-        if (phase.getCocoonGuardName().isEmpty()) {
-            return;
-        }
-        String cloneKey = phase.getCocoonGuardTab() + ":" + phase.getCocoonGuardName();
-        Vec3 spot = findCocoonGuardSpot(level, cocoon);
-        if (spot == null) {
-            warnBrokenCocoonClone(cloneKey, "no room beside the cocoon for the guard");
-            return;
-        }
-        // Facing the cocoon it was posted at, in Minecraft's own degrees.
-        float yaw = (float) (Mth.atan2(cocoon.z - spot.z, cocoon.x - spot.x) * Mth.RAD_TO_DEG) - 90.0F;
-        Entity guard = spawnCocoonClone(level, phase.getCocoonGuardName(), phase.getCocoonGuardTab(), spot, yaw);
-        if (guard == null) {
-            return;
-        }
-        BossCocoonUtil.markAsGuard(guard, npc);
-        if (guard instanceof Mob mob && hasCombatTarget() && mob.canAttack(npc.getTarget())) {
-            mob.setTarget(npc.getTarget());
-        }
-    }
-
-    /** A free spot a couple of blocks off the cocoon, tried the way round from a random start. */
-    private Vec3 findCocoonGuardSpot(ServerLevel level, Vec3 cocoon) {
-        double start = npc.getRandom().nextDouble() * Math.PI * 2.0D;
-        for (int attempt = 0; attempt < COCOON_GUARD_ATTEMPTS; attempt++) {
-            double angle = start + attempt * Math.PI * 2.0D / COCOON_GUARD_ATTEMPTS;
-            Vec3 candidate = new Vec3(cocoon.x + Math.cos(angle) * COCOON_GUARD_DISTANCE, cocoon.y,
-                    cocoon.z + Math.sin(angle) * COCOON_GUARD_DISTANCE);
-            BlockPos pos = BlockPos.containing(candidate);
-            if (level.hasChunkAt(pos) && level.getWorldBorder().isWithinBounds(pos)
-                    && level.noCollision(minionSpawnBox(candidate))) {
-                return candidate;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * One cocoon clone, spawned where it is told and facing the way it is told.
-     *
-     * <p>The minion spawn's shape without its slot bookkeeping: a cocoon belongs to a
-     * victim, not to a spawn point. The caller marks it, because what it is - a shell, or
-     * the guard beside one - is the caller's to say.</p>
-     */
-    private Entity spawnCocoonClone(ServerLevel level, String cloneName, int cloneTab, Vec3 position, float yaw) {
-        if (cloneName == null || cloneName.isBlank()) {
-            return null;
-        }
-        String cloneKey = cloneTab + ":" + cloneName;
-        try {
-            IEntity<?> wrapper = NpcAPI.Instance().getClones().spawn(position.x, position.y, position.z,
-                    cloneTab, cloneName, NpcAPI.Instance().getIWorld(level));
-            if (wrapper == null || wrapper.getMCEntity() == null) {
-                warnBrokenCocoonClone(cloneKey, "clone returned no entity");
-                return null;
-            }
-            Entity spawned = wrapper.getMCEntity();
-            BossCloneRespawnGuard.suppressSelfRespawn(spawned);
-            spawned.setYRot(yaw);
-            if (spawned instanceof Mob mob) {
-                mob.setYHeadRot(yaw);
-                mob.yBodyRot = yaw;
-            }
-            return spawned;
-        } catch (Throwable error) {
-            warnBrokenCocoonClone(cloneKey, error.getMessage());
-            return null;
-        }
-    }
-
-    private void warnBrokenCocoonClone(String cloneKey, String reason) {
-        if (reportedBrokenCocoonClones.add(cloneKey)) {
-            LOGGER.warn("Cannot spawn cocoon clone {} for boss {}: {}", cloneKey,
-                    npc.getName().getString(), reason);
-        }
+        return beam.status(gameTime);
     }
 
     /** Read-only status used by the boss diagnostic command. */
     public String cocoonStatus(long gameTime) {
-        int held = BossCocoonManager.countForBoss(npc.getUUID());
-        String holding = held > 0 ? ", holding " + BossCocoonManager.victimNamesForBoss(npc.getUUID()) : "";
-        BossPhaseData phase = activePhase();
-        if (phase == null || !phase.isCocoonEnabled()) {
-            return "Cocoon: disabled" + holding;
-        }
-        if (!phase.canCocoon()) {
-            return "Cocoon: no clone name" + holding;
-        }
-        long remaining = abilityCooldownLeft(BossAbility.COCOON, gameTime);
-        return (remaining > 0L ? "Cocoon: cooldown " + remaining : "Cocoon: ready") + holding;
+        return cocoon.status(gameTime);
     }
 
-    /** Read-only status used by the boss diagnostic command. */
     public String huntStatus(long gameTime) {
         return huntRuntime.status(gameTime, activePhase(), abilityScheduleAt(BossAbility.HUNT));
     }
@@ -2285,271 +1767,6 @@ public final class TeleportPathController {
         }
         nextBlockFeedbackAt = gameTime + BLOCK_FEEDBACK_INTERVAL_TICKS;
         return true;
-    }
-
-    private boolean tryStartTether(ServerLevel level, TeleportPathData data,
-                                   BossPhaseData phase, long gameTime) {
-        if (!phase.isTetherEnabled() || gameTime < abilityScheduleAt(BossAbility.TETHER)) return false;
-        List<LivingEntity> targets = selectAbilityTargets(level, phase.getTetherTargetMode(),
-                tetherReach(phase), candidate -> isValidTetherTarget(candidate, phase),
-                phase.getTetherTargetCount());
-        if (targets.isEmpty()) {
-            setAbilityScheduleAt(BossAbility.TETHER, gameTime + 10);
-            return false;
-        }
-        rememberExtraTargets(targets);
-        beginAction(BossAbility.TETHER, phase.getTetherAnimation(),
-                phase.getTetherActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        setAbilityScheduleAt(BossAbility.TETHER, gameTime + phase.getTetherActionDelayTicks()
-                + rageDown(phase.getTetherCooldownTicks()));
-        return true;
-    }
-
-    /** How far this cast picks its victims from; see {@link #TETHER_REACH}. */
-    private static double tetherReach(BossPhaseData phase) {
-        return phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS
-                ? phase.getTetherBreakDistance() : TETHER_REACH;
-    }
-
-    private boolean isValidTetherTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || target.level() != npc.level() || !target.isAlive()
-                || target.isRemoved() || !isAbilityTarget(target, BossAbilityKind.TETHER)
-                || BossTetherManager.isTethered(target.getUUID())) {
-            return false;
-        }
-        double reach = tetherReach(phase);
-        if (npc.distanceToSqr(target) > reach * reach) {
-            return false;
-        }
-        // A leash that reaches through a wall looks broken, so honour the NPC line-of-sight flag.
-        return !npc.ais.directLOS || npc.canNpcSee(target);
-    }
-
-    /**
-     * Leashes everyone this cast wound up on.
-     *
-     * <p>Nothing is measured here. The leashes go to {@link BossTetherManager}, which owns
-     * them from now on, because the boss is back on its rotation long before anyone has run
-     * far enough - or failed to - which is the whole point of the ability.</p>
-     */
-    private void performTether(ServerLevel level, BossPhaseData phase, long gameTime) {
-        List<LivingEntity> victims = new ArrayList<>();
-        LivingEntity primary = pendingTarget(level);
-        if (primary != null && isValidTetherTarget(primary, phase)) {
-            victims.add(primary);
-        }
-        for (int id : pendingExtraTargets) {
-            if (level.getEntity(id) instanceof LivingEntity extra
-                    && isValidTetherTarget(extra, phase) && !victims.contains(extra)) {
-                victims.add(extra);
-            }
-        }
-        if (victims.isEmpty()) {
-            return;
-        }
-        // The break distance and the timer are deliberately left alone by the enrage: they
-        // are the window a player gets to run, not a number the fight is allowed to turn down.
-        if (BossTetherManager.start(level, npc, victims, phase, currentPhase,
-                rageUp(phase.getTetherFailDamage()), gameTime) == 0) {
-            return;
-        }
-        for (LivingEntity victim : victims) {
-            if (victim instanceof ServerPlayer player) {
-                trackParticipant(player);
-            }
-        }
-    }
-
-    /**
-     * A field around wherever the boss is standing: a pull, a push or a throw.
-     *
-     * <p>Nothing is aimed, exactly as the boulder rain is not: the radius is the shape, and
-     * the cast only asks whether anybody is inside it worth spending a cooldown on. What the
-     * field does from then on belongs to {@link BossGravityScheduler}, because a pull lasts
-     * seconds and the boss is back on its rotation the moment the cast lands.</p>
-     */
-    private boolean tryStartGravity(ServerLevel level, TeleportPathData data,
-                                    BossPhaseData phase, long gameTime) {
-        if (!phase.isGravityEnabled() || gameTime < abilityScheduleAt(BossAbility.GRAVITY)) return false;
-        if (!hasGravityTargets(level, phase)) {
-            setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + 20);
-            return false;
-        }
-        beginAction(BossAbility.GRAVITY, phase.getGravityAnimation(),
-                phase.getGravityActionDelayTicks(), gameTime, null, data, phase);
-        // Only the cooldown is scaled: the action delay is measured against the attack
-        // animation, and shortening it would open the field before the swing does.
-        setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + phase.getGravityActionDelayTicks()
-                + rageDown(phase.getGravityCooldownTicks()));
-        return true;
-    }
-
-    private boolean hasGravityTargets(ServerLevel level, BossPhaseData phase) {
-        return !gravityVictims(level, npc.position(), phase.getGravityRadius()).isEmpty();
-    }
-
-    /**
-     * Hands the field over, and nothing else.
-     *
-     * <p>Nobody is moved here: the radius, the force and the damage - with the enrage bonus
-     * on it - are snapshotted on this tick and the scheduler drives the field on its own
-     * clock, following the boss wherever it walks in the meantime.</p>
-     */
-    private void performGravity(ServerLevel level, BossPhaseData phase, long gameTime) {
-        // The radius, the force and the timer are deliberately left alone by the enrage:
-        // they are the room a player gets to run, not a number the fight may turn down.
-        BossGravityScheduler.start(level, npc, phase, rageUp(phase.getGravityDamage()), gameTime);
-    }
-
-    /**
-     * A stone sent rolling or thrown down a corridor in front of the boss.
-     *
-     * <p>Where it goes is settled here, exactly as the line strike's corridor is: the
-     * warning on the floor promises one path, and the boss keeps that promise even if
-     * whoever it picked spends the whole wind-up running sideways.</p>
-     */
-    private boolean tryStartBoulder(ServerLevel level, TeleportPathData data,
-                                    BossPhaseData phase, long gameTime) {
-        if (!phase.canLaunchBoulder() || gameTime < abilityScheduleAt(BossAbility.BOULDER)) return false;
-        LivingEntity target = selectAbilityTarget(level, phase.getBoulderTargetMode(),
-                phase.getBoulderRange(), candidate -> isValidBoulderTarget(candidate, phase));
-        if (target == null || EntityBossBoulder.resolveBlock(phase.getBoulderBlock()) == null) {
-            setAbilityScheduleAt(BossAbility.BOULDER, gameTime + 20);
-            return false;
-        }
-        Vec3 flat = new Vec3(target.getX() - npc.getX(), 0.0D, target.getZ() - npc.getZ());
-        // Somebody standing inside the boss leaves no direction to read off them, so the
-        // gaze decides rather than the aim collapsing to nothing.
-        boulderAxis = flat.lengthSqr() < 1.0E-6D ? facingAxis() : flat.normalize();
-        beginAction(BossAbility.BOULDER, phase.getBoulderAnimation(),
-                phase.getBoulderActionDelayTicks(), gameTime, target, data, phase);
-        // Only the cooldown is scaled: the action delay is measured against the attack
-        // animation, and shortening it would launch the stone before the swing does.
-        setAbilityScheduleAt(BossAbility.BOULDER, gameTime + phase.getBoulderActionDelayTicks()
-                + rageDown(phase.getBoulderCooldownTicks()));
-        return true;
-    }
-
-    private boolean isValidBoulderTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.BOULDER)) {
-            return false;
-        }
-        // Measured flat, the way the corridor itself is laid out.
-        double dx = target.getX() - npc.getX();
-        double dz = target.getZ() - npc.getZ();
-        double range = phase.getBoulderRange();
-        return dx * dx + dz * dz <= range * range;
-    }
-
-    private void performBoulder(ServerLevel level, BossPhaseData phase) {
-        Vec3 axis = boulderAxis;
-        if (axis == null) {
-            return;
-        }
-        BlockState block = EntityBossBoulder.resolveBlock(phase.getBoulderBlock());
-        if (block == null) {
-            if (!phase.getBoulderBlock().equals(reportedBrokenBoulderBlock)) {
-                reportedBrokenBoulderBlock = phase.getBoulderBlock();
-                LOGGER.warn("Boss {} cannot launch a boulder of {}: no such block",
-                        npc.getName().getString(), phase.getBoulderBlock());
-            }
-            return;
-        }
-        reportedBrokenBoulderBlock = "";
-        // Whatever the eased turn had left to cover is finished on the tick the stone
-        // leaves, so the boss really faces down the corridor it promised.
-        turnTowardAxis(axis, phase.getBoulderRange(), 360.0F);
-
-        EntityBossBoulder boulder = new EntityBossBoulder(EntityRegistry.entityBossBoulder, level);
-        boulder.setOwner(npc);
-        boulder.configure(block, phase.getBoulderStyle(), phase.getBoulderScale(),
-                rageUp(phase.getBoulderDamage()), rageUp(phase.getBoulderKnockback()),
-                phase.isBoulderStopsOnHit(), phase.getBoulderShatterRadius(),
-                rageUp(phase.getBoulderShatterDamage()), phase.getBoulderVfx(),
-                phase.getBoulderEffects());
-        double offset = npc.getBbWidth() * 0.5D + phase.getBoulderScale() / 20.0D + 0.25D;
-        boolean rolls = phase.getBoulderMode() == BossPhaseData.BOULDER_MODE_ROLL;
-        boulder.setPos(npc.getX() + axis.x * offset,
-                rolls ? npc.getY() + 0.1D : npc.getY() + npc.getBbHeight() * 0.6D,
-                npc.getZ() + axis.z * offset);
-        // The corridor is measured from the boss, so the spawn offset comes off the travel
-        // budget rather than being rolled past the far end of the warning.
-        double travel = Math.max(2.0D, phase.getBoulderRange() - offset);
-        if (rolls) {
-            boulder.launchRoll(axis, phase.getBoulderSpeed(), travel);
-        } else {
-            boulder.launchThrow(axis, phase.getBoulderSpeed(), travel);
-        }
-        if (!level.addFreshEntity(boulder)) {
-            return;
-        }
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                block.getSoundType().getPlaceSound(), SoundSource.HOSTILE, 1.5F, 0.6F);
-    }
-
-    /**
-     * A ring of stones dropped out of the sky around wherever the boss is standing.
-     *
-     * <p>Nothing is aimed: the ring is the shape, and the cast only asks whether there is
-     * anybody inside it worth spending a cooldown on. Where each stone comes down is settled
-     * by {@link BossBoulderRainScheduler} on the tick the cast lands, because the boss is
-     * back on its rotation long before the last of them arrives.</p>
-     */
-    private boolean tryStartBoulderRain(ServerLevel level, TeleportPathData data,
-                                        BossPhaseData phase, long gameTime) {
-        if (!phase.canLaunchBoulderRain() || gameTime < abilityScheduleAt(BossAbility.BOULDER_RAIN)) return false;
-        if (EntityBossBoulder.resolveBlock(phase.getBoulderRainBlock()) == null
-                || !hasBoulderRainTargets(level, phase)) {
-            setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + 20);
-            return false;
-        }
-        beginAction(BossAbility.BOULDER_RAIN, phase.getBoulderRainAnimation(),
-                phase.getBoulderRainActionDelayTicks(), gameTime, null, data, phase);
-        // Only the cooldown is scaled: the action delay is measured against the attack
-        // animation, and shortening it would start the volley before the swing does.
-        setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + phase.getBoulderRainActionDelayTicks()
-                + rageDown(phase.getBoulderRainCooldownTicks()));
-        return true;
-    }
-
-    /**
-     * Whether the ring has anybody in it.
-     *
-     * <p>Swept to the outer edge and no further: somebody standing in the dead zone at the
-     * boss' feet is not a reason to rain, because not one stone can reach them there.</p>
-     */
-    private boolean hasBoulderRainTargets(ServerLevel level, BossPhaseData phase) {
-        double min = phase.getBoulderRainMinRadius();
-        for (LivingEntity target : getTargetsAround(level, npc.position(),
-                phase.getBoulderRainRadius(), BossAbilityKind.BOULDER_RAIN)) {
-            if (target.position().distanceToSqr(npc.position()) >= min * min) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Hands the whole volley over, and nothing else.
-     *
-     * <p>Not one stone falls here: the points, the damage and the enrage bonus are snapshotted
-     * on this tick and the scheduler drops them on its own clock, which is what lets the boss
-     * carry on fighting while its rain is still in the air.</p>
-     */
-    private void performBoulderRain(ServerLevel level, BossPhaseData phase, long gameTime) {
-        BlockState block = EntityBossBoulder.resolveBlock(phase.getBoulderRainBlock());
-        if (block == null) {
-            if (!phase.getBoulderRainBlock().equals(reportedBrokenBoulderRainBlock)) {
-                reportedBrokenBoulderRainBlock = phase.getBoulderRainBlock();
-                LOGGER.warn("Boss {} cannot rain boulders of {}: no such block",
-                        npc.getName().getString(), phase.getBoulderRainBlock());
-            }
-            return;
-        }
-        reportedBrokenBoulderRainBlock = "";
-        BossBoulderRainScheduler.schedule(level, npc, phase, npc.position(), block,
-                rageUp(phase.getBoulderRainDamage()), rageUp(phase.getBoulderRainKnockback()),
-                rageUp(phase.getBoulderRainShatterDamage()), gameTime);
     }
 
     private boolean tryStartSummon(ServerLevel level, TeleportPathData data,
@@ -2692,18 +1909,18 @@ public final class TeleportPathController {
             case GROUND_ATTACK -> BossTelegraphUtil.ring(level, npc.position(),
                     phase.getAreaAttackRadius(), dust);
             case LINE_ATTACK -> {
-                if (lineAttackAxis != null) {
-                    BossTelegraphUtil.corridor(level, npc.position(), lineAttackAxis,
+                if (committedAxis != null) {
+                    BossTelegraphUtil.corridor(level, npc.position(), committedAxis,
                             phase.getLineAttackLength(), phase.getLineAttackWidth(),
                             phase.getLineAttackSideWidth(), dust,
                             BossTelegraphUtil.fadedDust(ability));
                 }
             }
             case BOULDER -> {
-                if (boulderAxis != null) {
+                if (committedAxis != null) {
                     // As wide as the stone itself and with no softer flank: standing a step
                     // outside this corridor really is standing clear.
-                    BossTelegraphUtil.corridor(level, npc.position(), boulderAxis,
+                    BossTelegraphUtil.corridor(level, npc.position(), committedAxis,
                             phase.getBoulderRange(), phase.getBoulderScale() / 10.0D,
                             0.0D, dust, BossTelegraphUtil.fadedDust(ability));
                 }
@@ -2732,7 +1949,7 @@ public final class TeleportPathController {
             // player has to know which way round they will come.
             case BEAM -> {
                 BossTelegraphUtil.ring(level, npc.position(), phase.getBeamLength(), dust);
-                BossBeamScheduler.paintStart(level, npc, beamStartYaw, phase.getBeamCount(),
+                BossBeamScheduler.paintStart(level, npc, committedYaw, phase.getBeamCount(),
                         phase.getBeamLength(), phase.isBeamStopsAtWalls());
             }
             // The shelters, where the wind-up put them; under the sight rule there are none,
@@ -2804,7 +2021,7 @@ public final class TeleportPathController {
                     break;
                 }
                 if (point.isEnabled()) {
-                    BossTelegraphUtil.ring(level, minionPointAnchor(point),
+                    BossTelegraphUtil.ring(level, minionSpawns.pointAnchor(point),
                             TELEGRAPH_SPAWN_RING_RADIUS, dust);
                     drawn++;
                 }
@@ -2887,19 +2104,19 @@ public final class TeleportPathController {
         LivingEntity target = pendingTarget(level);
         return switch (pendingAction) {
             case GROUND_ATTACK -> hasAreaTargets(level, phase);
-            case GRAVITY -> hasGravityTargets(level, phase);
+            case GRAVITY -> gravity.hasTargets(level, phase);
             // Nobody left inside the beams' reach is a sweep not worth switching on.
-            case BEAM -> hasBeamTargets(level, phase);
+            case BEAM -> beam.hasTargets(level, phase);
             case RANGED_ATTACK -> isValidRangedTarget(target, phase)
                     && ProjectileEntityUtil.canShoot(npc);
             case MELEE_ATTACK -> isValidMeleeTarget(target, phase);
-            case FLUID_SPIT -> isValidFluidSpitTarget(target, phase);
+            case FLUID_SPIT -> fluidSpit.isValidTarget(target, phase);
             case HOOK -> hasWoundUpVictim(level, candidate -> hook.isValidTarget(candidate, phase));
-            case GEYSER -> hasWoundUpVictim(level, candidate -> isValidGeyserTarget(candidate, phase));
-            case TETHER -> hasWoundUpVictim(level, candidate -> isValidTetherTarget(candidate, phase));
-            case MARK -> hasWoundUpVictim(level, this::isValidMarkTarget);
-            case COCOON -> hasWoundUpVictim(level, this::isValidCocoonTarget);
-            case CAPTURE -> isValidCaptureTarget(target, phase);
+            case GEYSER -> hasWoundUpVictim(level, candidate -> geyser.isValidTarget(candidate, phase));
+            case TETHER -> hasWoundUpVictim(level, candidate -> tether.isValidTarget(candidate, phase));
+            case MARK -> hasWoundUpVictim(level, mark::isValidTarget);
+            case COCOON -> hasWoundUpVictim(level, cocoon::isValidTarget);
+            case CAPTURE -> capture.isValidTarget(target, phase);
             // A prey that got out of reach before the boss even set off is a hunt not worth
             // starting; one that got out afterwards ends it on its own.
             case HUNT -> huntRuntime.isValidTarget(target, settings());
@@ -2950,7 +2167,7 @@ public final class TeleportPathController {
      * Ticks left on one ability's cooldown, or 0 when it is ready or not on a clock. Shared
      * by the status lines, which all used to spell the same ternary out for themselves.
      */
-    private long abilityCooldownLeft(BossAbility ability, long gameTime) {
+    long abilityCooldownLeft(BossAbility ability, long gameTime) {
         long at = abilityScheduleAt(ability);
         return at == NOT_SCHEDULED ? 0L : at - gameTime;
     }
@@ -3034,61 +2251,17 @@ public final class TeleportPathController {
     }
 
     private void executePendingAction(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (pendingAction == BossAbility.SUMMON) {
-            summonMinions(level, phase);
-            invulnerableSummonedOnce = true;
-            minionAliveScanAt = NOT_SCHEDULED;
-        } else if (pendingAction == BossAbility.GROUND_ATTACK) {
-            performAreaAttack(level, phase);
-        } else if (pendingAction == BossAbility.LINE_ATTACK) {
-            performLineAttack(level, phase);
-        } else if (pendingAction == BossAbility.RANGED_ATTACK) {
-            performRangedAttack(level, phase);
-        } else if (pendingAction == BossAbility.MELEE_ATTACK) {
-            performMeleeAttack(level, phase);
-        } else if (pendingAction == BossAbility.FLUID_SPIT) {
-            performFluidSpit(level, phase);
-        } else if (pendingAction == BossAbility.HOOK) {
-            hook.perform(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.CAPTURE) {
-            performCapture(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.LEAP) {
-            leap.perform(level, data, phase, gameTime);
-        } else if (pendingAction == BossAbility.GEYSER) {
-            performGeyser(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.BOULDER) {
-            performBoulder(level, phase);
-        } else if (pendingAction == BossAbility.BOULDER_RAIN) {
-            performBoulderRain(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.TETHER) {
-            performTether(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.GRAVITY) {
-            performGravity(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.MARK) {
-            performMark(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.COVER) {
-            coverRuntime.perform(level);
-        } else if (pendingAction == BossAbility.HUNT) {
-            huntRuntime.perform(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.BEAM) {
-            performBeam(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.COCOON) {
-            performCocoon(level, phase, gameTime);
-        } else if (pendingAction == BossAbility.TELEPORT) {
-            List<int[]> points = npc.ais.getMovingPath();
-            if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
-                playPostTeleportAnimation(phase, gameTime);
-            }
-            scheduleNextTeleport(gameTime, phase);
+        AbilityPerformer performer = ABILITY_PERFORMERS.get(pendingAction);
+        if (performer != null) {
+            performer.perform(this, level, data, phase, gameTime);
         }
     }
 
-    private void playPostTeleportAnimation(BossPhaseData phase, long gameTime) {
-        if (phase.getAppearanceAnimation().isEmpty()) {
-            return;
-        }
-        playAnimation(phase.getAppearanceAnimation());
-        busyUntil = Math.max(busyUntil, gameTime + phase.getAppearanceLockTicks());
+    /** The summon, plus the two clocks a fresh wave of minions resets. */
+    private void performSummon(ServerLevel level, BossPhaseData phase) {
+        minionSpawns.summon(level, phase);
+        invulnerableSummonedOnce = true;
+        minionAliveScanAt = NOT_SCHEDULED;
     }
 
     void playAnimation(String animation) {
@@ -3103,369 +2276,6 @@ public final class TeleportPathController {
             LOGGER.warn("Could not play boss animation {} for NPC {}: {}", animation,
                     npc.getName().getString(), error.getMessage());
         }
-    }
-
-    private boolean teleportToNextSafePoint(ServerLevel level, List<int[]> points, TeleportPathData data) {
-        for (int attempt = 0; attempt < points.size(); attempt++) {
-            int candidate = nextPathIndex(points.size(), data.getOrder());
-            lastPathIndex = candidate;
-            int[] point = points.get(candidate);
-            if (point == null || point.length < 3) continue;
-
-            Vec3 destination = findSafePathDestination(level, point);
-            if (destination == null) continue;
-            double x = destination.x;
-            double y = destination.y;
-            double z = destination.z;
-            try {
-                if (data.shouldPlaySound()) {
-                    level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ENDERMAN_TELEPORT,
-                            SoundSource.HOSTILE, 1.0F, 1.0F);
-                }
-                npc.teleportTo(x, y, z);
-                npc.fallDistance = 0.0F;
-                npc.setDeltaMovement(Vec3.ZERO);
-                npc.getNavigation().stop();
-                lockedX = x;
-                lockedZ = z;
-                npc.gameEvent(GameEvent.TELEPORT);
-                if (data.shouldPlaySound()) {
-                    level.playSound(null, x, y, z, SoundEvents.ENDERMAN_TELEPORT,
-                            SoundSource.HOSTILE, 1.0F, 1.0F);
-                }
-                return true;
-            } catch (Throwable error) {
-                // CustomNPCs is free to veto or break a teleport from a script hook. The
-                // boss stays where it is and tries again on its next window, but somebody
-                // debugging a boss that never moves deserves to find this in the log.
-                LOGGER.warn("Boss {} could not teleport to path point {}: {}",
-                        npc.getName().getString(), candidate, error.getMessage());
-                lockedX = npc.getX();
-                lockedZ = npc.getZ();
-                return false;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * The CustomNPCs pather stores the block that was clicked. For a normal floor click that block
-     * is one block below the NPC's feet, while the initial path point already stores feet Y. Try the
-     * exact coordinate first for compatibility, then transparently lift floor-clicked points by one.
-     */
-    private Vec3 findSafePathDestination(ServerLevel level, int[] point) {
-        double x = point[0] + 0.5D;
-        double z = point[2] + 0.5D;
-        for (int yOffset = 0; yOffset <= 1; yOffset++) {
-            double y = point[1] + yOffset;
-            BlockPos blockPos = BlockPos.containing(x, y, z);
-            AABB destinationBox = npc.getBoundingBox().move(x - npc.getX(), y - npc.getY(), z - npc.getZ());
-            if (level.hasChunkAt(blockPos)
-                    && level.getWorldBorder().isWithinBounds(blockPos)
-                    && level.noCollision(npc, destinationBox)) {
-                return new Vec3(x, y, z);
-            }
-        }
-        return null;
-    }
-
-    private int nextPathIndex(int size, int order) {
-        if (order == TeleportPathData.ORDER_RANDOM) {
-            int candidate = npc.getRandom().nextInt(size - 1);
-            return candidate >= lastPathIndex ? candidate + 1 : candidate;
-        }
-        if (order == TeleportPathData.ORDER_PING_PONG) {
-            int candidate = lastPathIndex + pingPongDirection;
-            if (candidate < 0 || candidate >= size) {
-                pingPongDirection *= -1;
-                candidate = lastPathIndex + pingPongDirection;
-            }
-            return candidate;
-        }
-        return (lastPathIndex + 1) % size;
-    }
-
-    private int findClosestPoint(List<int[]> points) {
-        int closest = 0;
-        double closestDistance = Double.MAX_VALUE;
-        for (int i = 0; i < points.size(); i++) {
-            int[] point = points.get(i);
-            if (point == null || point.length < 3) continue;
-            double distance = npc.distanceToSqr(point[0] + 0.5D, point[1], point[2] + 0.5D);
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closest = i;
-            }
-        }
-        return closest;
-    }
-
-    private void summonMinions(ServerLevel level, BossPhaseData phase) {
-        // Capped at the ceiling it is subtracted from: past that the difference is never
-        // positive anyway, and the walk does not have to finish counting a full arena.
-        int available = phase.getMaxAliveMinions()
-                - BossMinionUtil.countAlive(level, npc, phase.getMaxAliveMinions());
-        int amount = Math.min(phase.getMinionCount(), Math.max(available, 0));
-        if (amount <= 0) return;
-
-        int spawned = 0;
-        if (phase.getMinionSpawnMode() != BossPhaseData.MINION_SPAWN_RANDOM_RADIUS) {
-            spawned = spawnConfiguredMinions(level, phase, amount);
-        }
-
-        boolean useRandom = phase.getMinionSpawnMode() == BossPhaseData.MINION_SPAWN_RANDOM_RADIUS
-                || phase.getMinionSpawnMode() == BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM;
-        if (!useRandom || phase.getMinionCloneName().isEmpty()) {
-            return;
-        }
-        for (int i = spawned; i < amount; i++) {
-            Vec3 position = findMinionPosition(level, phase.getMinionRadius());
-            if (position == null) continue;
-            spawnMinionClone(level, phase, phase.getMinionCloneName(), phase.getMinionCloneTab(),
-                    position, Float.NaN, currentPhase, -1);
-        }
-    }
-
-    private int spawnConfiguredMinions(ServerLevel level, BossPhaseData phase, int desired) {
-        List<BossMinionSpawnPoint> points = orderedMinionSpawnPoints(level, phase);
-        int spawned = 0;
-        for (BossMinionSpawnPoint point : points) {
-            if (spawned >= desired) {
-                break;
-            }
-            Vec3 anchor = minionPointAnchor(point);
-            Vec3 position = findConfiguredMinionPosition(level, anchor,
-                    phase.getMinionPointSearchRadius(), currentPhase, point.getPointId());
-            if (position == null) {
-                continue;
-            }
-            String cloneName = point.getCloneNameOverride().isEmpty()
-                    ? phase.getMinionCloneName() : point.getCloneNameOverride();
-            int cloneTab = point.getCloneTabOverride() == 0
-                    ? phase.getMinionCloneTab() : point.getCloneTabOverride();
-            Entity minion = spawnMinionClone(level, phase, cloneName, cloneTab, position,
-                    point.getYaw(), currentPhase, point.getPointId());
-            if (minion != null) {
-                spawned++;
-                if (phase.getMinionSpawnOrder() == BossPhaseData.MINION_ORDER_ROUND_ROBIN) {
-                    minionRoundRobinCursor.put(currentPhase, point.getPointId());
-                }
-            }
-        }
-        return spawned;
-    }
-
-    private List<BossMinionSpawnPoint> orderedMinionSpawnPoints(ServerLevel level, BossPhaseData phase) {
-        List<BossMinionSpawnPoint> candidates = new ArrayList<>();
-        Set<Integer> occupied = phase.isMinionReuseOccupiedPoints()
-                ? Set.of() : BossMinionUtil.occupiedSlots(level, npc, currentPhase);
-        for (BossMinionSpawnPoint point : phase.getMinionSpawnPoints().entries()) {
-            if (!point.isEnabled()) {
-                continue;
-            }
-            String cloneName = point.getCloneNameOverride().isEmpty()
-                    ? phase.getMinionCloneName() : point.getCloneNameOverride();
-            if (cloneName.isEmpty()) {
-                continue;
-            }
-            if (occupied.contains(point.getPointId())) {
-                warnBlockedMinionPoint(currentPhase, point.getPointId(),
-                        "slot already has a living minion");
-                continue;
-            }
-            candidates.add(point);
-        }
-
-        if (phase.getMinionSpawnOrder() == BossPhaseData.MINION_ORDER_RANDOM) {
-            return weightedRandomMinionPoints(candidates);
-        }
-        if (phase.getMinionSpawnOrder() != BossPhaseData.MINION_ORDER_ROUND_ROBIN
-                || candidates.size() < 2) {
-            return candidates;
-        }
-
-        Integer lastPointId = minionRoundRobinCursor.get(currentPhase);
-        if (lastPointId == null) {
-            return candidates;
-        }
-        List<BossMinionSpawnPoint> configured = phase.getMinionSpawnPoints().entries();
-        int lastIndex = -1;
-        for (int i = 0; i < configured.size(); i++) {
-            if (configured.get(i).getPointId() == lastPointId) {
-                lastIndex = i;
-                break;
-            }
-        }
-        if (lastIndex < 0) {
-            return candidates;
-        }
-        Set<Integer> candidateIds = new HashSet<>();
-        for (BossMinionSpawnPoint point : candidates) {
-            candidateIds.add(point.getPointId());
-        }
-        List<BossMinionSpawnPoint> rotated = new ArrayList<>(candidates.size());
-        for (int offset = 1; offset <= configured.size(); offset++) {
-            BossMinionSpawnPoint point = configured.get((lastIndex + offset) % configured.size());
-            if (candidateIds.contains(point.getPointId())) {
-                rotated.add(point);
-            }
-        }
-        return rotated;
-    }
-
-    private List<BossMinionSpawnPoint> weightedRandomMinionPoints(List<BossMinionSpawnPoint> candidates) {
-        List<BossMinionSpawnPoint> remaining = new ArrayList<>(candidates);
-        List<BossMinionSpawnPoint> ordered = new ArrayList<>(candidates.size());
-        while (!remaining.isEmpty()) {
-            int totalWeight = 0;
-            for (BossMinionSpawnPoint point : remaining) {
-                totalWeight += point.getWeight();
-            }
-            int roll = npc.getRandom().nextInt(totalWeight);
-            int selected = 0;
-            for (int i = 0; i < remaining.size(); i++) {
-                roll -= remaining.get(i).getWeight();
-                if (roll < 0) {
-                    selected = i;
-                    break;
-                }
-            }
-            ordered.add(remaining.remove(selected));
-        }
-        return ordered;
-    }
-
-    private Vec3 minionPointAnchor(BossMinionSpawnPoint point) {
-        if (point.getCoordinateMode() == BossMinionSpawnPoint.COORDINATE_FIXED) {
-            return new Vec3(point.getX() + 0.5D, point.getY(), point.getZ() + 0.5D);
-        }
-        return new Vec3(homeX + point.getX(), homeY + point.getY(), homeZ + point.getZ());
-    }
-
-    private Vec3 findConfiguredMinionPosition(ServerLevel level, Vec3 anchor, int radius,
-                                               int phaseIndex, int pointId) {
-        BlockPos anchorBlock = BlockPos.containing(anchor);
-        if (!level.hasChunkAt(anchorBlock)) {
-            warnBlockedMinionPoint(phaseIndex, pointId, "anchor chunk is not loaded");
-            return null;
-        }
-
-        List<int[]> offsets = new ArrayList<>();
-        for (int x = -radius; x <= radius; x++) {
-            for (int z = -radius; z <= radius; z++) {
-                if (x * x + z * z <= radius * radius) {
-                    offsets.add(new int[] {x, z});
-                }
-            }
-        }
-        offsets.sort(Comparator.<int[]>comparingInt(offset -> offset[0] * offset[0] + offset[1] * offset[1])
-                .thenComparingInt(offset -> offset[0]).thenComparingInt(offset -> offset[1]));
-
-        boolean foundLoaded = false;
-        boolean foundInsideWorld = false;
-        boolean foundUnoccupied = false;
-        for (int[] offset : offsets) {
-            Vec3 candidate = anchor.add(offset[0], 0.0D, offset[1]);
-            BlockPos feet = BlockPos.containing(candidate);
-            if (!level.hasChunkAt(feet)) {
-                continue;
-            }
-            foundLoaded = true;
-            if (!level.getWorldBorder().isWithinBounds(feet)
-                    || candidate.y < level.getMinBuildHeight()
-                    || candidate.y + 1.8D >= level.getMaxBuildHeight()) {
-                continue;
-            }
-            foundInsideWorld = true;
-            AABB box = minionSpawnBox(candidate);
-            if (!level.noCollision(box)
-                    || !level.getEntities((Entity) null, box,
-                    entity -> entity.isAlive() && !entity.isSpectator()).isEmpty()) {
-                continue;
-            }
-            foundUnoccupied = true;
-            BlockPos support = feet.below();
-            if (!level.getBlockState(support).isFaceSturdy(level, support, Direction.UP)) {
-                continue;
-            }
-            return candidate;
-        }
-
-        String reason = !foundLoaded ? "search chunks are not loaded"
-                : !foundInsideWorld ? "outside the world border or build height"
-                : !foundUnoccupied ? "spawn box is occupied" : "no solid support";
-        warnBlockedMinionPoint(phaseIndex, pointId, reason);
-        return null;
-    }
-
-    private static AABB minionSpawnBox(Vec3 position) {
-        return new AABB(position.x - 0.35D, position.y, position.z - 0.35D,
-                position.x + 0.35D, position.y + 1.8D, position.z + 0.35D);
-    }
-
-    private Entity spawnMinionClone(ServerLevel level, BossPhaseData phase,
-                                    String cloneName, int cloneTab, Vec3 position,
-                                    float yaw, int phaseIndex, int slotIndex) {
-        if (cloneName == null || cloneName.isBlank()) {
-            return null;
-        }
-        String cloneKey = cloneTab + ":" + cloneName;
-        try {
-            IEntity<?> wrapper = NpcAPI.Instance().getClones().spawn(position.x, position.y, position.z,
-                    cloneTab, cloneName, NpcAPI.Instance().getIWorld(level));
-            if (wrapper == null || wrapper.getMCEntity() == null) {
-                warnBrokenMinionClone(cloneKey, "clone returned no entity");
-                return null;
-            }
-            Entity minion = wrapper.getMCEntity();
-            BossMinionUtil.markAsMinion(minion, npc, phaseIndex, slotIndex);
-            BossCloneRespawnGuard.suppressSelfRespawn(minion);
-            if (Float.isFinite(yaw)) {
-                minion.setYRot(yaw);
-                if (minion instanceof Mob mob) {
-                    mob.setYHeadRot(yaw);
-                    mob.yBodyRot = yaw;
-                }
-            }
-            if (minion instanceof Mob mob && hasCombatTarget() && mob.canAttack(npc.getTarget())) {
-                mob.setTarget(npc.getTarget());
-            }
-            return minion;
-        } catch (Throwable error) {
-            warnBrokenMinionClone(cloneKey, error.getMessage());
-            return null;
-        }
-    }
-
-    private void warnBrokenMinionClone(String cloneKey, String reason) {
-        if (reportedBrokenMinionClones.add(cloneKey)) {
-            LOGGER.warn("Cannot summon CustomNPC clone {} for boss {}: {}", cloneKey,
-                    npc.getName().getString(), reason);
-        }
-    }
-
-    private void warnBlockedMinionPoint(int phaseIndex, int pointId, String reason) {
-        String key = phaseIndex + ":" + pointId + ":" + reason;
-        if (reportedBlockedMinionPoints.add(key)) {
-            LOGGER.warn("Cannot place minion point {} in boss {} phase {}: {}", pointId,
-                    npc.getName().getString(), phaseIndex + 1, reason);
-        }
-    }
-
-    private Vec3 findMinionPosition(ServerLevel level, int radius) {
-        for (int attempt = 0; attempt < 12; attempt++) {
-            double angle = npc.getRandom().nextDouble() * Math.PI * 2.0D;
-            double distance = 1.0D + npc.getRandom().nextDouble() * Math.max(radius - 1.0D, 0.0D);
-            double x = npc.getX() + Math.cos(angle) * distance;
-            double y = npc.getY();
-            double z = npc.getZ() + Math.sin(angle) * distance;
-            BlockPos pos = BlockPos.containing(x, y, z);
-            AABB box = new AABB(x - 0.35D, y, z - 0.35D, x + 0.35D, y + 1.8D, z + 0.35D);
-            if (level.hasChunkAt(pos) && level.getWorldBorder().isWithinBounds(pos) && level.noCollision(box)) {
-                return new Vec3(x, y, z);
-            }
-        }
-        return null;
     }
 
     private boolean hasAreaTargets(ServerLevel level, BossPhaseData phase) {
@@ -3637,7 +2447,7 @@ public final class TeleportPathController {
      * because this is the aiming list: an area sweep asks {@link #isAbilityTarget} instead
      * and is meant to catch them anyway.</p>
      */
-    private List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange,
+    List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange,
                                                  Predicate<LivingEntity> canHit) {
         TeleportPathData data = settings();
         AABB box = new AABB(npc.position(), npc.position()).inflate(searchRange + 1.0D);
@@ -3675,93 +2485,6 @@ public final class TeleportPathController {
                     rageUp(phase.getAreaAttackKnockback()),
                     npc.getX() - target.getX(), npc.getZ() - target.getZ());
         }
-    }
-
-    /** Where somebody is standing relative to a line strike: in it, beside it, or clear. */
-    private enum LineBand { MISS, CORRIDOR, SIDE }
-
-    /**
-     * Everyone a line strike laid along {@code axis} currently covers, flanks included.
-     *
-     * <p>The box around the whole strike is only a pre-filter, exactly as the area attack's
-     * is - it is what keeps the boss from sweeping the world every time it swings - and the
-     * shape itself is decided per candidate. Who may be hit at all is left to
-     * {@link #isAreaTarget}, so a corridor and an area slam can never end up with different
-     * ideas of who counts as an enemy.</p>
-     */
-    private List<LivingEntity> lineTargets(ServerLevel level, Vec3 origin, Vec3 axis,
-                                           BossPhaseData phase) {
-        double reach = phase.getLineAttackWidth() * 0.5D + phase.getLineAttackSideWidth() + 1.0D;
-        AABB box = new AABB(origin, origin.add(axis.scale(phase.getLineAttackLength())))
-                .inflate(reach, phase.getLineAttackHeight() + 1.0D, reach);
-        return level.getEntitiesOfClass(LivingEntity.class, box, target -> target != npc
-                && target.isAlive() && isAbilityTarget(target, BossAbilityKind.LINE)
-                && lineBand(origin, axis, phase, target) != LineBand.MISS);
-    }
-
-    /**
-     * Which part of a line strike covers one entity.
-     *
-     * <p>Worked along and across the axis: how far down the line they are has to fall inside
-     * its length, and how far off it decides whether the corridor itself reaches them or
-     * only the weaker wave running beside it.</p>
-     */
-    private LineBand lineBand(Vec3 origin, Vec3 axis, BossPhaseData phase, LivingEntity target) {
-        if (Math.abs(target.getY() - origin.y) > phase.getLineAttackHeight()) {
-            return LineBand.MISS;
-        }
-        double dx = target.getX() - origin.x;
-        double dz = target.getZ() - origin.z;
-        double along = dx * axis.x + dz * axis.z;
-        if (along < 0.0D || along > phase.getLineAttackLength()) {
-            return LineBand.MISS;
-        }
-        // The axis is flat and unit length, so a quarter turn of it gives the across
-        // measurement without a second normalize.
-        double across = Math.abs(dx * axis.z - dz * axis.x);
-        double half = phase.getLineAttackWidth() * 0.5D;
-        if (across <= half) {
-            return LineBand.CORRIDOR;
-        }
-        return phase.getLineAttackSideWidth() > 0 && across <= half + phase.getLineAttackSideWidth()
-                ? LineBand.SIDE : LineBand.MISS;
-    }
-
-    private void performLineAttack(ServerLevel level, BossPhaseData phase) {
-        Vec3 axis = lineAttackAxis;
-        if (axis == null) {
-            return;
-        }
-        if (phase.isLineAttackFaceAxis()) {
-            // Whatever the eased turn had left to cover is finished on the tick the strike
-            // lands, so the model points exactly down the corridor it hits.
-            turnTowardAxis(axis, phase.getLineAttackLength(), 360.0F);
-        }
-        Vec3 origin = npc.position();
-        // Purely for show, and started before the hits so the wave leaves at the same moment
-        // the damage lands rather than a tick behind it.
-        BossAreaVfxScheduler.scheduleLine(level, origin, axis, phase);
-        int damage = rageUp(phase.getLineAttackDamage());
-        int sideDamage = sideWaveDamage(damage, phase.getLineAttackSidePercent());
-        int knockback = rageUp(phase.getLineAttackKnockback());
-        for (LivingEntity target : lineTargets(level, origin, axis, phase)) {
-            boolean side = lineBand(origin, axis, phase, target) == LineBand.SIDE;
-            // Pushed down the line rather than away from the boss: this is a strike forward
-            // and not a blast, so everyone it catches is thrown the same way. Vanilla shoves
-            // against the vector it is handed, which is why the axis goes in negated.
-            BossAbilityDamageUtil.hit(target, BossAbilityKind.LINE, npc, side ? sideDamage : damage,
-                    phase.getLineAttackEffects(), knockback, -axis.x, -axis.z);
-        }
-    }
-
-    /**
-     * What the wave beside the corridor hits for.
-     *
-     * <p>Rounded up so a light strike does not lose its side wave to integer division, and
-     * capped at the corridor's own damage so a hundred percent is as hard as it gets.</p>
-     */
-    private static int sideWaveDamage(int damage, int percent) {
-        return Math.min(damage, Mth.ceil(damage * percent / 100.0D));
     }
 
     private boolean isValidRangedTarget(LivingEntity target, BossPhaseData phase) {
@@ -3856,7 +2579,7 @@ public final class TeleportPathController {
             }
         }
         if (mode == BossTargetMode.RANDOM) {
-            Collections.shuffle(candidates, new java.util.Random(npc.getRandom().nextLong()));
+            Util.shuffle(candidates, npc.getRandom());
         } else {
             boolean farthest = mode == BossTargetMode.FARTHEST;
             candidates.sort((left, right) -> {
@@ -3929,9 +2652,8 @@ public final class TeleportPathController {
         pendingLeadTicks = 0;
         pendingTargetId = -1;
         pendingExtraTargets.clear();
-        lineAttackAxis = null;
-        boulderAxis = null;
-        beamStartYaw = 0.0F;
+        committedAxis = null;
+        committedYaw = 0.0F;
         coverRuntime.clear();
         leap.forgetPlanIfGrounded();
     }
@@ -3957,7 +2679,6 @@ public final class TeleportPathController {
         highestPhaseReached = 0;
         currentPhase = -1;
         clearInvulnerability();
-        minionRoundRobinCursor.clear();
         rage.clear();
         healthScalingRuntime.clear(settings(), false);
         outOfCombatSince = NOT_SCHEDULED;
@@ -3975,19 +2696,15 @@ public final class TeleportPathController {
         BossCocoonManager.releaseByBoss(npc);
         busyUntil = 0L;
         cancelPendingAndSchedules();
-        lastPathIndex = -1;
-        previousPathSize = 0;
-        pingPongDirection = 1;
+        path.clear();
         nextAbilityPriority = 0;
         targeting.reset();
         clearEncounter();
         totems.clearRuntime();
-        reportedBrokenMinionClones.clear();
-        reportedBlockedMinionPoints.clear();
-        reportedBrokenCocoonClones.clear();
-        reportedBrokenFluid = "";
-        reportedBrokenGeyserFluid = "";
-        reportedBrokenBoulderBlock = "";
-        reportedBrokenBoulderRainBlock = "";
+        minionSpawns.clear();
+        cocoon.clear();
+        geyser.clear();
+        boulder.clear();
+        fluidSpit.clear();
     }
 }

@@ -92,7 +92,7 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
                     + point.getX() + "/" + point.getY() + "/" + point.getZ();
         } else {
             coordinates = I18n.get("cnpcgeckoaddon.boss.minion_spawn_arena") + " "
-                    + signed(point.getX()) + "/" + signed(point.getY()) + "/" + signed(point.getZ());
+                    + withSign(point.getX()) + "/" + withSign(point.getY()) + "/" + withSign(point.getZ());
         }
         String clone;
         if (point.getCloneNameOverride().isEmpty()) {
@@ -105,9 +105,6 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
         return coordinates + " · " + clone;
     }
 
-    private static String signed(int value) {
-        return value >= 0 ? "+" + value : Integer.toString(value);
-    }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {

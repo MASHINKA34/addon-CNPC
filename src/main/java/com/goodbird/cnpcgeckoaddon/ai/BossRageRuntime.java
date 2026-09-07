@@ -2,12 +2,14 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -22,17 +24,29 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULE
  * The enrage: a clock that runs from the first combat tick and, when it expires, makes the
  * boss hit harder and act oftener for the rest of the fight.
  *
- * <p>Owned by {@link TeleportPathController}. The bonus is hung on the entity as transient
- * attribute modifiers and taken off again by {@link #clear}, which every ending of a fight
- * goes through - a permanent modifier here would follow the boss into the save file.</p>
+ * <p>Owned by {@link TeleportPathController}. The bonus reaches the boss three ways, because
+ * no one of them covers the others: a transient attribute modifier for the speed, taken off
+ * again by {@link #clear} - a permanent modifier would follow the boss into the save file;
+ * {@link #up} and {@link #down} where the addon reads an ability's own numbers; and
+ * {@link #scaleOwnAttack} on the npc's plain swing, which CustomNPCs deals from a field
+ * rather than from an attribute.</p>
  */
 final class BossRageRuntime {
 
     private static final ResourceLocation MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_rage");
-    /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
-    private static final List<Holder<Attribute>> ATTRIBUTES =
-            List.of(Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE);
+    /**
+     * The one attribute the enrage can reach.
+     *
+     * <p>Health is deliberately absent: enrage makes the boss hit harder, not last longer.
+     * {@code ATTACK_DAMAGE} is absent for a less obvious reason - CustomNPCs never reads it.
+     * {@code EntityNPCInterface#doHurtTarget} takes the number straight out of
+     * {@code stats.melee.getStrength()} and {@code registerBaseAttributes} writes that same
+     * field back over the attribute's base, so a modifier hung here would be scaling a value
+     * nothing ever asks for. The npc's own swing is scaled by {@link #scaleOwnAttack} on the
+     * hit itself instead, and every ability the addon owns multiplies through {@link #up}.</p>
+     */
+    private static final List<Holder<Attribute>> ATTRIBUTES = List.of(Attributes.MOVEMENT_SPEED);
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -123,6 +137,31 @@ final class BossRageRuntime {
 
     double multiplier() {
         return boss.settings().getRageMultiplierPercent() / 100.0D;
+    }
+
+    /**
+     * Scales the npc's own swing while it is enraged, which no attribute can do.
+     *
+     * <p>Only a hit the boss dealt with its own body counts: {@code getDirectEntity} being the
+     * boss itself rules out everything it shot or threw, and those carry their damage from a
+     * setting the ability already multiplied. {@link BossAbilityDamageUtil#currentAbility()}
+     * rules out the abilities that do hit from the boss' own hitbox, for the same reason - a
+     * hit scaled by {@link #up} must not be scaled a second time here.</p>
+     *
+     * @return the damage this hit should land for, unchanged when the rage has no say in it
+     */
+    static float scaleOwnAttack(DamageSource source, float amount) {
+        if (amount <= 0.0F || BossAbilityDamageUtil.currentAbility() != BossAbilityDamageUtil.NO_ABILITY
+                || !(source.getEntity() instanceof EntityNPCInterface npc)
+                || source.getDirectEntity() != npc
+                || !(npc instanceof IBossController holder)) {
+            return amount;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null || !controller.isRageActive()) {
+            return amount;
+        }
+        return (float) (amount * controller.rageMultiplier());
     }
 
     /**

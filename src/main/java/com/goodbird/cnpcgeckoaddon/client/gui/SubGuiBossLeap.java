@@ -90,9 +90,9 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         // The label sits above the fields rather than beside them, so a coordinate eight
         // digits long still has somewhere to go.
         addLabel(new GuiLabel(COORDS_LABEL, "cnpcgeckoaddon.boss.chest_offset", guiLeft + 6, guiTop + 168));
-        addTextField(coordinateField(X_FIELD, guiLeft + 6, guiTop + 178, 74));
-        addTextField(coordinateField(Y_FIELD, guiLeft + 88, guiTop + 178, 74));
-        addTextField(coordinateField(Z_FIELD, guiLeft + 172, guiTop + 178, 70));
+        addTextField(coordinateField(X_FIELD, guiLeft + 6, guiTop + 178, 74, 0));
+        addTextField(coordinateField(Y_FIELD, guiLeft + 88, guiTop + 178, 74, 0));
+        addTextField(coordinateField(Z_FIELD, guiLeft + 172, guiTop + 178, 70, 0));
 
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 204, 116, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
@@ -105,15 +105,6 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         refresh();
     }
 
-    /**
-     * A plain text field, not a numbers-only one.
-     *
-     * <p>{@code setNumbersOnly()} lets nothing but digits through, and every coordinate on
-     * this screen can be negative - the minus sign would be impossible to type.</p>
-     */
-    private GuiTextFieldNop coordinateField(int id, int x, int y, int width) {
-        return new GuiTextFieldNop(id, this, x, y, width, 20, "0");
-    }
 
     /** Puts the screen in step with the selected mode: labels, values and what is editable. */
     private void refresh() {
@@ -247,17 +238,4 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         else field.setValue(current);
     }
 
-    private int signed(int id) {
-        GuiTextFieldNop field = getTextField(id);
-        if (field == null) {
-            return 0;
-        }
-        String value = field.getValue().trim();
-        try {
-            // A lone minus is what a half-typed negative number looks like.
-            return value.isEmpty() || value.equals("-") ? 0 : Integer.parseInt(value);
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
-    }
 }

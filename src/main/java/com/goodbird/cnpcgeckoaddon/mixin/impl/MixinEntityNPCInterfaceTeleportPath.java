@@ -31,6 +31,12 @@ public abstract class MixinEntityNPCInterfaceTeleportPath extends PathfinderMob 
         return cnpcgeckoaddon$teleportPathController;
     }
 
+    @Override
+    @Unique
+    public void cnpcgeckoaddon$clearTeleportPathController() {
+        cnpcgeckoaddon$teleportPathController = null;
+    }
+
     @Inject(method = "tick", at = @At("TAIL"), remap = false)
     private void cnpcgeckoaddon$tickTeleportPath(CallbackInfo ci) {
         if (level().isClientSide) {

@@ -242,14 +242,4 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         applyNumberField(COOLDOWN_FIELD, phase::setBeamCooldownTicks);
     }
 
-    /** The plain field's number, read the way the leap screen reads its coordinates. */
-    private static int signed(GuiTextFieldNop field) {
-        String value = field.getValue().trim();
-        try {
-            // A lone minus is what a half-typed negative number looks like.
-            return value.isEmpty() || value.equals("-") ? 0 : Integer.parseInt(value);
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
-    }
 }

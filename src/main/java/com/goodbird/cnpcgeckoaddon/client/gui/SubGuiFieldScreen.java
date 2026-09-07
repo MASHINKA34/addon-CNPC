@@ -153,6 +153,53 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
         }
     }
 
+    /**
+     * Reads a field that is allowed to hold a negative number.
+     *
+     * <p>{@link #applyNumberField} cannot: {@code getInteger} goes through the field's own
+     * clamp, and a coordinate field has no clamp to speak of - it spans the world. So the
+     * text is parsed here instead, and the two states a half-typed number passes through are
+     * read as zero rather than thrown over: an empty field, and a lone minus sign.</p>
+     *
+     * @return the number in the field, or 0 when there is no field or nothing usable in it
+     */
+    protected int signed(int id) {
+        GuiTextFieldNop field = getTextField(id);
+        return field == null ? 0 : signed(field);
+    }
+
+    /** The same, for a screen that already has the field in hand. */
+    protected static int signed(GuiTextFieldNop field) {
+        String value = field.getValue().trim();
+        try {
+            return value.isEmpty() || value.equals("-") ? 0 : Integer.parseInt(value);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    /**
+     * A number written the way an offset from somewhere is written, with its plus sign on.
+     *
+     * <p>The list screens print arena offsets next to absolute coordinates, and a bare
+     * {@code 4} in that column reads as a world coordinate rather than as four blocks east
+     * of the arena. The sign is what tells the two apart at a glance.</p>
+     */
+    protected static String withSign(int value) {
+        return value >= 0 ? "+" + value : Integer.toString(value);
+    }
+
+    /**
+     * A bare coordinate field: no clamp, no fallback, and a minus sign allowed.
+     *
+     * <p>Read back with {@link #signed}. The number fields above cannot serve here - they
+     * clamp to a range, and a world coordinate has none worth writing down - so the four
+     * screens that edit a spot in the world all had their own two-line copy of this.</p>
+     */
+    protected GuiTextFieldNop coordinateField(int id, int x, int y, int width, int value) {
+        return new GuiTextFieldNop(id, this, x, y, width, numberFieldHeight(), Integer.toString(value));
+    }
+
     /** A labelled integer field that clamps itself to {@code min..max} and falls back. */
     protected void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
         addLabel(new GuiLabel(id, label, guiLeft + numberLabelX(), y + numberLabelYOffset()));

@@ -78,17 +78,13 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
 
     private void addCornerFields(int xId, int yId, int zId, int buttonId, int y,
                                  int x, int cornerY, int z) {
-        addTextField(coordinateField(xId, guiLeft + 8, y, x));
-        addTextField(coordinateField(yId, guiLeft + 52, y, cornerY));
-        addTextField(coordinateField(zId, guiLeft + 96, y, z));
+        addTextField(coordinateField(xId, guiLeft + 8, y, 40, x));
+        addTextField(coordinateField(yId, guiLeft + 52, y, 40, cornerY));
+        addTextField(coordinateField(zId, guiLeft + 96, y, 40, z));
         addButton(new GuiButtonNop(this, buttonId, guiLeft + 142, y, 100, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
     }
 
-    /** Coordinate fields stay plain so a minus sign can be entered before the digits. */
-    private GuiTextFieldNop coordinateField(int id, int x, int y, int value) {
-        return new GuiTextFieldNop(id, this, x, y, 40, 20, Integer.toString(value));
-    }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
@@ -136,16 +132,4 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         data.setAggroZoneCorner2(signed(X2_FIELD), signed(Y2_FIELD), signed(Z2_FIELD));
     }
 
-    private int signed(int id) {
-        GuiTextFieldNop field = getTextField(id);
-        if (field == null) {
-            return 0;
-        }
-        String value = field.getValue().trim();
-        try {
-            return value.isEmpty() || value.equals("-") ? 0 : Integer.parseInt(value);
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
-    }
 }

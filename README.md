@@ -44,7 +44,9 @@ they cover exactly what can be checked without a world:
   `Integer.MAX_VALUE` - a setting read straight out of the tag is a cooldown of two billion
   ticks or a scan radius past the world border, neither of which throws;
 - that each row of the boss ability table is wired to its own phase setting and its own
-  cooldown, which is the mistake a table of twenty near-identical rows invites;
+  cooldown, which is the mistake a table of twenty near-identical rows invites, and that
+  everything the boss can wind up also has something to carry it out - an ability that
+  starts and then does nothing is invisible in play;
 - the leap's arc, checked against the motion it stands for by stepping vanilla's own fall
   constants tick by tick;
 - the take cover geometry: who a shelter covers, which shelters crowd each other out, how

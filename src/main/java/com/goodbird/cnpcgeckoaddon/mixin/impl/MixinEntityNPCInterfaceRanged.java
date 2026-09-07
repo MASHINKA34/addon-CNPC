@@ -136,11 +136,20 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
         ci.cancel();
     }
 
+    /**
+     * Takes a broken projectile entity off this npc for good.
+     *
+     * <p>Deliberately does not sync the npc: this runs from inside {@code performRangedAttack},
+     * and a caller may have swapped a setting of its own into {@code DataRanged} for the
+     * duration of the shot - the boss controller puts its phase damage there and takes it back
+     * out in a {@code finally}. Syncing from in here would publish that temporary value to
+     * every client that has the editor open. The cleared id is in memory and goes out with the
+     * npc's next save and sync; the reason it was cleared is already in the log.</p>
+     */
     @Unique
     private void cnpcgeckoaddon$disableProjectile(EntityType<?> type, EntityNPCInterface npc, Throwable error) {
         ProjectileEntityUtil.markUnusable(type, npc, error);
         cnpcgeckoaddon$rangedExtra().setProjectileEntity("");
-        npc.updateClient();
     }
 
     @Unique

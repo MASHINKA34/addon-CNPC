@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -197,6 +198,20 @@ class BossAbilityTableTest {
         // The controller's static initialiser refuses to load when the starter map and the
         // rotation disagree, which is the other half of the same wiring.
         assertNotNull(assertDoesNotThrowLoading());
+    }
+
+    @Test
+    @DisplayName("everything that can be wound up also has something to carry it out")
+    void everyWoundUpActionIsPerformed() {
+        // Stated here rather than read off the controller, for the reason the wiring above is:
+        // an ability that can be started and then does nothing is invisible in play - the boss
+        // winds up, the animation runs, and the hit never lands.
+        Set<BossAbility> expected = EnumSet.copyOf(BossAbility.ROTATION);
+        expected.add(BossAbility.TELEPORT);
+        assertEquals(expected, TeleportPathController.PERFORMED_ACTIONS,
+                "an action can be wound up with nothing to carry it out, or the other way round");
+        assertFalse(TeleportPathController.PERFORMED_ACTIONS.contains(BossAbility.NONE),
+                "doing nothing is not an action that gets performed");
     }
 
     private static Class<?> assertDoesNotThrowLoading() {

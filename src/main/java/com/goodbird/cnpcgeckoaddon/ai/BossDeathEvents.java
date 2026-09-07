@@ -103,6 +103,27 @@ public final class BossDeathEvents {
     }
 
     /**
+     * Makes an enraged boss' own swing hit as hard as the enrage says.
+     *
+     * <p>Registered HIGHEST so the number every listener below works from is already the
+     * enraged one - a resistance is a percentage of what the boss actually swung for, not of
+     * what it would have swung for calm.</p>
+     *
+     * <p>Here rather than on an attribute because CustomNPCs deals melee damage straight out
+     * of {@code stats.melee.getStrength()} and never reads {@code ATTACK_DAMAGE}, so the
+     * modifier that would be the obvious home for this scales nothing. What the addon's own
+     * abilities hit for goes through the rage multiplier where their settings are read, and
+     * this deliberately leaves those alone.</p>
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onEnragedBossAttack(final LivingIncomingDamageEvent event) {
+        float scaled = BossRageRuntime.scaleOwnAttack(event.getSource(), event.getAmount());
+        if (scaled != event.getAmount()) {
+            event.setAmount(scaled);
+        }
+    }
+
+    /**
      * Swallows every hit aimed at a boss protected by a phase or full-immunity totems.
      *
      * <p>This fires before any mitigation is calculated, so the hit is dropped whole rather
