@@ -283,6 +283,8 @@ public final class TeleportPathController {
     /** The take cover strike being wound up, or null outside one. */
     /** The styled boss bar and the countdown printed under it. */
     private final BossBarRuntime bar;
+    /** The aggro zone that starts the fight and the retargeting that keeps it honest. */
+    private final BossTargetingRuntime targeting;
     /** The arena turning dangerous for a phase; armed on every phase this boss enters. */
     private final BossHazardRuntime hazardRuntime;
     /** The shield with a timer, armed on every phase this boss enters inside a fight. */
@@ -366,8 +368,6 @@ public final class TeleportPathController {
     private int pingPongDirection = 1;
     private int previousPathSize;
     private int nextAbilityPriority;
-    private long nextRetargetAt = NOT_SCHEDULED;
-    private long nextAggroZoneAt = NOT_SCHEDULED;
     private final Set<String> reportedBrokenMinionClones = new HashSet<>();
     private final Set<String> reportedBlockedMinionPoints = new HashSet<>();
     private final Set<String> reportedBrokenCocoonClones = new HashSet<>();
@@ -385,6 +385,7 @@ public final class TeleportPathController {
     public TeleportPathController(EntityNPCInterface npc) {
         this.npc = npc;
         this.bar = new BossBarRuntime(this, npc);
+        this.targeting = new BossTargetingRuntime(this, npc);
         this.hazardRuntime = new BossHazardRuntime(this, npc);
         this.barrierRuntime = new BossBarrierRuntime(this, npc);
         this.huntRuntime = new BossHuntRuntime(this, npc);
@@ -445,8 +446,8 @@ public final class TeleportPathController {
         if (!active) {
             activate(level, gameTime, data);
         }
-        updateAggroZone(level, data, gameTime);
-        updateNearestTarget(level, data, gameTime);
+        targeting.updateAggroZone(level, data, gameTime);
+        targeting.updateNearest(level, data, gameTime);
         // After the two above and before anything reads the target: whatever they, the
         // vanilla aggro or a script did to it since the last tick is put back here.
         huntRuntime.tick(level, data, gameTime);
@@ -591,6 +592,20 @@ public final class TeleportPathController {
     /** The phase being fought by index, which is -1 until the boss is activated. */
     int currentPhaseIndex() {
         return currentPhase;
+    }
+
+    /** Whether a chase owns the target right now, which every other picker stands aside for. */
+    boolean isHunting() {
+        return huntRuntime.isHunting();
+    }
+
+    /** The arena box the aggro zone is drawn in, or null when its corners leave no room. */
+    AABB aggroZoneBounds(ServerLevel level, TeleportPathData data) {
+        return targeting.zoneBounds(level, data);
+    }
+
+    void setTargetIfChanged(LivingEntity target) {
+        targeting.setTargetIfChanged(target);
     }
 
     /** The phase whose immune window is running, for the countdown that draws it. */
@@ -1147,212 +1162,6 @@ public final class TeleportPathController {
     }
 
     /**
-     * Starts combat when an eligible player enters the configured block volume. The spatial
-     * check walks the dedicated server player list rather than every entity or every section,
-     * so a distant or accidentally huge absolute box never loads chunks or scans empty space.
-     */
-    private void updateAggroZone(ServerLevel level, TeleportPathData data, long gameTime) {
-        if (!data.isAggroZoneEnabled()) {
-            nextAggroZoneAt = NOT_SCHEDULED;
-            return;
-        }
-        if (nextAggroZoneAt != NOT_SCHEDULED && gameTime < nextAggroZoneAt) {
-            return;
-        }
-        nextAggroZoneAt = gameTime + data.getAggroZoneRecheckTicks();
-
-        AABB zone = aggroZoneBounds(level, data);
-        List<ServerPlayer> candidates = zone == null
-                ? List.of() : eligibleAggroZonePlayers(level, data, zone);
-        for (ServerPlayer player : candidates) {
-            // Everyone who crossed the trigger together belongs to the fight, even when
-            // only one of them is chosen as the NPC's immediate target.
-            trackParticipant(player);
-        }
-
-        // Membership was still taken above; only the choice is the hunt's for as long as it
-        // runs, and a prey who leaves the zone ends it rather than being swapped out here.
-        if (huntRuntime.isHunting()) {
-            return;
-        }
-        LivingEntity current = npc.getTarget();
-        boolean currentIsCandidate = current instanceof ServerPlayer player && candidates.contains(player);
-        if (data.isAggroZoneKeepInside() && current instanceof Player && !currentIsCandidate) {
-            setTargetIfChanged(selectAggroZoneTarget(candidates, data));
-            return;
-        }
-        if (!hasValidZoneCombatTarget(current, data)) {
-            ServerPlayer selected = selectAggroZoneTarget(candidates, data);
-            if (selected != null) {
-                setTargetIfChanged(selected);
-            }
-        }
-    }
-
-    private List<ServerPlayer> eligibleAggroZonePlayers(ServerLevel level, TeleportPathData data,
-                                                         AABB zone) {
-        List<ServerPlayer> candidates = new ArrayList<>();
-        for (ServerPlayer player : level.players()) {
-            if (player.level() == level && zone.contains(player.position())
-                    && isTargetableCandidate(player, data)) {
-                candidates.add(player);
-            }
-        }
-        return candidates;
-    }
-
-    /** Intersects Y with this dimension's real build height instead of an obsolete 0..255 range. */
-    AABB aggroZoneBounds(ServerLevel level, TeleportPathData data) {
-        int minY = Math.max(Math.min(data.getAggroZoneY1(), data.getAggroZoneY2()),
-                level.getMinBuildHeight());
-        int maxY = Math.min(Math.max(data.getAggroZoneY1(), data.getAggroZoneY2()),
-                level.getMaxBuildHeight() - 1);
-        if (minY > maxY) {
-            return null;
-        }
-        int minX = Math.min(data.getAggroZoneX1(), data.getAggroZoneX2());
-        int minZ = Math.min(data.getAggroZoneZ1(), data.getAggroZoneZ2());
-        int maxX = Math.max(data.getAggroZoneX1(), data.getAggroZoneX2());
-        int maxZ = Math.max(data.getAggroZoneZ1(), data.getAggroZoneZ2());
-        // The upper AABB bounds are exclusive, so adding one includes every block of corner 2.
-        return new AABB(minX, minY, minZ, (double) maxX + 1.0D,
-                (double) maxY + 1.0D, (double) maxZ + 1.0D);
-    }
-
-    private ServerPlayer selectAggroZoneTarget(List<ServerPlayer> candidates, TeleportPathData data) {
-        if (candidates.isEmpty()) {
-            return null;
-        }
-        if (data.getAggroZoneTargetMode() == TeleportPathData.AGGRO_ZONE_TARGET_RANDOM) {
-            return candidates.get(npc.getRandom().nextInt(candidates.size()));
-        }
-        ServerPlayer nearest = candidates.getFirst();
-        double nearestDistance = npc.distanceToSqr(nearest);
-        for (int i = 1; i < candidates.size(); i++) {
-            ServerPlayer candidate = candidates.get(i);
-            double distance = npc.distanceToSqr(candidate);
-            if (distance < nearestDistance) {
-                nearest = candidate;
-                nearestDistance = distance;
-            }
-        }
-        return nearest;
-    }
-
-    private boolean hasValidZoneCombatTarget(LivingEntity target, TeleportPathData data) {
-        if (!hasCombatTarget()) {
-            return false;
-        }
-        return !(target instanceof Player player) || isTargetableCandidate(player, data);
-    }
-
-    void setTargetIfChanged(LivingEntity target) {
-        if (npc.getTarget() != target) {
-            npc.setTarget(target);
-        }
-    }
-
-    /**
-     * Locks the boss onto the closest reachable enemy. Without this a boss keeps chasing
-     * whoever aggroed it first, which lets a group trivially kite it with one player.
-     */
-    private void updateNearestTarget(ServerLevel level, TeleportPathData data, long gameTime) {
-        if (!data.isTargetNearestPlayer()) {
-            nextRetargetAt = NOT_SCHEDULED;
-            return;
-        }
-        // The hunt owns the target for as long as it runs, and the nearest player is exactly
-        // who the boss is meant to be ignoring.
-        if (huntRuntime.isHunting()) {
-            return;
-        }
-        if (nextRetargetAt != NOT_SCHEDULED && gameTime < nextRetargetAt) {
-            return;
-        }
-        nextRetargetAt = gameTime + data.getTargetRecheckTicks();
-
-        boolean restrictToZone = data.isAggroZoneEnabled() && data.isAggroZoneKeepInside();
-        AABB zoneConstraint = restrictToZone ? aggroZoneBounds(level, data) : null;
-        double radius = data.getTargetSearchRadius();
-        double radiusSquared = radius * radius;
-        LivingEntity nearest = null;
-        double nearestDistance = Double.MAX_VALUE;
-        Iterable<? extends Player> players = !restrictToZone
-                ? level.players() : zoneConstraint == null
-                ? List.of() : eligibleAggroZonePlayers(level, data, zoneConstraint);
-        for (Player player : players) {
-            double distance = npc.distanceToSqr(player);
-            if ((!restrictToZone && distance > radiusSquared) || distance >= nearestDistance) {
-                continue;
-            }
-            if (!isTargetableCandidate(player, data)) {
-                continue;
-            }
-            nearest = player;
-            nearestDistance = distance;
-        }
-        for (LivingEntity candidate : nearbyNonPlayerTargets(level, data, radius, restrictToZone,
-                zoneConstraint)) {
-            double distance = npc.distanceToSqr(candidate);
-            if (distance < nearestDistance) {
-                nearest = candidate;
-                nearestDistance = distance;
-            }
-        }
-
-        LivingEntity current = npc.getTarget();
-        if (nearest == null) {
-            // Only release players: a mob target was picked by the CustomNPCs faction AI
-            // and dropping it here would fight with that system every recheck.
-            if ((restrictToZone || !data.isKeepTargetOutOfRange()) && current instanceof Player) {
-                npc.setTarget(null);
-            }
-            return;
-        }
-        if (current != nearest) {
-            npc.setTarget(nearest);
-        }
-    }
-
-    /**
-     * The non-player half of the retarget search.
-     *
-     * <p>Players keep their own scan because inside an aggro zone the zone, not the search
-     * radius, is their range, and walking a builder-sized zone section by section would
-     * cost far more than the player list it replaced. Everything else is looked up in a
-     * box around the boss and then, when the zone holds the fight, trimmed down to it.</p>
-     */
-    private List<LivingEntity> nearbyNonPlayerTargets(ServerLevel level, TeleportPathData data,
-                                                      double radius, boolean restrictToZone,
-                                                      AABB zoneConstraint) {
-        if (data.getAbilityTargetKind() == TeleportPathData.ABILITY_TARGET_PLAYERS
-                || restrictToZone && zoneConstraint == null) {
-            return List.of();
-        }
-        double radiusSquared = radius * radius;
-        AABB box = new AABB(npc.position(), npc.position()).inflate(radius + 1.0D);
-        return level.getEntitiesOfClass(LivingEntity.class, box, candidate ->
-                candidate != npc && !(candidate instanceof Player)
-                        && npc.distanceToSqr(candidate) <= radiusSquared
-                        && (!restrictToZone || zoneConstraint.contains(candidate.position()))
-                        && matchesAbilityTargetKind(candidate, data)
-                        && isTargetableCandidate(candidate, data));
-    }
-
-    /**
-     * Whether the retarget search may lock the boss onto this candidate.
-     *
-     * <p>Defers to {@link #isAreaTarget} so the boss can never decide to chase something
-     * its own attacks would refuse to hit, its minions and totems included.</p>
-     */
-    private boolean isTargetableCandidate(LivingEntity candidate, TeleportPathData data) {
-        if (!candidate.isAlive() || candidate.isRemoved() || !isAreaTarget(candidate)) {
-            return false;
-        }
-        return !data.isTargetRequiresLineOfSight() || npc.getSensing().hasLineOfSight(candidate);
-    }
-
-    /**
      * Whether the boss is really fighting someone right now.
      *
      * <p>Deliberately stricter than asking CustomNPCs whether it has a target: it holds on
@@ -1400,7 +1209,7 @@ public final class TeleportPathController {
     void registerInitialPartyCandidates(ServerLevel level, TeleportPathData data) {
         double radius = data.getTargetSearchRadius();
         double radiusSquared = radius * radius;
-        AABB zone = data.isAggroZoneEnabled() ? aggroZoneBounds(level, data) : null;
+        AABB zone = data.isAggroZoneEnabled() ? targeting.zoneBounds(level, data) : null;
         for (ServerPlayer player : level.players()) {
             if (player.level() == level && isParticipant(player)
                     && (npc.distanceToSqr(player) <= radiusSquared
@@ -4920,7 +4729,7 @@ public final class TeleportPathController {
                 && !BossMechanicUtil.hiddenByTotems(candidate) && canHit.test(candidate));
     }
 
-    private boolean isAreaTarget(LivingEntity target) {
+    boolean isAreaTarget(LivingEntity target) {
         if (target instanceof Player player && (player.isCreative() || player.isSpectator())) return false;
         if (BossMinionUtil.isMinionOf(target, npc)) return false;
         if (BossTotemUtil.isTotemOf(target, npc)) return false;
@@ -5274,8 +5083,7 @@ public final class TeleportPathController {
         previousPathSize = 0;
         pingPongDirection = 1;
         nextAbilityPriority = 0;
-        nextRetargetAt = NOT_SCHEDULED;
-        nextAggroZoneAt = NOT_SCHEDULED;
+        targeting.reset();
         clearEncounter();
         totems.clearRuntime();
         reportedBrokenMinionClones.clear();
