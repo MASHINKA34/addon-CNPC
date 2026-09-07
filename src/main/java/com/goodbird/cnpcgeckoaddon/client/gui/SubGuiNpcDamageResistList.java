@@ -16,7 +16,6 @@ public final class SubGuiNpcDamageResistList extends SubGuiFieldScreen {
 
     public SubGuiNpcDamageResistList(NpcImmunityData data) {
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -34,8 +33,7 @@ public final class SubGuiNpcDamageResistList extends SubGuiFieldScreen {
         }
 
         addWrappedHint(FIRST_HINT_LABEL, "cnpcgeckoaddon.npc.resist_hint", guiTop + 202);
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
     /** "1. scorchedguns:* - 20%", or "1. not set" for an unused slot. */

@@ -6,10 +6,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Turns the boss dangerous once a fight has dragged on for too long. */
-public final class SubGuiBossRage extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossRage extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int DELAY_FIELD = 2;
     private static final int MULTIPLIER_FIELD = 3;
@@ -22,7 +21,6 @@ public final class SubGuiBossRage extends SubGuiFieldScreen implements ITextfiel
     public SubGuiBossRage(EntityNPCInterface npc, TeleportPathData data) {
         this.npc = npc;
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -59,8 +57,7 @@ public final class SubGuiBossRage extends SubGuiFieldScreen implements ITextfiel
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.rage_hint", guiLeft + 8, guiTop + 150, 0xA0A0A0));
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 162, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     @Override
@@ -77,15 +74,7 @@ public final class SubGuiBossRage extends SubGuiFieldScreen implements ITextfiel
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop delay = getTextField(DELAY_FIELD);
         if (delay != null) data.setRageDelayTicks(delay.getInteger());
         GuiTextFieldNop multiplier = getTextField(MULTIPLIER_FIELD);

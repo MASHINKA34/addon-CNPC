@@ -6,10 +6,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** What the boss rolls back to once nobody is fighting it any more. */
-public final class SubGuiBossReset extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossReset extends SubGuiFieldScreen {
     private static final int TICKS_FIELD = 1;
     private static final int HEAL_BUTTON = 2;
     private static final int RETURN_BUTTON = 3;
@@ -22,7 +21,6 @@ public final class SubGuiBossReset extends GuiBasic implements ITextfieldListene
 
     public SubGuiBossReset(TeleportPathData data) {
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -64,8 +62,7 @@ public final class SubGuiBossReset extends GuiBasic implements ITextfieldListene
                 TeleportPathData.MAX_HOME_LEASH_GRACE_TICKS, 0);
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.reset_hint", guiLeft + 8, guiTop + 202, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
     private void addYesNo(int id, String label, String tooltip, int y, boolean value) {
@@ -101,15 +98,7 @@ public final class SubGuiBossReset extends GuiBasic implements ITextfieldListene
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop ticks = getTextField(TICKS_FIELD);
         if (ticks != null) data.setResetTicks(ticks.getInteger());
         GuiTextFieldNop radius = getTextField(HOME_RADIUS_FIELD);

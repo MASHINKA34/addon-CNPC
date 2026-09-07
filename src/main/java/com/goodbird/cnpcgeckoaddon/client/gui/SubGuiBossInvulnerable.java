@@ -6,10 +6,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Immune phase: the boss shrugs off every hit and answers only with summons. */
-public final class SubGuiBossInvulnerable extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossInvulnerable extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int END_MODE_BUTTON = 2;
     private static final int DURATION_FIELD = 3;
@@ -22,7 +21,6 @@ public final class SubGuiBossInvulnerable extends GuiBasic implements ITextfield
     public SubGuiBossInvulnerable(BossPhaseData phase, int phaseIndex) {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -63,8 +61,7 @@ public final class SubGuiBossInvulnerable extends GuiBasic implements ITextfield
                 phase.isInvulnerableSummonImmediately()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.invulnerable_hint", guiLeft + 8, guiTop + 166, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     @Override
@@ -81,15 +78,7 @@ public final class SubGuiBossInvulnerable extends GuiBasic implements ITextfield
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop duration = getTextField(DURATION_FIELD);
         if (duration != null) phase.setInvulnerableDurationTicks(duration.getInteger());
     }

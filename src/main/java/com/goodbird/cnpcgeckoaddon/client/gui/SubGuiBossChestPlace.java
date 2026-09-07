@@ -9,10 +9,9 @@ import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Where a boss puts its loot chest down. */
-public final class SubGuiBossChestPlace extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossChestPlace extends SubGuiFieldScreen {
     private static final int MODE_BUTTON = 1;
     private static final int COORDS_LABEL = 2;
     private static final int X_FIELD = 3;
@@ -24,7 +23,6 @@ public final class SubGuiBossChestPlace extends GuiBasic implements ITextfieldLi
 
     public SubGuiBossChestPlace(TeleportPathData data) {
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 160;
         closeOnEsc = true;
@@ -48,8 +46,7 @@ public final class SubGuiBossChestPlace extends GuiBasic implements ITextfieldLi
 
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 94, 234, 20,
                 "cnpcgeckoaddon.boss.chest_here"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 130, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 130, 60, 20);
 
         refresh();
     }
@@ -119,15 +116,7 @@ public final class SubGuiBossChestPlace extends GuiBasic implements ITextfieldLi
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         int x = signed(X_FIELD);
         int y = signed(Y_FIELD);
         int z = signed(Z_FIELD);

@@ -1,18 +1,12 @@
-package com.goodbird.cnpcgeckoaddon.gametest;
+package com.goodbird.cnpcgeckoaddon.data;
 
-import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
-import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
-import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
-import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
-import com.goodbird.cnpcgeckoaddon.data.BoulderStyles;
-import com.goodbird.cnpcgeckoaddon.data.NpcCarryData;
-import com.goodbird.cnpcgeckoaddon.data.NpcImmunityData;
-import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
-import net.minecraft.gametest.framework.GameTest;
-import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pins the save round trip of the boss configuration: write, read, write again has to
@@ -20,27 +14,24 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * stable defaults. The bosses on the live server exist only as these tags, so an asymmetry
  * here is how their settings would silently rot on every edit-and-save.
  */
-@GameTestHolder(CNPCGeckoAddon.MODID)
-@PrefixGameTestTemplate(false)
-public class BossDataRoundTripGameTest {
+class BossDataRoundTripTest {
 
-    @GameTest(template = "fluid_platform", timeoutTicks = 100)
-    public static void bossSettingsSurviveTheSaveRoundTrip(GameTestHelper helper) {
+    @Test
+    @DisplayName("a configured boss survives write -> read -> write unchanged")
+    void bossSettingsSurviveTheSaveRoundTrip() {
         TeleportPathData first = configuredBoss();
 
         CompoundTag once = first.writeToNBT(new CompoundTag());
         TeleportPathData reread = new TeleportPathData();
         reread.readFromNBT(once);
-        CompoundTag twice = reread.writeToNBT(new CompoundTag());
 
-        helper.assertTrue(once.equals(twice),
+        assertEquals(once, reread.writeToNBT(new CompoundTag()),
                 "write -> read -> write should reproduce the identical boss tag");
-        helper.succeed();
     }
 
-    /** A boss written by an older version - no keys at all - loads stably too. */
-    @GameTest(template = "fluid_platform", timeoutTicks = 100)
-    public static void missingKeysProduceStableDefaults(GameTestHelper helper) {
+    @Test
+    @DisplayName("a boss saved before these keys existed loads to stable defaults")
+    void missingKeysProduceStableDefaults() {
         TeleportPathData fromEmpty = new TeleportPathData();
         fromEmpty.readFromNBT(new CompoundTag());
 
@@ -48,21 +39,21 @@ public class BossDataRoundTripGameTest {
         TeleportPathData reread = new TeleportPathData();
         reread.readFromNBT(once);
 
-        helper.assertTrue(once.equals(reread.writeToNBT(new CompoundTag())),
+        assertEquals(once, reread.writeToNBT(new CompoundTag()),
                 "the defaults an empty tag produces should survive their own round trip");
-        helper.assertFalse(fromEmpty.isEnabled(), "an empty tag should leave the boss disabled");
-        helper.succeed();
+        assertFalse(fromEmpty.isEnabled(), "an empty tag should leave the boss disabled");
     }
 
-    @GameTest(template = "fluid_platform", timeoutTicks = 100)
-    public static void untouchedNpcStoresNoBossBlock(GameTestHelper helper) {
+    @Test
+    @DisplayName("an npc that has never been a boss stores no boss keys")
+    void untouchedNpcStoresNoBossBlock() {
         CompoundTag untouched = new TeleportPathData().writeToNBT(new CompoundTag());
-        helper.assertTrue(untouched.isEmpty(),
+        assertTrue(untouched.isEmpty(),
                 "an npc that has never been a boss should store no boss keys at all");
 
         TeleportPathData opened = new TeleportPathData();
         opened.markConfigured();
-        helper.assertFalse(opened.writeToNBT(new CompoundTag()).isEmpty(),
+        assertFalse(opened.writeToNBT(new CompoundTag()).isEmpty(),
                 "opening the boss screen should start storing the settings");
 
         TeleportPathData disabled = new TeleportPathData();
@@ -74,7 +65,7 @@ public class BossDataRoundTripGameTest {
         reread.setEnabled(false);
         TeleportPathData afterToggle = new TeleportPathData();
         afterToggle.readFromNBT(reread.writeToNBT(new CompoundTag()));
-        helper.assertTrue(afterToggle.getPhase(1).getAreaAttackDamage() == 42,
+        assertEquals(42, afterToggle.getPhase(1).getAreaAttackDamage(),
                 "switching a configured boss off must not drop its settings");
 
         TeleportPathData legacy = new TeleportPathData();
@@ -82,13 +73,13 @@ public class BossDataRoundTripGameTest {
         CompoundTag allDefaults = legacy.writeToNBT(new CompoundTag());
         TeleportPathData migrated = new TeleportPathData();
         migrated.readFromNBT(allDefaults);
-        helper.assertTrue(migrated.writeToNBT(new CompoundTag()).isEmpty(),
+        assertTrue(migrated.writeToNBT(new CompoundTag()).isEmpty(),
                 "a block of nothing but defaults should be dropped on the next save");
-        helper.succeed();
     }
 
-    @GameTest(template = "fluid_platform", timeoutTicks = 100)
-    public static void npcSideSettingsSurviveTheSaveRoundTrip(GameTestHelper helper) {
+    @Test
+    @DisplayName("the npc-side settings survive their own round trip")
+    void npcSideSettingsSurviveTheSaveRoundTrip() {
         NpcCarryData carry = new NpcCarryData();
         carry.setCarryable(true);
         carry.setRequireSneak(false);
@@ -98,7 +89,7 @@ public class BossDataRoundTripGameTest {
         CompoundTag carryOnce = carry.writeToNBT(new CompoundTag());
         NpcCarryData carryReread = new NpcCarryData();
         carryReread.readFromNBT(carryOnce);
-        helper.assertTrue(carryOnce.equals(carryReread.writeToNBT(new CompoundTag())),
+        assertEquals(carryOnce, carryReread.writeToNBT(new CompoundTag()),
                 "the carry settings should survive their round trip");
 
         NpcImmunityData immunity = new NpcImmunityData();
@@ -113,19 +104,16 @@ public class BossDataRoundTripGameTest {
         CompoundTag immunityOnce = immunity.writeToNBT(new CompoundTag());
         NpcImmunityData immunityReread = new NpcImmunityData();
         immunityReread.readFromNBT(immunityOnce);
-        helper.assertTrue(immunityOnce.equals(immunityReread.writeToNBT(new CompoundTag())),
+        assertEquals(immunityOnce, immunityReread.writeToNBT(new CompoundTag()),
                 "the immunity mask should survive its round trip");
-        helper.assertTrue(immunityReread.isImmuneTo(BossAbilityKind.HOOK)
-                        && !immunityReread.isImmuneTo(BossAbilityKind.MELEE),
-                "exactly the bits that were set should come back set");
-        helper.assertTrue(immunityReread.getResist(0).getMatcher().equals("scorchedguns:*")
-                        && immunityReread.getResist(0).getPercent() == 20,
-                "the first damage resistance rule should come back as written");
-        helper.assertTrue(immunityReread.getResist(1).getMatcher().equals("*")
-                        && immunityReread.getResist(1).getPercent() == 50
-                        && !immunityReread.getResist(2).isSet(),
+        assertTrue(immunityReread.isImmuneTo(BossAbilityKind.HOOK));
+        assertFalse(immunityReread.isImmuneTo(BossAbilityKind.MELEE));
+        assertEquals("scorchedguns:*", immunityReread.getResist(0).getMatcher());
+        assertEquals(20, immunityReread.getResist(0).getPercent());
+        assertEquals("*", immunityReread.getResist(1).getMatcher());
+        assertEquals(50, immunityReread.getResist(1).getPercent());
+        assertFalse(immunityReread.getResist(2).isSet(),
                 "set rules should come back packed in order, the rest empty");
-        helper.succeed();
     }
 
     /**
@@ -222,3 +210,4 @@ public class BossDataRoundTripGameTest {
         return data;
     }
 }
+

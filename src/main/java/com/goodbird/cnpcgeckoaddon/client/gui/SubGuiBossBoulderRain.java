@@ -9,10 +9,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Boulder rain: stones dropped out of the sky in a ring around the boss. */
-public final class SubGuiBossBoulderRain extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int BLOCK_FIELD = 3;
@@ -48,7 +47,6 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen implements IT
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         // The ring, the volley, the stone and what it does on landing are four sets of
         // numbers, and a builder tuning the height against the interval reads both at once.
@@ -117,8 +115,7 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen implements IT
         addWrappedHint(31, "cnpcgeckoaddon.boss.boulder_rain_hint", guiTop + 274);
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 296, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 296, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 296, 60, 20);
     }
 
     private int lookIndex() {
@@ -202,15 +199,7 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen implements IT
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();

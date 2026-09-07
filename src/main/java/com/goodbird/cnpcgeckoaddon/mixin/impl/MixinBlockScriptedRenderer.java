@@ -21,7 +21,7 @@ public abstract class MixinBlockScriptedRenderer {
 
 
     @Inject(method = "render(Lnoppes/npcs/blocks/tiles/TileScripted;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;II)V", at = @At(value = "HEAD"), cancellable = true, remap = false)
-    public void customGeckoModelRendering(TileScripted tileScripted, float partialTicks, PoseStack matrixStack, MultiBufferSource buffer, int light, int overlay, CallbackInfo ci) {
+    private void cnpcgeckoaddon$renderGeckoBlockModel(TileScripted tileScripted, float partialTicks, PoseStack matrixStack, MultiBufferSource buffer, int light, int overlay, CallbackInfo ci) {
         if(overrideModel()) return;
         if(!(tileScripted.renderTile instanceof TileEntityCustomModel)) return;
         matrixStack.pushPose();

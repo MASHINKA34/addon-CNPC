@@ -18,12 +18,12 @@ public class MixinDataRanged implements IRangedData {
     private final RangedExtraData cnpcgeckoaddon$rangedExtraData = new RangedExtraData();
 
     @Inject(method = "save", at = @At("HEAD"), remap = false)
-    public void writeToNBT(CompoundTag nbttagcompound, CallbackInfoReturnable<CompoundTag> cir) {
+    private void cnpcgeckoaddon$saveRangedExtra(CompoundTag nbttagcompound, CallbackInfoReturnable<CompoundTag> cir) {
         cnpcgeckoaddon$rangedExtraData.writeToNBT(nbttagcompound);
     }
 
     @Inject(method = "load", at = @At("HEAD"), remap = false)
-    public void readFromNBT(CompoundTag nbttagcompound, CallbackInfo ci) {
+    private void cnpcgeckoaddon$loadRangedExtra(CompoundTag nbttagcompound, CallbackInfo ci) {
         cnpcgeckoaddon$rangedExtraData.readFromNBT(nbttagcompound);
     }
 

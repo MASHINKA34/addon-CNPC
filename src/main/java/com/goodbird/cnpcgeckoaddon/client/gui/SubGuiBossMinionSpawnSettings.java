@@ -7,10 +7,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Per-phase placement policy for ordinary summoned minions. */
-public final class SubGuiBossMinionSpawnSettings extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossMinionSpawnSettings extends SubGuiFieldScreen {
     private static final int MODE_BUTTON = 1;
     private static final int ORDER_BUTTON = 2;
     private static final int SEARCH_FIELD = 3;
@@ -25,7 +24,6 @@ public final class SubGuiBossMinionSpawnSettings extends GuiBasic implements ITe
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 196;
         closeOnEsc = true;
@@ -63,8 +61,7 @@ public final class SubGuiBossMinionSpawnSettings extends GuiBasic implements ITe
                 guiLeft + 8, guiTop + 135, 0xA0A0A0));
         addButton(new GuiButtonNop(this, EDIT_BUTTON, guiLeft + 8, guiTop + 170, 168, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_edit"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 170, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 170, 60, 20);
     }
 
     private void addChoice(int id, String label, int y, String[] values, int selected) {
@@ -87,15 +84,7 @@ public final class SubGuiBossMinionSpawnSettings extends GuiBasic implements ITe
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop search = getTextField(SEARCH_FIELD);
         if (search != null) phase.setMinionPointSearchRadius(search.getInteger());
     }

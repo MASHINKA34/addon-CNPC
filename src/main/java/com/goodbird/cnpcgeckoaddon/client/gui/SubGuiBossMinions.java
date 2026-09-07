@@ -8,7 +8,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** What happens to the clones a boss summoned once it is no longer fighting. */
-public final class SubGuiBossMinions extends GuiBasic {
+public final class SubGuiBossMinions extends SubGuiFieldScreen {
     private static final int ON_DEATH_BUTTON = 1;
     private static final int ON_RESET_BUTTON = 2;
     private static final int REMOVAL_BUTTON = 3;
@@ -20,7 +20,6 @@ public final class SubGuiBossMinions extends GuiBasic {
     public SubGuiBossMinions(EntityNPCInterface npc, TeleportPathData data) {
         this.npc = npc;
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -52,8 +51,7 @@ public final class SubGuiBossMinions extends GuiBasic {
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.minions_hint", guiLeft + 8, guiTop + 150, 0xA0A0A0));
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.minions_reset_hint", guiLeft + 8, guiTop + 162, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     @Override

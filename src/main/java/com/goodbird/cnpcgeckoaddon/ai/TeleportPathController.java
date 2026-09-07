@@ -4437,6 +4437,40 @@ public final class TeleportPathController {
         return !getAreaTargets(level, phase).isEmpty();
     }
 
+    /**
+     * Everyone within {@code reach} of {@code centre} this boss may catch with {@code ability},
+     * plus whatever else the caller's own rule demands of them.
+     *
+     * <p>One scan behind every sweep an ability makes, because the box, the round distance
+     * test and the immunity door are the same question every time and used to be answered by
+     * five copies of it. What differs between the abilities is only {@code extra}.</p>
+     */
+    private List<LivingEntity> victimsAround(ServerLevel level, Vec3 centre, double reach,
+                                             int ability, Predicate<LivingEntity> extra) {
+        double reachSquared = reach * reach;
+        // A whole block of slack on the box: it only pre-filters, and an entity standing
+        // exactly on the rim should still be handed to the distance test below.
+        AABB box = new AABB(centre, centre).inflate(reach + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive()
+                        && target.position().distanceToSqr(centre) <= reachSquared
+                        && isAbilityTarget(target, ability)
+                        && extra.test(target));
+    }
+
+    /**
+     * The rule the abilities that sweep the whole arena share: they keep to the species the
+     * boss is set to fight and pass over anyone hidden by their own totems. A field that
+     * throws the cattle about, or drags a warded boss out of its formation, reads as a bug
+     * rather than as a mechanic.
+     */
+    private List<LivingEntity> arenaVictims(ServerLevel level, Vec3 centre, double reach, int ability) {
+        TeleportPathData data = settings();
+        return victimsAround(level, centre, reach, ability,
+                target -> matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target));
+    }
+
     private List<LivingEntity> getAreaTargets(ServerLevel level, BossPhaseData phase) {
         return getTargetsAround(level, npc.position(), phase.getAreaAttackRadius(), BossAbilityKind.AREA);
     }
@@ -4451,13 +4485,7 @@ public final class TeleportPathController {
      */
     private List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius,
                                                 int ability) {
-        double radiusSquared = radius * radius;
-        // A whole block of slack on the box: it only pre-filters, and an entity standing
-        // exactly on the rim should still be handed to the distance test below.
-        AABB box = new AABB(centre, centre).inflate(radius + 1.0D);
-        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
-                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= radiusSquared
-                        && isAbilityTarget(target, ability));
+        return victimsAround(level, centre, radius, ability, target -> true);
     }
 
     /**
@@ -4474,39 +4502,20 @@ public final class TeleportPathController {
      * Everyone a gravity field around {@code centre} may move, judged by this boss.
      *
      * <p>Asked for by {@link BossGravityScheduler} on every tick the field is open, for the
-     * reason {@link #geyserVictims} exists. Unlike an area slam it also keeps to the species
-     * the boss is set to fight and passes over anyone hidden by their own totems: a field
-     * that throws the cattle about, or drags a warded boss out of its formation, reads as a
-     * bug rather than as a mechanic.</p>
+     * reason {@link #geyserVictims} exists.</p>
      */
     List<LivingEntity> gravityVictims(ServerLevel level, Vec3 centre, double radius) {
-        TeleportPathData data = settings();
-        double radiusSquared = radius * radius;
-        AABB box = new AABB(centre, centre).inflate(radius + 1.0D);
-        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
-                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= radiusSquared
-                        && matchesAbilityTargetKind(target, data)
-                        && !BossMechanicUtil.hiddenByTotems(target)
-                        && isAbilityTarget(target, BossAbilityKind.GRAVITY));
+        return arenaVictims(level, centre, radius, BossAbilityKind.GRAVITY);
     }
 
     /**
      * Everyone the beams turning round {@code centre} may catch, judged by this boss.
      *
      * <p>Asked for by {@link BossBeamScheduler} on every tick the sweep runs, and by the
-     * cast before it spends a cooldown. The gravity field's list, for the reason it has one:
-     * the whole reach is swept, so it keeps to the species the boss is set to fight and
-     * passes over anyone hidden by their own totems.</p>
+     * cast before it spends a cooldown.</p>
      */
     List<LivingEntity> beamVictims(ServerLevel level, Vec3 centre, double reach) {
-        TeleportPathData data = settings();
-        double reachSquared = reach * reach;
-        AABB box = new AABB(centre, centre).inflate(reach + 1.0D);
-        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
-                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= reachSquared
-                        && matchesAbilityTargetKind(target, data)
-                        && !BossMechanicUtil.hiddenByTotems(target)
-                        && isAbilityTarget(target, BossAbilityKind.BEAM));
+        return arenaVictims(level, centre, reach, BossAbilityKind.BEAM);
     }
 
     /**
@@ -4525,32 +4534,19 @@ public final class TeleportPathController {
      */
     List<LivingEntity> markVictims(ServerLevel level, Vec3 centre, double radius) {
         TeleportPathData data = settings();
-        double radiusSquared = radius * radius;
-        AABB box = new AABB(centre, centre).inflate(radius + 1.0D);
-        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
-                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= radiusSquared
-                        && (!(target instanceof Player player) || isEncounterParticipant(player))
-                        && matchesAbilityTargetKind(target, data)
-                        && isAbilityTarget(target, BossAbilityKind.MARK));
+        return victimsAround(level, centre, radius, BossAbilityKind.MARK,
+                target -> (!(target instanceof Player player) || isEncounterParticipant(player))
+                        && matchesAbilityTargetKind(target, data));
     }
 
     /**
      * Everyone a take cover strike from {@code centre} may land on, judged by this boss.
      *
-     * <p>The gravity field's list, for the reason it has one: the whole arena is swept, so
-     * it keeps to the species the boss is set to fight and passes over anyone hidden by
-     * their own totems. Who got out of the way is decided per victim at the strike, not
-     * here - this is only who is in reach.</p>
+     * <p>Who got out of the way is decided per victim at the strike, not here - this is only
+     * who is in reach.</p>
      */
     private List<LivingEntity> coverVictims(ServerLevel level, Vec3 centre, double range) {
-        TeleportPathData data = settings();
-        double rangeSquared = range * range;
-        AABB box = new AABB(centre, centre).inflate(range + 1.0D);
-        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
-                target != npc && target.isAlive() && target.position().distanceToSqr(centre) <= rangeSquared
-                        && matchesAbilityTargetKind(target, data)
-                        && !BossMechanicUtil.hiddenByTotems(target)
-                        && isAbilityTarget(target, BossAbilityKind.COVER));
+        return arenaVictims(level, centre, range, BossAbilityKind.COVER);
     }
 
     /** Whether this player is one of the people this boss' fight is being run against. */

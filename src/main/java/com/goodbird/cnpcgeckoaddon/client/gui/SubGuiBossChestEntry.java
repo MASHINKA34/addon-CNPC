@@ -12,10 +12,9 @@ import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Editor for one slot of a boss loot chest. */
-public final class SubGuiBossChestEntry extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossChestEntry extends SubGuiFieldScreen {
     private static final int ITEM_FIELD = 1;
     private static final int FROM_HAND_BUTTON = 2;
     private static final int MIN_FIELD = 3;
@@ -28,7 +27,6 @@ public final class SubGuiBossChestEntry extends GuiBasic implements ITextfieldLi
 
     public SubGuiBossChestEntry(BossLootEntry entry) {
         this.entry = entry;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -56,8 +54,7 @@ public final class SubGuiBossChestEntry extends GuiBasic implements ITextfieldLi
 
         addButton(new GuiButtonNop(this, REMOVE_BUTTON, guiLeft + 8, guiTop + 104, 234, 20,
                 "cnpcgeckoaddon.boss.chest_remove"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     private GuiTextFieldNop numberField(int id, int x, int y, int width, int value, int min, int max, int fallback) {
@@ -98,15 +95,7 @@ public final class SubGuiBossChestEntry extends GuiBasic implements ITextfieldLi
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         if (removed) {
             return;
         }

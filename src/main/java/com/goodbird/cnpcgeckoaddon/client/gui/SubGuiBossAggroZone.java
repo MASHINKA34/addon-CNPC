@@ -13,7 +13,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Edits the two-corner volume which can start a boss encounter without an opening hit. */
-public final class SubGuiBossAggroZone extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int TARGET_BUTTON = 2;
     private static final int INTERVAL_FIELD = 3;
@@ -32,7 +32,6 @@ public final class SubGuiBossAggroZone extends GuiBasic implements ITextfieldLis
 
     public SubGuiBossAggroZone(TeleportPathData data) {
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -74,8 +73,7 @@ public final class SubGuiBossAggroZone extends GuiBasic implements ITextfieldLis
                 "cnpcgeckoaddon.boss.aggro_zone_show"));
         addLabel(new GuiLabel(33, "cnpcgeckoaddon.boss.aggro_zone_hint",
                 guiLeft + 8, guiTop + 211, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
     private void addYesNo(int id, String label, int y, boolean value) {
@@ -137,17 +135,7 @@ public final class SubGuiBossAggroZone extends GuiBasic implements ITextfieldLis
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) {
-        applyFields();
-    }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);
         if (interval != null) {
             data.setAggroZoneRecheckTicks(interval.getInteger());

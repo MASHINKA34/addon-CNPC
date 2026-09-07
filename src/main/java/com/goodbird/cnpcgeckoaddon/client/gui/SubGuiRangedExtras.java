@@ -13,12 +13,11 @@ import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 import java.util.List;
 
-public class SubGuiRangedExtras extends GuiBasic implements ITextfieldListener {
+public class SubGuiRangedExtras extends SubGuiFieldScreen implements ITextfieldListener {
     private final RangedExtraData data;
 
     public SubGuiRangedExtras(DataRanged ranged) {
         this.data = ((IRangedData) ranged).getRangedExtraData();
-        setBackground("menubg.png");
         this.imageWidth = 256;
         this.imageHeight = 216;
         this.closeOnEsc = true;
@@ -50,7 +49,7 @@ public class SubGuiRangedExtras extends GuiBasic implements ITextfieldListener {
             getTextField(1).setValue("");
         }));
 
-        addButton(new GuiButtonNop(this, 66, guiLeft + 190, guiTop + 190, 60, 20, "gui.done", (b) -> close()));
+        addDoneButton(guiLeft + 190, guiTop + 190, 60, 20);
     }
 
     public List<String> getEntityList() {

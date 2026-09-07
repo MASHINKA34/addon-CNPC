@@ -7,10 +7,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Gravity: a field around the boss that drags everyone in, shoves them out or throws them up. */
-public final class SubGuiBossGravity extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossGravity extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int MODE_BUTTON = 3;
@@ -36,7 +35,6 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen implements ITextf
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 244;
         closeOnEsc = true;
@@ -91,8 +89,7 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen implements ITextf
         int buttonsY = Math.max(hintY + 4, guiTop + 214);
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, buttonsY, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, buttonsY, 60, 20);
     }
 
     private int vfxStyleIndex() {
@@ -159,15 +156,7 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen implements ITextf
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();

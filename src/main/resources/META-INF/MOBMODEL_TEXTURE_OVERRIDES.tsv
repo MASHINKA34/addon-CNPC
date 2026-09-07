@@ -1,0 +1,74 @@
+# Hand-picked texture overrides for bundled mob models, applied on top of
+# MOBMODEL_TEXTURES.tsv when a model's recorded default is not the right skin.
+# model resource<TAB>texture resource
+born_in_chaos_v1:geo/felsteed.geo.json	born_in_chaos_v1:textures/entity/pumpkinheadrider.png
+born_in_chaos_v1:geo/felsteedlord.geo.json	born_in_chaos_v1:textures/entity/lordofpumpkins.png
+born_in_chaos_v1:geo/felsteedt.geo.json	born_in_chaos_v1:textures/entity/pumpkinheadrider.png
+born_in_chaos_v1:geo/sertheheadless.geo.json	born_in_chaos_v1:textures/entity/pumpkinheadrider.png
+born_in_chaos_v1:geo/zombiesinabarrel.geo.json	born_in_chaos_v1:textures/entity/barrel_zombie.png
+born_in_chaos_v1:geo/rottenzombie.geo.json	born_in_chaos_v1:textures/entity/decaying_zombie.png
+born_in_chaos_v1:geo/shyspirit.geo.json	born_in_chaos_v1:textures/entity/restlessspirit.png
+born_in_chaos_v1:geo/pumpkinheadmil.geo.json	born_in_chaos_v1:textures/entity/pumpkinheadrider.png
+born_in_chaos_v1:geo/lifestealerrevealedtrueform.geo.json	born_in_chaos_v1:textures/entity/lifestealer_trueform.png
+
+cataclysm:geo/clawdian_model.geo.json	cataclysm:textures/entity/sea/shrimp.png
+cataclysm:geo/elemental_spear_model.geo.json	cataclysm:textures/entity/sea/spear/lightning_spear_0.png
+cataclysm:geo/endermaptera_model.geo.json	cataclysm:textures/entity/ender_ssap_bug.png
+cataclysm:geo/ignited_revenant_model.geo.json	cataclysm:textures/entity/revenant_body.png
+
+srparasites:geo/modelbanofocused.geo.json	srparasites:textures/entity/monster/test.png
+srparasites:geo/modeltenn.geo.json	srparasites:textures/entity/monster/test.png
+srparasites:geo/modelgimadapted.geo.json	srparasites:textures/entity/monster/gima.png
+srparasites:geo/modelikiadapted.geo.json	srparasites:textures/entity/monster/ikia.png
+srparasites:geo/modelzaaadapted.geo.json	srparasites:textures/entity/monster/zaaa.png
+srparasites:geo/modelinfcowhead.geo.json	srparasites:textures/entity/monster/cowh.png
+srparasites:geo/modelinfpighead.geo.json	srparasites:textures/entity/monster/pigh.png
+srparasites:geo/modeldroppod.geo.json	srparasites:textures/entity/monster/ancientpod.png
+srparasites:geo/modellumadapted.geo.json	srparasites:textures/entity/monster/luma.png
+srparasites:geo/modelhulladapted.geo.json	srparasites:textures/entity/monster/hulla_old.png
+srparasites:geo/modelinfcow.geo.json	srparasites:textures/entity/monster/cow.png
+srparasites:geo/modelinfpig.geo.json	srparasites:textures/entity/monster/pig.png
+srparasites:geo/modelmor.geo.json	srparasites:textures/entity/monster/test.png
+srparasites:geo/modelviin.geo.json	srparasites:textures/entity/monster/lice.png
+srparasites:geo/modelinfwolf.geo.json	srparasites:textures/entity/monster/wolf.png
+srparasites:geo/modelinfplayerhead.geo.json	srparasites:textures/entity/monster/playerh.png
+srparasites:geo/modeliki.geo.json	srparasites:textures/entity/monster/vermin.png
+srparasites:geo/modelinfplayer.geo.json	srparasites:textures/entity/monster/infplayer.png
+
+arphex:geo/spidertarantula.geo.json	arphex:textures/entities/tarantula1.png
+arphex:geo/mothlarvae.geo.json	arphex:textures/entities/mothlarvae2.png
+arphex:geo/entropy_conduit.geo.json	arphex:textures/entities/diabolos_decimator.png
+arphex:geo/mantis.geo.json	arphex:textures/entities/mantismutilator.png
+arphex:geo/rhinobeetle.geo.json	arphex:textures/entities/scarab2.png
+arphex:geo/spider_recluse.geo.json	arphex:textures/entities/spider_recluse_2.png
+arphex:geo/spidersea.geo.json	arphex:textures/entities/seaspider.png
+arphex:geo/riverroach.geo.json	arphex:textures/entities/waterroach.png
+arphex:geo/sphere.geo.json	arphex:textures/entities/tormentsphere.png
+arphex:geo/spidermoth.geo.json	arphex:textures/entities/horrormothfixed.png
+arphex:geo/maggot.geo.json	arphex:textures/entities/maggotlayerstransparent.png
+arphex:geo/centipedeevictor.geo.json	arphex:textures/entities/centipedeevictorboss.png
+arphex:geo/spider_lunger.geo.json	arphex:textures/entities/gianthuntsman.png
+arphex:geo/spidermothdweller.geo.json	arphex:textures/entities/horrormothfixed.png
+arphex:geo/spider_wolf.geo.json	arphex:textures/entities/wolfspider3egg.png
+arphex:geo/antalate.geo.json	arphex:textures/entities/antsoldier.png
+arphex:geo/diabolos.geo.json	arphex:textures/entities/diabolos_decimator.png
+arphex:geo/tormentor_forceanim.geo.json	arphex:textures/entities/tormentor2.png
+arphex:geo/spider_infestor.geo.json	arphex:textures/entities/sandspider.png
+arphex:geo/tormentor_flash_anim.geo.json	arphex:textures/entities/tormentor2.png
+arphex:geo/longlegsfly.geo.json	arphex:textures/entities/cranefly.png
+arphex:geo/butterfly.geo.json	arphex:textures/entities/butterfly10.png
+arphex:geo/scorpionstriker.geo.json	arphex:textures/entities/sunscorpion.png
+
+block_factorys_bosses:geo/entity/cannonball_stack.geo.json	block_factorys_bosses:textures/entity/cannonball.png
+block_factorys_bosses:geo/entity/dragon_guard_shield.geo.json	block_factorys_bosses:textures/entity/dragon_guard_sword_shield.png
+block_factorys_bosses:geo/entity/ice_spike_big.geo.json	block_factorys_bosses:textures/entity/ice_spike.png
+block_factorys_bosses:geo/entity/ice_spike_medium.geo.json	block_factorys_bosses:textures/entity/ice_spike.png
+block_factorys_bosses:geo/entity/ice_spike_projectile.geo.json	block_factorys_bosses:textures/entity/ice_spike.png
+block_factorys_bosses:geo/entity/ice_spike_small.geo.json	block_factorys_bosses:textures/entity/ice_spike.png
+block_factorys_bosses:geo/entity/ice_spike_tiny.geo.json	block_factorys_bosses:textures/entity/ice_spike.png
+block_factorys_bosses:geo/entity/kraken_cinematic.geo.json	block_factorys_bosses:textures/entity/kraken.png
+block_factorys_bosses:geo/entity/kraken_tentacle.geo.json	block_factorys_bosses:textures/entity/kraken.png
+block_factorys_bosses:geo/entity/kraken_tentacle_slim.geo.json	block_factorys_bosses:textures/entity/kraken.png
+block_factorys_bosses:geo/entity/yeti_boss_ice.geo.json	block_factorys_bosses:textures/entity/yeti_boss.png
+
+mowziesmobs:geo/sol_visage.geo.json	mowziesmobs:textures/item/sol_visage.png

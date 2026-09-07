@@ -30,6 +30,25 @@ gradlew build
 The jar lands in `build/libs`. The two jars in `lib/` are required and are committed -
 see [lib/README.md](lib/README.md).
 
+## Tests
+
+`gradlew build` runs the unit tests, and so does the GitHub Actions workflow in
+`.github/workflows/build.yml` on every push and pull request. They boot FML but no game, so
+they cover exactly what can be checked without a world:
+
+- the save round trip of the whole boss configuration, and a reflective sweep asserting that
+  every one of `BossPhaseData`'s three hundred odd fields actually reaches the tag - a field
+  added to the class and the GUI but not to `readFromNBT` is silently forgotten on the next
+  load, and this is what catches it;
+- `TickQueue`'s reentrancy, its per-tick cap and its cancellation rules;
+- that every mob bundle with a recorded texture table is also listed in the resolver's
+  namespaces, so an imported bundle cannot end up rendering with a stretched npc skin;
+- the model-to-texture name scoring;
+- that `en_us` and `ru_ru` carry the same keys and that every key the sources name exists.
+
+The gametests under `src/main/java/.../gametest` need a full CustomNPCs server and are not
+part of the build.
+
 ## A note on the bundled mob models
 
 The addon can ship GeckoLib models, animations and textures taken from other mods
@@ -48,8 +67,9 @@ What this means in practice:
   behaves exactly as before. The build does not care whether a file is tracked by git.
 
 `META-INF/MOBMODELS_NOTICE.txt` lists where each bundle came from and under which licence,
-and `META-INF/MOBMODEL_TEXTURES.tsv` is the model-to-texture mapping the addon generates.
-Both are ours and stay tracked.
+`META-INF/MOBMODEL_TEXTURES.tsv` is the model-to-texture mapping the addon generates,
+and `META-INF/MOBMODEL_TEXTURE_OVERRIDES.tsv` is the hand-picked list of models whose
+recorded default is not the right skin. All three are ours and stay tracked.
 
 If you keep such a bundle, keep a backup of `src/main/resources/assets/` somewhere outside
 the repository - git will not restore it for you.

@@ -6,10 +6,9 @@ import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Compact phase menu. Every ability opens its own fully configurable screen. */
-public final class SubGuiBossPhase extends ScrollableSubGui implements ITextfieldListener {
+public final class SubGuiBossPhase extends SubGuiFieldScreen {
     private static final int THRESHOLD_FIELD = 1;
 
     private final EntityNPCInterface npc;
@@ -22,7 +21,6 @@ public final class SubGuiBossPhase extends ScrollableSubGui implements ITextfiel
         this.data = data;
         this.phaseIndex = phaseIndex;
         this.phase = data.getPhase(phaseIndex);
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 397;
         closeOnEsc = true;
@@ -76,8 +74,7 @@ public final class SubGuiBossPhase extends ScrollableSubGui implements ITextfiel
         addAbilityButton(32, 0, 11, "cnpcgeckoaddon.boss.beam_settings");
         addAbilityButton(33, 1, 11, "cnpcgeckoaddon.boss.cocoon_settings");
         // The grid runs to twelve rows now, so Done gets a line of its own below it.
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 371, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 371, 60, 20);
     }
 
     private void addAbilityButton(int id, int column, int row, String label) {
@@ -139,15 +136,7 @@ public final class SubGuiBossPhase extends ScrollableSubGui implements ITextfiel
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop threshold = getTextField(THRESHOLD_FIELD);
         if (threshold != null) {
             phase.setStartHealthPercent(threshold.getInteger());

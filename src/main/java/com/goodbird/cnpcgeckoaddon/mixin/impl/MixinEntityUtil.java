@@ -18,7 +18,7 @@ import software.bernie.geckolib.animation.AnimationController;
 public class MixinEntityUtil {
 
     @Inject(method = "Copy", at = @At("TAIL"), remap = false)
-    private static void copy(LivingEntity copied, LivingEntity entity, CallbackInfo ci) {
+    private static void cnpcgeckoaddon$copyGeckoModelState(LivingEntity copied, LivingEntity entity, CallbackInfo ci) {
         if (entity instanceof EntityCustomModel && copied instanceof EntityNPCInterface) {
             EntityCustomModel modelEntity = (EntityCustomModel) entity;
             EntityNPCInterface npc = (EntityNPCInterface) copied;

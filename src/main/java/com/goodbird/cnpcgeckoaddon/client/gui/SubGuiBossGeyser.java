@@ -9,10 +9,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Geyser: a mark burns on the floor under a victim, then the ground opens under it. */
-public final class SubGuiBossGeyser extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossGeyser extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int TARGET_MODE_BUTTON = 3;
@@ -44,7 +43,6 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen implements ITextfi
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         // The tallest ability screen in the mod, and deliberately so: the cast, the fuse, the
         // eruption and what it leaves behind are four sets of numbers, and a builder tuning
@@ -118,8 +116,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen implements ITextfi
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.geyser_hint", guiLeft + 6, guiTop + 292, 0xA0A0A0));
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 302, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 302, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 302, 60, 20);
     }
 
     private int vfxStyleIndex() {
@@ -204,15 +201,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen implements ITextfi
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();

@@ -7,9 +7,8 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-public final class SubGuiBossTeleport extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossTeleport extends SubGuiFieldScreen {
     private static final int ORDER_BUTTON = 1;
     private static final int SOUND_BUTTON = 2;
     private static final int PRE_ANIMATION_FIELD = 3;
@@ -30,7 +29,6 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen implements IText
         this.data = data;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -71,8 +69,7 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen implements IText
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.teleport.ticks_hint",
                 guiLeft + 8, guiTop + 202, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
     private void addAnimationRow(int id, String label, int y, String value) {
@@ -106,15 +103,7 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen implements IText
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         applyAnimation(PRE_ANIMATION_FIELD, true);
         applyAnimation(POST_ANIMATION_FIELD, false);
         GuiTextFieldNop preDelay = getTextField(PRE_DELAY_FIELD);

@@ -12,10 +12,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Exact clone, anchor, facing, and per-link overrides for one stable slot. */
-public final class SubGuiBossTotemEntry extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int CLONE_TAB_FIELD = 2;
     private static final int CLONE_NAME_FIELD = 3;
@@ -59,7 +58,6 @@ public final class SubGuiBossTotemEntry extends GuiBasic implements ITextfieldLi
         this.data = data;
         this.index = index;
         this.entry = data.getTotems().get(index);
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 239;
         closeOnEsc = true;
@@ -127,8 +125,7 @@ public final class SubGuiBossTotemEntry extends GuiBasic implements ITextfieldLi
                 "cnpcgeckoaddon.boss.totem_here"));
         addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + 213, 72, 20,
                 "cnpcgeckoaddon.boss.totem_delete"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 213, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 213, 60, 20);
     }
 
     /** The ability list is only ever read in the listed mode, so it only shows up there. */
@@ -205,15 +202,7 @@ public final class SubGuiBossTotemEntry extends GuiBasic implements ITextfieldLi
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop tab = getTextField(CLONE_TAB_FIELD);
         if (tab != null) entry.setCloneTab(tab.getInteger());
         GuiTextFieldNop name = getTextField(CLONE_NAME_FIELD);

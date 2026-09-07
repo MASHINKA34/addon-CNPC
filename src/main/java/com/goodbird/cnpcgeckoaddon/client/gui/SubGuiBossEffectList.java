@@ -9,7 +9,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** The potion effects one attack applies, one row per slot. */
-public final class SubGuiBossEffectList extends GuiBasic {
+public final class SubGuiBossEffectList extends SubGuiFieldScreen {
     private static final int FIRST_SLOT_BUTTON = 100;
 
     private final BossEffectSet effects;
@@ -18,7 +18,6 @@ public final class SubGuiBossEffectList extends GuiBasic {
     public SubGuiBossEffectList(BossEffectSet effects, String titleKey) {
         this.effects = effects;
         this.titleKey = titleKey;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -36,8 +35,7 @@ public final class SubGuiBossEffectList extends GuiBasic {
         }
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.effects_hint", guiLeft + 8, guiTop + 120, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     /** "1. minecraft:poison  II  5s" or "1. -" when the slot is switched off. */

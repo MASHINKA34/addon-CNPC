@@ -5,10 +5,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Editor for one potion effect slot of a boss attack. */
-public final class SubGuiBossEffect extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossEffect extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int EFFECT_FIELD = 2;
     private static final int DURATION_FIELD = 3;
@@ -19,7 +18,6 @@ public final class SubGuiBossEffect extends SubGuiFieldScreen implements ITextfi
 
     public SubGuiBossEffect(BossEffectData effect) {
         this.effect = effect;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -50,8 +48,7 @@ public final class SubGuiBossEffect extends SubGuiFieldScreen implements ITextfi
         addButton(new GuiButtonYesNo(this, PARTICLES_BUTTON, guiLeft + 155, y, 87, 20, effect.isShowParticles()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.effect_hint", guiLeft + 8, guiTop + 166, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     @Override
@@ -70,15 +67,7 @@ public final class SubGuiBossEffect extends SubGuiFieldScreen implements ITextfi
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop id = getTextField(EFFECT_FIELD);
         if (id != null) {
             String value = id.getValue().trim();

@@ -14,7 +14,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
  * ability rows and seven settings do not share 256 pixels without one of them being
  * unreadable.</p>
  */
-public final class SubGuiBossTelegraphAbilities extends GuiBasic {
+public final class SubGuiBossTelegraphAbilities extends SubGuiFieldScreen {
     private static final int FIRST_ABILITY_BUTTON = 100;
 
     /**
@@ -29,7 +29,6 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
 
     public SubGuiBossTelegraphAbilities(TeleportPathData data) {
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 252;
         closeOnEsc = true;
@@ -46,8 +45,7 @@ public final class SubGuiBossTelegraphAbilities extends GuiBasic {
             addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
                     abilityLabel(i)));
         }
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 226, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 226, 60, 20);
     }
 
     /** "+ Ground attack" while it warns, "- Ground attack" once it goes quiet. */

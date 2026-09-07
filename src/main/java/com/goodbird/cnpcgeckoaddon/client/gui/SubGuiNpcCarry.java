@@ -10,10 +10,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Whether ordinary players may carry this npc, and what carrying it costs them. */
-public final class SubGuiNpcCarry extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiNpcCarry extends SubGuiFieldScreen {
     private static final int CARRYABLE_BUTTON = 1;
     private static final int SNEAK_BUTTON = 2;
     private static final int ITEM_FIELD = 3;
@@ -29,7 +28,6 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen implements ITextfiel
 
     public SubGuiNpcCarry(DataAI ai) {
         data = ((INpcCarryData) ai).cnpcgeckoaddon$getNpcCarryData();
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -70,8 +68,7 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen implements ITextfiel
                 0, NpcCarryData.MAX_LEASH_RADIUS, 0);
 
         addWrappedHint(40, "cnpcgeckoaddon.carry.hint", guiTop + 208);
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
     private void addYesNo(int id, String label, int y, boolean value) {
@@ -95,17 +92,7 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen implements ITextfiel
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) {
-        applyFields();
-    }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop item = getTextField(ITEM_FIELD);
         if (item != null) {
             applyItemId(item);

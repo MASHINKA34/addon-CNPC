@@ -14,7 +14,7 @@ import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 import java.util.Locale;
 
 /** Configures the numeric party bonus independently of boss-bar visibility. */
-public final class SubGuiBossHealthScaling extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossHealthScaling extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int MODE_BUTTON = 2;
     private static final int PERCENT_FIELD = 3;
@@ -35,7 +35,6 @@ public final class SubGuiBossHealthScaling extends GuiBasic implements ITextfiel
     public SubGuiBossHealthScaling(EntityNPCInterface npc, TeleportPathData data) {
         this.npc = npc;
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -77,8 +76,7 @@ public final class SubGuiBossHealthScaling extends GuiBasic implements ITextfiel
                 guiLeft + 6, guiTop + 212, 0xA0A0A0));
         addLabel(new GuiLabel(42, "cnpcgeckoaddon.boss.health_scaling_hint_second",
                 guiLeft + 6, guiTop + 222, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 234, 60, 18,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 234, 60, 18);
         refreshControlsAndPreview();
     }
 
@@ -92,14 +90,29 @@ public final class SubGuiBossHealthScaling extends GuiBasic implements ITextfiel
         addButton(new GuiButtonNop(this, id, guiLeft + 126, y, 116, 18, values, value));
     }
 
-    private void addNumberField(int id, String label, int y, int value,
-                                int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 5));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 176, y, 66, 18,
-                Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, fallback);
-        addTextField(field);
+    @Override
+    protected int numberLabelX() {
+        return 6;
+    }
+
+    @Override
+    protected int numberFieldX() {
+        return 176;
+    }
+
+    @Override
+    protected int numberFieldWidth() {
+        return 66;
+    }
+
+    @Override
+    protected int numberFieldHeight() {
+        return 18;
+    }
+
+    @Override
+    protected int numberLabelYOffset() {
+        return 5;
     }
 
     private GuiLabel componentLabel(int id, int x, int y) {
@@ -171,12 +184,7 @@ public final class SubGuiBossHealthScaling extends GuiBasic implements ITextfiel
     }
 
     @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop percent = getTextField(PERCENT_FIELD);
         if (percent != null) data.setHealthPerPlayerPercent(percent.getInteger());
         GuiTextFieldNop flat = getTextField(FLAT_FIELD);

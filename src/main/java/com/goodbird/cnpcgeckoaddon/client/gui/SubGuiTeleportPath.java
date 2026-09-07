@@ -8,9 +8,8 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-public final class SubGuiTeleportPath extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiTeleportPath extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int COMBAT_ONLY_BUTTON = 2;
     private static final int STATIONARY_BUTTON = 3;
@@ -30,7 +29,6 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements IText
         this.data = ((ITeleportPathData) ai).cnpcgeckoaddon$getTeleportPathData();
         this.data.markConfigured();
         this.npc = npc;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -81,8 +79,7 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements IText
         // The longest label of the nine gets the wide half of the bottom row, next to Done.
         addButton(new GuiButtonNop(this, TELEGRAPH_BUTTON, guiLeft + 8, guiTop + 228, 170, 20,
                 "cnpcgeckoaddon.boss.telegraph_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 228, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 228, 60, 20);
     }
 
     private void addYesNo(int id, String label, int y, boolean value) {
@@ -140,12 +137,7 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements IText
     }
 
     @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         applyField(getTextField(PHASE_COUNT_FIELD));
         applyField(getTextField(TRANSITION_ANIMATION_FIELD));
         applyField(getTextField(TRANSITION_LOCK_FIELD));

@@ -7,10 +7,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Capture timing and target selection; visual and hold details live on a second page. */
-public final class SubGuiBossCapture extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossCapture extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int ACTION_DELAY_FIELD = 3;
@@ -35,7 +34,6 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen implements ITextf
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -88,8 +86,7 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen implements ITextf
 
         addButton(new GuiButtonNop(this, DETAILS_BUTTON, guiLeft + 6, guiTop + 232, 150, 20,
                 "cnpcgeckoaddon.boss.capture_effects_beam"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 232, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
     }
 
     @Override
@@ -121,17 +118,7 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen implements ITextf
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) {
-        applyFields();
-    }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();

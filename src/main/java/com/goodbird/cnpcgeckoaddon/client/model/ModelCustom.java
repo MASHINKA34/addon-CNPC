@@ -48,11 +48,14 @@ public class ModelCustom extends GeoModel<EntityCustomModel> {
         super.setCustomAnimations(animatable, instanceId, animationState);
         GeoBone head = getAnimationProcessor().getBone(animatable.headBoneName);
 
-        if (head != null) {
-            EntityModelData entityData = animationState.getData(DataTickets.ENTITY_MODEL_DATA);
-
-            head.setRotX(head.getRotX() + entityData.headPitch() * Mth.DEG_TO_RAD);
-            head.setRotY(head.getRotY() + entityData.netHeadYaw() * Mth.DEG_TO_RAD);
+        if (head == null) {
+            return;
         }
+        EntityModelData entityData = animationState.getData(DataTickets.ENTITY_MODEL_DATA);
+        if (entityData == null) {
+            return;
+        }
+        head.setRotX(head.getRotX() + entityData.headPitch() * Mth.DEG_TO_RAD);
+        head.setRotY(head.getRotY() + entityData.netHeadYaw() * Mth.DEG_TO_RAD);
     }
 }

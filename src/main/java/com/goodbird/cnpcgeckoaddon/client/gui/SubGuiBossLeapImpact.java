@@ -6,7 +6,6 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /**
  * What the leap does when it comes down: the slam, its wave and the landing marker.
@@ -14,7 +13,7 @@ import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
  * <p>A second page for the same reason the capture has one - the jump itself already fills
  * a screen, and cramming ten more rows under it would leave nothing readable.</p>
  */
-public final class SubGuiBossLeapImpact extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
     /** Read by the leap screen, which points a picked animation's length at this delay. */
     static final int ACTION_DELAY_FIELD = 1;
     private static final int COOLDOWN_FIELD = 2;
@@ -36,7 +35,6 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen implements ITe
     public SubGuiBossLeapImpact(BossPhaseData phase, int phaseIndex) {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 218;
         closeOnEsc = true;
@@ -80,8 +78,7 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen implements ITe
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.leap_hint", guiLeft + 6, guiTop + 170, 0xA0A0A0));
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 6, guiTop + 182, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 194, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 194, 60, 20);
     }
 
     private int vfxStyleIndex() {
@@ -128,15 +125,7 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen implements ITe
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
         if (delay != null) phase.setLeapActionDelayTicks(delay.getInteger());
         GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);

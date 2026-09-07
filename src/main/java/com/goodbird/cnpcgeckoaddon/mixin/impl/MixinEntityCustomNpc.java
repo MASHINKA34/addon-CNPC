@@ -26,7 +26,7 @@ public class MixinEntityCustomNpc extends EntityNPCInterface {
     }
 
     @Inject(method = "tick", at = @At("TAIL"))
-    public void tick(CallbackInfo ci) {
+    private void cnpcgeckoaddon$syncModelEntitySize(CallbackInfo ci) {
         IDataDisplay display = (IDataDisplay) this.display;
         Entity entity = this.modelData.getEntity(this);
         if (!(entity instanceof EntityCustomModel)) return;

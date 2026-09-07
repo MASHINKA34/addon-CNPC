@@ -9,7 +9,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Lists the configured boss phases; the count itself is set on the parent screen. */
-public final class SubGuiBossPhaseList extends GuiBasic {
+public final class SubGuiBossPhaseList extends SubGuiFieldScreen {
     private static final int FIRST_PHASE_BUTTON = 100;
 
     private final EntityNPCInterface npc;
@@ -18,7 +18,6 @@ public final class SubGuiBossPhaseList extends GuiBasic {
     public SubGuiBossPhaseList(EntityNPCInterface npc, TeleportPathData data) {
         this.npc = npc;
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -36,8 +35,7 @@ public final class SubGuiBossPhaseList extends GuiBasic {
         }
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.phase_count_hint", guiLeft + 8, guiTop + 214, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
     /** "Phase 2  -  from 66%", so the whole ladder is readable without opening each entry. */

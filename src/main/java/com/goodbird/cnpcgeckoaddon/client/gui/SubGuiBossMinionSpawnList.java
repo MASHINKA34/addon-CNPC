@@ -11,7 +11,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Eight-row paged editor for one phase's stable minion points. */
-public final class SubGuiBossMinionSpawnList extends GuiBasic {
+public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
     private static final int FIRST_ROW_BUTTON = 100;
     private static final int PREV_PAGE_BUTTON = 1;
     private static final int NEXT_PAGE_BUTTON = 2;
@@ -32,7 +32,6 @@ public final class SubGuiBossMinionSpawnList extends GuiBasic {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         this.points = phase.getMinionSpawnPoints();
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -58,8 +57,7 @@ public final class SubGuiBossMinionSpawnList extends GuiBasic {
                 "cnpcgeckoaddon.boss.minion_spawn_add"));
         addButton(new GuiButtonNop(this, CLEAR_BUTTON, guiLeft + 82, guiTop + 230, 94, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_clear"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
         refreshRows();
     }
 

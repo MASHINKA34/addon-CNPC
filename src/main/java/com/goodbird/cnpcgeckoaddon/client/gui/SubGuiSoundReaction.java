@@ -10,7 +10,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-public final class SubGuiSoundReaction extends GuiBasic implements ITextfieldListener {
+public final class SubGuiSoundReaction extends SubGuiFieldScreen implements ITextfieldListener {
     private static final int ENABLED_BUTTON = 1;
     private static final int MODE_BUTTON = 2;
     private static final int RADIUS_FIELD = 3;
@@ -21,7 +21,6 @@ public final class SubGuiSoundReaction extends GuiBasic implements ITextfieldLis
 
     public SubGuiSoundReaction(DataAI ai) {
         data = ((ISoundReactionData) ai).cnpcgeckoaddon$getSoundReactionData();
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -49,16 +48,7 @@ public final class SubGuiSoundReaction extends GuiBasic implements ITextfieldLis
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.sound.cooldown", y, data.getCooldownTicks(), 0, 200, 20);
 
         addLabel(new GuiLabel(20, "cnpcgeckoaddon.sound.ticks_hint", guiLeft + 8, guiTop + 169, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 190, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
-    }
-
-    private void addNumberField(int id, String label, int y, int value, int min, int max, int defaultValue) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20, Integer.toString(value));
-        field.setNumbersOnly();
-        field.setMinMaxDefault(min, max, defaultValue);
-        addTextField(field);
+        addDoneButton(guiLeft + 190, guiTop + 190, 60, 20);
     }
 
     @Override

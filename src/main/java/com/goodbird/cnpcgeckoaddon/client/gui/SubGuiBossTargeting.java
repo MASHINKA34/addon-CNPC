@@ -6,10 +6,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Boss-wide target selection: who the boss chases, and which species its abilities may pick. */
-public final class SubGuiBossTargeting extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossTargeting extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int LINE_OF_SIGHT_BUTTON = 2;
     private static final int KEEP_TARGET_BUTTON = 3;
@@ -27,7 +26,6 @@ public final class SubGuiBossTargeting extends SubGuiFieldScreen implements ITex
     public SubGuiBossTargeting(EntityNPCInterface npc, TeleportPathData data) {
         this.npc = npc;
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -63,8 +61,7 @@ public final class SubGuiBossTargeting extends SubGuiFieldScreen implements ITex
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.target_hint", guiLeft + 8, guiTop + 194,
                 HINT_COLOR));
         addWrappedHint(40, "cnpcgeckoaddon.boss.ability_target_hint", guiTop + 204);
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
     private void addYesNo(int id, String label, int y, boolean value) {
@@ -92,15 +89,7 @@ public final class SubGuiBossTargeting extends SubGuiFieldScreen implements ITex
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
         if (radius != null) data.setTargetSearchRadius(radius.getInteger());
         GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);

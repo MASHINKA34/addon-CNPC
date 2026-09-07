@@ -8,12 +8,11 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 import java.util.function.Consumer;
 
 /** Barrier: a damage check - burn the shield in time for a stun window, or pay for missing it. */
-public final class SubGuiBossBarrier extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossBarrier extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int BREAK_ANIMATION_FIELD = 3;
@@ -52,7 +51,6 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen implements ITextf
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 248;
         closeOnEsc = true;
@@ -108,8 +106,7 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen implements ITextf
         int buttonsY = Math.max(hintY + 4, guiTop + 212);
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, buttonsY, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, buttonsY, 60, 20);
         applyRuleRows();
     }
 
@@ -248,15 +245,7 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen implements ITextf
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         applyAnimation(ANIMATION_FIELD, phase.getBarrierAnimation(), phase::setBarrierAnimation);
         applyAnimation(BREAK_ANIMATION_FIELD, phase.getBarrierBreakAnimation(), phase::setBarrierBreakAnimation);
         // Read whether or not the rule in force shows them: a hidden field keeps the number

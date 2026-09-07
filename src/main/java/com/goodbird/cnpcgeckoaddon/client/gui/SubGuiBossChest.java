@@ -7,12 +7,11 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 import java.util.List;
 
 /** Leaves a chest of loot behind when the boss dies. */
-public final class SubGuiBossChest extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossChest extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int BLOCK_FIELD = 2;
     private static final int DELAY_FIELD = 3;
@@ -28,7 +27,6 @@ public final class SubGuiBossChest extends SubGuiFieldScreen implements ITextfie
 
     public SubGuiBossChest(TeleportPathData data) {
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -82,8 +80,7 @@ public final class SubGuiBossChest extends SubGuiFieldScreen implements ITextfie
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.chest_hint", guiLeft + 8, guiTop + 222, 0xA0A0A0));
         // Short enough to sit beside Done instead of under it.
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 240, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 186, guiTop + 234, 56, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 186, guiTop + 234, 56, 20);
     }
 
     private static String[] styleLabels() {
@@ -129,15 +126,7 @@ public final class SubGuiBossChest extends SubGuiFieldScreen implements ITextfie
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop block = getTextField(BLOCK_FIELD);
         // Whatever is typed here is kept as typed, even when it names nothing: the boss
         // falls back to a plain chest and says so in the log, and a block from a mod that

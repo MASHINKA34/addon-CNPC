@@ -5,10 +5,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** What the boss shows and says before an ability lands, and how long it gives for it. */
-public final class SubGuiBossTelegraph extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int STYLE_BUTTON = 2;
     private static final int ANNOUNCE_BUTTON = 3;
@@ -22,7 +21,6 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen implements ITex
 
     public SubGuiBossTelegraph(TeleportPathData data) {
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -60,8 +58,7 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen implements ITex
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.telegraph_hint", guiLeft + 6, guiTop + 200, 0xA0A0A0));
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.telegraph_lead_hint", guiLeft + 6, guiTop + 210, 0xA0A0A0));
         addLabel(new GuiLabel(33, "cnpcgeckoaddon.boss.telegraph_dodge_hint", guiLeft + 6, guiTop + 220, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 232, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
     }
 
     /**
@@ -98,15 +95,7 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen implements ITex
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop lead = getTextField(LEAD_FIELD);
         if (lead != null) data.setTelegraphLeadTicks(lead.getInteger());
         GuiTextFieldNop radius = getTextField(ZONE_RADIUS_FIELD);

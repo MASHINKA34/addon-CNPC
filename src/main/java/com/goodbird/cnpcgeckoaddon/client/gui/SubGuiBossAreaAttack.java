@@ -7,9 +7,8 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-public final class SubGuiBossAreaAttack extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int DAMAGE_FIELD = 3;
@@ -33,7 +32,6 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen implements ITe
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -83,8 +81,7 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen implements ITe
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 221, 0xA0A0A0));
         addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 232, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
     }
 
     private int vfxStyleIndex() {
@@ -137,15 +134,7 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen implements ITe
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();

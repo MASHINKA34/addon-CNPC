@@ -9,7 +9,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
  * The three things a cocoon does to somebody, one list each: what wears on them while they
  * are inside, what lands when nobody came, and what they get for being let out.
  */
-public final class SubGuiBossCocoonEffects extends GuiBasic {
+public final class SubGuiBossCocoonEffects extends SubGuiFieldScreen {
     private static final int INSIDE_BUTTON = 1;
     private static final int FAIL_BUTTON = 2;
     private static final int FREE_BUTTON = 3;
@@ -18,7 +18,6 @@ public final class SubGuiBossCocoonEffects extends GuiBasic {
 
     public SubGuiBossCocoonEffects(BossPhaseData phase) {
         this.phase = phase;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 140;
         closeOnEsc = true;
@@ -37,8 +36,7 @@ public final class SubGuiBossCocoonEffects extends GuiBasic {
         y += 24;
         addButton(new GuiButtonNop(this, FREE_BUTTON, guiLeft + 8, y, 234, 20,
                 "cnpcgeckoaddon.boss.effects_cocoon_free"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 114, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 114, 60, 20);
     }
 
     @Override

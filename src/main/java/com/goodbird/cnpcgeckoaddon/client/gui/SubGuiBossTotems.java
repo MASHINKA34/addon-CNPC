@@ -10,10 +10,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Boss-wide protection, activation, respawn, and beam settings. */
-public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossTotems extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int PROTECTION_BUTTON = 2;
     private static final int ACTIVATION_BUTTON = 3;
@@ -43,7 +42,6 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfi
     public SubGuiBossTotems(EntityNPCInterface npc, TeleportPathData data) {
         this.npc = npc;
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         // Two more formation flags and the three-line hint explaining them; the shackles
         // belong beside the ward and the hold, and there is nowhere on this screen that was
@@ -120,8 +118,7 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfi
                 "cnpcgeckoaddon.boss.totem_list"));
         addButton(new GuiButtonNop(this, RESTORE_BUTTON, guiLeft + 104, guiTop + 382, 88, 20,
                 "cnpcgeckoaddon.boss.totem_restore"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 196, guiTop + 382, 46, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 196, guiTop + 382, 46, 20);
         updateConditionalFields();
     }
 
@@ -213,15 +210,7 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen implements ITextfi
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop phase = getTextField(PHASE_FIELD);
         if (phase != null) data.setTotemActivationPhase(phase.getInteger());
         GuiTextFieldNop activationDelay = getTextField(ACTIVATION_DELAY_FIELD);

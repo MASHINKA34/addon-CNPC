@@ -26,7 +26,6 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
 
     public SubGuiNpcImmunity(DataAI ai) {
         data = ((INpcImmunityData) ai).cnpcgeckoaddon$getNpcImmunityData();
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 324;
         closeOnEsc = true;
@@ -49,8 +48,7 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
         addButton(new GuiButtonNop(this, RESIST_BUTTON, guiLeft + 8, guiTop + 298, 140, 20,
                 "cnpcgeckoaddon.npc.resist_open",
                 button -> setSubGui(new SubGuiNpcDamageResistList(data))));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 298, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 298, 60, 20);
     }
 
     /** "+ Area attack" while the ability is switched off for this npc, "- ..." while it lands. */

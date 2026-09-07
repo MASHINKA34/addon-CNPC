@@ -7,9 +7,8 @@ import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
-public final class SubGuiBossBarStyle extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossBarStyle extends SubGuiFieldScreen {
     private static final int SCALE_FIELD = 1;
     private static final int FIRST_STYLE_BUTTON = 100;
 
@@ -17,7 +16,6 @@ public final class SubGuiBossBarStyle extends GuiBasic implements ITextfieldList
 
     public SubGuiBossBarStyle(TeleportPathData data) {
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 208;
         closeOnEsc = true;
@@ -46,7 +44,7 @@ public final class SubGuiBossBarStyle extends GuiBasic implements ITextfieldList
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.bar_scale_hint", guiLeft + 8, y, 0xA0A0A0));
         y += 14;
 
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, y, 60, 20, "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, y, 60, 20);
     }
 
     @Override
@@ -66,15 +64,7 @@ public final class SubGuiBossBarStyle extends GuiBasic implements ITextfieldList
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop scale = getTextField(SCALE_FIELD);
         if (scale != null) data.setBossBarScalePercent(scale.getInteger());
     }

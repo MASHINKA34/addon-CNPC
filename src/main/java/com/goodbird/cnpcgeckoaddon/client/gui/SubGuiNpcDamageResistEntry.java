@@ -4,10 +4,9 @@ import com.goodbird.cnpcgeckoaddon.data.NpcDamageResistEntry;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Editor for one damage resistance rule of an npc. */
-public final class SubGuiNpcDamageResistEntry extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiNpcDamageResistEntry extends SubGuiFieldScreen {
     private static final int MATCHER_FIELD = 1;
     private static final int PERCENT_FIELD = 2;
     private static final int CLEAR_BUTTON = 3;
@@ -17,7 +16,6 @@ public final class SubGuiNpcDamageResistEntry extends SubGuiFieldScreen implemen
 
     public SubGuiNpcDamageResistEntry(NpcDamageResistEntry entry) {
         this.entry = entry;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -44,8 +42,7 @@ public final class SubGuiNpcDamageResistEntry extends SubGuiFieldScreen implemen
                 "cnpcgeckoaddon.npc.resist_clear"));
 
         addWrappedHint(FIRST_HINT_LABEL + 10, "cnpcgeckoaddon.npc.resist_hint", guiTop + 158);
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     @Override
@@ -58,15 +55,7 @@ public final class SubGuiNpcDamageResistEntry extends SubGuiFieldScreen implemen
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop matcher = getTextField(MATCHER_FIELD);
         if (matcher != null) {
             entry.setMatcher(matcher.getValue());

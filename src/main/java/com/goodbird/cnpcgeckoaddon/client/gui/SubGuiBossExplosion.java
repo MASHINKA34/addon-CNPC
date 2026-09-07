@@ -7,10 +7,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Makes the boss detonate when it dies. */
-public final class SubGuiBossExplosion extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossExplosion extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int MODE_BUTTON = 2;
     private static final int FIRE_BUTTON = 3;
@@ -24,7 +23,6 @@ public final class SubGuiBossExplosion extends SubGuiFieldScreen implements ITex
     public SubGuiBossExplosion(EntityNPCInterface npc, TeleportPathData data) {
         this.npc = npc;
         this.data = data;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 216;
         closeOnEsc = true;
@@ -63,8 +61,7 @@ public final class SubGuiBossExplosion extends SubGuiFieldScreen implements ITex
                 "cnpcgeckoaddon.boss.explosion_sync_death"));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.explosion_hint", guiLeft + 8, guiTop + 166, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 190, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     @Override
@@ -92,15 +89,7 @@ public final class SubGuiBossExplosion extends SubGuiFieldScreen implements ITex
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop delay = getTextField(DELAY_FIELD);
         if (delay != null) data.setExplosionDelayTicks(delay.getInteger());
         GuiTextFieldNop power = getTextField(POWER_FIELD);

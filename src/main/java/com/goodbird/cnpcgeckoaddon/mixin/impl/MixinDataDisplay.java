@@ -21,28 +21,28 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class MixinDataDisplay implements IDataDisplay {
 
     @Unique
-    private static final ResourceLocation customNPC_Gecko_Addon$MODEL_ENTITY =
+    private static final ResourceLocation cnpcgeckoaddon$MODEL_ENTITY =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "custommodelentity");
 
     @Shadow(remap = false)
     EntityNPCInterface npc;
     @Unique
-    private final CustomModelData customNPC_Gecko_Addon$customModelData = new CustomModelData();
+    private final CustomModelData cnpcgeckoaddon$customModelData = new CustomModelData();
 
     @Inject(method = "save", at = @At("HEAD"), remap = false)
-    public void writeToNBT(CompoundTag nbttagcompound, CallbackInfoReturnable<CompoundTag> cir) {
+    private void cnpcgeckoaddon$saveCustomModel(CompoundTag nbttagcompound, CallbackInfoReturnable<CompoundTag> cir) {
         if(hasCustomModel())
-            customNPC_Gecko_Addon$customModelData.writeToNBT(nbttagcompound);
+            cnpcgeckoaddon$customModelData.writeToNBT(nbttagcompound);
     }
 
     @Inject(method = "readToNBT", at = @At("HEAD"), remap = false)
-    public void readFromNBT(CompoundTag nbttagcompound, CallbackInfo ci){
-        customNPC_Gecko_Addon$customModelData.readFromNBT(nbttagcompound);
+    private void cnpcgeckoaddon$loadCustomModel(CompoundTag nbttagcompound, CallbackInfo ci) {
+        cnpcgeckoaddon$customModelData.readFromNBT(nbttagcompound);
     }
 
     @Unique
     public CustomModelData getCustomModelData(){
-        return customNPC_Gecko_Addon$customModelData;
+        return cnpcgeckoaddon$customModelData;
     }
 
     @Unique
@@ -55,7 +55,7 @@ public class MixinDataDisplay implements IDataDisplay {
         // mod that is temporarily missing) and it latches that failure, so keying NBT
         // saving on it would silently wipe the whole gecko configuration of the NPC.
         ResourceLocation entityName = ((EntityCustomNpc) npc).modelData.getEntityName();
-        if (customNPC_Gecko_Addon$MODEL_ENTITY.equals(entityName)) {
+        if (cnpcgeckoaddon$MODEL_ENTITY.equals(entityName)) {
             return true;
         }
         return ((EntityCustomNpc) npc).modelData.getEntity(npc) instanceof EntityCustomModel;

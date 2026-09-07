@@ -13,7 +13,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** The hand-picked contents of a boss loot chest, one row per slot. */
-public final class SubGuiBossChestLoot extends GuiBasic {
+public final class SubGuiBossChestLoot extends SubGuiFieldScreen {
     private static final int FIRST_SLOT_BUTTON = 100;
     private static final int PREV_PAGE_BUTTON = 10;
     private static final int NEXT_PAGE_BUTTON = 11;
@@ -29,7 +29,6 @@ public final class SubGuiBossChestLoot extends GuiBasic {
 
     public SubGuiBossChestLoot(BossLootList loot) {
         this.loot = loot;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -54,8 +53,7 @@ public final class SubGuiBossChestLoot extends GuiBasic {
                 "cnpcgeckoaddon.boss.chest_from_hand"));
         addButton(new GuiButtonNop(this, CLEAR_BUTTON, guiLeft + 116, guiTop + 230, 60, 20,
                 "cnpcgeckoaddon.boss.chest_clear"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
 
         refreshRows();
     }

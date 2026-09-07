@@ -11,10 +11,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Coordinates, clone override, facing, and weight for one stable point. */
-public final class SubGuiBossMinionSpawnPoint extends GuiBasic implements ITextfieldListener {
+public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int COORDINATE_BUTTON = 2;
     private static final int X_FIELD = 3;
@@ -46,7 +45,6 @@ public final class SubGuiBossMinionSpawnPoint extends GuiBasic implements ITextf
         this.phaseIndex = phaseIndex;
         this.index = index;
         this.point = phase.getMinionSpawnPoints().get(index);
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -103,8 +101,7 @@ public final class SubGuiBossMinionSpawnPoint extends GuiBasic implements ITextf
                 "cnpcgeckoaddon.boss.minion_spawn_here"));
         addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + 230, 72, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_delete"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
         updateCoordinateHint();
     }
 
@@ -165,15 +162,7 @@ public final class SubGuiBossMinionSpawnPoint extends GuiBasic implements ITextf
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         point.setPosition(signed(X_FIELD), signed(Y_FIELD), signed(Z_FIELD));
         GuiTextFieldNop tab = getTextField(CLONE_TAB_FIELD);
         if (tab != null) point.setCloneTabOverride(tab.getInteger());

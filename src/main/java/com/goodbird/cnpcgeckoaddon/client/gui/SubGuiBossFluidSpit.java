@@ -8,10 +8,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Spits a glob of fluid that leaves a puddle for a few seconds and then disappears. */
-public final class SubGuiBossFluidSpit extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int FLUID_FIELD = 3;
@@ -32,7 +31,6 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen implements ITex
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -79,8 +77,7 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen implements ITex
 
         addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 232, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
     }
 
     private void addSelectRow(int id, String label, int y, String value) {
@@ -146,15 +143,7 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen implements ITex
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();

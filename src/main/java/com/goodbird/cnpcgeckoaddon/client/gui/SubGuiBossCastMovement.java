@@ -8,7 +8,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Whether the boss stands still or keeps walking while it casts, one row per ability. */
-public final class SubGuiBossCastMovement extends ScrollableSubGui {
+public final class SubGuiBossCastMovement extends SubGuiFieldScreen {
     private static final int FIRST_ABILITY_BUTTON = 100;
     private static final int LEAP_BUTTON = 90;
     private static final int FIRST_HINT_LABEL = 40;
@@ -29,7 +29,6 @@ public final class SubGuiBossCastMovement extends ScrollableSubGui {
     public SubGuiBossCastMovement(BossPhaseData phase, int phaseIndex) {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 326;
         closeOnEsc = true;
@@ -54,15 +53,14 @@ public final class SubGuiBossCastMovement extends ScrollableSubGui {
         leap.setEnabled(false);
         addButton(leap);
 
-        int y = addWrappedHint(FIRST_HINT_LABEL,
+        int y = addWrappedText(FIRST_HINT_LABEL,
                 "+ " + I18n.get("cnpcgeckoaddon.boss.cast_move_rooted")
                         + "   - " + I18n.get("cnpcgeckoaddon.boss.cast_move_free"), guiTop + 248);
-        y = addWrappedHint(FIRST_HINT_LABEL + 10,
+        y = addWrappedText(FIRST_HINT_LABEL + 10,
                 I18n.get(BossAbilityKind.LABELS[BossAbilityKind.LEAP]) + ": "
                         + I18n.get("cnpcgeckoaddon.boss.cast_move_locked"), y + 2);
-        addWrappedHint(FIRST_HINT_LABEL + 20, I18n.get("cnpcgeckoaddon.boss.cast_move_hint"), y + 2);
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 300, 60, 20,
-                "gui.done", button -> close()));
+        addWrappedText(FIRST_HINT_LABEL + 20, I18n.get("cnpcgeckoaddon.boss.cast_move_hint"), y + 2);
+        addDoneButton(guiLeft + 182, guiTop + 300, 60, 20);
     }
 
     private int gridX(int index) {
@@ -79,34 +77,6 @@ public final class SubGuiBossCastMovement extends ScrollableSubGui {
         return (phase.isCastRooted(ability) ? "+ " : "- ") + I18n.get(BossAbilityKind.LABELS[ability]);
     }
 
-    /**
-     * A GuiLabel draws one line and never clips it, so a hint too wide for the panel is split
-     * into its own labels here rather than running off the edge of the background.
-     *
-     * @return the y the next thing down may start at
-     */
-    private int addWrappedHint(int id, String text, int y) {
-        int width = imageWidth - 16;
-        StringBuilder line = new StringBuilder();
-        for (String word : text.split(" ")) {
-            if (!line.isEmpty() && font.width(line + " " + word) > width) {
-                addLabel(new GuiLabel(id++, Component.literal(line.toString()), HINT_COLOR,
-                        guiLeft + 8, y, width, HINT_LINE_HEIGHT));
-                y += HINT_LINE_HEIGHT;
-                line.setLength(0);
-            }
-            if (!line.isEmpty()) {
-                line.append(' ');
-            }
-            line.append(word);
-        }
-        if (!line.isEmpty()) {
-            addLabel(new GuiLabel(id, Component.literal(line.toString()), HINT_COLOR,
-                    guiLeft + 8, y, width, HINT_LINE_HEIGHT));
-            y += HINT_LINE_HEIGHT;
-        }
-        return y;
-    }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {

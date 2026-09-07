@@ -12,7 +12,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Eight-row paged editor for the stable protection-totem slots. */
-public final class SubGuiBossTotemList extends GuiBasic {
+public final class SubGuiBossTotemList extends SubGuiFieldScreen {
     private static final int FIRST_ROW_BUTTON = 100;
     private static final int PREV_PAGE_BUTTON = 1;
     private static final int NEXT_PAGE_BUTTON = 2;
@@ -30,7 +30,6 @@ public final class SubGuiBossTotemList extends GuiBasic {
         this.npc = npc;
         this.data = data;
         this.totems = data.getTotems();
-        setBackground("menubg.png");
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -53,8 +52,7 @@ public final class SubGuiBossTotemList extends GuiBasic {
                 "cnpcgeckoaddon.boss.totem_add"));
         addButton(new GuiButtonNop(this, CLEAR_BUTTON, guiLeft + 82, guiTop + 230, 94, 20,
                 "cnpcgeckoaddon.boss.totem_clear"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 230, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
         refreshRows();
     }
 

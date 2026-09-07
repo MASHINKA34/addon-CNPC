@@ -8,10 +8,9 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Line strike: a corridor of full damage straight ahead, with a softer wave down each flank. */
-public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int TARGET_MODE_BUTTON = 3;
@@ -42,7 +41,6 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITe
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        setBackground("menubg.png");
         imageWidth = 256;
         // Taller than an ordinary ability screen: the corridor, its flanks and its wave are
         // three sets of numbers, and squeezing them onto one page beats a second screen.
@@ -116,8 +114,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITe
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.line_hint", guiLeft + 6, guiTop + 271, 0xA0A0A0));
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 281, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, 66, guiLeft + 182, guiTop + 281, 60, 20,
-                "gui.done", button -> close()));
+        addDoneButton(guiLeft + 182, guiTop + 281, 60, 20);
     }
 
     private int vfxStyleIndex() {
@@ -191,15 +188,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen implements ITe
     }
 
     @Override
-    public void unFocused(GuiTextFieldNop field) { applyFields(); }
-
-    @Override
-    public void close() {
-        applyFields();
-        super.close();
-    }
-
-    private void applyFields() {
+    protected void applyFields() {
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation != null) {
             String value = animation.getValue().trim();
