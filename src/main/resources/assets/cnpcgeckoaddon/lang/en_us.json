@@ -661,5 +661,15 @@
   "cnpcgeckoaddon.npc.resist_examples": "scorchedguns:*  |  #minecraft:is_projectile  |  entity:arrow  |  *",
   "cnpcgeckoaddon.cmd.damageinfo_on": "Damage info on: hit an npc to see its source id",
   "cnpcgeckoaddon.cmd.damageinfo_off": "Damage info off",
-  "block.cnpcgeckoaddon.boss_chest": "Boss chest"
+  "block.cnpcgeckoaddon.boss_chest": "Boss chest",
+  "cnpcgeckoaddon.model.head_bone": "Head bone",
+  "cnpcgeckoaddon.model.transition": "Transition (ticks)",
+  "cnpcgeckoaddon.model.auto_hitbox": "Hitbox from model",
+  "cnpcgeckoaddon.model.width": "Manual hitbox width",
+  "cnpcgeckoaddon.model.height": "Manual hitbox height",
+  "cnpcgeckoaddon.model.scale": "Hitbox scale",
+  "cnpcgeckoaddon.model.hurt_tint": "Hurt tint",
+  "cnpcgeckoaddon.model.size_limit": "Maximum hitbox size: %s blocks",
+  "cnpcgeckoaddon.model.no_recorded_size": "No model size; manual values apply",
+  "cnpcgeckoaddon.model.recorded_size": "Model size: %s x %s"
 }

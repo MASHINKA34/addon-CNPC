@@ -10,6 +10,7 @@ import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
+import com.goodbird.cnpcgeckoaddon.world.BossTotemCleanupStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
@@ -126,6 +127,11 @@ public final class BossLifecycleEvents {
         // to the index, so the answer it is holding is one entity short until it is retaken.
         if (BossOwnedEntityIndex.isOwned(event.getEntity())) {
             BossOwnedEntityIndex.invalidate();
+        }
+        if (event.loadedFromDisk() && BossTotemUtil.isTotem(event.getEntity())
+                && BossTotemCleanupStore.get(level).pendingRemovalMode(event.getEntity()) >= 0) {
+            event.setCanceled(true);
+            return;
         }
         if (event.loadedFromDisk() && BossMinionUtil.isMinion(event.getEntity())) {
             int removalMode = BossMinionCleanupStore.get(level).pendingRemovalMode(event.getEntity());

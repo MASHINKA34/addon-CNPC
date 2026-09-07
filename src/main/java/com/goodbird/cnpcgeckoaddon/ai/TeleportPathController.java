@@ -1,15 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
-import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
-import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
-import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
-import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
-import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
-import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
-import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
@@ -18,30 +11,19 @@ import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.Util;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import noppes.npcs.api.NpcAPI;
-import noppes.npcs.api.entity.IEntity;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.entity.data.DataRanged;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.bernie.geckolib.animation.Animation;
@@ -52,8 +34,6 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -218,16 +198,6 @@ public final class TeleportPathController {
     static final int RETRY_LONG_TICKS = 20;
     /** How often the wind-up mark is repainted. Every other tick reads as a steady shape. */
     static final int TELEGRAPH_INTERVAL_TICKS = 2;
-    /** How far to either side of its gaze a melee swing is marked. */
-    private static final double TELEGRAPH_MELEE_HALF_ANGLE = 60.0D;
-    /** Small enough to read as "one climbs out here" rather than as an attack zone. */
-    private static final double TELEGRAPH_SPAWN_RING_RADIUS = 1.0D;
-    /** Ceiling on the spawn points marked at once, so a long list cannot flood the floor. */
-    private static final int TELEGRAPH_MAX_SPAWN_RINGS = 8;
-    /** One quiet note as the boss commits, never a rattle every tick it winds up for. */
-    private static final float TELEGRAPH_SOUND_VOLUME = 0.8F;
-    /** Well under the bell's own pitch, which is what turns a ding into a gong. */
-    private static final float TELEGRAPH_SOUND_PITCH = 0.6F;
     /** A dodged ability comes back round in a couple of seconds, not a whole cooldown. */
     private static final int TELEGRAPH_DODGE_RETRY_TICKS = 40;
     /** Yaw eased onto a wound-up line strike's axis per tick; the hit itself snaps the rest. */
@@ -329,6 +299,7 @@ public final class TeleportPathController {
     private final BossMeleeAttackRuntime meleeAttack;
     /** Whether the boss may call for help right now, and the wave it calls. */
     private final BossSummonRuntime summonRuntime;
+    private final BossTelegraphRuntime telegraphs;
 
     /**
      * Which way the action being wound up is going to go, unit length and flat, or null for
@@ -407,6 +378,7 @@ public final class TeleportPathController {
         this.rangedAttack = new BossRangedAttackRuntime(this, npc);
         this.meleeAttack = new BossMeleeAttackRuntime(this, npc);
         this.summonRuntime = new BossSummonRuntime(this, npc);
+        this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, minionSpawns);
         INSTANCES.add(this);
     }
 
@@ -509,7 +481,9 @@ public final class TeleportPathController {
         leap.tick(level, data, gameTime);
         // Above the busy gate and the pending block below on purpose: a wind-up has to stay
         // marked through a lock, and the mark has to stop on the tick the ability goes off.
-        tickTelegraph(level, data, gameTime);
+        if (pendingAction != BossAbility.NONE && gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
+            telegraphs.tick(level, data, gameTime, castPreview());
+        }
         hazardRuntime.tick(level, data, gameTime);
         // Above the gates for the hazard's reason: the party's clock does not stop because
         // the boss is held in an animation or lost sight of its target for a moment.
@@ -712,13 +686,14 @@ public final class TeleportPathController {
             trackParticipant(player);
         }
         registerInitialPartyCandidates(level, data);
+        healthScalingRuntime.beginEncounter(level, gameTime, data);
+        healthScalingRuntime.tick(data);
         // The phase the fight opens in was entered long before anyone pulled - on load, or
         // at the end of the last fight - so its hazard is armed from here instead.
         hazardRuntime.arm(level, gameTime, data.getPhase(currentPhase));
         // The barrier for the same reason: a shield with nobody to break it is not a check.
         barrierRuntime.arm(level, gameTime, data.getPhase(currentPhase));
         armPhaseInvulnerability(gameTime, data.getPhase(currentPhase));
-        healthScalingRuntime.beginEncounter(level, gameTime, data);
         totems.beginEncounter(gameTime, data);
     }
 
@@ -1706,7 +1681,7 @@ public final class TeleportPathController {
                              LivingEntity target, TeleportPathData data, BossPhaseData phase) {
         pendingAction = action;
         pendingTargetId = target == null ? -1 : target.getId();
-        pendingLeadTicks = telegraphLead(data, action, actionDelay);
+        pendingLeadTicks = telegraphs.lead(data, action, actionDelay);
         beginCastRoot(data, phase, action);
         if (pendingLeadTicks <= 0 && actionDelay <= 0) {
             playAnimation(animation);
@@ -1728,259 +1703,17 @@ public final class TeleportPathController {
         } else {
             playAnimation(animation);
         }
-        announceTelegraph(data, action);
+        telegraphs.announce(data, action);
         // Painted here as well as on the clock, so the mark is up on the very tick the boss
         // commits rather than a tick into a wind-up that may only last a handful.
         if (npc.level() instanceof ServerLevel level) {
-            paintTelegraph(level, data);
+            telegraphs.paint(level, data, castPreview());
         }
     }
 
-    /**
-     * Paints what the boss is about to do, for as long as it is winding up.
-     *
-     * <p>The wind-up is the gap {@link #beginAction} opens between the animation starting and
-     * {@link #executePendingAction} firing, so the mark needs no clock of its own: it is up
-     * for exactly that gap and stops on the tick the ability lands.</p>
-     */
-    private void tickTelegraph(ServerLevel level, TeleportPathData data, long gameTime) {
-        if (pendingAction == BossAbility.NONE || gameTime >= pendingActionAt
-                || gameTime % TELEGRAPH_INTERVAL_TICKS != 0L) {
-            return;
-        }
-        paintTelegraph(level, data);
-    }
-
-    private void paintTelegraph(ServerLevel level, TeleportPathData data) {
-        int ability = pendingAction.kind();
-        if (ability < 0) {
-            return;
-        }
-        boolean warns = telegraphs(data, ability);
-        // The gravity ring is the mechanic - where to be standing, or not, when the field
-        // opens - so it is painted whatever the warning settings say, the way a geyser's fuse
-        // is: an edge nobody can see is not a warning left off, it is a trap. The name, the
-        // note and the aura still go through the settings like everyone else's.
-        boolean fieldEdge = pendingAction == BossAbility.GRAVITY;
-        // The take cover strike is nothing but its wind-up, so the whole warning is
-        // unconditional: the countdown, the aura on the boss and the shelters on the floor
-        // are the only way anyone ever learns the arena is about to be hit. Only the note
-        // and the lead still go through the settings.
-        boolean cover = pendingAction == BossAbility.COVER;
-        if (cover) {
-            // Before the audience check: it goes to whoever the strike can reach, and the
-            // strike reaches further than a mark on the floor can be seen from.
-            coverRuntime.announceCountdown(level, pendingActionAt);
-        }
-        if (pendingAction == BossAbility.HUNT) {
-            // Before the audience check as well, and whatever the warning settings say: the
-            // prey has to know it was picked, or the chase is only a boss that suddenly runs.
-            huntRuntime.announce(pendingTarget(level));
-        }
-        if (!warns && !fieldEdge && !cover) {
-            return;
-        }
-        // Decoration only, so an arena with nobody in it costs nothing to warn.
-        if (level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
-                BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
-            return;
-        }
-        DustParticleOptions dust = BossTelegraphUtil.dust(ability);
-        if (fieldEdge || cover || data.isTelegraphZone()) {
-            drawTelegraphZone(level, data, ability, dust);
-        }
-        if (cover || (warns && data.isTelegraphAura())) {
-            BossTelegraphUtil.aura(level, npc, dust);
-        }
-    }
-
-    /**
-     * The one-off half of the warning: a note and a name, both at the moment the boss
-     * commits rather than on every tick the wind-up runs for.
-     */
-    private void announceTelegraph(TeleportPathData data, BossAbility action) {
-        int ability = action.kind();
-        if (ability < 0 || !telegraphs(data, ability)) {
-            return;
-        }
-        if (data.isTelegraphSound() && npc.level() instanceof ServerLevel level) {
-            level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.HOSTILE,
-                    TELEGRAPH_SOUND_VOLUME, TELEGRAPH_SOUND_PITCH);
-        }
-        if (!data.isTelegraphAnnounce()) {
-            return;
-        }
-        // In the ability's own colour, so the name and the shape on the floor read as one
-        // warning rather than as two.
-        Component name = Component.translatable(BossAbilityKind.LABELS[ability])
-                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(ability)));
-        // The audience the countdown already goes to: whoever this fight belongs to.
-        for (ServerPlayer player : timerBossEvent().getPlayers()) {
-            player.displayClientMessage(name, true);
-        }
-    }
-
-    /** The ground the ability being wound up is about to cover. */
-    private void drawTelegraphZone(ServerLevel level, TeleportPathData data, int ability,
-                                   DustParticleOptions dust) {
-        BossPhaseData phase = data.getPhase(currentPhase);
-        switch (pendingAction) {
-            case GROUND_ATTACK -> BossTelegraphUtil.ring(level, npc.position(),
-                    phase.areaAttack().getRadius(), dust);
-            case LINE_ATTACK -> {
-                if (committedAxis != null) {
-                    BossTelegraphUtil.corridor(level, npc.position(), committedAxis,
-                            phase.lineAttack().getLength(), phase.lineAttack().getWidth(),
-                            phase.lineAttack().getSideWidth(), dust,
-                            BossTelegraphUtil.fadedDust(ability));
-                }
-            }
-            case BOULDER -> {
-                if (committedAxis != null) {
-                    // As wide as the stone itself and with no softer flank: standing a step
-                    // outside this corridor really is standing clear.
-                    BossTelegraphUtil.corridor(level, npc.position(), committedAxis,
-                            phase.boulder().getRange(), phase.boulder().getScale() / 10.0D,
-                            0.0D, dust, BossTelegraphUtil.fadedDust(ability));
-                }
-            }
-            case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
-                    phase.meleeAttack().getRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
-            // The hunt marks its prey the way the aimed abilities do: the line says who was
-            // picked, which is the one thing everybody else needs to know.
-            case RANGED_ATTACK, FLUID_SPIT, CAPTURE, HUNT ->
-                    drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
-            // The cocoon marks everyone it is about to close round, the way the marks do:
-            // the ring is where the shell will stand, which is where the rescue will be.
-            case HOOK, GEYSER, MARK, COCOON -> {
-                drawTelegraphTargetZone(level, data, pendingTarget(level), dust);
-                for (int id : pendingExtraTargets) {
-                    if (level.getEntity(id) instanceof LivingEntity victim) {
-                        drawTelegraphTargetZone(level, data, victim, dust);
-                    }
-                }
-            }
-            case SUMMON -> drawTelegraphSpawnRings(level, phase, dust);
-            // The field is centred on the boss and the ring is its edge: out of it for the
-            // pull and the throw, into it for nobody.
-            case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.gravity().getRadius(), dust);
-            // The ring is how far the beams reach, and the lines are where they start: a
-            // player has to know which way round they will come.
-            case BEAM -> {
-                BossTelegraphUtil.ring(level, npc.position(), phase.beam().getLength(), dust);
-                BossBeamScheduler.paintStart(level, npc, committedYaw, phase.beam().getCount(),
-                        phase.beam().getLength(), phase.beam().isStopsAtWalls());
-            }
-            // The shelters, where the wind-up put them; under the sight rule there are none,
-            // and the cover is whatever the arena was built with.
-            case COVER -> coverRuntime.drawShelters(level, dust);
-            case TETHER -> {
-                if (phase.tether().getAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS) {
-                    // The ring is the leash's length: get past it and the leash is broken.
-                    BossTelegraphUtil.ring(level, npc.position(), phase.tether().getBreakDistance(), dust);
-                } else if (!data.isTelegraphAura()) {
-                    // A leash to a spot or to a partner has no ground to mark, so the boss
-                    // itself lights up instead - here only when the style is not doing it anyway.
-                    BossTelegraphUtil.aura(level, npc, dust);
-                }
-            }
-            case LEAP -> {
-                BossPhaseData leaping = leap.phaseOf(data);
-                Vec3 landing = leap.destination();
-                if (leaping != null && landing != null) {
-                    BossTelegraphUtil.ring(level, landing, leaping.leap().getImpactRadius(), dust);
-                }
-            }
-            default -> {
-                // A teleport picks its point as it goes, so there is nothing to promise in
-                // advance, and NONE never gets this far.
-            }
-        }
-    }
-
-    /**
-     * Who an aimed ability has picked, and the ground that puts at risk.
-     *
-     * <p>A line on its own says which player is being aimed at and nothing at all about
-     * where they should not be standing, which is no use to the one player it matters to.
-     * The ring is walked from where the victim is on this very tick, so someone running
-     * sees the zone travel with them rather than a mark left on the spot they were called
-     * out from.</p>
-     */
-    private void drawTelegraphTargetZone(ServerLevel level, TeleportPathData data,
-                                         LivingEntity target, DustParticleOptions dust) {
-        if (target == null) {
-            return;
-        }
-        drawTelegraphLine(level, target, dust);
-        BossTelegraphUtil.ring(level, target.position(), data.getTelegraphZoneRadius(), dust);
-    }
-
-    /** The line an aimed ability is about to run along, from the same two points it uses. */
-    private void drawTelegraphLine(ServerLevel level, LivingEntity target, DustParticleOptions dust) {
-        if (target == null) {
-            return;
-        }
-        BossTelegraphUtil.line(level, new Vec3(npc.getX(), npc.getEyeY() - 0.2D, npc.getZ()),
-                target.position().add(0.0D, target.getBbHeight() * 0.5D, 0.0D), dust);
-    }
-
-    /**
-     * A small ring on every spot a minion is about to climb out of.
-     *
-     * <p>A phase that scatters its minions has no points to mark, so its spawn radius is
-     * ringed instead: the warning still says where not to be standing.</p>
-     */
-    private void drawTelegraphSpawnRings(ServerLevel level, BossPhaseData phase,
-                                         DustParticleOptions dust) {
-        int drawn = 0;
-        if (phase.summon().getSpawnMode() != BossPhaseData.MINION_SPAWN_RANDOM_RADIUS) {
-            for (BossMinionSpawnPoint point : phase.summon().getSpawnPoints().entries()) {
-                if (drawn >= TELEGRAPH_MAX_SPAWN_RINGS) {
-                    break;
-                }
-                if (point.isEnabled()) {
-                    BossTelegraphUtil.ring(level, minionSpawns.pointAnchor(point),
-                            TELEGRAPH_SPAWN_RING_RADIUS, dust);
-                    drawn++;
-                }
-            }
-        }
-        if (drawn == 0) {
-            BossTelegraphUtil.ring(level, npc.position(), phase.summon().getRadius(), dust);
-        }
-    }
-
-    /**
-     * Whether this ability warns at all: the master switch, its own bit of the mask, and the
-     * leap's older per-phase flag.
-     */
-    private boolean telegraphs(TeleportPathData data, int ability) {
-        if (!data.isTelegraphEnabled() || !data.isTelegraphAbility(ability)) {
-            return false;
-        }
-        // The leap had a mark of its own before there was a general warning. That flag stays
-        // on as a per-phase override, so a boss already set up without one keeps its silence.
-        if (ability != BossAbilityKind.LEAP) {
-            return true;
-        }
-        BossPhaseData phase = leap.phaseOf(data);
-        return phase == null || phase.leap().isTelegraph();
-    }
-
-    /**
-     * Ticks of plain warning to put in front of a wind-up too short to react to.
-     *
-     * <p>Zero for an ability nothing is drawn for: a pause nobody can see is not a warning,
-     * it is the boss standing there doing nothing.</p>
-     */
-    private int telegraphLead(TeleportPathData data, BossAbility action, int actionDelay) {
-        int ability = action.kind();
-        if (ability < 0 || !telegraphs(data, ability)) {
-            return 0;
-        }
-        return Math.max(0, data.getTelegraphLeadTicks() - actionDelay);
+    private BossTelegraphRuntime.Cast castPreview() {
+        return new BossTelegraphRuntime.Cast(pendingAction, pendingActionAt, pendingTargetId,
+                pendingExtraTargets, committedAxis, committedYaw);
     }
 
     /**
@@ -2201,285 +1934,60 @@ public final class TeleportPathController {
         }
     }
 
-    /**
-     * Everyone within {@code reach} of {@code centre} this boss may catch with {@code ability},
-     * plus whatever else the caller's own rule demands of them.
-     *
-     * <p>One scan behind every sweep an ability makes, because the box, the round distance
-     * test and the immunity door are the same question every time and used to be answered by
-     * five copies of it. What differs between the abilities is only {@code extra}.</p>
-     */
-    private List<LivingEntity> victimsAround(ServerLevel level, Vec3 centre, double reach,
-                                             int ability, Predicate<LivingEntity> extra) {
-        double reachSquared = reach * reach;
-        // A whole block of slack on the box: it only pre-filters, and an entity standing
-        // exactly on the rim should still be handed to the distance test below.
-        AABB box = new AABB(centre, centre).inflate(reach + 1.0D);
-        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
-                target != npc && target.isAlive()
-                        && target.position().distanceToSqr(centre) <= reachSquared
-                        && isAbilityTarget(target, ability)
-                        && extra.test(target));
-    }
-
-    /**
-     * The rule the abilities that sweep the whole arena share: they keep to the species the
-     * boss is set to fight and pass over anyone hidden by their own totems. A field that
-     * throws the cattle about, or drags a warded boss out of its formation, reads as a bug
-     * rather than as a mechanic.
-     */
-    private List<LivingEntity> arenaVictims(ServerLevel level, Vec3 centre, double reach, int ability) {
-        TeleportPathData data = settings();
-        return victimsAround(level, centre, reach, ability,
-                target -> matchesAbilityTargetKind(target, data)
-                        && !BossMechanicUtil.hiddenByTotems(target));
-    }
-
-    /**
-     * Everyone an area hit centred on {@code centre} is allowed to catch.
-     *
-     * <p>Split out of {@link #getAreaTargets} so the leap slam, which lands wherever the
-     * boss came down rather than where it stands now, cannot end up with its own idea of
-     * who counts as an enemy - which is also why the ability being swept for is handed in
-     * rather than assumed.</p>
-     */
-    List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius,
-                                                int ability) {
-        return victimsAround(level, centre, radius, ability, target -> true);
-    }
-
-    /**
-     * Everyone an eruption at this spot may catch, judged by this boss.
-     *
-     * <p>Asked for by {@link BossGeyserScheduler}, which runs the eruption seconds after the
-     * cast and has no idea on its own who this boss counts as an enemy.</p>
-     */
-    List<LivingEntity> geyserVictims(ServerLevel level, Vec3 centre, double radius) {
-        return getTargetsAround(level, centre, radius, BossAbilityKind.GEYSER);
-    }
-
-    /**
-     * Everyone a gravity field around {@code centre} may move, judged by this boss.
-     *
-     * <p>Asked for by {@link BossGravityScheduler} on every tick the field is open, for the
-     * reason {@link #geyserVictims} exists.</p>
-     */
-    List<LivingEntity> gravityVictims(ServerLevel level, Vec3 centre, double radius) {
-        return arenaVictims(level, centre, radius, BossAbilityKind.GRAVITY);
-    }
-
-    /**
-     * Everyone the beams turning round {@code centre} may catch, judged by this boss.
-     *
-     * <p>Asked for by {@link BossBeamScheduler} on every tick the sweep runs, and by the
-     * cast before it spends a cooldown.</p>
-     */
-    List<LivingEntity> beamVictims(ServerLevel level, Vec3 centre, double reach) {
-        return arenaVictims(level, centre, reach, BossAbilityKind.BEAM);
-    }
-
-    /**
-     * Everyone a mark going off at this spot counts and hurts, judged by this boss.
-     *
-     * <p>Asked for by {@link BossMarkScheduler} seconds after the cast, for the reason
-     * {@link #geyserVictims} exists. One list rather than two: a gather takes its head count
-     * and shares its damage out over exactly the same people, or {@code damage / count} would
-     * stop being what anybody actually took.</p>
-     *
-     * <p>Which is also why players have to belong to this fight rather than merely be standing
-     * in the ring. The circle is a problem the party is being set, and a passer-by walking
-     * through it can neither be what solved it nor be made to pay for it. Npcs come in by the
-     * ordinary victim rules and by the species the boss is set to fight, so one aimed only at
-     * players never counts the cattle as bodies in the circle.</p>
-     */
-    List<LivingEntity> markVictims(ServerLevel level, Vec3 centre, double radius) {
-        TeleportPathData data = settings();
-        return victimsAround(level, centre, radius, BossAbilityKind.MARK,
-                target -> (!(target instanceof Player player) || isEncounterParticipant(player))
-                        && matchesAbilityTargetKind(target, data));
-    }
-
-    /**
-     * Everyone a take cover strike from {@code centre} may land on, judged by this boss.
-     *
-     * <p>Who got out of the way is decided per victim at the strike, not here - this is only
-     * who is in reach.</p>
-     */
-    List<LivingEntity> coverVictims(ServerLevel level, Vec3 centre, double range) {
-        return arenaVictims(level, centre, range, BossAbilityKind.COVER);
-    }
-
-    /** Whether this player is one of the people this boss' fight is being run against. */
     boolean isEncounterParticipant(Player player) {
         return encounterParticipants.contains(player.getUUID());
     }
 
-    /**
-     * Whether a boulder this boss launched may run this one over.
-     *
-     * <p>Asked by {@link com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder} every tick of
-     * its flight, for the reason {@link #geyserVictims} exists: the hits land seconds after
-     * the cast, and the entity has no idea on its own who this boss counts as an enemy. The
-     * species filter is applied too, so a boss aimed only at players rolls straight through
-     * the cattle.</p>
-     *
-     * <p>The ability is handed in rather than assumed: the same stone falls for the boulder
-     * rain, and an npc made immune to one of the two must not be passed over by the other.</p>
-     */
+    List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius, int ability) {
+        return targeting.getTargetsAround(level, centre, radius, ability);
+    }
+
+    List<LivingEntity> geyserVictims(ServerLevel level, Vec3 centre, double radius) {
+        return targeting.geyserVictims(level, centre, radius);
+    }
+
+    List<LivingEntity> gravityVictims(ServerLevel level, Vec3 centre, double radius) {
+        return targeting.gravityVictims(level, centre, radius);
+    }
+
+    List<LivingEntity> beamVictims(ServerLevel level, Vec3 centre, double reach) {
+        return targeting.beamVictims(level, centre, reach);
+    }
+
+    List<LivingEntity> markVictims(ServerLevel level, Vec3 centre, double radius) {
+        return targeting.markVictims(level, centre, radius);
+    }
+
+    List<LivingEntity> coverVictims(ServerLevel level, Vec3 centre, double range) {
+        return targeting.coverVictims(level, centre, range);
+    }
+
     public boolean isBoulderVictim(LivingEntity target, int ability) {
-        return target != npc && target.isAlive()
-                && matchesAbilityTargetKind(target, settings())
-                && isAbilityTarget(target, ability);
+        return targeting.isBoulderVictim(target, ability);
     }
 
-    /**
-     * Whether this candidate is a species the boss is configured to aim at.
-     *
-     * <p>Deliberately only the species filter: whether the boss may hit something at all
-     * stays in {@link #isAreaTarget}, so a hook and an area slam can never end up with
-     * different ideas of who counts as an enemy.</p>
-     */
     boolean matchesAbilityTargetKind(LivingEntity candidate, TeleportPathData data) {
-        if (candidate instanceof Player) {
-            return true;
-        }
-        return switch (data.getAbilityTargetKind()) {
-            case TeleportPathData.ABILITY_TARGET_ALL -> true;
-            case TeleportPathData.ABILITY_TARGET_PLAYERS_AND_NPCS ->
-                    candidate instanceof EntityNPCInterface;
-            default -> false;
-        };
+        return targeting.matchesAbilityTargetKind(candidate, data);
     }
 
-    /**
-     * Everyone one ability is allowed to pick, looked up in a box around the boss.
-     *
-     * <p>{@code searchRange} is that ability's own maximum reach, so the box is only a
-     * cheap pre-filter for the range and sight tests {@code canHit} runs anyway - it is
-     * what keeps the boss from sweeping the whole world every time it wants to attack.</p>
-     *
-     * <p>Somebody hidden by their own totems drops out here rather than inside {@code canHit},
-     * because this is the aiming list: an area sweep asks {@link #isAbilityTarget} instead
-     * and is meant to catch them anyway.</p>
-     */
-    List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange,
-                                                 Predicate<LivingEntity> canHit) {
-        TeleportPathData data = settings();
-        AABB box = new AABB(npc.position(), npc.position()).inflate(searchRange + 1.0D);
-        return level.getEntitiesOfClass(LivingEntity.class, box, candidate -> candidate != npc
-                && matchesAbilityTargetKind(candidate, data)
-                && !BossMechanicUtil.hiddenByTotems(candidate) && canHit.test(candidate));
+    List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange, Predicate<LivingEntity> canHit) {
+        return targeting.abilityCandidates(level, searchRange, canHit);
     }
 
     boolean isAreaTarget(LivingEntity target) {
-        if (target instanceof Player player && (player.isCreative() || player.isSpectator())) return false;
-        if (BossMinionUtil.isMinionOf(target, npc)) return false;
-        if (BossTotemUtil.isTotemOf(target, npc)) return false;
-        return npc.canAttack(target) && !npc.isAlliedTo(target);
+        return targeting.isAreaTarget(target);
     }
 
-    /**
-     * Whether one ability may pick this victim: the boss' own idea of who counts as an enemy,
-     * plus the victim's say in it.
-     *
-     * <p>An npc immune to an ability is never chosen by it, not merely left unhurt. A hook
-     * that reels in somebody it cannot move, or a grab closing on somebody it cannot hold,
-     * would spend the boss' turn on nothing and read as a bug.</p>
-     */
     boolean isAbilityTarget(LivingEntity target, int ability) {
-        return isAreaTarget(target) && !BossAbilityDamageUtil.isImmune(target, ability);
+        return targeting.isAbilityTarget(target, ability);
     }
 
-    /**
-     * Picks who this one ability goes after.
-     *
-     * <p>{@code canHit} is the ability's own validity check, so the candidate list already
-     * respects its range window and line-of-sight rule. That is what makes FARTHEST useful:
-     * it returns the player at the back of the room only while that player is still inside
-     * the attack's maximum range, never someone the boss could not reach anyway.</p>
-     *
-     * <p>Which species may reach that list is the boss' ability-target setting, because
-     * letting every living thing in would mean FARTHEST happily settling on a cow thirty
-     * blocks out instead of the tank. When nobody qualifies the NPC falls back to its
-     * normal combat target, so turning a mode on never makes an ability quieter than MAIN
-     * would have been.</p>
-     */
-    LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange,
-                                             Predicate<LivingEntity> canHit) {
-        LivingEntity main = npc.getTarget();
-        // The main target goes through the same hiding check every mode's candidates do, or
-        // MAIN would be the one way an ability could still settle on a shielded statue.
-        LivingEntity fallback = main != null && !BossMechanicUtil.hiddenByTotems(main)
-                && canHit.test(main) ? main : null;
-        if (mode == BossTargetMode.MAIN) {
-            return fallback;
-        }
-
-        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit);
-        if (candidates.isEmpty()) {
-            return fallback;
-        }
-        if (mode == BossTargetMode.RANDOM) {
-            return candidates.get(npc.getRandom().nextInt(candidates.size()));
-        }
-
-        boolean farthest = mode == BossTargetMode.FARTHEST;
-        LivingEntity best = null;
-        double bestDistance = farthest ? -1.0D : Double.MAX_VALUE;
-        for (LivingEntity candidate : candidates) {
-            double distance = npc.distanceToSqr(candidate);
-            if (farthest ? distance > bestDistance : distance < bestDistance) {
-                best = candidate;
-                bestDistance = distance;
-            }
-        }
-        return best;
+    LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange, Predicate<LivingEntity> canHit) {
+        return targeting.selectAbilityTarget(level, mode, searchRange, canHit);
     }
 
-    /**
-     * The multi-victim form of {@link #selectAbilityTarget}. Candidates are ordered by the
-     * same rule, so FARTHEST with a count of three grabs the three victims furthest away.
-     */
-    List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange,
-                                                    Predicate<LivingEntity> canHit, int count) {
-        List<LivingEntity> result = new ArrayList<>();
-        if (count <= 1) {
-            LivingEntity single = selectAbilityTarget(level, mode, searchRange, canHit);
-            if (single != null) {
-                result.add(single);
-            }
-            return result;
-        }
-
-        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit);
-        if (candidates.isEmpty()) {
-            LivingEntity fallback = selectAbilityTarget(level, mode, searchRange, canHit);
-            if (fallback != null) {
-                result.add(fallback);
-            }
-            return result;
-        }
-        if (mode == BossTargetMode.MAIN) {
-            LivingEntity main = selectAbilityTarget(level, mode, searchRange, canHit);
-            if (main != null) {
-                result.add(main);
-                candidates.remove(main);
-            }
-        }
-        if (mode == BossTargetMode.RANDOM) {
-            Util.shuffle(candidates, npc.getRandom());
-        } else {
-            boolean farthest = mode == BossTargetMode.FARTHEST;
-            candidates.sort((left, right) -> {
-                int order = Double.compare(npc.distanceToSqr(left), npc.distanceToSqr(right));
-                return farthest ? -order : order;
-            });
-        }
-        int remaining = count - result.size();
-        for (int i = 0; i < Math.min(remaining, candidates.size()); i++) {
-            result.add(candidates.get(i));
-        }
-        return result;
+    List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange, Predicate<LivingEntity> canHit, int count) {
+        return targeting.selectAbilityTargets(level, mode, searchRange, canHit, count);
     }
 
     LivingEntity pendingTarget(ServerLevel level) {

@@ -661,5 +661,15 @@
   "cnpcgeckoaddon.npc.resist_examples": "scorchedguns:*  |  #minecraft:is_projectile  |  entity:arrow  |  *",
   "cnpcgeckoaddon.cmd.damageinfo_on": "Разбор урона включён: ударь НПС, чтобы увидеть id источника",
   "cnpcgeckoaddon.cmd.damageinfo_off": "Разбор урона выключен",
-  "block.cnpcgeckoaddon.boss_chest": "Сундук босса"
+  "block.cnpcgeckoaddon.boss_chest": "Сундук босса",
+  "cnpcgeckoaddon.model.head_bone": "Кость головы",
+  "cnpcgeckoaddon.model.transition": "Переход (тики)",
+  "cnpcgeckoaddon.model.auto_hitbox": "Хитбокс из модели",
+  "cnpcgeckoaddon.model.width": "Ширина хитбокса",
+  "cnpcgeckoaddon.model.height": "Высота хитбокса",
+  "cnpcgeckoaddon.model.scale": "Масштаб хитбокса",
+  "cnpcgeckoaddon.model.hurt_tint": "Окраска при уроне",
+  "cnpcgeckoaddon.model.size_limit": "Макс. размер хитбокса: %s блока",
+  "cnpcgeckoaddon.model.no_recorded_size": "Нет размера; используются поля ниже",
+  "cnpcgeckoaddon.model.recorded_size": "Размер модели: %s x %s"
 }

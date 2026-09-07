@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CustomModelData {
+    public static final float MAX_HITBOX_SIZE = 32.0F;
     private String model = CNPCGeckoAddon.MODID + ":geo/geo_npc.geo.json";
     private String animFile = CNPCGeckoAddon.MODID + ":animations/geo_npc.animation.json";
     private String idleAnim = "idle";
@@ -215,8 +216,8 @@ public class CustomModelData {
         if (!autoHitbox && this.autoHitbox && width == LEGACY_WIDTH && height == LEGACY_HEIGHT) {
             float[] derived = derived();
             if (derived != null) {
-                width = derived[0];
-                height = derived[1];
+                setWidth(derived[0]);
+                setHeight(derived[1]);
             }
         }
         this.autoHitbox = autoHitbox;
@@ -232,7 +233,11 @@ public class CustomModelData {
     }
 
     private static float sanitizeSize(float value, float fallback) {
-        return Float.isFinite(value) ? Math.clamp(value, 0.0F, Float.MAX_VALUE / MAX_SCALE) : fallback;
+        return Float.isFinite(value) ? Math.clamp(value, 0.0F, MAX_HITBOX_SIZE) : fallback;
+    }
+
+    public static float clampHitboxSize(float value) {
+        return sanitizeSize(value, MAX_HITBOX_SIZE);
     }
 
     /** The size the model records for itself, or null for a non-bundled model. */
@@ -243,12 +248,12 @@ public class CustomModelData {
 
     public float getEffectiveWidth() {
         float[] derived = autoHitbox ? derived() : null;
-        return (derived == null ? width : derived[0]) * clampedScale();
+        return clampHitboxSize((derived == null ? width : derived[0]) * clampedScale());
     }
 
     public float getEffectiveHeight() {
         float[] derived = autoHitbox ? derived() : null;
-        return (derived == null ? height : derived[1]) * clampedScale();
+        return clampHitboxSize((derived == null ? height : derived[1]) * clampedScale());
     }
 
     /**

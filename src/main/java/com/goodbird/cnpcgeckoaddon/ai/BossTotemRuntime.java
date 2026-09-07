@@ -180,7 +180,7 @@ final class BossTotemRuntime {
     void removeOnBossDeath(ServerLevel level, TeleportPathData data) {
         dropAllLinks(level);
         if (data.isTotemRemoveOnBossDeath()) {
-            BossTotemUtil.removeLoaded(level, npc);
+            BossTotemUtil.clear(level, npc);
         }
         clearRuntime();
     }
@@ -486,10 +486,8 @@ final class BossTotemRuntime {
     }
 
     void removeConfigured(ServerLevel level) {
-        for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
-            dropLink(totem, BossTotemUtil.slotId(totem));
-            totem.discard();
-        }
+        dropAllLinks(level);
+        BossTotemUtil.clear(level, npc);
         slots.clear();
         resetHealthSlots.clear();
     }

@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.entity;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -165,7 +166,7 @@ public class EntityCustomModel extends Animal implements GeoAnimatable, GeoEntit
     }
 
     public void setSize(float width, float height) {
-        dims = EntityDimensions.scalable(width, height);
+        dims = EntityDimensions.scalable(CustomModelData.clampHitboxSize(width), CustomModelData.clampHitboxSize(height));
         refreshDimensions();
     }
 

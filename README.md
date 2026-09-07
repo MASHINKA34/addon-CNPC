@@ -15,11 +15,27 @@ This is an ***addon***: install CustomNPCs and GeckoLib first, then drop the jar
 - Warden-style sound reaction: NPCs can hear vibrations and investigate or attack the source
 - Extra ranged options: custom projectile entity, keep-distance behaviour
 - A boss framework with up to 8 health phases, each holding its own animations and abilities:
-  - path teleporting, clone summoning, area attack, ranged attack, melee attack,
-    fluid spit and a chain hook
+  - path teleporting, clone summoning, area, ranged and melee attacks, fluid spit,
+    hooks, leaps, line attacks, geysers, boulders, tethers, gravity fields, marks,
+    cover checks, hunts, beams, captures and cocoons
   - per-ability target selection (main / nearest / farthest / random)
   - up to three potion effects per attack
-  - configurable minion cleanup and a death explosion
+  - timed barriers, invulnerability windows, enrage and health scaling for groups
+  - protection totems with configurable activation, respawn and cleanup rules
+  - arena boundaries, configurable minion cleanup, death explosions and reward chests
+
+## Changes in 1.29.8
+
+- Barrier failure damage receives the enrage multiplier once. Opening percentage
+  barriers use maximum health after party scaling.
+- Totem cleanup survives unloaded chunks and server restarts, while later waves from
+  the same boss remain valid. Minion and totem cleanup histories retain old requests
+  instead of forgetting them after 4096 bosses. Existing minion save data is compatible.
+- Model hitboxes are limited to 32 blocks per dimension, including automatic sizing,
+  the hitbox scale and the NPC display scale. Oversized saved values are clamped on
+  load. The model settings screen displays this limit and supports English and Russian.
+- Attack warning rendering and victim selection have separate responsibilities outside
+  the encounter controller. Server regression tests now run in CI.
 
 ## Building
 
@@ -66,8 +82,17 @@ they cover exactly what can be checked without a world:
 - the model-to-texture name scoring;
 - that `en_us` and `ru_ru` carry the same keys and that every key the sources name exists.
 
-The gametests under `src/main/java/.../gametest` need a full CustomNPCs server and are not
-part of the build.
+The gametests under `src/main/java/.../gametest` run on a full CustomNPCs server:
+
+```
+gradlew runGameTestServer
+```
+
+They run after the build in GitHub Actions and use `build/gametest` as their working
+directory, keeping the normal development world separate. They cover combat timing,
+barrier penalties and party scaling, totem and minion reload cleanup, collision limits,
+projectiles, carry state, temporary blocks, animations and rewards. Test classes are
+excluded from the release jar.
 
 ## A note on the bundled mob models
 

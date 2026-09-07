@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
+import com.goodbird.cnpcgeckoaddon.world.BossTotemCleanupStore;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -33,6 +34,7 @@ public final class BossMinionUtil {
         // A clone saved from a totem must become an ordinary minion for caps and cleanup.
         minion.getPersistentData().remove(BossTotemUtil.TOTEM_OWNER_KEY);
         minion.getPersistentData().remove(BossTotemUtil.TOTEM_SLOT_KEY);
+        minion.getPersistentData().remove(BossTotemCleanupStore.GENERATION_KEY);
         minion.getPersistentData().putString(MINION_OWNER_KEY, boss.getUUID().toString());
         if (boss.level() instanceof ServerLevel level) {
             minion.getPersistentData().putLong(BossMinionCleanupStore.GENERATION_KEY,

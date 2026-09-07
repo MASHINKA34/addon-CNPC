@@ -1,5 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
+import net.minecraft.Util;
+import net.minecraft.world.phys.Vec3;
+import java.util.function.Predicate;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -230,7 +235,7 @@ final class BossTargetingRuntime {
                 candidate != npc && !(candidate instanceof Player)
                         && npc.distanceToSqr(candidate) <= radiusSquared
                         && (!restrictToZone || zoneConstraint.contains(candidate.position()))
-                        && boss.matchesAbilityTargetKind(candidate, data)
+                        && matchesAbilityTargetKind(candidate, data)
                         && isTargetable(candidate, data));
     }
 
@@ -241,9 +246,166 @@ final class BossTargetingRuntime {
      * its own attacks would refuse to hit, its minions and totems included.</p>
      */
     boolean isTargetable(LivingEntity candidate, TeleportPathData data) {
-        if (!candidate.isAlive() || candidate.isRemoved() || !boss.isAreaTarget(candidate)) {
+        if (!candidate.isAlive() || candidate.isRemoved() || !isAreaTarget(candidate)) {
             return false;
         }
         return !data.isTargetRequiresLineOfSight() || npc.getSensing().hasLineOfSight(candidate);
     }
+
+    private List<LivingEntity> victimsAround(ServerLevel level, Vec3 centre, double reach,
+                                             int ability, Predicate<LivingEntity> extra) {
+        double reachSquared = reach * reach;
+        AABB box = new AABB(centre, centre).inflate(reach + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive()
+                        && target.position().distanceToSqr(centre) <= reachSquared
+                        && isAbilityTarget(target, ability)
+                        && extra.test(target));
+    }
+
+    private List<LivingEntity> arenaVictims(ServerLevel level, Vec3 centre, double reach, int ability) {
+        TeleportPathData data = boss.settings();
+        return victimsAround(level, centre, reach, ability,
+                target -> matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target));
+    }
+
+    List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius,
+                                                int ability) {
+        return victimsAround(level, centre, radius, ability, target -> true);
+    }
+
+    List<LivingEntity> geyserVictims(ServerLevel level, Vec3 centre, double radius) {
+        return getTargetsAround(level, centre, radius, BossAbilityKind.GEYSER);
+    }
+
+    List<LivingEntity> gravityVictims(ServerLevel level, Vec3 centre, double radius) {
+        return arenaVictims(level, centre, radius, BossAbilityKind.GRAVITY);
+    }
+
+    List<LivingEntity> beamVictims(ServerLevel level, Vec3 centre, double reach) {
+        return arenaVictims(level, centre, reach, BossAbilityKind.BEAM);
+    }
+
+    List<LivingEntity> markVictims(ServerLevel level, Vec3 centre, double radius) {
+        TeleportPathData data = boss.settings();
+        return victimsAround(level, centre, radius, BossAbilityKind.MARK,
+                target -> (!(target instanceof Player player) || boss.isEncounterParticipant(player))
+                        && matchesAbilityTargetKind(target, data));
+    }
+
+    List<LivingEntity> coverVictims(ServerLevel level, Vec3 centre, double range) {
+        return arenaVictims(level, centre, range, BossAbilityKind.COVER);
+    }
+
+    boolean isBoulderVictim(LivingEntity target, int ability) {
+        return target != npc && target.isAlive()
+                && matchesAbilityTargetKind(target, boss.settings())
+                && isAbilityTarget(target, ability);
+    }
+
+    boolean matchesAbilityTargetKind(LivingEntity candidate, TeleportPathData data) {
+        if (candidate instanceof Player) {
+            return true;
+        }
+        return switch (data.getAbilityTargetKind()) {
+            case TeleportPathData.ABILITY_TARGET_ALL -> true;
+            case TeleportPathData.ABILITY_TARGET_PLAYERS_AND_NPCS ->
+                    candidate instanceof EntityNPCInterface;
+            default -> false;
+        };
+    }
+
+    List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange,
+                                                 Predicate<LivingEntity> canHit) {
+        TeleportPathData data = boss.settings();
+        AABB box = new AABB(npc.position(), npc.position()).inflate(searchRange + 1.0D);
+        return level.getEntitiesOfClass(LivingEntity.class, box, candidate -> candidate != npc
+                && matchesAbilityTargetKind(candidate, data)
+                && !BossMechanicUtil.hiddenByTotems(candidate) && canHit.test(candidate));
+    }
+
+    boolean isAreaTarget(LivingEntity target) {
+        if (target instanceof Player player && (player.isCreative() || player.isSpectator())) return false;
+        if (BossMinionUtil.isMinionOf(target, npc)) return false;
+        if (BossTotemUtil.isTotemOf(target, npc)) return false;
+        return npc.canAttack(target) && !npc.isAlliedTo(target);
+    }
+
+    boolean isAbilityTarget(LivingEntity target, int ability) {
+        return isAreaTarget(target) && !BossAbilityDamageUtil.isImmune(target, ability);
+    }
+
+    LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange,
+                                             Predicate<LivingEntity> canHit) {
+        LivingEntity main = npc.getTarget();
+        LivingEntity fallback = main != null && !BossMechanicUtil.hiddenByTotems(main)
+                && canHit.test(main) ? main : null;
+        if (mode == BossTargetMode.MAIN) {
+            return fallback;
+        }
+
+        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit);
+        if (candidates.isEmpty()) {
+            return fallback;
+        }
+        if (mode == BossTargetMode.RANDOM) {
+            return candidates.get(npc.getRandom().nextInt(candidates.size()));
+        }
+
+        boolean farthest = mode == BossTargetMode.FARTHEST;
+        LivingEntity best = null;
+        double bestDistance = farthest ? -1.0D : Double.MAX_VALUE;
+        for (LivingEntity candidate : candidates) {
+            double distance = npc.distanceToSqr(candidate);
+            if (farthest ? distance > bestDistance : distance < bestDistance) {
+                best = candidate;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange,
+                                                    Predicate<LivingEntity> canHit, int count) {
+        List<LivingEntity> result = new ArrayList<>();
+        if (count <= 1) {
+            LivingEntity single = selectAbilityTarget(level, mode, searchRange, canHit);
+            if (single != null) {
+                result.add(single);
+            }
+            return result;
+        }
+
+        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit);
+        if (candidates.isEmpty()) {
+            LivingEntity fallback = selectAbilityTarget(level, mode, searchRange, canHit);
+            if (fallback != null) {
+                result.add(fallback);
+            }
+            return result;
+        }
+        if (mode == BossTargetMode.MAIN) {
+            LivingEntity main = selectAbilityTarget(level, mode, searchRange, canHit);
+            if (main != null) {
+                result.add(main);
+                candidates.remove(main);
+            }
+        }
+        if (mode == BossTargetMode.RANDOM) {
+            Util.shuffle(candidates, npc.getRandom());
+        } else {
+            boolean farthest = mode == BossTargetMode.FARTHEST;
+            candidates.sort((left, right) -> {
+                int order = Double.compare(npc.distanceToSqr(left), npc.distanceToSqr(right));
+                return farthest ? -order : order;
+            });
+        }
+        int remaining = count - result.size();
+        for (int i = 0; i < Math.min(remaining, candidates.size()); i++) {
+            result.add(candidates.get(i));
+        }
+        return result;
+    }
+
 }

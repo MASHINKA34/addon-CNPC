@@ -4,6 +4,8 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
+import com.goodbird.cnpcgeckoaddon.world.BossTotemCleanupStore;
+import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -34,6 +36,10 @@ public final class BossTotemUtil {
         BossCocoonUtil.clearRole(totem);
         totem.getPersistentData().putString(TOTEM_OWNER_KEY, boss.getUUID().toString());
         totem.getPersistentData().putInt(TOTEM_SLOT_KEY, Math.max(1, slotId));
+        if (boss.level() instanceof ServerLevel level) {
+            totem.getPersistentData().putLong(BossTotemCleanupStore.GENERATION_KEY,
+                    BossTotemCleanupStore.get(level).generation(boss.getUUID()));
+        }
         BossOwnedEntityIndex.invalidate();
     }
 
@@ -104,6 +110,13 @@ public final class BossTotemUtil {
     }
 
     /** Discards only this owner's totems, without death drops or clone kill scripts. */
+    public static void clear(ServerLevel level, Entity boss) {
+        BossTotemCleanupStore.get(level).invalidate(boss.getUUID(), TeleportPathData.MINION_REMOVAL_VANISH);
+        for (ServerLevel dimension : level.getServer().getAllLevels()) {
+            removeLoaded(dimension, boss);
+        }
+    }
+
     public static void removeLoaded(ServerLevel level, Entity boss) {
         for (Entity totem : findAllLoaded(level, boss)) {
             totem.discard();

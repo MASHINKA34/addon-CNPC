@@ -3,12 +3,14 @@ package com.goodbird.cnpcgeckoaddon.gametest;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
+import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncNpcCarryState;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import com.mojang.authlib.GameProfile;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -19,12 +21,38 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import noppes.npcs.CustomEntities;
 import noppes.npcs.entity.EntityNPCInterface;
+import noppes.npcs.entity.EntityCustomNpc;
 
 import java.util.UUID;
 
 @GameTestHolder(CNPCGeckoAddon.MODID)
 @PrefixGameTestTemplate(false)
 public class ModelAndCarryRegressionGameTest {
+    @GameTest(template = "fluid_platform")
+    public static void npcDisplayScaleCannotBypassHitboxLimit(GameTestHelper helper) {
+        EntityCustomNpc npc = (EntityCustomNpc) CustomEntities.entityCustomNpc.create(helper.getLevel());
+        npc.setNoAi(true);
+        npc.modelData.setEntity(BuiltInRegistries.ENTITY_TYPE.getKey(EntityRegistry.entityCustomModel));
+        CustomModelData data = ((IDataDisplay) npc.display).getCustomModelData();
+        data.setAutoHitbox(false);
+        data.setWidth(1_000_000);
+        data.setHeight(1_000_000);
+        data.setHitboxScale(16);
+        npc.display.setSize(30);
+        try {
+            npc.tick();
+            helper.assertTrue(npc.modelData.getEntity(npc) instanceof EntityCustomModel,
+                    "the fixture must use the addon model");
+            helper.assertTrue(npc.getBbWidth() <= 32 && npc.getBbHeight() <= 32,
+                    "CustomNPCs display scaling must not bypass the final collision limit");
+            helper.assertTrue(npc.getDimensions(Pose.STANDING).width() == npc.getBbWidth(),
+                    "the cached NPC size and pose dimensions must agree");
+            helper.succeed();
+        } finally {
+            npc.discard();
+        }
+    }
+
     @GameTest(template = "fluid_platform")
     public static void resizingModelUpdatesCachedDimensions(GameTestHelper helper) {
         EntityCustomModel model = new EntityCustomModel(EntityRegistry.entityCustomModel, helper.getLevel());

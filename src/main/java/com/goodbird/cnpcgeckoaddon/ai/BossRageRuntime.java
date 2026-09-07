@@ -151,7 +151,8 @@ final class BossRageRuntime {
      * @return the damage this hit should land for, unchanged when the rage has no say in it
      */
     static float scaleOwnAttack(DamageSource source, float amount) {
-        if (amount <= 0.0F || BossAbilityDamageUtil.currentAbility() != BossAbilityDamageUtil.NO_ABILITY
+        if (amount <= 0.0F || BossAbilityDamageUtil.isApplyingHit()
+                || BossAbilityDamageUtil.currentAbility() != BossAbilityDamageUtil.NO_ABILITY
                 || !(source.getEntity() instanceof EntityNPCInterface npc)
                 || source.getDirectEntity() != npc
                 || !(npc instanceof IBossController holder)) {

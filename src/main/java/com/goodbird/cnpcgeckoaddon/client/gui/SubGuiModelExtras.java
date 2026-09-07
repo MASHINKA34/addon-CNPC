@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.utils.FloatTextFieldUtils;
+import net.minecraft.network.chat.Component;
 import noppes.npcs.client.gui.util.*;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -20,6 +21,7 @@ public class SubGuiModelExtras extends GuiNPCInterface implements ITextfieldList
     private static final int BUTTON_HURT_TINT = 5;
     private static final int BUTTON_AUTO_HITBOX = 6;
     private static final int LABEL_AUTO_SIZE = 8;
+    private static final int LABEL_SIZE_LIMIT = 9;
     private static final int BUTTON_CLOSE = 670;
 
     public SubGuiModelExtras(EntityNPCInterface npc){
@@ -32,11 +34,11 @@ public class SubGuiModelExtras extends GuiNPCInterface implements ITextfieldList
         super.init();
         int y = guiTop + 30;
 
-        addLabel(new GuiLabel(FIELD_HEAD_BONE,"Head Bone Name", guiLeft - 85, y + 5,0xffffff));
+        addLabel(new GuiLabel(FIELD_HEAD_BONE,"cnpcgeckoaddon.model.head_bone", guiLeft - 85, y + 5,0xffffff));
         addTextField(new GuiTextFieldNop(FIELD_HEAD_BONE,this, guiLeft + 50, y, 200, 20, getModelData(npc).getHeadBoneName()));
         y+=23;
 
-        addLabel(new GuiLabel(FIELD_TRANSITION,"Transition Length (ticks)", guiLeft - 85, y + 5,0xffffff));
+        addLabel(new GuiLabel(FIELD_TRANSITION,"cnpcgeckoaddon.model.transition", guiLeft - 85, y + 5,0xffffff));
         GuiTextFieldNop transitionLength = new GuiTextFieldNop(FIELD_TRANSITION,this, guiLeft + 50, y,
                 200, 20, ""+getModelData(npc).getTransitionLengthTicks());
         transitionLength.setNumbersOnly();
@@ -46,26 +48,30 @@ public class SubGuiModelExtras extends GuiNPCInterface implements ITextfieldList
 
         // With this on, the box comes from the model's own geometry instead of the
         // humanoid default that used to apply to every model alike.
-        addLabel(new GuiLabel(BUTTON_AUTO_HITBOX,"Hitbox From Model", guiLeft - 85, y + 5,0xffffff));
+        addLabel(new GuiLabel(BUTTON_AUTO_HITBOX,"cnpcgeckoaddon.model.auto_hitbox", guiLeft - 85, y + 5,0xffffff));
         addButton(new GuiButtonYesNo(this, BUTTON_AUTO_HITBOX, guiLeft + 50, y, 200, 20, getModelData(npc).isAutoHitbox()));
         y+=23;
 
         addLabel(new GuiLabel(LABEL_AUTO_SIZE, modelSizeText(), guiLeft + 50, y + 2, 0xa0a0a0));
         y+=14;
 
-        addLabel(new GuiLabel(FIELD_WIDTH,"Manual Hitbox Width", guiLeft - 85, y + 5,0xffffff));
+        addLabel(new GuiLabel(FIELD_WIDTH,"cnpcgeckoaddon.model.width", guiLeft - 85, y + 5,0xffffff));
         addTextField(new GuiTextFieldNop(FIELD_WIDTH,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getWidth()));
         y+=23;
 
-        addLabel(new GuiLabel(FIELD_HEIGHT,"Manual Hitbox Height", guiLeft - 85, y + 5,0xffffff));
+        addLabel(new GuiLabel(FIELD_HEIGHT,"cnpcgeckoaddon.model.height", guiLeft - 85, y + 5,0xffffff));
         addTextField(new GuiTextFieldNop(FIELD_HEIGHT,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getHeight()));
         y+=23;
 
-        addLabel(new GuiLabel(FIELD_SCALE,"Hitbox Scale", guiLeft - 85, y + 5,0xffffff));
+        addLabel(new GuiLabel(FIELD_SCALE,"cnpcgeckoaddon.model.scale", guiLeft - 85, y + 5,0xffffff));
         addTextField(new GuiTextFieldNop(FIELD_SCALE,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getHitboxScale()));
         y+=23;
 
-        addLabel(new GuiLabel(BUTTON_HURT_TINT,"Enable Hurt Tint", guiLeft - 85, y + 5,0xffffff));
+        addLabel(new GuiLabel(LABEL_SIZE_LIMIT, Component.translatable("cnpcgeckoaddon.model.size_limit",
+                (int) CustomModelData.MAX_HITBOX_SIZE).getString(), guiLeft - 85, y + 2, 0xa0a0a0));
+        y += 16;
+
+        addLabel(new GuiLabel(BUTTON_HURT_TINT,"cnpcgeckoaddon.model.hurt_tint", guiLeft - 85, y + 5,0xffffff));
         addButton(new GuiButtonYesNo(this, BUTTON_HURT_TINT, guiLeft + 50, y, 200, 20, getModelData(npc).isHurtTintEnabled()));
 
         addButton(new GuiButtonNop(this, BUTTON_CLOSE, width - 22, 2, 20, 20, "X"));
@@ -78,9 +84,11 @@ public class SubGuiModelExtras extends GuiNPCInterface implements ITextfieldList
     private String modelSizeText() {
         float[] derived = getModelData(npc).getDerivedHitbox();
         if (derived == null) {
-            return "Model records no size, manual values are used";
+            return Component.translatable("cnpcgeckoaddon.model.no_recorded_size").getString();
         }
-        return String.format("Model size: %.2f wide, %.2f tall", derived[0], derived[1]);
+        return Component.translatable("cnpcgeckoaddon.model.recorded_size",
+                String.format(java.util.Locale.ROOT, "%.2f", derived[0]),
+                String.format(java.util.Locale.ROOT, "%.2f", derived[1])).getString();
     }
 
     public CustomModelData getModelData(EntityNPCInterface npc){
@@ -112,11 +120,11 @@ public class SubGuiModelExtras extends GuiNPCInterface implements ITextfieldList
             getModelData(npc).setTransitionLengthTicks(textfield.getInteger());
         }
         if(textfield.id == FIELD_WIDTH){
-            FloatTextFieldUtils.performFloatChecks(0, Float.MAX_VALUE, getModelData(npc).getWidth(), textfield);
+            FloatTextFieldUtils.performFloatChecks(0, CustomModelData.MAX_HITBOX_SIZE, getModelData(npc).getWidth(), textfield);
             getModelData(npc).setWidth(FloatTextFieldUtils.getFloat(textfield));
         }
         if(textfield.id == FIELD_HEIGHT){
-            FloatTextFieldUtils.performFloatChecks(0, Float.MAX_VALUE, getModelData(npc).getHeight(), textfield);
+            FloatTextFieldUtils.performFloatChecks(0, CustomModelData.MAX_HITBOX_SIZE, getModelData(npc).getHeight(), textfield);
             getModelData(npc).setHeight(FloatTextFieldUtils.getFloat(textfield));
         }
         if(textfield.id == FIELD_SCALE){

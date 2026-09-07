@@ -26,6 +26,7 @@ public final class BossAbilityDamageUtil {
      * below is what keeps the answer honest when one ability's hit sets another one off.</p>
      */
     private static int currentAbility = NO_ABILITY;
+    private static boolean applyingHit;
 
     private BossAbilityDamageUtil() {
     }
@@ -33,6 +34,10 @@ public final class BossAbilityDamageUtil {
     /** The ability landing right now, or {@link #NO_ABILITY} outside any ability's hit. */
     public static int currentAbility() {
         return currentAbility;
+    }
+
+    public static boolean isApplyingHit() {
+        return applyingHit;
     }
 
     /** Whether one ability passes this entity by entirely. Only npcs can ever say yes. */
@@ -56,7 +61,9 @@ public final class BossAbilityDamageUtil {
             return false;
         }
         int outerAbility = currentAbility;
+        boolean outerHit = applyingHit;
         currentAbility = ability;
+        applyingHit = true;
         try {
             // A zero is "this ability does not hurt, it only does its other half"; handing that to
             // vanilla anyway would still burn the victim's invulnerability frames on nothing.
@@ -76,6 +83,7 @@ public final class BossAbilityDamageUtil {
             // Restored on every road out. A mark left standing would sign the next plain sword
             // swing as this ability, and a totem that only the geyser may break would fall to it.
             currentAbility = outerAbility;
+            applyingHit = outerHit;
         }
     }
 
