@@ -143,11 +143,14 @@ public class BossRuntimeRegressionGameTest {
 
     private static void applyScaling(TeleportPathController controller, TeleportPathData data, int players)
             throws ReflectiveOperationException {
-        var count = TeleportPathController.class.getDeclaredField("scaledPlayerCount");
+        var runtimeField = TeleportPathController.class.getDeclaredField("healthScalingRuntime");
+        runtimeField.setAccessible(true);
+        Object runtime = runtimeField.get(controller);
+        var count = runtime.getClass().getDeclaredField("scaledPlayerCount");
         count.setAccessible(true);
-        count.setInt(controller, players);
-        var apply = TeleportPathController.class.getDeclaredMethod("applyHealthScaling", TeleportPathData.class, long.class);
+        count.setInt(runtime, players);
+        var apply = runtime.getClass().getDeclaredMethod("apply", TeleportPathData.class, long.class);
         apply.setAccessible(true);
-        apply.invoke(controller, data, (long) players);
+        apply.invoke(runtime, data, (long) players);
     }
 }

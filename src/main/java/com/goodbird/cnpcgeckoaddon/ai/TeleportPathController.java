@@ -262,16 +262,6 @@ public final class TeleportPathController {
     private boolean encounterResetDone;
     private boolean encounterRunning;
     private long encounterBeganAt = NOT_SCHEDULED;
-    private int scaledPlayerCount = 1;
-    private int lockedPlayerCount;
-    private long nextHealthScalingCheckAt = NOT_SCHEDULED;
-    private int lastHealthScalingUpdateMode = -1;
-    private int lastHealthScalingPlayerCap = -1;
-    private int lastHealthScalingRecheckTicks = -1;
-    private double baseMaxHealth;
-    private boolean healthScalingApplied;
-    private boolean healthScalingUnavailable;
-    private long lastHealthScalingConfiguration = Long.MIN_VALUE;
     /** Game time the fight started at, or NOT_SCHEDULED while no encounter is running. */
     private long encounterStartedAt = NOT_SCHEDULED;
     /** Once set, stays set until the encounter ends - a phase change does not calm the boss. */
@@ -313,6 +303,8 @@ public final class TeleportPathController {
     private final BossBarrierRuntime barrierRuntime;
     /** The chase this boss is running, handed over once the hunt ability lands. */
     private final BossHuntRuntime huntRuntime;
+    /** The boss' health scaled to how many players turned up. */
+    private final BossHealthScalingRuntime healthScalingRuntime;
     private CoverCast coverCast;
 
     /**
@@ -432,6 +424,7 @@ public final class TeleportPathController {
         this.hazardRuntime = new BossHazardRuntime(this, npc);
         this.barrierRuntime = new BossBarrierRuntime(this, npc);
         this.huntRuntime = new BossHuntRuntime(this, npc);
+        this.healthScalingRuntime = new BossHealthScalingRuntime(this, npc);
         INSTANCES.add(this);
     }
 
@@ -495,8 +488,8 @@ public final class TeleportPathController {
         if (hasCombatTarget()) {
             beginEncounter(level, gameTime, data);
         }
-        tickHealthScalingPlayerCount(level, gameTime, data);
-        tickHealthScaling(data);
+        healthScalingRuntime.tickPlayerCount(level, gameTime, data);
+        healthScalingRuntime.tick(data);
         // A leash reset owns the rest of this tick, including already-due abilities.
         if (tickHomeLeash(level, gameTime, data)) {
             return;
@@ -682,14 +675,7 @@ public final class TeleportPathController {
         // The barrier for the same reason: a shield with nobody to break it is not a check.
         barrierRuntime.arm(level, gameTime, data.getPhase(currentPhase));
         armPhaseInvulnerability(gameTime, data.getPhase(currentPhase));
-        lockedPlayerCount = countEligibleHealthScalingPlayers(level, data, false);
-        scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
-        lastHealthScalingUpdateMode = data.getHealthScalingUpdateMode();
-        lastHealthScalingPlayerCap = data.getHealthScalingPlayerCap();
-        lastHealthScalingRecheckTicks = data.getHealthScalingRecheckTicks();
-        nextHealthScalingCheckAt = data.getHealthScalingUpdateMode()
-                == TeleportPathData.HEALTH_SCALING_DYNAMIC
-                ? gameTime + data.getHealthScalingRecheckTicks() : NOT_SCHEDULED;
+        healthScalingRuntime.beginEncounter(level, gameTime, data);
         if (!data.isTotemsEnabled()) {
             return;
         }
@@ -717,12 +703,7 @@ public final class TeleportPathController {
         encounterBeganAt = NOT_SCHEDULED;
         outsideHomeLeashSince = NOT_SCHEDULED;
         encounterParticipants.clear();
-        scaledPlayerCount = 1;
-        lockedPlayerCount = 0;
-        nextHealthScalingCheckAt = NOT_SCHEDULED;
-        lastHealthScalingUpdateMode = -1;
-        lastHealthScalingPlayerCap = -1;
-        lastHealthScalingRecheckTicks = -1;
+        healthScalingRuntime.endEncounter();
     }
 
     /** @return true when crossing the leash ended the encounter this tick */
@@ -1445,7 +1426,7 @@ public final class TeleportPathController {
         currentPhase = 0;
         highestPhaseReached = 0;
         // Restore the base maximum before reset healing decides whether to fill it.
-        clearHealthScaling(data, data.isResetHeal());
+        healthScalingRuntime.clear(data, data.isResetHeal());
         clearEncounter();
         clearInvulnerability();
         minionRoundRobinCursor.clear();
@@ -2052,7 +2033,7 @@ public final class TeleportPathController {
     }
 
     /** Adds the whole nearby group before a lock-at-start encounter takes its snapshot. */
-    private void registerInitialPartyCandidates(ServerLevel level, TeleportPathData data) {
+    void registerInitialPartyCandidates(ServerLevel level, TeleportPathData data) {
         double radius = data.getTargetSearchRadius();
         double radiusSquared = radius * radius;
         AABB zone = data.isAggroZoneEnabled() ? aggroZoneBounds(level, data) : null;
@@ -2065,123 +2046,16 @@ public final class TeleportPathController {
         }
     }
 
-    private void tickHealthScalingPlayerCount(ServerLevel level, long gameTime,
-                                               TeleportPathData data) {
-        if (!encounterRunning) {
-            return;
-        }
-        if (!data.isHealthScalingEnabled()) {
-            scaledPlayerCount = 1;
-            lockedPlayerCount = 0;
-            nextHealthScalingCheckAt = NOT_SCHEDULED;
-            lastHealthScalingUpdateMode = -1;
-            lastHealthScalingPlayerCap = -1;
-            lastHealthScalingRecheckTicks = -1;
-            return;
-        }
-
-        int updateMode = data.getHealthScalingUpdateMode();
-        boolean updateModeChanged = updateMode != lastHealthScalingUpdateMode;
-        boolean countSettingsChanged = updateModeChanged
-                || data.getHealthScalingPlayerCap() != lastHealthScalingPlayerCap
-                || data.getHealthScalingRecheckTicks() != lastHealthScalingRecheckTicks;
-        if (countSettingsChanged) {
-            if (updateMode == TeleportPathData.HEALTH_SCALING_LOCK_AT_START) {
-                if (updateModeChanged || lockedPlayerCount < 1) {
-                    registerInitialPartyCandidates(level, data);
-                    lockedPlayerCount = countEligibleHealthScalingPlayers(level, data, true);
-                }
-                scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
-                nextHealthScalingCheckAt = NOT_SCHEDULED;
-            } else {
-                scaledPlayerCount = cappedHealthScalingPlayerCount(
-                        countEligibleHealthScalingPlayers(level, data, true), data);
-                nextHealthScalingCheckAt = gameTime + data.getHealthScalingRecheckTicks();
-            }
-            lastHealthScalingUpdateMode = updateMode;
-            lastHealthScalingPlayerCap = data.getHealthScalingPlayerCap();
-            lastHealthScalingRecheckTicks = data.getHealthScalingRecheckTicks();
-            return;
-        }
-
-        if (updateMode == TeleportPathData.HEALTH_SCALING_LOCK_AT_START) {
-            scaledPlayerCount = cappedHealthScalingPlayerCount(lockedPlayerCount, data);
-            return;
-        }
-        if (nextHealthScalingCheckAt != NOT_SCHEDULED && gameTime < nextHealthScalingCheckAt) {
-            return;
-        }
-        scaledPlayerCount = cappedHealthScalingPlayerCount(
-                countEligibleHealthScalingPlayers(level, data, true), data);
-        nextHealthScalingCheckAt = gameTime + data.getHealthScalingRecheckTicks();
-    }
-
-    private int countEligibleHealthScalingPlayers(ServerLevel level, TeleportPathData data,
-                                                   boolean dynamic) {
-        Set<ServerPlayer> candidates = new HashSet<>();
-        if (npc.getTarget() instanceof ServerPlayer target) {
-            candidates.add(target);
-        }
-        for (UUID playerId : encounterParticipants) {
-            Player player = level.getPlayerByUUID(playerId);
-            if (player instanceof ServerPlayer serverPlayer) {
-                candidates.add(serverPlayer);
-            }
-        }
-
-        ServerPlayer currentTarget = npc.getTarget() instanceof ServerPlayer target ? target : null;
-        double dynamicRadius = data.getTargetSearchRadius() * 1.5D;
-        double dynamicRadiusSquared = dynamicRadius * dynamicRadius;
-        AABB zone = dynamic && data.isAggroZoneEnabled() ? aggroZoneBounds(level, data) : null;
-        int count = 0;
-        for (ServerPlayer player : candidates) {
-            if (player.level() != level || !isParticipant(player)) {
-                continue;
-            }
-            if (dynamic && player != currentTarget
-                    && npc.distanceToSqr(player) > dynamicRadiusSquared
-                    && (zone == null || !zone.contains(player.position()))) {
-                continue;
-            }
-            count++;
-        }
-        return Math.max(1, count);
-    }
-
-    private static int cappedHealthScalingPlayerCount(int count, TeleportPathData data) {
-        return Mth.clamp(count, 1, data.getHealthScalingPlayerCap());
-    }
-
     public int scaledPlayerCount() {
-        return scaledPlayerCount;
+        return healthScalingRuntime.scaledPlayerCount();
     }
 
     /** Read-only party-health snapshot for /cnpcgecko boss. */
     public String partyHealthStatus(TeleportPathData data) {
-        double baseline = healthScalingApplied ? baseMaxHealth : npc.getMaxHealth();
-        if (!data.isHealthScalingEnabled()) {
-            return "Party health: off, base " + formatHealth(baseline)
-                    + ", scaled " + formatHealth(npc.getMaxHealth());
-        }
-        int players = Math.max(1, scaledPlayerCount);
-        String update = data.getHealthScalingUpdateMode()
-                == TeleportPathData.HEALTH_SCALING_LOCK_AT_START ? "locked" : "dynamic";
-        String adjustment = data.getHealthScalingAdjustment()
-                == TeleportPathData.HEALTH_SCALING_KEEP_CURRENT ? "keep current" : "keep percent";
-        String mode = switch (data.getHealthScalingMode()) {
-            case TeleportPathData.HEALTH_SCALING_FLAT -> "+"
-                    + data.getHealthPerPlayerFlat() + " HP/player";
-            case TeleportPathData.HEALTH_SCALING_PERCENT_AND_FLAT -> "+"
-                    + data.getHealthPerPlayerPercent() + "% +"
-                    + data.getHealthPerPlayerFlat() + " HP/player";
-            default -> "+" + data.getHealthPerPlayerPercent() + "%/player";
-        };
-        return "Party health: " + players + " players " + update + " ("
-                + Math.max(0, players - 1) + " extra), cap " + data.getHealthScalingPlayerCap()
-                + ", base " + formatHealth(baseline) + ", scaled "
-                + formatHealth(npc.getMaxHealth()) + ", mode " + mode + ", adjust " + adjustment;
+        return healthScalingRuntime.status(data);
     }
 
+    /** Health as a status line wants it: whole where it is whole, and never a trailing zero. */
     static String formatHealth(double value) {
         if (Math.rint(value) == value) {
             return Long.toString((long) value);
@@ -2189,115 +2063,6 @@ public final class TeleportPathController {
         return String.format(java.util.Locale.ROOT, "%.2f", value)
                 .replaceAll("0+$", "").replaceAll("\\.$", "");
     }
-
-    private void tickHealthScaling(TeleportPathData data) {
-        if (!encounterRunning || !data.isHealthScalingEnabled()) {
-            clearHealthScaling(data, false);
-            return;
-        }
-        if (healthScalingUnavailable) {
-            return;
-        }
-        long configuration = healthScalingConfiguration(data);
-        if (!healthScalingApplied || configuration != lastHealthScalingConfiguration) {
-            applyHealthScaling(data, configuration);
-        }
-    }
-
-    private long healthScalingConfiguration(TeleportPathData data) {
-        return scaledPlayerCount
-                | (long) data.getHealthScalingMode() << 8
-                | (long) data.getHealthPerPlayerPercent() << 10
-                | (long) data.getHealthPerPlayerFlat() << 21;
-    }
-
-    /** Applies one numeric ADD_VALUE bonus without ever changing the attribute base value. */
-    private void applyHealthScaling(TeleportPathData data, long configuration) {
-        AttributeInstance instance = npc.getAttribute(Attributes.MAX_HEALTH);
-        if (instance == null) {
-            healthScalingUnavailable = true;
-            LOGGER.warn("Boss {} has no MAX_HEALTH attribute; party health scaling is disabled",
-                    npc.getName().getString());
-            return;
-        }
-
-        float oldMax = npc.getMaxHealth();
-        float oldHealth = npc.getHealth();
-        if (!healthScalingApplied) {
-            // A controller can be rebuilt around a still-loaded entity, so discard only our id.
-            instance.removeModifier(BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID);
-            baseMaxHealth = finiteHealth(npc.getMaxHealth(), 1.0D);
-            healthScalingApplied = true;
-        } else {
-            instance.removeModifier(BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID);
-        }
-
-        double bonus = healthScalingBonus(instance, data);
-        if (bonus > 0.0D) {
-            instance.addTransientModifier(new AttributeModifier(
-                    BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID, bonus,
-                    AttributeModifier.Operation.ADD_VALUE));
-        }
-        lastHealthScalingConfiguration = configuration;
-        adjustCurrentHealth(oldHealth, oldMax, npc.getMaxHealth(), data.getHealthScalingAdjustment());
-    }
-
-    private double healthScalingBonus(AttributeInstance instance, TeleportPathData data) {
-        double desiredMax = data.calculateScaledMaxHealth(baseMaxHealth, scaledPlayerCount);
-        double sanitizedMax = instance.getAttribute().value().sanitizeValue(desiredMax);
-        return BossHealthScalingUtil.calculateAdditiveBonus(instance, sanitizedMax);
-    }
-
-    private static double finiteHealth(double value, double nonFiniteFallback) {
-        if (!Double.isFinite(value)) {
-            return nonFiniteFallback;
-        }
-        return Math.max(1.0D, value);
-    }
-
-    private void adjustCurrentHealth(float oldHealth, float oldMax, float newMax, int adjustment) {
-        if (!npc.isAlive()) {
-            return;
-        }
-        double wanted = adjustment == TeleportPathData.HEALTH_SCALING_KEEP_CURRENT
-                ? oldHealth
-                : oldMax <= 0.0F ? newMax : (double) newMax * oldHealth / oldMax;
-        npc.setHealth((float) Mth.clamp(wanted, 1.0D, Math.max(1.0F, newMax)));
-    }
-
-    /** Removes the party modifier and restores HP according to reset and adjustment policy. */
-    private void clearHealthScaling(TeleportPathData data, boolean resetHeal) {
-        AttributeInstance instance = npc.getAttribute(Attributes.MAX_HEALTH);
-        if (instance == null) {
-            healthScalingApplied = false;
-            baseMaxHealth = 0.0D;
-            lastHealthScalingConfiguration = Long.MIN_VALUE;
-            return;
-        }
-        boolean hadModifier = instance.hasModifier(BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID);
-        if (!healthScalingApplied && !hadModifier) {
-            if (resetHeal && npc.isAlive()) {
-                npc.setHealth(npc.getMaxHealth());
-            }
-            return;
-        }
-
-        float oldMax = npc.getMaxHealth();
-        float oldHealth = npc.getHealth();
-        instance.removeModifier(BossHealthScalingUtil.PARTY_HEALTH_MODIFIER_ID);
-        float newMax = npc.getMaxHealth();
-        if (npc.isAlive()) {
-            if (resetHeal) {
-                npc.setHealth(newMax);
-            } else {
-                adjustCurrentHealth(oldHealth, oldMax, newMax, data.getHealthScalingAdjustment());
-            }
-        }
-        healthScalingApplied = false;
-        baseMaxHealth = 0.0D;
-        lastHealthScalingConfiguration = Long.MIN_VALUE;
-    }
-
     public void removeBossBarPlayer(ServerPlayer player) {
         bossBarParticipants.remove(player.getUUID());
         if (!bossEvent.getPlayers().contains(player)) {
@@ -2310,7 +2075,7 @@ public final class TeleportPathController {
 
     public void removeParticipant(ServerPlayer player) {
         // Keep encounter history so a dynamic participant is counted again after returning.
-        nextHealthScalingCheckAt = 0L;
+        healthScalingRuntime.recountSoon();
         removeBossBarPlayer(player);
     }
 
@@ -2482,7 +2247,7 @@ public final class TeleportPathController {
         clearRage();
         huntRuntime.end();
         barrierRuntime.clear();
-        clearHealthScaling(settings(), false);
+        healthScalingRuntime.clear(settings(), false);
         clearEncounter();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
@@ -6209,7 +5974,7 @@ public final class TeleportPathController {
         clearInvulnerability();
         minionRoundRobinCursor.clear();
         clearRage();
-        clearHealthScaling(settings(), false);
+        healthScalingRuntime.clear(settings(), false);
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
         clearHookPulls();
