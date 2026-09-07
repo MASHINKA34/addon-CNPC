@@ -214,17 +214,11 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setHuntAnimation(value);
             else animation.setValue(phase.getHuntAnimation());
         }
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) phase.setHuntDurationTicks(duration.getInteger());
-        GuiTextFieldNop speed = getTextField(SPEED_FIELD);
-        if (speed != null) phase.setHuntSpeedPercent(speed.getInteger());
-        GuiTextFieldNop catchRadius = getTextField(CATCH_RADIUS_FIELD);
-        if (catchRadius != null) phase.setHuntCatchRadius(catchRadius.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setHuntDamage(damage.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setHuntActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setHuntCooldownTicks(cooldown.getInteger());
+        applyNumberField(DURATION_FIELD, phase::setHuntDurationTicks);
+        applyNumberField(SPEED_FIELD, phase::setHuntSpeedPercent);
+        applyNumberField(CATCH_RADIUS_FIELD, phase::setHuntCatchRadius);
+        applyNumberField(DAMAGE_FIELD, phase::setHuntDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setHuntActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setHuntCooldownTicks);
     }
 }

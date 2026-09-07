@@ -125,14 +125,11 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setCaptureAnimation(value);
             else animation.setValue(phase.getCaptureAnimation());
         }
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setCaptureActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setCaptureCooldownTicks(cooldown.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase::setCaptureActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setCaptureCooldownTicks);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
         if (min != null && max != null) phase.setCaptureRange(min.getInteger(), max.getInteger());
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) phase.setCaptureDurationTicks(duration.getInteger());
+        applyNumberField(DURATION_FIELD, phase::setCaptureDurationTicks);
     }
 }

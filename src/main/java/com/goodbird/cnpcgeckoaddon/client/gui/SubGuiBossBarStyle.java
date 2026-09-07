@@ -3,7 +3,6 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.resources.language.I18n;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
@@ -65,8 +64,7 @@ public final class SubGuiBossBarStyle extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop scale = getTextField(SCALE_FIELD);
-        if (scale != null) data.setBossBarScalePercent(scale.getInteger());
+        applyNumberField(SCALE_FIELD, data::setBossBarScalePercent);
     }
 
     private String styleLabel(int index) {

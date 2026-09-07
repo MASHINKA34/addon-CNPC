@@ -175,22 +175,15 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setHookAnimation(value);
             else animation.setValue(phase.getHookAnimation());
         }
-        GuiTextFieldNop count = getTextField(TARGET_COUNT_FIELD);
-        if (count != null) phase.setHookTargetCount(count.getInteger());
-        GuiTextFieldNop stop = getTextField(STOP_FIELD);
-        if (stop != null) phase.setHookStopDistance(stop.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setHookDamage(damage.getInteger());
-        GuiTextFieldNop strength = getTextField(STRENGTH_FIELD);
-        if (strength != null) phase.setHookPullStrength(strength.getInteger());
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) phase.setHookPullDurationTicks(duration.getInteger());
+        applyNumberField(TARGET_COUNT_FIELD, phase::setHookTargetCount);
+        applyNumberField(STOP_FIELD, phase::setHookStopDistance);
+        applyNumberField(DAMAGE_FIELD, phase::setHookDamage);
+        applyNumberField(STRENGTH_FIELD, phase::setHookPullStrength);
+        applyNumberField(DURATION_FIELD, phase::setHookPullDurationTicks);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
         if (min != null && max != null) phase.setHookRange(min.getInteger(), max.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setHookActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setHookCooldownTicks(cooldown.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase::setHookActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setHookCooldownTicks);
     }
 }

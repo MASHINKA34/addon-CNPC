@@ -6,7 +6,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
-import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Makes the boss detonate when it dies. */
 public final class SubGuiBossExplosion extends SubGuiFieldScreen {
@@ -90,9 +89,7 @@ public final class SubGuiBossExplosion extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop delay = getTextField(DELAY_FIELD);
-        if (delay != null) data.setExplosionDelayTicks(delay.getInteger());
-        GuiTextFieldNop power = getTextField(POWER_FIELD);
-        if (power != null) data.setExplosionPower(power.getInteger());
+        applyNumberField(DELAY_FIELD, data::setExplosionDelayTicks);
+        applyNumberField(POWER_FIELD, data::setExplosionPower);
     }
 }

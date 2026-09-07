@@ -6,7 +6,6 @@
     "BlockEntityAccessor",
     "EntityPersistentDataAccessor",
     "MixinBlockScriptedWrapper",
-    "MixinCustomNpcsGameTest",
     "MixinDataAI",
     "MixinDataDisplay",
     "MixinDataRanged",

@@ -71,10 +71,6 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
-    private void addYesNo(int id, String label, int y, boolean value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + 155, y, 87, 20, value));
-    }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
@@ -97,14 +93,8 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
         if (item != null) {
             applyItemId(item);
         }
-        GuiTextFieldNop slowness = getTextField(SLOWNESS_FIELD);
-        if (slowness != null) {
-            data.setSlownessPercent(slowness.getInteger());
-        }
-        GuiTextFieldNop leash = getTextField(LEASH_FIELD);
-        if (leash != null) {
-            data.setLeashRadius(leash.getInteger());
-        }
+        applyNumberField(SLOWNESS_FIELD, data::setSlownessPercent);
+        applyNumberField(LEASH_FIELD, data::setLeashRadius);
     }
 
     private void applyItemId(GuiTextFieldNop field) {
@@ -124,4 +114,14 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
         data.setRequiredItem(location.toString());
         field.setValue(location.toString());
     }
+    @Override
+    protected int toggleButtonX() {
+        return 155;
+    }
+
+    @Override
+    protected int toggleButtonWidth() {
+        return 87;
+    }
+
 }

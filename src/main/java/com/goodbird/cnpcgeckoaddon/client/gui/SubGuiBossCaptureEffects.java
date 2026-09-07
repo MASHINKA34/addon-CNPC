@@ -119,13 +119,9 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop height = getTextField(LIFT_HEIGHT_FIELD);
-        if (height != null) phase.setCaptureLiftHeight(height.getInteger());
-        GuiTextFieldNop ticks = getTextField(LIFT_TICKS_FIELD);
-        if (ticks != null) phase.setCaptureLiftTicks(ticks.getInteger());
-        GuiTextFieldNop width = getTextField(BEAM_WIDTH_FIELD);
-        if (width != null) phase.setCaptureBeamWidthPercent(width.getInteger());
-        GuiTextFieldNop sag = getTextField(BEAM_SAG_FIELD);
-        if (sag != null) phase.setCaptureBeamSagPercent(sag.getInteger());
+        applyNumberField(LIFT_HEIGHT_FIELD, phase::setCaptureLiftHeight);
+        applyNumberField(LIFT_TICKS_FIELD, phase::setCaptureLiftTicks);
+        applyNumberField(BEAM_WIDTH_FIELD, phase::setCaptureBeamWidthPercent);
+        applyNumberField(BEAM_SAG_FIELD, phase::setCaptureBeamSagPercent);
     }
 }

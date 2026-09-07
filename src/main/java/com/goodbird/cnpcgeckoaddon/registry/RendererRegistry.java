@@ -6,7 +6,7 @@ import com.goodbird.cnpcgeckoaddon.client.renderer.BossChestRenderer;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderBossBoulder;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderCustomModel;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderTileCustomModel;
-import com.goodbird.cnpcgeckoaddon.utils.MobModelTextureResolver;
+import com.goodbird.cnpcgeckoaddon.client.MobModelTextureResolver;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;

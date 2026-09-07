@@ -163,19 +163,12 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setGravityAnimation(value);
             else animation.setValue(phase.getGravityAnimation());
         }
-        GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
-        if (radius != null) phase.setGravityRadius(radius.getInteger());
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) phase.setGravityDurationTicks(duration.getInteger());
-        GuiTextFieldNop strength = getTextField(STRENGTH_FIELD);
-        if (strength != null) phase.setGravityStrength(strength.getInteger());
-        GuiTextFieldNop touch = getTextField(TOUCH_RADIUS_FIELD);
-        if (touch != null) phase.setGravityTouchRadius(touch.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setGravityDamage(damage.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setGravityActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setGravityCooldownTicks(cooldown.getInteger());
+        applyNumberField(RADIUS_FIELD, phase::setGravityRadius);
+        applyNumberField(DURATION_FIELD, phase::setGravityDurationTicks);
+        applyNumberField(STRENGTH_FIELD, phase::setGravityStrength);
+        applyNumberField(TOUCH_RADIUS_FIELD, phase::setGravityTouchRadius);
+        applyNumberField(DAMAGE_FIELD, phase::setGravityDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setGravityActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setGravityCooldownTicks);
     }
 }

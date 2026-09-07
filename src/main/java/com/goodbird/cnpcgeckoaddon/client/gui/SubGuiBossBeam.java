@@ -225,30 +225,21 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setBeamAnimation(value);
             else animation.setValue(phase.getBeamAnimation());
         }
-        GuiTextFieldNop count = getTextField(COUNT_FIELD);
-        if (count != null) phase.setBeamCount(count.getInteger());
-        GuiTextFieldNop length = getTextField(LENGTH_FIELD);
-        if (length != null) phase.setBeamLength(length.getInteger());
-        GuiTextFieldNop width = getTextField(WIDTH_FIELD);
-        if (width != null) phase.setBeamWidth(width.getInteger());
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) phase.setBeamDurationTicks(duration.getInteger());
+        applyNumberField(COUNT_FIELD, phase::setBeamCount);
+        applyNumberField(LENGTH_FIELD, phase::setBeamLength);
+        applyNumberField(WIDTH_FIELD, phase::setBeamWidth);
+        applyNumberField(DURATION_FIELD, phase::setBeamDurationTicks);
         GuiTextFieldNop speed = getTextField(SPEED_FIELD);
         if (speed != null) {
             phase.setBeamDegreesPerSecond(signed(speed));
             // Clamped on the way in, so what the screen shows is what the boss will do.
             speed.setValue(Integer.toString(phase.getBeamDegreesPerSecond()));
         }
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setBeamDamage(damage.getInteger());
-        GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);
-        if (interval != null) phase.setBeamHitIntervalTicks(interval.getInteger());
-        GuiTextFieldNop knockback = getTextField(KNOCKBACK_FIELD);
-        if (knockback != null) phase.setBeamKnockback(knockback.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setBeamActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setBeamCooldownTicks(cooldown.getInteger());
+        applyNumberField(DAMAGE_FIELD, phase::setBeamDamage);
+        applyNumberField(INTERVAL_FIELD, phase::setBeamHitIntervalTicks);
+        applyNumberField(KNOCKBACK_FIELD, phase::setBeamKnockback);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setBeamActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setBeamCooldownTicks);
     }
 
     /** The plain field's number, read the way the leap screen reads its coordinates. */

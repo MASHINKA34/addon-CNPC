@@ -82,10 +82,6 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
         addDoneButton(guiLeft + 182, guiTop + 228, 60, 20);
     }
 
-    private void addYesNo(int id, String label, int y, boolean value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + 142, y, 100, 20, value));
-    }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {

@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -164,14 +163,12 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
     @Override
     protected void applyFields() {
         point.setPosition(signed(X_FIELD), signed(Y_FIELD), signed(Z_FIELD));
-        GuiTextFieldNop tab = getTextField(CLONE_TAB_FIELD);
-        if (tab != null) point.setCloneTabOverride(tab.getInteger());
+        applyNumberField(CLONE_TAB_FIELD, point::setCloneTabOverride);
         GuiTextFieldNop name = getTextField(CLONE_NAME_FIELD);
         if (name != null) point.setCloneNameOverride(name.getValue());
         GuiTextFieldNop yaw = getTextField(YAW_FIELD);
         if (yaw != null) point.setYaw(yaw.getFloat());
-        GuiTextFieldNop weight = getTextField(WEIGHT_FIELD);
-        if (weight != null) point.setWeight(weight.getInteger());
+        applyNumberField(WEIGHT_FIELD, point::setWeight);
     }
 
     private int signed(int id) {

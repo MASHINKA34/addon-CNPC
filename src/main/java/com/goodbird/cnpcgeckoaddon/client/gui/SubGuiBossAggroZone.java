@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -76,10 +75,6 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
-    private void addYesNo(int id, String label, int y, boolean value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + 142, y, 100, 20, value));
-    }
 
     private void addCornerFields(int xId, int yId, int zId, int buttonId, int y,
                                  int x, int cornerY, int z) {
@@ -136,10 +131,7 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);
-        if (interval != null) {
-            data.setAggroZoneRecheckTicks(interval.getInteger());
-        }
+        applyNumberField(INTERVAL_FIELD, data::setAggroZoneRecheckTicks);
         data.setAggroZoneCorner1(signed(X1_FIELD), signed(Y1_FIELD), signed(Z1_FIELD));
         data.setAggroZoneCorner2(signed(X2_FIELD), signed(Y2_FIELD), signed(Z2_FIELD));
     }

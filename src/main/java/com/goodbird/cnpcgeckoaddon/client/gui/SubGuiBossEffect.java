@@ -75,9 +75,7 @@ public final class SubGuiBossEffect extends SubGuiFieldScreen {
             if (BossEffectData.isKnownEffect(value)) effect.setEffectId(value);
             else id.setValue(effect.getEffectId());
         }
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) effect.setDurationTicks(duration.getInteger());
-        GuiTextFieldNop level = getTextField(LEVEL_FIELD);
-        if (level != null) effect.setLevel(level.getInteger());
+        applyNumberField(DURATION_FIELD, effect::setDurationTicks);
+        applyNumberField(LEVEL_FIELD, effect::setLevel);
     }
 }

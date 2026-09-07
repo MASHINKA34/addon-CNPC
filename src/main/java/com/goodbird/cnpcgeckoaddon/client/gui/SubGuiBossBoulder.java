@@ -226,23 +226,14 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
             if (EntityBossBoulder.resolveBlock(value) != null) phase.setBoulderBlock(value);
             else block.setValue(phase.getBoulderBlock());
         }
-        GuiTextFieldNop scale = getTextField(SCALE_FIELD);
-        if (scale != null) phase.setBoulderScale(scale.getInteger());
-        GuiTextFieldNop speed = getTextField(SPEED_FIELD);
-        if (speed != null) phase.setBoulderSpeed(speed.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setBoulderDamage(damage.getInteger());
-        GuiTextFieldNop knockback = getTextField(KNOCKBACK_FIELD);
-        if (knockback != null) phase.setBoulderKnockback(knockback.getInteger());
-        GuiTextFieldNop range = getTextField(RANGE_FIELD);
-        if (range != null) phase.setBoulderRange(range.getInteger());
-        GuiTextFieldNop shatterRadius = getTextField(SHATTER_RADIUS_FIELD);
-        if (shatterRadius != null) phase.setBoulderShatterRadius(shatterRadius.getInteger());
-        GuiTextFieldNop shatterDamage = getTextField(SHATTER_DAMAGE_FIELD);
-        if (shatterDamage != null) phase.setBoulderShatterDamage(shatterDamage.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setBoulderActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setBoulderCooldownTicks(cooldown.getInteger());
+        applyNumberField(SCALE_FIELD, phase::setBoulderScale);
+        applyNumberField(SPEED_FIELD, phase::setBoulderSpeed);
+        applyNumberField(DAMAGE_FIELD, phase::setBoulderDamage);
+        applyNumberField(KNOCKBACK_FIELD, phase::setBoulderKnockback);
+        applyNumberField(RANGE_FIELD, phase::setBoulderRange);
+        applyNumberField(SHATTER_RADIUS_FIELD, phase::setBoulderShatterRadius);
+        applyNumberField(SHATTER_DAMAGE_FIELD, phase::setBoulderShatterDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setBoulderActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setBoulderCooldownTicks);
     }
 }

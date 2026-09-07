@@ -1,7 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 

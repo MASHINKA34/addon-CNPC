@@ -5,9 +5,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
-import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
-import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
@@ -17,11 +15,9 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
-import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -31,17 +27,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.api.NpcAPI;
 import noppes.npcs.api.entity.IEntity;
@@ -53,12 +46,12 @@ import software.bernie.geckolib.animation.Animation;
 import software.bernie.geckolib.animation.RawAnimation;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -75,7 +68,7 @@ public final class TeleportPathController {
     static final long NOT_SCHEDULED = Long.MIN_VALUE;
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
-    private static final int POST_ACTION_LOCK_TICKS = 10;
+    static final int POST_ACTION_LOCK_TICKS = 10;
 
     @FunctionalInterface
     private interface AbilityStarter {
@@ -83,27 +76,48 @@ public final class TeleportPathController {
                       BossPhaseData phase, long gameTime);
     }
 
-    private static final List<AbilityStarter> ABILITY_STARTERS = List.of(
-            TeleportPathController::tryStartGroundAttack,
-            TeleportPathController::tryStartRangedAttack,
-            TeleportPathController::tryStartMeleeAttack,
-            TeleportPathController::tryStartFluidSpit,
-            TeleportPathController::tryStartHook,
-            TeleportPathController::tryStartCapture,
-            TeleportPathController::tryStartLeap,
-            TeleportPathController::tryStartLineAttack,
-            TeleportPathController::tryStartGeyser,
-            TeleportPathController::tryStartBoulder,
-            TeleportPathController::tryStartBoulderRain,
-            TeleportPathController::tryStartTether,
-            TeleportPathController::tryStartGravity,
-            TeleportPathController::tryStartMark,
-            TeleportPathController::tryStartCover,
-            TeleportPathController::tryStartHunt,
-            TeleportPathController::tryStartBeam,
-            TeleportPathController::tryStartCocoon,
-            TeleportPathController::tryStartSummon);
-    private static final int ABILITY_COUNT = ABILITY_STARTERS.size();
+    /**
+     * What actually starts each ability, keyed by its row in the table.
+     *
+     * <p>Keyed rather than ordered: a list matched the rotation by position alone, so a row
+     * inserted in one place and not the other silently ran the wrong ability's starter -
+     * an attack firing under another one's cooldown, which reads as a balance problem
+     * rather than as the wiring mistake it is. The check below turns that into a crash on
+     * load instead.</p>
+     */
+    private static final Map<BossAbility, AbilityStarter> ABILITY_STARTERS = new EnumMap<>(Map.ofEntries(
+            Map.entry(BossAbility.GROUND_ATTACK, TeleportPathController::tryStartGroundAttack),
+            Map.entry(BossAbility.RANGED_ATTACK, TeleportPathController::tryStartRangedAttack),
+            Map.entry(BossAbility.MELEE_ATTACK, TeleportPathController::tryStartMeleeAttack),
+            Map.entry(BossAbility.FLUID_SPIT, TeleportPathController::tryStartFluidSpit),
+            Map.entry(BossAbility.HOOK, (controller, level, data, phase, gameTime) ->
+                    controller.hook.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.CAPTURE, TeleportPathController::tryStartCapture),
+            Map.entry(BossAbility.LEAP, (controller, level, data, phase, gameTime) ->
+                    controller.leap.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.LINE_ATTACK, TeleportPathController::tryStartLineAttack),
+            Map.entry(BossAbility.GEYSER, TeleportPathController::tryStartGeyser),
+            Map.entry(BossAbility.BOULDER, TeleportPathController::tryStartBoulder),
+            Map.entry(BossAbility.BOULDER_RAIN, TeleportPathController::tryStartBoulderRain),
+            Map.entry(BossAbility.TETHER, TeleportPathController::tryStartTether),
+            Map.entry(BossAbility.GRAVITY, TeleportPathController::tryStartGravity),
+            Map.entry(BossAbility.MARK, TeleportPathController::tryStartMark),
+            Map.entry(BossAbility.COVER, (controller, level, data, phase, gameTime) ->
+                    controller.coverRuntime.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.HUNT, TeleportPathController::tryStartHunt),
+            Map.entry(BossAbility.BEAM, TeleportPathController::tryStartBeam),
+            Map.entry(BossAbility.COCOON, TeleportPathController::tryStartCocoon),
+            Map.entry(BossAbility.SUMMON, TeleportPathController::tryStartSummon)));
+
+    static {
+        // An ability on the rotation with nothing to start it would be skipped in silence
+        // for the life of the server, so it is worth refusing to load over.
+        if (!ABILITY_STARTERS.keySet().equals(Set.copyOf(BossAbility.ROTATION))) {
+            throw new IllegalStateException("Boss ability rotation and starter table disagree: "
+                    + BossAbility.ROTATION + " vs " + ABILITY_STARTERS.keySet());
+        }
+    }
+
     /**
      * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
      * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
@@ -124,19 +138,13 @@ public final class TeleportPathController {
     private static final double COCOON_GUARD_DISTANCE = 2.0D;
     private static final int COCOON_GUARD_ATTEMPTS = 8;
     /** Tries at finding floor and room for one shelter before the wind-up gives it up. */
-    private static final int COVER_SHELTER_ATTEMPTS = 12;
     /**
      * Where the lower sight line is aimed, above the victim's feet. A slab hides the legs
      * and has to count; a carpet lies under them and must not, so the line ends a quarter
      * block up rather than on the floor.
      */
-    private static final double COVER_KNEE_HEIGHT = 0.25D;
     /** Dust stacked over a shelter's centre, so it can be picked out from across the arena. */
-    private static final int COVER_SHELTER_POST_HEIGHT = 3;
     /** How fast the take cover strike's wave runs, in blocks a tick: a shockwave, not a stroll. */
-    private static final double COVER_WAVE_SPEED = 1.0D;
-    private static final int MIN_COVER_VFX_DURATION_TICKS = 20;
-    private static final int MAX_COVER_VFX_DURATION_TICKS = 60;
     /** Quietest gap that still reads as one clang per hit rather than a rattle. */
     private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
     /**
@@ -146,8 +154,6 @@ public final class TeleportPathController {
      * are scaled by their drag. Solving that discretely is what makes a leap land on its
      * mark instead of a good block short of it.
      */
-    private static final double LEAP_GRAVITY = 0.08D;
-    private static final double LEAP_VERTICAL_DRAG = 0.98D;
     /**
      * Trim on the horizontal speed, tunable in one place.
      *
@@ -157,23 +163,15 @@ public final class TeleportPathController {
      * replay of the movement above: without it a leap is up to 4% short, with it the error
      * is inside 3% either way, which the smallest slam radius swallows.</p>
      */
-    private static final double LEAP_REACH_CORRECTION = 1.03D;
     /** Enough to clear the 64 block height ceiling; only the solver's search uses it. */
-    private static final double LEAP_MAX_RISE_SPEED = 5.0D;
     /**
      * A badly set up arena must not fling the boss across the world. Far above anything a
      * sane jump asks for: even a hundred block leap only needs about 1.3 blocks a tick.
      */
-    private static final double LEAP_MAX_HORIZONTAL_SPEED = 4.0D;
     /** Ticks the boss gets to leave the floor before a leap counts as never started. */
-    private static final int LEAP_LAUNCH_GRACE_TICKS = 5;
     /** Rough spacing between the landing marker's particles, in blocks. */
-    private static final double LEAP_MARKER_SPACING = 0.7D;
-    private static final int LEAP_MARKER_INTERVAL_TICKS = 4;
     /** How long the landing wave runs for; the leap has no length setting of its own. */
-    private static final int LEAP_VFX_DURATION_TICKS = 20;
     /** Kept clear of the leash edge so a landing cannot start the reset countdown. */
-    private static final double LEAP_LEASH_MARGIN = 1.5D;
     /** How often the wind-up mark is repainted. Every other tick reads as a steady shape. */
     static final int TELEGRAPH_INTERVAL_TICKS = 2;
     /** With no player this close the mark cannot be seen, so it is not worth the particles. */
@@ -195,24 +193,6 @@ public final class TeleportPathController {
     private static final int MINION_ALIVE_SCAN_INTERVAL_TICKS = 5;
     private static final Set<TeleportPathController> INSTANCES =
             Collections.newSetFromMap(new WeakHashMap<>());
-
-    private enum PendingAction {
-        NONE, TELEPORT, SUMMON, GROUND_ATTACK, RANGED_ATTACK, MELEE_ATTACK, FLUID_SPIT, HOOK, CAPTURE,
-        LEAP, LINE_ATTACK, GEYSER, BOULDER, BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM,
-        COCOON
-    }
-
-    /**
-     * Everything a take cover strike was wound up with, frozen on the tick it began.
-     *
-     * <p>Read back at the strike rather than off the phase again: the settings, the enrage
-     * bonus and the shelters are the problem the party was set on the first tick of the
-     * warning, and none of them may change under the people already answering it. Nothing
-     * of this is saved - a server that goes down mid wind-up owes nobody the strike.</p>
-     */
-    private record CoverCast(int mode, double range, int damage, int knockback, BossEffectSet effects,
-                             String vfx, double shelterRadius, List<Vec3> shelters) {
-    }
 
     private final EntityNPCInterface npc;
     /** Server-side encounter membership, independent of whether any boss bar is visible. */
@@ -244,28 +224,15 @@ public final class TeleportPathController {
     private double homeY;
     private double homeZ;
     private long busyUntil;
-    private long nextTeleportAt = NOT_SCHEDULED;
-    private long nextSummonAt = NOT_SCHEDULED;
-    private long nextGroundAttackAt = NOT_SCHEDULED;
-    private long nextRangedAttackAt = NOT_SCHEDULED;
-    private long nextMeleeAttackAt = NOT_SCHEDULED;
-    private long nextFluidSpitAt = NOT_SCHEDULED;
-    private long nextHookAt = NOT_SCHEDULED;
-    private long nextCaptureAt = NOT_SCHEDULED;
-    private long nextLeapAt = NOT_SCHEDULED;
-    private long nextLineAttackAt = NOT_SCHEDULED;
-    private long nextGeyserAt = NOT_SCHEDULED;
-    private long nextBoulderAt = NOT_SCHEDULED;
-    private long nextBoulderRainAt = NOT_SCHEDULED;
-    private long nextTetherAt = NOT_SCHEDULED;
-    private long nextGravityAt = NOT_SCHEDULED;
-    private long nextMarkAt = NOT_SCHEDULED;
-    private long nextCoverAt = NOT_SCHEDULED;
-    private long nextHuntAt = NOT_SCHEDULED;
-    private long nextBeamAt = NOT_SCHEDULED;
-    private long nextCocoonAt = NOT_SCHEDULED;
+    /**
+     * Game time each ability is next allowed to start at, indexed by {@link BossAbility}.
+     *
+     * <p>One array rather than twenty fields, so the rotation, the cancel and the per-phase
+     * arming can all walk {@link BossAbility#ROTATION} instead of naming every ability
+     * again in four places that had no way of noticing one had gone missing.</p>
+     */
+    private final long[] abilityScheduleAt = newSchedule();
 
-    /** The take cover strike being wound up, or null outside one. */
     /** The styled boss bar and the countdown printed under it. */
     private final BossBarRuntime bar;
     /** The aggro zone that starts the fight and the retargeting that keeps it honest. */
@@ -282,7 +249,12 @@ public final class TeleportPathController {
     private final BossHealthScalingRuntime healthScalingRuntime;
     /** The protection totems standing round this boss and the beams that tie them to it. */
     private final BossTotemRuntime totems;
-    private CoverCast coverCast;
+    /** The channel that hits the whole arena and spares only whoever hid from it. */
+    private final BossCoverRuntime coverRuntime;
+    /** The chain the boss throws, and the drag that keeps hold of whoever it caught. */
+    private final BossHookRuntime hook;
+    /** The jump, its flight and the slam it lands with. */
+    private final BossLeapRuntime leap;
 
     /**
      * Which way the line strike being wound up is going to go, unit length and flat.
@@ -308,30 +280,10 @@ public final class TeleportPathController {
      */
     private float beamStartYaw;
 
-    /** Where the leap being wound up or flown right now is meant to come down. */
-    private Vec3 leapDestination;
-    /** Phase the leap started in: the slam belongs to the settings that launched it. */
-    private int leapPhaseIndex = -1;
-    private boolean leapAirborne;
-    /** The boss really left the floor, which is what makes a later onGround() a landing. */
-    private boolean leapLeftGround;
-    private long leapLaunchedAt = NOT_SCHEDULED;
-    /** Game time the airborne safety net gives up at. */
-    private long leapAirTimeoutAt = NOT_SCHEDULED;
-    /** Horizontal speed the flight holds, re-applied every tick it stays in the air. */
-    private double leapDriveX;
-    private double leapDriveZ;
 
     /** Victims beyond the first, captured when a multi-target ability starts winding up. */
     private final List<Integer> pendingExtraTargets = new ArrayList<>();
-    /** Entity id -> game time at which the drag ends. */
-    private final List<HookPull> activePulls = new ArrayList<>();
-
-    /** A gather point of null means "keep pulling toward the boss wherever it is". */
-    private record HookPull(int targetId, long endsAt, double strength, double stopDistance,
-                            Vec3 gatherPoint, String cordStyle) {
-    }
-    private PendingAction pendingAction = PendingAction.NONE;
+    private BossAbility pendingAction = BossAbility.NONE;
     private long pendingActionAt = NOT_SCHEDULED;
     private int pendingTargetId = -1;
     /**
@@ -379,6 +331,9 @@ public final class TeleportPathController {
         this.huntRuntime = new BossHuntRuntime(this, npc);
         this.healthScalingRuntime = new BossHealthScalingRuntime(this, npc);
         this.totems = new BossTotemRuntime(this, npc);
+        this.coverRuntime = new BossCoverRuntime(this, npc);
+        this.hook = new BossHookRuntime(this, npc);
+        this.leap = new BossLeapRuntime(this, npc);
         INSTANCES.add(this);
     }
 
@@ -454,7 +409,7 @@ public final class TeleportPathController {
         // hold has to outlive that deadline so the end of a cast cannot set the boss loose.
         // A boss stunned by its broken barrier is pinned the way a held one is, and for as
         // long: the pin is the stun.
-        if ((data.isStationary() || totems.isHolding() || isBarrierStunned()) && !leapAirborne) {
+        if ((data.isStationary() || totems.isHolding() || isBarrierStunned()) && !leap.isAirborne()) {
             keepStationary();
         } else if (castRootActive) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
@@ -465,7 +420,7 @@ public final class TeleportPathController {
             // straight back to the take-off spot - so it follows the flight to the landing.
             rememberCurrentPosition();
         }
-        tickHookPulls(level, gameTime);
+        hook.tick(level, gameTime);
         faceCombatTarget(data);
         // Runs before updatePhase so the phase it unlocks is switched to in this same tick,
         // and above the busy/no-target early returns so a locked boss cannot stay immune.
@@ -478,7 +433,7 @@ public final class TeleportPathController {
         BossPhaseData phase = data.getPhase(currentPhase);
         // Above the combat-only return and the busy gate on purpose: a leap already in the
         // air has to come down and land even if the boss loses its target mid flight.
-        tickLeap(level, data, gameTime);
+        leap.tick(level, data, gameTime);
         // Above the busy gate and the pending block below on purpose: a wind-up has to stay
         // marked through a lock, and the mark has to stop on the tick the ability goes off.
         tickTelegraph(level, data, gameTime);
@@ -494,7 +449,7 @@ public final class TeleportPathController {
         if (gameTime < busyUntil) {
             return;
         }
-        if (pendingAction != PendingAction.NONE) {
+        if (pendingAction != BossAbility.NONE) {
             if (pendingWarningEndsAt != NOT_SCHEDULED && gameTime >= pendingWarningEndsAt
                     && !endTelegraphWarning(level, data, phase, gameTime)) {
                 return;
@@ -520,10 +475,10 @@ public final class TeleportPathController {
         // totems pin it to is exactly what the hold is there to stop, however it is done. A
         // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
         // And a stun: a boss that cannot walk cannot blink out of the window either.
-        if (points.size() >= 2 && gameTime >= nextTeleportAt && !totems.isHolding() && !huntRuntime.isSilenced()
+        if (points.size() >= 2 && gameTime >= abilityScheduleAt(BossAbility.TELEPORT) && !totems.isHolding() && !huntRuntime.isSilenced()
                 && !isBarrierStunned() && (!isInvulnerable() || phase.isInvulnerableAllowTeleport())) {
-            nextTeleportAt = NOT_SCHEDULED;
-            beginAction(PendingAction.TELEPORT, phase.getTeleportPreparationAnimation(),
+            setAbilityScheduleAt(BossAbility.TELEPORT, NOT_SCHEDULED);
+            beginAction(BossAbility.TELEPORT, phase.getTeleportPreparationAnimation(),
                     phase.getTeleportPreparationTicks(), gameTime, null, data, phase);
             return;
         }
@@ -635,7 +590,7 @@ public final class TeleportPathController {
     }
 
     /** The other half of {@link #rageUp}, for cooldowns - the boss acts more often, not less. */
-    private int rageDown(int value) {
+    int rageDown(int value) {
         return rage.down(value);
     }
 
@@ -713,7 +668,7 @@ public final class TeleportPathController {
         // A leap in flight is not the boss wandering off: its landing spot was pulled
         // inside the radius before it pushed off, and with a vertical leash the arc over
         // the arena would otherwise reset the fight the boss is in the middle of.
-        if (!data.isHomeLeashEnabled() || !encounterRunning || !active || !npc.isAlive() || leapAirborne) {
+        if (!data.isHomeLeashEnabled() || !encounterRunning || !active || !npc.isAlive() || leap.isAirborne()) {
             outsideHomeLeashSince = NOT_SCHEDULED;
             return false;
         }
@@ -829,7 +784,7 @@ public final class TeleportPathController {
         if (phase.isInvulnerableSummonImmediately()) {
             // Set to now rather than left unscheduled: scheduleMissingAbilities fills an
             // unscheduled summon in with a whole fresh cooldown.
-            nextSummonAt = gameTime;
+            setAbilityScheduleAt(BossAbility.SUMMON, gameTime);
         }
     }
 
@@ -886,7 +841,7 @@ public final class TeleportPathController {
 
     /** Whether a leap is in the air right now. Read by the fall damage handler. */
     public boolean isLeaping() {
-        return active && leapAirborne;
+        return active && leap.isAirborne();
     }
 
     /** Whether the boss is in an immune phase right now. Read by the damage handler and the HUD. */
@@ -994,7 +949,7 @@ public final class TeleportPathController {
         minionRoundRobinCursor.clear();
         rage.clear();
         cancelPendingAndSchedules();
-        clearHookPulls();
+        hook.clear();
         hazardRuntime.clear();
         barrierRuntime.clear();
         BossGeyserScheduler.clearBoss(npc);
@@ -1003,7 +958,7 @@ public final class TeleportPathController {
         BossGravityScheduler.clearBoss(npc);
         // Before the return below: clearing the leap re-pins the boss where it stands, and
         // the return then moves that pin home rather than the other way round.
-        clearLeap();
+        leap.clear();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
         // Before the minions are cleared: a cocoon is discarded, never killed, and the
@@ -1188,7 +1143,7 @@ public final class TeleportPathController {
         if (phase == null || !phase.isCaptureEnabled()) {
             return "Capture: disabled";
         }
-        long remaining = nextCaptureAt == NOT_SCHEDULED ? 0L : nextCaptureAt - gameTime;
+        long remaining = abilityCooldownLeft(BossAbility.CAPTURE, gameTime);
         return remaining > 0L ? "Capture: cooldown " + remaining : "Capture: ready";
     }
 
@@ -1201,7 +1156,7 @@ public final class TeleportPathController {
         if (phase == null || !phase.isTetherEnabled()) {
             return "Tether: disabled";
         }
-        long remaining = nextTetherAt == NOT_SCHEDULED ? 0L : nextTetherAt - gameTime;
+        long remaining = abilityCooldownLeft(BossAbility.TETHER, gameTime);
         return remaining > 0L ? "Tether: cooldown " + remaining : "Tether: ready";
     }
 
@@ -1214,7 +1169,7 @@ public final class TeleportPathController {
         if (phase == null || !phase.isGravityEnabled()) {
             return "Gravity: disabled";
         }
-        long remaining = nextGravityAt == NOT_SCHEDULED ? 0L : nextGravityAt - gameTime;
+        long remaining = abilityCooldownLeft(BossAbility.GRAVITY, gameTime);
         return remaining > 0L ? "Gravity: cooldown " + remaining : "Gravity: ready";
     }
 
@@ -1305,7 +1260,7 @@ public final class TeleportPathController {
         }
     }
 
-    private void rememberCurrentPosition() {
+    void rememberCurrentPosition() {
         lockedX = npc.getX();
         lockedZ = npc.getZ();
     }
@@ -1316,14 +1271,14 @@ public final class TeleportPathController {
      *
      * <p>The stationary boss is pinned every tick anyway, so the root stays out of its way.
      * A leap always roots its crouch - the flight is what has to stay free, and
-     * {@link #performLeap} lets go at the push - while a teleport is never held: moving
+     * {@link BossLeapRuntime} lets go at the push - while a teleport is never held: moving
      * away is the whole ability.</p>
      */
-    private void beginCastRoot(TeleportPathData data, BossPhaseData phase, PendingAction action) {
+    private void beginCastRoot(TeleportPathData data, BossPhaseData phase, BossAbility action) {
         if (data.isStationary()) {
             return;
         }
-        if (action != PendingAction.LEAP && !phase.isCastRooted(abilityKind(action))) {
+        if (action != BossAbility.LEAP && !phase.isCastRooted(action.kind())) {
             return;
         }
         // Freeze the pin on the spot the boss commits on: the warning zone is being shown
@@ -1353,7 +1308,7 @@ public final class TeleportPathController {
             return;
         }
         if (castRootUntil == NOT_SCHEDULED
-                ? pendingAction == PendingAction.NONE
+                ? pendingAction == BossAbility.NONE
                 : gameTime >= castRootUntil) {
             endCastRoot();
         }
@@ -1417,11 +1372,11 @@ public final class TeleportPathController {
      * @return true when the wind-up owns the rotation this tick
      */
     private boolean faceCommittedAxis(TeleportPathData data) {
-        if (pendingAction != PendingAction.LINE_ATTACK && pendingAction != PendingAction.BOULDER) {
+        if (pendingAction != BossAbility.LINE_ATTACK && pendingAction != BossAbility.BOULDER) {
             return false;
         }
         BossPhaseData phase = data.getPhase(currentPhase);
-        if (pendingAction == PendingAction.LINE_ATTACK) {
+        if (pendingAction == BossAbility.LINE_ATTACK) {
             if (lineAttackAxis == null || !phase.isLineAttackFaceAxis()) {
                 return false;
             }
@@ -1458,7 +1413,7 @@ public final class TeleportPathController {
 
     private void preparePath(List<int[]> points) {
         if (points.size() < 2) {
-            nextTeleportAt = NOT_SCHEDULED;
+            setAbilityScheduleAt(BossAbility.TELEPORT, NOT_SCHEDULED);
             lastPathIndex = -1;
             previousPathSize = points.size();
             return;
@@ -1467,142 +1422,34 @@ public final class TeleportPathController {
             lastPathIndex = findClosestPoint(points);
             pingPongDirection = 1;
             previousPathSize = points.size();
-            nextTeleportAt = NOT_SCHEDULED;
+            setAbilityScheduleAt(BossAbility.TELEPORT, NOT_SCHEDULED);
         }
     }
 
+    /**
+     * Arms every ability this phase switched on, and takes the deadline off the rest.
+     *
+     * <p>Walks {@link BossAbility#ROTATION} instead of holding one block per ability. The
+     * blocks were identical bar two method names, which is exactly the shape that lets an
+     * ability be added to the rotation and quietly never armed - it fires never rather than
+     * wrongly, so nothing crashes and nobody finds out. A row that exists is armed here.</p>
+     *
+     * <p>An ability switched off mid fight loses its deadline on this tick rather than
+     * firing once more off a stale one, and one switched back on starts a full cooldown
+     * later rather than immediately.</p>
+     */
     private void scheduleMissingAbilities(long gameTime, BossPhaseData phase, boolean hasPath) {
-        if (hasPath && nextTeleportAt == NOT_SCHEDULED) scheduleNextTeleport(gameTime, phase);
-        if (phase.canSummon()) {
-            if (nextSummonAt == NOT_SCHEDULED) nextSummonAt = gameTime + rageDown(phase.getSummonCooldownTicks());
-        } else {
-            nextSummonAt = NOT_SCHEDULED;
+        // The teleport keeps its own arming: it runs off a random delay range rather than a
+        // flat cooldown, and a boss with fewer than two path points has nowhere to go.
+        if (hasPath && abilityScheduleAt(BossAbility.TELEPORT) == NOT_SCHEDULED) {
+            scheduleNextTeleport(gameTime, phase);
         }
-        if (phase.isAreaAttackEnabled()) {
-            if (nextGroundAttackAt == NOT_SCHEDULED) {
-                nextGroundAttackAt = gameTime + rageDown(phase.getAreaAttackCooldownTicks());
+        for (BossAbility ability : BossAbility.ROTATION) {
+            if (!ability.isEnabledIn(phase)) {
+                setAbilityScheduleAt(ability, NOT_SCHEDULED);
+            } else if (abilityScheduleAt(ability) == NOT_SCHEDULED) {
+                setAbilityScheduleAt(ability, gameTime + rageDown(ability.cooldownTicks(phase)));
             }
-        } else {
-            nextGroundAttackAt = NOT_SCHEDULED;
-        }
-        if (phase.isLineAttackEnabled()) {
-            if (nextLineAttackAt == NOT_SCHEDULED) {
-                nextLineAttackAt = gameTime + rageDown(phase.getLineAttackCooldownTicks());
-            }
-        } else {
-            nextLineAttackAt = NOT_SCHEDULED;
-        }
-        if (phase.isRangedAttackEnabled()) {
-            if (nextRangedAttackAt == NOT_SCHEDULED) {
-                nextRangedAttackAt = gameTime + rageDown(phase.getRangedAttackCooldownTicks());
-            }
-        } else {
-            nextRangedAttackAt = NOT_SCHEDULED;
-        }
-        if (phase.isMeleeAttackEnabled()) {
-            if (nextMeleeAttackAt == NOT_SCHEDULED) {
-                nextMeleeAttackAt = gameTime + rageDown(phase.getMeleeAttackCooldownTicks());
-            }
-        } else {
-            nextMeleeAttackAt = NOT_SCHEDULED;
-        }
-        if (phase.canSpitFluid()) {
-            if (nextFluidSpitAt == NOT_SCHEDULED) {
-                nextFluidSpitAt = gameTime + rageDown(phase.getFluidSpitCooldownTicks());
-            }
-        } else {
-            nextFluidSpitAt = NOT_SCHEDULED;
-        }
-        if (phase.isHookEnabled()) {
-            if (nextHookAt == NOT_SCHEDULED) {
-                nextHookAt = gameTime + rageDown(phase.getHookCooldownTicks());
-            }
-        } else {
-            nextHookAt = NOT_SCHEDULED;
-        }
-        if (phase.isCaptureEnabled()) {
-            if (nextCaptureAt == NOT_SCHEDULED) {
-                nextCaptureAt = gameTime + rageDown(phase.getCaptureCooldownTicks());
-            }
-        } else {
-            nextCaptureAt = NOT_SCHEDULED;
-        }
-        if (phase.isLeapEnabled()) {
-            if (nextLeapAt == NOT_SCHEDULED) {
-                nextLeapAt = gameTime + rageDown(phase.getLeapCooldownTicks());
-            }
-        } else {
-            nextLeapAt = NOT_SCHEDULED;
-        }
-        if (phase.isGeyserEnabled()) {
-            if (nextGeyserAt == NOT_SCHEDULED) {
-                nextGeyserAt = gameTime + rageDown(phase.getGeyserCooldownTicks());
-            }
-        } else {
-            nextGeyserAt = NOT_SCHEDULED;
-        }
-        if (phase.canLaunchBoulder()) {
-            if (nextBoulderAt == NOT_SCHEDULED) {
-                nextBoulderAt = gameTime + rageDown(phase.getBoulderCooldownTicks());
-            }
-        } else {
-            nextBoulderAt = NOT_SCHEDULED;
-        }
-        if (phase.canLaunchBoulderRain()) {
-            if (nextBoulderRainAt == NOT_SCHEDULED) {
-                nextBoulderRainAt = gameTime + rageDown(phase.getBoulderRainCooldownTicks());
-            }
-        } else {
-            nextBoulderRainAt = NOT_SCHEDULED;
-        }
-        if (phase.isTetherEnabled()) {
-            if (nextTetherAt == NOT_SCHEDULED) {
-                nextTetherAt = gameTime + rageDown(phase.getTetherCooldownTicks());
-            }
-        } else {
-            nextTetherAt = NOT_SCHEDULED;
-        }
-        if (phase.isGravityEnabled()) {
-            if (nextGravityAt == NOT_SCHEDULED) {
-                nextGravityAt = gameTime + rageDown(phase.getGravityCooldownTicks());
-            }
-        } else {
-            nextGravityAt = NOT_SCHEDULED;
-        }
-        if (phase.isMarkEnabled()) {
-            if (nextMarkAt == NOT_SCHEDULED) {
-                nextMarkAt = gameTime + rageDown(phase.getMarkCooldownTicks());
-            }
-        } else {
-            nextMarkAt = NOT_SCHEDULED;
-        }
-        if (phase.isCoverEnabled()) {
-            if (nextCoverAt == NOT_SCHEDULED) {
-                nextCoverAt = gameTime + rageDown(phase.getCoverCooldownTicks());
-            }
-        } else {
-            nextCoverAt = NOT_SCHEDULED;
-        }
-        if (phase.isHuntEnabled()) {
-            if (nextHuntAt == NOT_SCHEDULED) {
-                nextHuntAt = gameTime + rageDown(phase.getHuntCooldownTicks());
-            }
-        } else {
-            nextHuntAt = NOT_SCHEDULED;
-        }
-        if (phase.isBeamEnabled()) {
-            if (nextBeamAt == NOT_SCHEDULED) {
-                nextBeamAt = gameTime + rageDown(phase.getBeamCooldownTicks());
-            }
-        } else {
-            nextBeamAt = NOT_SCHEDULED;
-        }
-        if (phase.canCocoon()) {
-            if (nextCocoonAt == NOT_SCHEDULED) {
-                nextCocoonAt = gameTime + rageDown(phase.getCocoonCooldownTicks());
-            }
-        } else {
-            nextCocoonAt = NOT_SCHEDULED;
         }
     }
 
@@ -1610,7 +1457,7 @@ public final class TeleportPathController {
         int min = rageDown(phase.getTeleportMinDelayTicks());
         int spread = Math.max(0, rageDown(phase.getTeleportMaxDelayTicks()) - min);
         int delay = min + (spread == 0 ? 0 : npc.getRandom().nextInt(spread + 1));
-        nextTeleportAt = gameTime + delay;
+        setAbilityScheduleAt(BossAbility.TELEPORT, gameTime + delay);
     }
 
     /** Rotates ability priority so short cooldowns cannot permanently starve another attack. */
@@ -1629,11 +1476,12 @@ public final class TeleportPathController {
             // pick up where they left off once it can be hurt again.
             return tryStartSummon(level, data, phase, gameTime);
         }
-        for (int offset = 0; offset < ABILITY_COUNT; offset++) {
-            int ability = (nextAbilityPriority + offset) % ABILITY_COUNT;
-            boolean started = ABILITY_STARTERS.get(ability).start(this, level, data, phase, gameTime);
-            if (started) {
-                nextAbilityPriority = (ability + 1) % ABILITY_COUNT;
+        int count = BossAbility.ROTATION.size();
+        for (int offset = 0; offset < count; offset++) {
+            int index = (nextAbilityPriority + offset) % count;
+            BossAbility ability = BossAbility.ROTATION.get(index);
+            if (ABILITY_STARTERS.get(ability).start(this, level, data, phase, gameTime)) {
+                nextAbilityPriority = (index + 1) % count;
                 return true;
             }
         }
@@ -1642,17 +1490,17 @@ public final class TeleportPathController {
 
     private boolean tryStartGroundAttack(ServerLevel level, TeleportPathData data,
                                          BossPhaseData phase, long gameTime) {
-        if (!phase.isAreaAttackEnabled() || gameTime < nextGroundAttackAt) return false;
+        if (!phase.isAreaAttackEnabled() || gameTime < abilityScheduleAt(BossAbility.GROUND_ATTACK)) return false;
         if (!hasAreaTargets(level, phase)) {
-            nextGroundAttackAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.GROUND_ATTACK, gameTime + 20);
             return false;
         }
-        beginAction(PendingAction.GROUND_ATTACK, phase.getAreaAttackAnimation(),
+        beginAction(BossAbility.GROUND_ATTACK, phase.getAreaAttackAnimation(),
                 phase.getAreaAttackActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would land the hit before the swing does.
-        nextGroundAttackAt = gameTime + phase.getAreaAttackActionDelayTicks()
-                + rageDown(phase.getAreaAttackCooldownTicks());
+        setAbilityScheduleAt(BossAbility.GROUND_ATTACK, gameTime + phase.getAreaAttackActionDelayTicks()
+                + rageDown(phase.getAreaAttackCooldownTicks()));
         return true;
     }
 
@@ -1665,23 +1513,23 @@ public final class TeleportPathController {
      */
     private boolean tryStartLineAttack(ServerLevel level, TeleportPathData data,
                                        BossPhaseData phase, long gameTime) {
-        if (!phase.isLineAttackEnabled() || gameTime < nextLineAttackAt) return false;
+        if (!phase.isLineAttackEnabled() || gameTime < abilityScheduleAt(BossAbility.LINE_ATTACK)) return false;
         LivingEntity target = selectAbilityTarget(level, phase.getLineAttackTargetMode(),
                 phase.getLineAttackLength(), candidate -> isValidLineTarget(candidate, phase));
         Vec3 axis = resolveLineAxis(phase, target);
         // An empty corridor is no reason to swing: the strike would land on bare floor and
         // spend a whole cooldown doing it.
         if (axis == null || lineTargets(level, npc.position(), axis, phase).isEmpty()) {
-            nextLineAttackAt = gameTime + 10;
+            setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + 10);
             return false;
         }
         lineAttackAxis = axis;
-        beginAction(PendingAction.LINE_ATTACK, phase.getLineAttackAnimation(),
+        beginAction(BossAbility.LINE_ATTACK, phase.getLineAttackAnimation(),
                 phase.getLineAttackActionDelayTicks(), gameTime, target, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would land the hit before the swing does.
-        nextLineAttackAt = gameTime + phase.getLineAttackActionDelayTicks()
-                + rageDown(phase.getLineAttackCooldownTicks());
+        setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + phase.getLineAttackActionDelayTicks()
+                + rageDown(phase.getLineAttackCooldownTicks()));
         return true;
     }
 
@@ -1722,52 +1570,52 @@ public final class TeleportPathController {
 
     private boolean tryStartRangedAttack(ServerLevel level, TeleportPathData data,
                                          BossPhaseData phase, long gameTime) {
-        if (!phase.isRangedAttackEnabled() || gameTime < nextRangedAttackAt) return false;
+        if (!phase.isRangedAttackEnabled() || gameTime < abilityScheduleAt(BossAbility.RANGED_ATTACK)) return false;
         LivingEntity target = selectAbilityTarget(level, phase.getRangedAttackTargetMode(),
                 phase.getRangedAttackMaxRange(), candidate -> isValidRangedTarget(candidate, phase));
         if (target == null || !ProjectileEntityUtil.canShoot(npc)) {
-            nextRangedAttackAt = gameTime + 10;
+            setAbilityScheduleAt(BossAbility.RANGED_ATTACK, gameTime + 10);
             return false;
         }
-        beginAction(PendingAction.RANGED_ATTACK, phase.getRangedAttackAnimation(),
+        beginAction(BossAbility.RANGED_ATTACK, phase.getRangedAttackAnimation(),
                 phase.getRangedAttackActionDelayTicks(), gameTime, target, data, phase);
-        nextRangedAttackAt = gameTime + phase.getRangedAttackActionDelayTicks()
-                + rageDown(phase.getRangedAttackCooldownTicks());
+        setAbilityScheduleAt(BossAbility.RANGED_ATTACK, gameTime + phase.getRangedAttackActionDelayTicks()
+                + rageDown(phase.getRangedAttackCooldownTicks()));
         return true;
     }
 
     private boolean tryStartMeleeAttack(ServerLevel level, TeleportPathData data,
                                         BossPhaseData phase, long gameTime) {
-        if (!phase.isMeleeAttackEnabled() || gameTime < nextMeleeAttackAt) return false;
+        if (!phase.isMeleeAttackEnabled() || gameTime < abilityScheduleAt(BossAbility.MELEE_ATTACK)) return false;
         // Melee reach is measured hitbox to hitbox, so the search box carries the boss own
         // half-width on top of the configured range or a wide boss loses candidates to it.
         LivingEntity target = selectAbilityTarget(level, phase.getMeleeAttackTargetMode(),
                 phase.getMeleeAttackRange() + npc.getBbWidth() * 0.5D,
                 candidate -> isValidMeleeTarget(candidate, phase));
         if (target == null) {
-            nextMeleeAttackAt = gameTime + 5;
+            setAbilityScheduleAt(BossAbility.MELEE_ATTACK, gameTime + 5);
             return false;
         }
-        beginAction(PendingAction.MELEE_ATTACK, phase.getMeleeAttackAnimation(),
+        beginAction(BossAbility.MELEE_ATTACK, phase.getMeleeAttackAnimation(),
                 phase.getMeleeAttackActionDelayTicks(), gameTime, target, data, phase);
-        nextMeleeAttackAt = gameTime + phase.getMeleeAttackActionDelayTicks()
-                + rageDown(phase.getMeleeAttackCooldownTicks());
+        setAbilityScheduleAt(BossAbility.MELEE_ATTACK, gameTime + phase.getMeleeAttackActionDelayTicks()
+                + rageDown(phase.getMeleeAttackCooldownTicks()));
         return true;
     }
 
     private boolean tryStartFluidSpit(ServerLevel level, TeleportPathData data,
                                       BossPhaseData phase, long gameTime) {
-        if (!phase.canSpitFluid() || gameTime < nextFluidSpitAt) return false;
+        if (!phase.canSpitFluid() || gameTime < abilityScheduleAt(BossAbility.FLUID_SPIT)) return false;
         LivingEntity target = selectAbilityTarget(level, phase.getFluidSpitTargetMode(),
                 phase.getFluidSpitMaxRange(), candidate -> isValidFluidSpitTarget(candidate, phase));
         if (target == null || FluidBlockUtil.resolve(phase.getFluidSpitBlock()) == null) {
-            nextFluidSpitAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + 20);
             return false;
         }
-        beginAction(PendingAction.FLUID_SPIT, phase.getFluidSpitAnimation(),
+        beginAction(BossAbility.FLUID_SPIT, phase.getFluidSpitAnimation(),
                 phase.getFluidSpitActionDelayTicks(), gameTime, target, data, phase);
-        nextFluidSpitAt = gameTime + phase.getFluidSpitActionDelayTicks()
-                + rageDown(phase.getFluidSpitCooldownTicks());
+        setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + phase.getFluidSpitActionDelayTicks()
+                + rageDown(phase.getFluidSpitCooldownTicks()));
         return true;
     }
 
@@ -1814,50 +1662,20 @@ public final class TeleportPathController {
                 SoundSource.HOSTILE, 1.0F, 0.8F);
     }
 
-    private boolean tryStartHook(ServerLevel level, TeleportPathData data,
-                                 BossPhaseData phase, long gameTime) {
-        if (!phase.isHookEnabled() || gameTime < nextHookAt) return false;
-        List<LivingEntity> targets = selectAbilityTargets(level, phase.getHookTargetMode(),
-                phase.getHookMaxRange(), candidate -> isValidHookTarget(candidate, phase),
-                phase.getHookTargetCount());
-        if (targets.isEmpty()) {
-            nextHookAt = gameTime + 10;
-            return false;
-        }
-        pendingExtraTargets.clear();
-        for (int i = 1; i < targets.size(); i++) {
-            pendingExtraTargets.add(targets.get(i).getId());
-        }
-        beginAction(PendingAction.HOOK, phase.getHookAnimation(),
-                phase.getHookActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        nextHookAt = gameTime + phase.getHookActionDelayTicks() + rageDown(phase.getHookCooldownTicks());
-        return true;
-    }
-
-    private boolean isValidHookTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.HOOK)) return false;
-        double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getHookMinRange();
-        double max = phase.getHookMaxRange();
-        if (distanceSquared < min * min || distanceSquared > max * max) return false;
-        // A chain that reaches through a wall looks broken, so honour the NPC line-of-sight flag.
-        return !npc.ais.directLOS || npc.canNpcSee(target);
-    }
-
     private boolean tryStartCapture(ServerLevel level, TeleportPathData data,
                                     BossPhaseData phase, long gameTime) {
-        if (!phase.isCaptureEnabled() || gameTime < nextCaptureAt
+        if (!phase.isCaptureEnabled() || gameTime < abilityScheduleAt(BossAbility.CAPTURE)
                 || BossCaptureManager.hasCaptureForBoss(npc.getUUID())) return false;
         LivingEntity target = selectCaptureTarget(level, phase);
         if (target == null) {
-            nextCaptureAt = gameTime + 10;
+            setAbilityScheduleAt(BossAbility.CAPTURE, gameTime + 10);
             return false;
         }
-        beginAction(PendingAction.CAPTURE, phase.getCaptureAnimation(),
+        beginAction(BossAbility.CAPTURE, phase.getCaptureAnimation(),
                 phase.getCaptureActionDelayTicks(), gameTime, target, data, phase);
         // Windup and hold timing stay aligned with the animation; rage only shortens cooldown.
-        nextCaptureAt = gameTime + phase.getCaptureActionDelayTicks()
-                + rageDown(phase.getCaptureCooldownTicks());
+        setAbilityScheduleAt(BossAbility.CAPTURE, gameTime + phase.getCaptureActionDelayTicks()
+                + rageDown(phase.getCaptureCooldownTicks()));
         return true;
     }
 
@@ -1940,189 +1758,21 @@ public final class TeleportPathController {
                 victim.getZ(), 12, 0.25D, 0.5D, 0.25D, 0.02D);
     }
 
-    private void performHook(ServerLevel level, BossPhaseData phase, long gameTime) {
-        List<LivingEntity> victims = new ArrayList<>();
-        LivingEntity primary = pendingTarget(level);
-        if (primary != null && isValidHookTarget(primary, phase)) {
-            victims.add(primary);
-        }
-        for (int id : pendingExtraTargets) {
-            if (level.getEntity(id) instanceof LivingEntity extra
-                    && isValidHookTarget(extra, phase) && !victims.contains(extra)) {
-                victims.add(extra);
-            }
-        }
-        if (victims.isEmpty()) {
-            return;
-        }
-
-        double strength = rageUp(phase.getHookPullStrength()) / 20.0D;
-        long endsAt = gameTime + phase.getHookPullDurationTicks();
-        // A cinch reels everyone onto one spot and keeps them there for the full duration,
-        // so the release distance is deliberately ignored - the point is to end up with a
-        // tight pile that the next area attack can catch.
-        boolean cinch = phase.getHookMode() == BossPhaseData.HOOK_MODE_CINCH;
-        Vec3 gatherPoint = cinch ? npc.position() : null;
-        double stopDistance = cinch ? 0.0D : phase.getHookStopDistance();
-        String cordStyle = phase.getHookCordStyle();
-        boolean textured = HookCordStyles.isTextured(cordStyle);
-        for (LivingEntity victim : victims) {
-            if (textured) {
-                sendHookCord(victim.getId(), cordStyle, phase.getHookPullDurationTicks());
-            } else {
-                drawHookChain(level, victim);
-            }
-            // No knockback here: what the hook shoves with is the pull below, which runs for
-            // as long as the cord holds rather than for one tick.
-            BossAbilityDamageUtil.hit(victim, BossAbilityKind.HOOK, npc,
-                    rageUp(phase.getHookDamage()), phase.getHookEffects(), 0, 0.0D, 0.0D);
-            // Re-hooking someone already being dragged just refreshes their pull.
-            activePulls.removeIf(pull -> pull.targetId() == victim.getId());
-            activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint,
-                    cordStyle));
-            applyPull(victim, strength, gatherPoint);
-        }
-        playHookSound(level, cordStyle);
-    }
-
-    /** Each cord gets the voice its artwork implies; the plain sparks keep the old clang. */
-    private void playHookSound(ServerLevel level, String cordStyle) {
-        switch (cordStyle) {
-            case HookCordStyles.VINE -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.WEEPING_VINES_BREAK, SoundSource.HOSTILE, 2.0F, 0.7F);
-            case HookCordStyles.CHAIN_INFERNAL -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE, 2.0F, 0.4F);
-            case HookCordStyles.TENTACLE -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.SLIME_ATTACK, SoundSource.HOSTILE, 2.0F, 0.6F);
-            case HookCordStyles.GHOST -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.SOUL_ESCAPE, SoundSource.HOSTILE, 2.0F, 0.8F);
-            default -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE, 2.0F, 0.6F);
-        }
-    }
-
-    /**
-     * Tells everyone watching the boss to draw - or, with a zero duration, to drop - one cord.
-     *
-     * <p>The guard is for the odd client-side call into a reset: the distributor would throw
-     * rather than quietly do nothing there.</p>
-     */
-    private void sendHookCord(int victimId, String cordStyle, int durationTicks) {
-        if (npc.level().isClientSide()) {
-            return;
-        }
-        NetworkWrapper.sendToTracking(npc, new PacketSyncHookCord(npc.getId(), victimId, cordStyle,
-                durationTicks));
-    }
-
-    /** Textured cords outlive their pull unless the client is told the pull is over. */
-    private void dropHookCord(HookPull pull) {
-        if (HookCordStyles.isTextured(pull.cordStyle())) {
-            sendHookCord(pull.targetId(), pull.cordStyle(), 0);
-        }
-    }
-
-    /** Wipes the pulls and every cord they are still drawing, for a reset or a fight end. */
-    private void clearHookPulls() {
-        for (HookPull pull : activePulls) {
-            dropHookCord(pull);
-        }
-        activePulls.clear();
-    }
-
-    /**
-     * Drags everyone currently hooked one tick closer.
-     *
-     * <p>Runs before the combat-only early return: a pull that is already in flight has to
-     * finish even if the boss loses its target halfway through, otherwise the victim is left
-     * hanging in mid-air.</p>
-     */
-    private void tickHookPulls(ServerLevel level, long gameTime) {
-        if (activePulls.isEmpty()) {
-            return;
-        }
-        Iterator<HookPull> iterator = activePulls.iterator();
-        while (iterator.hasNext()) {
-            HookPull pull = iterator.next();
-            boolean expired = gameTime >= pull.endsAt();
-            if (expired || !(level.getEntity(pull.targetId()) instanceof LivingEntity victim)
-                    || !victim.isAlive() || victim.isRemoved()) {
-                // The client counts the same duration down on its own, so only a cord cut
-                // short - a death, a despawn - is worth a packet.
-                if (!expired) {
-                    dropHookCord(pull);
-                }
-                iterator.remove();
-                continue;
-            }
-            Vec3 destination = pull.gatherPoint() != null ? pull.gatherPoint() : npc.position();
-            double stop = pull.stopDistance();
-            if (stop > 0.0D && victim.position().distanceToSqr(destination) <= stop * stop) {
-                dropHookCord(pull);
-                iterator.remove();
-                continue;
-            }
-            applyPull(victim, pull.strength(), pull.gatherPoint());
-            // A textured cord is drawn by the client and needs no top-up.
-            if ((gameTime & 1L) == 0L && !HookCordStyles.isTextured(pull.cordStyle())) {
-                drawHookChain(level, victim);
-            }
-        }
-    }
-
-    private void applyPull(LivingEntity victim, double strength, Vec3 gatherPoint) {
-        // The drag is the hook rather than a side effect of it, so it asks for itself: a pull
-        // already in flight when the mask - or a totem's ability list - changes must not keep
-        // tugging.
-        if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.HOOK)) {
-            return;
-        }
-        Vec3 destination = gatherPoint != null ? gatherPoint : npc.position();
-        Vec3 delta = destination.subtract(victim.position());
-        double distance = delta.length();
-        if (distance < 1.0E-4D) {
-            return;
-        }
-        Vec3 velocity = delta.scale(strength / distance);
-        // A flat yank grinds the victim into whatever is between them and the boss; a little
-        // lift lets them clear a step or a fence instead of sticking to it.
-        double lift = Math.min(0.35D, distance * 0.03D);
-        victim.setDeltaMovement(velocity.x, velocity.y + lift, velocity.z);
-        victim.fallDistance = 0.0F;
-        // Players simulate their own movement, so the server has to push the new velocity
-        // to them explicitly. hurtMarked is what makes ServerEntity send it.
-        victim.hurtMarked = true;
-    }
-
-    private void drawHookChain(ServerLevel level, LivingEntity victim) {
-        Vec3 from = new Vec3(npc.getX(), npc.getEyeY() - 0.2D, npc.getZ());
-        Vec3 to = victim.position().add(0.0D, victim.getBbHeight() * 0.5D, 0.0D);
-        Vec3 step = to.subtract(from);
-        int points = Mth.clamp((int) (step.length() * 2.0D), 1, 64);
-        for (int i = 0; i <= points; i++) {
-            Vec3 point = from.add(step.scale((double) i / points));
-            level.sendParticles(ParticleTypes.CRIT, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
-        }
-    }
-
     private boolean tryStartGeyser(ServerLevel level, TeleportPathData data,
                                    BossPhaseData phase, long gameTime) {
-        if (!phase.isGeyserEnabled() || gameTime < nextGeyserAt) return false;
+        if (!phase.isGeyserEnabled() || gameTime < abilityScheduleAt(BossAbility.GEYSER)) return false;
         List<LivingEntity> targets = selectAbilityTargets(level, phase.getGeyserTargetMode(),
                 phase.getGeyserMaxRange(), candidate -> isValidGeyserTarget(candidate, phase),
                 phase.getGeyserTargetCount());
         if (targets.isEmpty()) {
-            nextGeyserAt = gameTime + 10;
+            setAbilityScheduleAt(BossAbility.GEYSER, gameTime + 10);
             return false;
         }
-        pendingExtraTargets.clear();
-        for (int i = 1; i < targets.size(); i++) {
-            pendingExtraTargets.add(targets.get(i).getId());
-        }
-        beginAction(PendingAction.GEYSER, phase.getGeyserAnimation(),
+        rememberExtraTargets(targets);
+        beginAction(BossAbility.GEYSER, phase.getGeyserAnimation(),
                 phase.getGeyserActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        nextGeyserAt = gameTime + phase.getGeyserActionDelayTicks()
-                + rageDown(phase.getGeyserCooldownTicks());
+        setAbilityScheduleAt(BossAbility.GEYSER, gameTime + phase.getGeyserActionDelayTicks()
+                + rageDown(phase.getGeyserCooldownTicks()));
         return true;
     }
 
@@ -2174,21 +1824,18 @@ public final class TeleportPathController {
 
     private boolean tryStartMark(ServerLevel level, TeleportPathData data,
                                  BossPhaseData phase, long gameTime) {
-        if (!phase.isMarkEnabled() || gameTime < nextMarkAt) return false;
+        if (!phase.isMarkEnabled() || gameTime < abilityScheduleAt(BossAbility.MARK)) return false;
         List<LivingEntity> targets = selectAbilityTargets(level, phase.getMarkTargetMode(),
                 MARK_REACH, this::isValidMarkTarget, phase.getMarkTargetCount());
         if (targets.isEmpty()) {
-            nextMarkAt = gameTime + 10;
+            setAbilityScheduleAt(BossAbility.MARK, gameTime + 10);
             return false;
         }
-        pendingExtraTargets.clear();
-        for (int i = 1; i < targets.size(); i++) {
-            pendingExtraTargets.add(targets.get(i).getId());
-        }
-        beginAction(PendingAction.MARK, phase.getMarkAnimation(),
+        rememberExtraTargets(targets);
+        beginAction(BossAbility.MARK, phase.getMarkAnimation(),
                 phase.getMarkActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        nextMarkAt = gameTime + phase.getMarkActionDelayTicks()
-                + rageDown(phase.getMarkCooldownTicks());
+        setAbilityScheduleAt(BossAbility.MARK, gameTime + phase.getMarkActionDelayTicks()
+                + rageDown(phase.getMarkCooldownTicks()));
         return true;
     }
 
@@ -2270,165 +1917,6 @@ public final class TeleportPathController {
     }
 
     /**
-     * A strike on everyone in reach, spared only by the arena: get out of the boss' sight,
-     * or into one of the shelters it puts down.
-     *
-     * <p>Nothing is aimed, exactly as the boulder rain is not: the range is the shape, and
-     * the cast only asks whether anybody is inside it worth spending a cooldown on. The
-     * wind-up is the mechanic - it is the time everyone gets to hide - so it is the ordinary
-     * pending action and nothing runs on after it: the boss channels, and the strike lands
-     * on the tick the channel ends. Which is also why the standing-cast choice matters
-     * here more than anywhere: the sight lines are drawn from wherever the boss is when
-     * they are checked.</p>
-     */
-    private boolean tryStartCover(ServerLevel level, TeleportPathData data,
-                                  BossPhaseData phase, long gameTime) {
-        if (!phase.isCoverEnabled() || gameTime < nextCoverAt) return false;
-        if (coverVictims(level, npc.position(), phase.getCoverRange()).isEmpty()) {
-            nextCoverAt = gameTime + 20;
-            return false;
-        }
-        boolean shelterRule = phase.getCoverMode() == BossPhaseData.COVER_MODE_SHELTER;
-        List<Vec3> shelters = shelterRule ? placeCoverShelters(level, phase) : List.of();
-        if (shelterRule && shelters.isEmpty()) {
-            // Nowhere to put a single shelter down is a strike nobody could have answered.
-            nextCoverAt = gameTime + 20;
-            return false;
-        }
-        // Frozen before the warning goes up, enrage bonus and all: from this tick the strike
-        // is a promise, and the settings behind it stay what the warning was shown for.
-        coverCast = new CoverCast(phase.getCoverMode(), phase.getCoverRange(),
-                rageUp(phase.getCoverDamage()), rageUp(phase.getCoverKnockback()),
-                phase.getCoverEffects(), phase.getCoverVfx(), phase.getCoverShelterRadius(), shelters);
-        beginAction(PendingAction.COVER, phase.getCoverAnimation(),
-                phase.getCoverActionDelayTicks(), gameTime, null, data, phase);
-        // Only the cooldown is scaled: the wind-up is the time to hide, and an enrage that
-        // shortened it would turn a mechanic into a strike nobody can answer.
-        nextCoverAt = gameTime + phase.getCoverActionDelayTicks()
-                + rageDown(phase.getCoverCooldownTicks());
-        return true;
-    }
-
-    /**
-     * Scatters the shelters for one cast: random points in the ring around the boss, on the
-     * floor, and never two of them close enough to overlap.
-     *
-     * <p>Drawn evenly over the ring's area the way the boulder rain draws its stones, and
-     * held two radii apart so each circle stands on its own: two shelters running into each
-     * other read as one odd shape rather than as two places to be. A point over a hole or
-     * crowding another is tried again a few times and then given up on, so a cramped ring
-     * simply gets fewer shelters than it asked for.</p>
-     */
-    private List<Vec3> placeCoverShelters(ServerLevel level, BossPhaseData phase) {
-        List<Vec3> shelters = new ArrayList<>();
-        RandomSource random = npc.getRandom();
-        Vec3 origin = npc.position();
-        double min = phase.getCoverShelterMinRange();
-        double max = phase.getCoverShelterMaxRange();
-        double apart = phase.getCoverShelterRadius() * 2.0D;
-        for (int i = 0; i < phase.getCoverShelterCount(); i++) {
-            for (int attempt = 0; attempt < COVER_SHELTER_ATTEMPTS; attempt++) {
-                double angle = random.nextDouble() * Math.PI * 2.0D;
-                double distance = Math.sqrt(min * min + random.nextDouble() * (max * max - min * min));
-                double x = origin.x + Math.cos(angle) * distance;
-                double z = origin.z + Math.sin(angle) * distance;
-                if (crowdsShelter(shelters, x, z, apart)) {
-                    continue;
-                }
-                BlockPos floor = BossAreaVfxScheduler.findFloor(level, x, origin.y, z);
-                if (floor != null) {
-                    shelters.add(new Vec3(x, floor.getY() + 1.0D, z));
-                    break;
-                }
-            }
-        }
-        return shelters;
-    }
-
-    /** Whether a shelter at this spot would stand closer than {@code apart} to one already down. */
-    private static boolean crowdsShelter(List<Vec3> shelters, double x, double z, double apart) {
-        for (Vec3 shelter : shelters) {
-            double dx = shelter.x - x;
-            double dz = shelter.z - z;
-            if (dx * dx + dz * dz < apart * apart) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * The strike itself: everyone in reach, less whoever the arena is hiding.
-     *
-     * <p>Who got away is judged on this tick and nowhere else - the sight lines from where
-     * the boss stands now, the shelters where the wind-up drew them - so a player who
-     * stepped out of cover on the last second is caught, and one who stepped in is not.</p>
-     */
-    private void performCover(ServerLevel level) {
-        CoverCast cast = coverCast;
-        if (cast == null) {
-            return;
-        }
-        Vec3 origin = npc.position();
-        // Started before the hits, so what a player sees leaves at the same moment the damage
-        // lands rather than a tick behind it. No block wave: a shockwave the size of the
-        // arena would lift half its floor.
-        BossAreaVfxScheduler.schedule(level, origin, cast.vfx(), cast.range(),
-                coverWaveDuration(cast.range()), false);
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.GENERIC_EXPLODE.value(),
-                SoundSource.HOSTILE, 4.0F, 0.6F);
-        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.COVER), npc.getX(),
-                npc.getY() + npc.getBbHeight() * 0.5D, npc.getZ(), 40,
-                npc.getBbWidth(), npc.getBbHeight() * 0.5D, npc.getBbWidth(), 0.0D);
-        for (LivingEntity victim : coverVictims(level, origin, cast.range())) {
-            boolean spared = cast.mode() == BossPhaseData.COVER_MODE_SHELTER
-                    ? isSheltered(cast, victim) : isOutOfSight(level, victim);
-            if (spared) {
-                continue;
-            }
-            BossAbilityDamageUtil.hit(victim, BossAbilityKind.COVER, npc, cast.damage(), cast.effects(),
-                    cast.knockback(), npc.getX() - victim.getX(), npc.getZ() - victim.getZ());
-        }
-    }
-
-    /** How long the strike's wave takes to reach the edge of its range at a shockwave's pace. */
-    private static int coverWaveDuration(double range) {
-        return Mth.clamp((int) Math.round(range / COVER_WAVE_SPEED),
-                MIN_COVER_VFX_DURATION_TICKS, MAX_COVER_VFX_DURATION_TICKS);
-    }
-
-    /**
-     * Whether the arena hides this victim from the boss: a solid block on both sight lines,
-     * from the boss' eyes to their head and to their knees.
-     *
-     * <p>Two lines rather than one, so that ducking behind a slab - legs covered, head in
-     * plain view - is being seen, and so is peering out over a wall. Anything with a
-     * collision box counts as cover, leaves and glass included; grass, water and carpets
-     * stop nothing.</p>
-     */
-    private boolean isOutOfSight(ServerLevel level, LivingEntity victim) {
-        Vec3 eyes = npc.getEyePosition();
-        return blocksSight(level, eyes, victim.getEyePosition())
-                && blocksSight(level, eyes, victim.position().add(0.0D, COVER_KNEE_HEIGHT, 0.0D));
-    }
-
-    private boolean blocksSight(ServerLevel level, Vec3 from, Vec3 to) {
-        return level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER,
-                ClipContext.Fluid.NONE, npc)).getType() != HitResult.Type.MISS;
-    }
-
-    /** Whether this victim is standing inside one of the cast's shelters, judged as every circle is. */
-    private static boolean isSheltered(CoverCast cast, LivingEntity victim) {
-        double radiusSquared = cast.shelterRadius() * cast.shelterRadius();
-        for (Vec3 shelter : cast.shelters()) {
-            if (victim.position().distanceToSqr(shelter) <= radiusSquared) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * Singles one victim out and winds up to go after them.
      *
      * <p>Who it is gets settled here and never again: the whole ability is the promise that
@@ -2439,23 +1927,23 @@ public final class TeleportPathController {
      */
     private boolean tryStartHunt(ServerLevel level, TeleportPathData data,
                                  BossPhaseData phase, long gameTime) {
-        if (!phase.isHuntEnabled() || gameTime < nextHuntAt) return false;
+        if (!phase.isHuntEnabled() || gameTime < abilityScheduleAt(BossAbility.HUNT)) return false;
         if (huntRuntime.isHunting()) {
             // One prey at a time. A cooldown shorter than the chase looks again once it is over.
-            nextHuntAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.HUNT, gameTime + 20);
             return false;
         }
         LivingEntity prey = selectAbilityTarget(level, phase.getHuntTargetMode(),
                 data.getTargetSearchRadius(), candidate -> huntRuntime.isValidTarget(candidate, data));
         if (prey == null) {
-            nextHuntAt = gameTime + 10;
+            setAbilityScheduleAt(BossAbility.HUNT, gameTime + 10);
             return false;
         }
-        beginAction(PendingAction.HUNT, phase.getHuntAnimation(),
+        beginAction(BossAbility.HUNT, phase.getHuntAnimation(),
                 phase.getHuntActionDelayTicks(), gameTime, prey, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the roar it plays.
-        nextHuntAt = gameTime + phase.getHuntActionDelayTicks()
-                + rageDown(phase.getHuntCooldownTicks());
+        setAbilityScheduleAt(BossAbility.HUNT, gameTime + phase.getHuntActionDelayTicks()
+                + rageDown(phase.getHuntCooldownTicks()));
         return true;
     }
 
@@ -2471,25 +1959,25 @@ public final class TeleportPathController {
      */
     private boolean tryStartBeam(ServerLevel level, TeleportPathData data,
                                  BossPhaseData phase, long gameTime) {
-        if (!phase.isBeamEnabled() || gameTime < nextBeamAt) return false;
+        if (!phase.isBeamEnabled() || gameTime < abilityScheduleAt(BossAbility.BEAM)) return false;
         // One sweep at a time: a second set of beams on top of the first would double the
         // hits and leave nowhere to walk to.
         if (BossBeamScheduler.isSweeping(npc)) {
-            nextBeamAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.BEAM, gameTime + 20);
             return false;
         }
         if (!hasBeamTargets(level, phase)) {
-            nextBeamAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.BEAM, gameTime + 20);
             return false;
         }
         beamStartYaw = phase.getBeamStartMode() == BossPhaseData.BEAM_START_RANDOM
                 ? npc.getRandom().nextFloat() * 360.0F : npc.getYRot();
-        beginAction(PendingAction.BEAM, phase.getBeamAnimation(),
+        beginAction(BossAbility.BEAM, phase.getBeamAnimation(),
                 phase.getBeamActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would switch the beams on before the charge does.
-        nextBeamAt = gameTime + phase.getBeamActionDelayTicks()
-                + rageDown(phase.getBeamCooldownTicks());
+        setAbilityScheduleAt(BossAbility.BEAM, gameTime + phase.getBeamActionDelayTicks()
+                + rageDown(phase.getBeamCooldownTicks()));
         return true;
     }
 
@@ -2521,7 +2009,7 @@ public final class TeleportPathController {
         if (phase == null || !phase.isBeamEnabled()) {
             return "Beam: disabled";
         }
-        long remaining = nextBeamAt == NOT_SCHEDULED ? 0L : nextBeamAt - gameTime;
+        long remaining = abilityCooldownLeft(BossAbility.BEAM, gameTime);
         return remaining > 0L ? "Beam: cooldown " + remaining : "Beam: ready";
     }
 
@@ -2535,7 +2023,7 @@ public final class TeleportPathController {
      */
     private boolean tryStartCocoon(ServerLevel level, TeleportPathData data,
                                    BossPhaseData phase, long gameTime) {
-        if (!phase.isCocoonEnabled() || gameTime < nextCocoonAt) return false;
+        if (!phase.isCocoonEnabled() || gameTime < abilityScheduleAt(BossAbility.COCOON)) return false;
         if (!phase.canCocoon()) {
             // Switched on with no clone to close round anybody: said once, then left quiet.
             if (reportedEmptyCocoonPhases.add(currentPhase)) {
@@ -2547,19 +2035,16 @@ public final class TeleportPathController {
         List<LivingEntity> targets = selectAbilityTargets(level, phase.getCocoonTargetMode(),
                 COCOON_REACH, this::isValidCocoonTarget, phase.getCocoonTargetCount());
         if (targets.isEmpty()) {
-            nextCocoonAt = gameTime + 10;
+            setAbilityScheduleAt(BossAbility.COCOON, gameTime + 10);
             return false;
         }
-        pendingExtraTargets.clear();
-        for (int i = 1; i < targets.size(); i++) {
-            pendingExtraTargets.add(targets.get(i).getId());
-        }
-        beginAction(PendingAction.COCOON, phase.getCocoonAnimation(),
+        rememberExtraTargets(targets);
+        beginAction(BossAbility.COCOON, phase.getCocoonAnimation(),
                 phase.getCocoonActionDelayTicks(), gameTime, targets.get(0), data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would close the cocoons before the cast does.
-        nextCocoonAt = gameTime + phase.getCocoonActionDelayTicks()
-                + rageDown(phase.getCocoonCooldownTicks());
+        setAbilityScheduleAt(BossAbility.COCOON, gameTime + phase.getCocoonActionDelayTicks()
+                + rageDown(phase.getCocoonCooldownTicks()));
         return true;
     }
 
@@ -2715,13 +2200,13 @@ public final class TeleportPathController {
         if (!phase.canCocoon()) {
             return "Cocoon: no clone name" + holding;
         }
-        long remaining = nextCocoonAt == NOT_SCHEDULED ? 0L : nextCocoonAt - gameTime;
+        long remaining = abilityCooldownLeft(BossAbility.COCOON, gameTime);
         return (remaining > 0L ? "Cocoon: cooldown " + remaining : "Cocoon: ready") + holding;
     }
 
     /** Read-only status used by the boss diagnostic command. */
     public String huntStatus(long gameTime) {
-        return huntRuntime.status(gameTime, activePhase(), nextHuntAt);
+        return huntRuntime.status(gameTime, activePhase(), abilityScheduleAt(BossAbility.HUNT));
     }
 
     /** Read-only status used by the boss diagnostic command. */
@@ -2771,10 +2256,10 @@ public final class TeleportPathController {
      * way every cancel leaves it.
      */
     void interruptForBarrierStun(long windowEndsAt) {
-        if (pendingAction == PendingAction.NONE) {
+        if (pendingAction == BossAbility.NONE) {
             return;
         }
-        PendingAction interrupted = pendingAction;
+        BossAbility interrupted = pendingAction;
         endCastRoot();
         clearPendingAction();
         bringAbilityScheduleForward(interrupted, windowEndsAt);
@@ -2804,22 +2289,19 @@ public final class TeleportPathController {
 
     private boolean tryStartTether(ServerLevel level, TeleportPathData data,
                                    BossPhaseData phase, long gameTime) {
-        if (!phase.isTetherEnabled() || gameTime < nextTetherAt) return false;
+        if (!phase.isTetherEnabled() || gameTime < abilityScheduleAt(BossAbility.TETHER)) return false;
         List<LivingEntity> targets = selectAbilityTargets(level, phase.getTetherTargetMode(),
                 tetherReach(phase), candidate -> isValidTetherTarget(candidate, phase),
                 phase.getTetherTargetCount());
         if (targets.isEmpty()) {
-            nextTetherAt = gameTime + 10;
+            setAbilityScheduleAt(BossAbility.TETHER, gameTime + 10);
             return false;
         }
-        pendingExtraTargets.clear();
-        for (int i = 1; i < targets.size(); i++) {
-            pendingExtraTargets.add(targets.get(i).getId());
-        }
-        beginAction(PendingAction.TETHER, phase.getTetherAnimation(),
+        rememberExtraTargets(targets);
+        beginAction(BossAbility.TETHER, phase.getTetherAnimation(),
                 phase.getTetherActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        nextTetherAt = gameTime + phase.getTetherActionDelayTicks()
-                + rageDown(phase.getTetherCooldownTicks());
+        setAbilityScheduleAt(BossAbility.TETHER, gameTime + phase.getTetherActionDelayTicks()
+                + rageDown(phase.getTetherCooldownTicks()));
         return true;
     }
 
@@ -2888,17 +2370,17 @@ public final class TeleportPathController {
      */
     private boolean tryStartGravity(ServerLevel level, TeleportPathData data,
                                     BossPhaseData phase, long gameTime) {
-        if (!phase.isGravityEnabled() || gameTime < nextGravityAt) return false;
+        if (!phase.isGravityEnabled() || gameTime < abilityScheduleAt(BossAbility.GRAVITY)) return false;
         if (!hasGravityTargets(level, phase)) {
-            nextGravityAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + 20);
             return false;
         }
-        beginAction(PendingAction.GRAVITY, phase.getGravityAnimation(),
+        beginAction(BossAbility.GRAVITY, phase.getGravityAnimation(),
                 phase.getGravityActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would open the field before the swing does.
-        nextGravityAt = gameTime + phase.getGravityActionDelayTicks()
-                + rageDown(phase.getGravityCooldownTicks());
+        setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + phase.getGravityActionDelayTicks()
+                + rageDown(phase.getGravityCooldownTicks()));
         return true;
     }
 
@@ -2928,23 +2410,23 @@ public final class TeleportPathController {
      */
     private boolean tryStartBoulder(ServerLevel level, TeleportPathData data,
                                     BossPhaseData phase, long gameTime) {
-        if (!phase.canLaunchBoulder() || gameTime < nextBoulderAt) return false;
+        if (!phase.canLaunchBoulder() || gameTime < abilityScheduleAt(BossAbility.BOULDER)) return false;
         LivingEntity target = selectAbilityTarget(level, phase.getBoulderTargetMode(),
                 phase.getBoulderRange(), candidate -> isValidBoulderTarget(candidate, phase));
         if (target == null || EntityBossBoulder.resolveBlock(phase.getBoulderBlock()) == null) {
-            nextBoulderAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.BOULDER, gameTime + 20);
             return false;
         }
         Vec3 flat = new Vec3(target.getX() - npc.getX(), 0.0D, target.getZ() - npc.getZ());
         // Somebody standing inside the boss leaves no direction to read off them, so the
         // gaze decides rather than the aim collapsing to nothing.
         boulderAxis = flat.lengthSqr() < 1.0E-6D ? facingAxis() : flat.normalize();
-        beginAction(PendingAction.BOULDER, phase.getBoulderAnimation(),
+        beginAction(BossAbility.BOULDER, phase.getBoulderAnimation(),
                 phase.getBoulderActionDelayTicks(), gameTime, target, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would launch the stone before the swing does.
-        nextBoulderAt = gameTime + phase.getBoulderActionDelayTicks()
-                + rageDown(phase.getBoulderCooldownTicks());
+        setAbilityScheduleAt(BossAbility.BOULDER, gameTime + phase.getBoulderActionDelayTicks()
+                + rageDown(phase.getBoulderCooldownTicks()));
         return true;
     }
 
@@ -3015,18 +2497,18 @@ public final class TeleportPathController {
      */
     private boolean tryStartBoulderRain(ServerLevel level, TeleportPathData data,
                                         BossPhaseData phase, long gameTime) {
-        if (!phase.canLaunchBoulderRain() || gameTime < nextBoulderRainAt) return false;
+        if (!phase.canLaunchBoulderRain() || gameTime < abilityScheduleAt(BossAbility.BOULDER_RAIN)) return false;
         if (EntityBossBoulder.resolveBlock(phase.getBoulderRainBlock()) == null
                 || !hasBoulderRainTargets(level, phase)) {
-            nextBoulderRainAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + 20);
             return false;
         }
-        beginAction(PendingAction.BOULDER_RAIN, phase.getBoulderRainAnimation(),
+        beginAction(BossAbility.BOULDER_RAIN, phase.getBoulderRainAnimation(),
                 phase.getBoulderRainActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would start the volley before the swing does.
-        nextBoulderRainAt = gameTime + phase.getBoulderRainActionDelayTicks()
-                + rageDown(phase.getBoulderRainCooldownTicks());
+        setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + phase.getBoulderRainActionDelayTicks()
+                + rageDown(phase.getBoulderRainCooldownTicks()));
         return true;
     }
 
@@ -3070,411 +2552,20 @@ public final class TeleportPathController {
                 rageUp(phase.getBoulderRainShatterDamage()), gameTime);
     }
 
-    private boolean tryStartLeap(ServerLevel level, TeleportPathData data,
-                                 BossPhaseData phase, long gameTime) {
-        if (!phase.isLeapEnabled() || gameTime < nextLeapAt || leapAirborne) return false;
-        if (!npc.onGround()) {
-            // Nothing to push off from. Knocked into the air or standing in a boat, the
-            // boss simply tries again in half a second.
-            nextLeapAt = gameTime + 10;
-            return false;
-        }
-        LivingEntity target = null;
-        if (phase.getLeapMode() == BossPhaseData.LEAP_MODE_TARGET) {
-            target = selectAbilityTarget(level, phase.getLeapTargetMode(),
-                    phase.getLeapMaxRange(), candidate -> isValidLeapTarget(candidate, phase));
-            if (target == null) {
-                nextLeapAt = gameTime + 10;
-                return false;
-            }
-        }
-        Vec3 destination = resolveLeapDestination(data, phase, target);
-        if (destination == null) {
-            nextLeapAt = gameTime + 20;
-            return false;
-        }
-        leapDestination = destination;
-        leapPhaseIndex = currentPhase;
-        beginAction(PendingAction.LEAP, phase.getLeapAnimation(),
-                phase.getLeapActionDelayTicks(), gameTime, target, data, phase);
-        // Only the cooldown is scaled - the windup is measured against the leap animation.
-        nextLeapAt = gameTime + phase.getLeapActionDelayTicks() + rageDown(phase.getLeapCooldownTicks());
-        return true;
-    }
-
-    /**
-     * Line of sight is deliberately not required: clearing a wall someone is hiding behind
-     * is the whole point of a jump, and a hook's rule would take that away.
-     */
-    private boolean isValidLeapTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !isAbilityTarget(target, BossAbilityKind.LEAP)) return false;
-        double distanceSquared = npc.distanceToSqr(target);
-        double min = phase.getLeapMinRange();
-        double max = phase.getLeapMaxRange();
-        return distanceSquared >= min * min && distanceSquared <= max * max;
-    }
-
-    /** Where this leap is aimed, already pulled back inside the home leash. */
-    private Vec3 resolveLeapDestination(TeleportPathData data, BossPhaseData phase, LivingEntity target) {
-        Vec3 destination = switch (phase.getLeapMode()) {
-            case BossPhaseData.LEAP_MODE_TARGET -> target == null ? null : target.position();
-            case BossPhaseData.LEAP_MODE_FIXED -> new Vec3(phase.getLeapFixedX() + 0.5D,
-                    phase.getLeapFixedY(), phase.getLeapFixedZ() + 0.5D);
-            case BossPhaseData.LEAP_MODE_ARENA_OFFSET -> new Vec3(homeX + phase.getLeapOffsetX(),
-                    homeY + phase.getLeapOffsetY(), homeZ + phase.getLeapOffsetZ());
-            // Straight up: the boss comes back down onto the spot it left.
-            default -> npc.position();
-        };
-        return destination == null ? null : clampToHomeLeash(data, destination);
-    }
-
-    /**
-     * A landing outside the leash would end the encounter on the boss' own terms, so the
-     * destination is pulled back to just inside the edge before anything is pushed off.
-     */
-    private Vec3 clampToHomeLeash(TeleportPathData data, Vec3 destination) {
-        if (!data.isHomeLeashEnabled()) {
-            return destination;
-        }
-        boolean vertical = data.isHomeLeashVertical();
-        double limit = Math.max(0.0D, data.getHomeLeashRadius() - LEAP_LEASH_MARGIN);
-        double dx = destination.x - homeX;
-        double dz = destination.z - homeZ;
-        double dy = vertical ? destination.y - homeY : 0.0D;
-        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (distance <= limit || distance < 1.0E-4D) {
-            return destination;
-        }
-        double scale = limit / distance;
-        return new Vec3(homeX + dx * scale,
-                vertical ? homeY + dy * scale : destination.y,
-                homeZ + dz * scale);
-    }
-
-    /** The push itself, at the end of the windup. */
-    private void performLeap(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        // The push, not a timer, is what frees a rooted crouch: from here to touchdown the
-        // boss is a thrown object, and even a leap that aborts below has nothing left to
-        // stand still for.
-        endCastRoot();
-        LivingEntity target = pendingTarget(level);
-        // The victim may have died or run out of range during the windup. The boss still
-        // jumps: the marker already promised that spot, and pulling out looks like a bug.
-        Vec3 destination = resolveLeapDestination(data, phase,
-                isValidLeapTarget(target, phase) ? target : null);
-        if (destination == null) {
-            destination = leapDestination;
-        }
-        if (destination == null) {
-            clearLeap();
-            return;
-        }
-
-        // An arc that peaks below where it is meant to come down never gets there, so a
-        // destination above the boss raises the jump. The ceiling still has the final say.
-        int wanted = Mth.clamp((int) Math.ceil(destination.y - npc.getY()) + 1,
-                phase.getLeapHeight(), BossPhaseData.MAX_LEAP_HEIGHT);
-        int height = availableLeapHeight(level, wanted);
-        if (height < 1) {
-            // Nowhere to jump to - a boss walled in under a slab would only bump its head
-            // and stick. The cooldown has already been spent, so it will try again later.
-            clearLeap();
-            return;
-        }
-
-        double rise = leapSpeedForHeight(height);
-        double drop = Math.max(0.0D, npc.getY() + height - destination.y);
-        int flightTicks = Math.max(1, (int) Math.ceil(leapRiseTicks(rise)) + (int) Math.ceil(leapFallTicks(drop)));
-        double dx = destination.x - npc.getX();
-        double dz = destination.z - npc.getZ();
-        double reach = Math.sqrt(dx * dx + dz * dz);
-        double speed = reach < 1.0E-4D ? 0.0D : Math.min(LEAP_MAX_HORIZONTAL_SPEED,
-                reach * LEAP_REACH_CORRECTION / flightTicks);
-        leapDriveX = reach < 1.0E-4D ? 0.0D : dx / reach * speed;
-        leapDriveZ = reach < 1.0E-4D ? 0.0D : dz / reach * speed;
-
-        npc.getNavigation().stop();
-        npc.fallDistance = 0.0F;
-        npc.setDeltaMovement(leapDriveX, rise, leapDriveZ);
-        // Mobs are position-synced, but handing the client the velocity too keeps the arc
-        // smooth instead of letting it interpolate a straight line between updates.
-        npc.hurtMarked = true;
-
-        leapDestination = destination;
-        leapAirborne = true;
-        leapLeftGround = false;
-        leapLaunchedAt = gameTime;
-        leapAirTimeoutAt = gameTime + phase.getLeapMaxAirTicks();
-        busyUntil = Math.max(busyUntil, gameTime + 1);
-
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.RAVAGER_ROAR,
-                SoundSource.HOSTILE, 1.5F, 1.2F);
-        level.sendParticles(ParticleTypes.CLOUD, npc.getX(), npc.getY() + 0.1D, npc.getZ(), 20,
-                npc.getBbWidth() * 0.5D, 0.05D, npc.getBbWidth() * 0.5D, 0.05D);
-    }
-
-    /**
-     * How far up there is actually room to jump.
-     *
-     * <p>Counts upward and stops at the first blocked block rather than looking for the
-     * highest clear one: an opening above a low ceiling is not somewhere the boss can get
-     * to, and aiming for it would just be a head-first bump.</p>
-     */
-    private int availableLeapHeight(ServerLevel level, int desired) {
-        int clear = 0;
-        for (int height = 1; height <= desired; height++) {
-            if (!level.noCollision(npc, npc.getBoundingBox().move(0.0D, height, 0.0D))) {
-                break;
-            }
-            clear = height;
-        }
-        return clear;
-    }
-
-    /** Ticks the climb from an upward push of {@code speed} takes to reach its peak. */
-    private static double leapRiseTicks(double speed) {
-        double terminal = leapTerminalSpeed();
-        return Math.log(terminal / (speed + terminal)) / Math.log(LEAP_VERTICAL_DRAG);
-    }
-
-    /** How high that climb gets. */
-    private static double leapPeakHeight(double speed) {
-        return speed / (1.0D - LEAP_VERTICAL_DRAG) - leapTerminalSpeed() * leapRiseTicks(speed);
-    }
-
-    /** Ticks a fall from a standstill takes to cover {@code drop} blocks. */
-    private static double leapFallTicks(double drop) {
-        double terminal = leapTerminalSpeed();
-        double low = 0.0D;
-        double high = 400.0D;
-        for (int step = 0; step < 24; step++) {
-            double mid = (low + high) * 0.5D;
-            double fallen = terminal * (mid - (1.0D - Math.pow(LEAP_VERTICAL_DRAG, mid)) / (1.0D - LEAP_VERTICAL_DRAG));
-            if (fallen < drop) {
-                low = mid;
-            } else {
-                high = mid;
-            }
-        }
-        return (low + high) * 0.5D;
-    }
-
-    /**
-     * The push that gets the boss {@code height} blocks up.
-     *
-     * <p>Searched rather than solved: with the drag in it {@link #leapPeakHeight} has no
-     * neat inverse, and a couple of dozen halvings once per leap costs nothing.</p>
-     */
-    private static double leapSpeedForHeight(double height) {
-        double low = 0.0D;
-        double high = LEAP_MAX_RISE_SPEED;
-        for (int step = 0; step < 24; step++) {
-            double mid = (low + high) * 0.5D;
-            if (leapPeakHeight(mid) < height) {
-                low = mid;
-            } else {
-                high = mid;
-            }
-        }
-        return (low + high) * 0.5D;
-    }
-
-    /** The speed a falling entity settles at, which is what the drag is measured against. */
-    private static double leapTerminalSpeed() {
-        return LEAP_GRAVITY * LEAP_VERTICAL_DRAG / (1.0D - LEAP_VERTICAL_DRAG);
-    }
-
-    /**
-     * Carries a leap through its windup and its flight.
-     *
-     * <p>Runs every tick, above everything that could return early: the boss is a thrown
-     * object until it touches down, and the landing has to be caught wherever that is.</p>
-     */
-    private void tickLeap(ServerLevel level, TeleportPathData data, long gameTime) {
-        if (leapAirborne) {
-            // Nothing may steer the boss mid air, and its own arc must not hurt it.
-            npc.getNavigation().stop();
-            npc.fallDistance = 0.0F;
-            // Holds every other ability off until the boss is back on the floor.
-            busyUntil = Math.max(busyUntil, gameTime + 1);
-            holdLeapCourse();
-
-            if (!npc.onGround()) {
-                leapLeftGround = true;
-            } else if (leapLeftGround) {
-                landLeap(level, data, gameTime);
-                return;
-            } else if (gameTime - leapLaunchedAt >= LEAP_LAUNCH_GRACE_TICKS) {
-                // Never got off the ground - held down, or shoulder-deep in a slab.
-                clearLeap();
-                return;
-            }
-            if (gameTime >= leapAirTimeoutAt) {
-                // A jump into a pit or into deep water never lands. The slam is dropped
-                // rather than fired off somewhere nobody was standing.
-                clearLeap();
-                return;
-            }
-        }
-        refreshLeapAim(level, data);
-        drawLeapTelegraph(level, data, gameTime);
-    }
-
-    /**
-     * Keeps the flight on the line it was aimed along.
-     *
-     * <p>Vanilla shaves nearly a tenth off an airborne entity's horizontal speed every
-     * tick, which is fine for a shove and useless for an aimed jump: the boss would cover
-     * most of the ground in the first few ticks and then crawl the rest, landing a third of
-     * the way short. Re-applying the speed instead makes the distance exactly speed times
-     * flight time, which is what the arc was solved for. A wall still stops the boss - once
-     * it is up against something, pushing harder would only scrape it along the surface.</p>
-     */
-    private void holdLeapCourse() {
-        if (npc.horizontalCollision || (leapDriveX == 0.0D && leapDriveZ == 0.0D)) {
-            return;
-        }
-        npc.setDeltaMovement(leapDriveX, npc.getDeltaMovement().y, leapDriveZ);
-    }
-
-    /** Touchdown: the boss stops dead, plays its landing animation and slams. */
-    private void landLeap(ServerLevel level, TeleportPathData data, long gameTime) {
-        BossPhaseData phase = leapPhase(data);
-        Vec3 impact = npc.position();
-        // Re-pins the stationary boss on the spot it came down on, before anything else.
-        clearLeap();
-        busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
-        if (phase == null) {
-            return;
-        }
-        playAnimation(phase.getLeapLandAnimation());
-        performLeapImpact(level, phase, impact);
-    }
-
-    private void performLeapImpact(ServerLevel level, BossPhaseData phase, Vec3 impact) {
-        // Started before the hits so the wave leaves at the same moment the damage lands.
-        BossAreaVfxScheduler.schedule(level, impact, phase.getLeapVfx(), phase.getLeapImpactRadius(),
-                LEAP_VFX_DURATION_TICKS, phase.isLeapBlockWave());
-        int damage = rageUp(phase.getLeapImpactDamage());
-        for (LivingEntity target : getTargetsAround(level, impact, phase.getLeapImpactRadius(),
-                BossAbilityKind.LEAP)) {
-            BossAbilityDamageUtil.hit(target, BossAbilityKind.LEAP, npc, damage,
-                    phase.getLeapEffects(), rageUp(phase.getLeapImpactKnockback()),
-                    impact.x - target.getX(), impact.z - target.getZ());
-        }
-        playLeapImpactFeedback(level, impact);
-    }
-
-    private void playLeapImpactFeedback(ServerLevel level, Vec3 impact) {
-        level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.ANVIL_LAND,
-                SoundSource.HOSTILE, 2.0F, 0.5F);
-        level.sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y + 0.2D, impact.z,
-                1, 0.0D, 0.0D, 0.0D, 0.0D);
-        BlockPos below = BlockPos.containing(impact.x, impact.y - 0.2D, impact.z);
-        BlockState floor = level.getBlockState(below);
-        if (!floor.isAir()) {
-            // The floor it landed on, kicked up around its feet.
-            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, floor),
-                    impact.x, impact.y + 0.1D, impact.z, 30, 0.6D, 0.1D, 0.6D, 0.15D);
-        }
-    }
-
-    /**
-     * Keeps a leap that has not been pushed off yet aimed at where its target is now, which
-     * is what gives that target the chance to step out of the marked ring before it lands.
-     *
-     * <p>Kept out of the drawing below because the aim is not decoration: the push itself
-     * falls back on this spot when the victim dies inside the windup.</p>
-     */
-    private void refreshLeapAim(ServerLevel level, TeleportPathData data) {
-        if (pendingAction != PendingAction.LEAP || leapDestination == null) {
-            return;
-        }
-        BossPhaseData phase = leapPhase(data);
-        if (phase == null) {
-            return;
-        }
-        Vec3 refreshed = resolveLeapDestination(data, phase, pendingTarget(level));
-        if (refreshed != null) {
-            leapDestination = refreshed;
-        }
-    }
-
-    /**
-     * Paints the ring the slam is going to cover.
-     *
-     * <p>A jump this heavy landing without warning reads as an unfair death rather than as
-     * a mechanic, so the mark is up for the whole windup and the whole flight.</p>
-     *
-     * <p>The general ability warning owns the windup wherever it is switched on for the
-     * leap, and this keeps the flight, which no wind-up mark can cover: by then the ability
-     * has gone off and the boss is a thrown object on its way down.</p>
-     */
-    private void drawLeapTelegraph(ServerLevel level, TeleportPathData data, long gameTime) {
-        boolean windup = pendingAction == PendingAction.LEAP;
-        if (leapDestination == null || (!leapAirborne && !windup)) {
-            return;
-        }
-        BossPhaseData phase = leapPhase(data);
-        if (phase == null || !phase.isLeapTelegraph() || gameTime % LEAP_MARKER_INTERVAL_TICKS != 0L) {
-            return;
-        }
-        // Never both marks over one ring: whichever of the two is drawing, it draws alone.
-        if (windup && data.isTelegraphEnabled()
-                && data.isTelegraphAbility(BossAbilityKind.LEAP)) {
-            return;
-        }
-        double radius = phase.getLeapImpactRadius();
-        int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / LEAP_MARKER_SPACING), 8, 48);
-        for (int i = 0; i < points; i++) {
-            double angle = i * Mth.TWO_PI / points;
-            level.sendParticles(ParticleTypes.SMALL_FLAME,
-                    leapDestination.x + Math.cos(angle) * radius,
-                    leapDestination.y + 0.15D,
-                    leapDestination.z + Math.sin(angle) * radius,
-                    1, 0.0D, 0.0D, 0.0D, 0.0D);
-        }
-    }
-
-    /** The phase a leap belongs to, so a phase change mid air cannot rewrite its slam. */
-    private BossPhaseData leapPhase(TeleportPathData data) {
-        return leapPhaseIndex >= 0 && leapPhaseIndex < data.getPhaseCount()
-                ? data.getPhase(leapPhaseIndex) : null;
-    }
-
-    /** Drops a leap wherever it got to and hands the boss back to the stationary pin. */
-    private void clearLeap() {
-        if (leapAirborne) {
-            npc.setDeltaMovement(Vec3.ZERO);
-            npc.fallDistance = 0.0F;
-            // The pin was let go for the flight, so it has to be moved to wherever this ended.
-            lockedX = npc.getX();
-            lockedZ = npc.getZ();
-        }
-        leapAirborne = false;
-        leapLeftGround = false;
-        leapDriveX = 0.0D;
-        leapDriveZ = 0.0D;
-        leapDestination = null;
-        leapPhaseIndex = -1;
-        leapLaunchedAt = NOT_SCHEDULED;
-        leapAirTimeoutAt = NOT_SCHEDULED;
-    }
-
     private boolean tryStartSummon(ServerLevel level, TeleportPathData data,
                                    BossPhaseData phase, long gameTime) {
-        if (!phase.canSummon() || gameTime < nextSummonAt) return false;
+        if (!phase.canSummon() || gameTime < abilityScheduleAt(BossAbility.SUMMON)) return false;
         if (BossMinionUtil.countAlive(level, npc, phase.getMaxAliveMinions()) >= phase.getMaxAliveMinions()) {
-            nextSummonAt = gameTime + 20;
+            setAbilityScheduleAt(BossAbility.SUMMON, gameTime + 20);
             return false;
         }
-        beginAction(PendingAction.SUMMON, phase.getSummonAnimation(),
+        beginAction(BossAbility.SUMMON, phase.getSummonAnimation(),
                 phase.getSummonActionDelayTicks(), gameTime, null, data, phase);
-        nextSummonAt = gameTime + phase.getSummonActionDelayTicks() + rageDown(phase.getSummonCooldownTicks());
+        setAbilityScheduleAt(BossAbility.SUMMON, gameTime + phase.getSummonActionDelayTicks() + rageDown(phase.getSummonCooldownTicks()));
         return true;
     }
 
-    private void beginAction(PendingAction action, String animation, int actionDelay, long gameTime,
+    void beginAction(BossAbility action, String animation, int actionDelay, long gameTime,
                              LivingEntity target, TeleportPathData data, BossPhaseData phase) {
         pendingAction = action;
         pendingTargetId = target == null ? -1 : target.getId();
@@ -3516,7 +2607,7 @@ public final class TeleportPathController {
      * for exactly that gap and stops on the tick the ability lands.</p>
      */
     private void tickTelegraph(ServerLevel level, TeleportPathData data, long gameTime) {
-        if (pendingAction == PendingAction.NONE || gameTime >= pendingActionAt
+        if (pendingAction == BossAbility.NONE || gameTime >= pendingActionAt
                 || gameTime % TELEGRAPH_INTERVAL_TICKS != 0L) {
             return;
         }
@@ -3524,7 +2615,7 @@ public final class TeleportPathController {
     }
 
     private void paintTelegraph(ServerLevel level, TeleportPathData data) {
-        int ability = abilityKind(pendingAction);
+        int ability = pendingAction.kind();
         if (ability < 0) {
             return;
         }
@@ -3533,18 +2624,18 @@ public final class TeleportPathController {
         // opens - so it is painted whatever the warning settings say, the way a geyser's fuse
         // is: an edge nobody can see is not a warning left off, it is a trap. The name, the
         // note and the aura still go through the settings like everyone else's.
-        boolean fieldEdge = pendingAction == PendingAction.GRAVITY;
+        boolean fieldEdge = pendingAction == BossAbility.GRAVITY;
         // The take cover strike is nothing but its wind-up, so the whole warning is
         // unconditional: the countdown, the aura on the boss and the shelters on the floor
         // are the only way anyone ever learns the arena is about to be hit. Only the note
         // and the lead still go through the settings.
-        boolean cover = pendingAction == PendingAction.COVER;
+        boolean cover = pendingAction == BossAbility.COVER;
         if (cover) {
             // Before the audience check: it goes to whoever the strike can reach, and the
             // strike reaches further than a mark on the floor can be seen from.
-            announceCoverCountdown(level);
+            coverRuntime.announceCountdown(level, pendingActionAt);
         }
-        if (pendingAction == PendingAction.HUNT) {
+        if (pendingAction == BossAbility.HUNT) {
             // Before the audience check as well, and whatever the warning settings say: the
             // prey has to know it was picked, or the chase is only a boss that suddenly runs.
             huntRuntime.announce(pendingTarget(level));
@@ -3567,43 +2658,11 @@ public final class TeleportPathController {
     }
 
     /**
-     * The name and the time left, in the action bar of everyone the strike may reach.
-     *
-     * <p>Sent on every repaint rather than once, the way a mark's countdown is: the line is
-     * what says how long there is to run. It goes to whoever this fight belongs to and to
-     * everyone standing inside the range as well, because the strike reaches them wherever
-     * they stand and whether or not they have a boss bar up.</p>
-     */
-    private void announceCoverCountdown(ServerLevel level) {
-        CoverCast cast = coverCast;
-        if (cast == null) {
-            return;
-        }
-        // Rounded up, so the last second reads as one rather than as none. The numbers go
-        // in through %s: vanilla's translation formatter takes that one placeholder and
-        // nothing else, and a %d would leave the raw template on the screen.
-        int seconds = (int) Math.max(1L, (pendingActionAt - level.getGameTime() + 19L) / 20L);
-        Component line = Component.translatable("cnpcgeckoaddon.boss.cover_countdown",
-                        Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.COVER]), seconds)
-                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.COVER)));
-        Set<ServerPlayer> audience = new LinkedHashSet<>(timerBossEvent().getPlayers());
-        double rangeSquared = cast.range() * cast.range();
-        for (ServerPlayer player : level.players()) {
-            if (npc.distanceToSqr(player) <= rangeSquared && isAbilityTarget(player, BossAbilityKind.COVER)) {
-                audience.add(player);
-            }
-        }
-        for (ServerPlayer player : audience) {
-            player.displayClientMessage(line, true);
-        }
-    }
-
-    /**
      * The one-off half of the warning: a note and a name, both at the moment the boss
      * commits rather than on every tick the wind-up runs for.
      */
-    private void announceTelegraph(TeleportPathData data, PendingAction action) {
-        int ability = abilityKind(action);
+    private void announceTelegraph(TeleportPathData data, BossAbility action) {
+        int ability = action.kind();
         if (ability < 0 || !telegraphs(data, ability)) {
             return;
         }
@@ -3678,7 +2737,7 @@ public final class TeleportPathController {
             }
             // The shelters, where the wind-up put them; under the sight rule there are none,
             // and the cover is whatever the arena was built with.
-            case COVER -> drawCoverShelters(level, dust);
+            case COVER -> coverRuntime.drawShelters(level, dust);
             case TETHER -> {
                 if (phase.getTetherAnchor() == BossPhaseData.TETHER_ANCHOR_BOSS) {
                     // The ring is the leash's length: get past it and the leash is broken.
@@ -3690,32 +2749,15 @@ public final class TeleportPathController {
                 }
             }
             case LEAP -> {
-                BossPhaseData leaping = leapPhase(data);
-                if (leaping != null && leapDestination != null) {
-                    BossTelegraphUtil.ring(level, leapDestination, leaping.getLeapImpactRadius(), dust);
+                BossPhaseData leaping = leap.phaseOf(data);
+                Vec3 landing = leap.destination();
+                if (leaping != null && landing != null) {
+                    BossTelegraphUtil.ring(level, landing, leaping.getLeapImpactRadius(), dust);
                 }
             }
             default -> {
                 // A teleport picks its point as it goes, so there is nothing to promise in
                 // advance, and NONE never gets this far.
-            }
-        }
-    }
-
-    /**
-     * Every shelter of the take cover strike being wound up: a ring on the floor, and a post
-     * of the same dust over its centre so it can be found from across the arena.
-     */
-    private void drawCoverShelters(ServerLevel level, DustParticleOptions dust) {
-        CoverCast cast = coverCast;
-        if (cast == null) {
-            return;
-        }
-        for (Vec3 shelter : cast.shelters()) {
-            BossTelegraphUtil.ring(level, shelter, cast.shelterRadius(), dust);
-            for (int step = 0; step < COVER_SHELTER_POST_HEIGHT; step++) {
-                level.sendParticles(dust, shelter.x, shelter.y + 0.5D + step, shelter.z, 1,
-                        0.0D, 0.0D, 0.0D, 0.0D);
             }
         }
     }
@@ -3786,38 +2828,8 @@ public final class TeleportPathController {
         if (ability != BossAbilityKind.LEAP) {
             return true;
         }
-        BossPhaseData phase = leapPhase(data);
+        BossPhaseData phase = leap.phaseOf(data);
         return phase == null || phase.isLeapTelegraph();
-    }
-
-    /**
-     * Which ability of the shared list an action performs. The warning and standing-cast
-     * masks both index by it; -1 is a teleport or nothing at all, neither of which is on
-     * the list.
-     */
-    private static int abilityKind(PendingAction action) {
-        return switch (action) {
-            case GROUND_ATTACK -> BossAbilityKind.AREA;
-            case RANGED_ATTACK -> BossAbilityKind.RANGED;
-            case MELEE_ATTACK -> BossAbilityKind.MELEE;
-            case FLUID_SPIT -> BossAbilityKind.FLUID;
-            case HOOK -> BossAbilityKind.HOOK;
-            case CAPTURE -> BossAbilityKind.CAPTURE;
-            case SUMMON -> BossAbilityKind.SUMMON;
-            case LEAP -> BossAbilityKind.LEAP;
-            case LINE_ATTACK -> BossAbilityKind.LINE;
-            case GEYSER -> BossAbilityKind.GEYSER;
-            case BOULDER -> BossAbilityKind.BOULDER;
-            case BOULDER_RAIN -> BossAbilityKind.BOULDER_RAIN;
-            case TETHER -> BossAbilityKind.TETHER;
-            case GRAVITY -> BossAbilityKind.GRAVITY;
-            case MARK -> BossAbilityKind.MARK;
-            case COVER -> BossAbilityKind.COVER;
-            case HUNT -> BossAbilityKind.HUNT;
-            case BEAM -> BossAbilityKind.BEAM;
-            case COCOON -> BossAbilityKind.COCOON;
-            case NONE, TELEPORT -> -1;
-        };
     }
 
     /**
@@ -3826,8 +2838,8 @@ public final class TeleportPathController {
      * <p>Zero for an ability nothing is drawn for: a pause nobody can see is not a warning,
      * it is the boss standing there doing nothing.</p>
      */
-    private int telegraphLead(TeleportPathData data, PendingAction action, int actionDelay) {
-        int ability = abilityKind(action);
+    private int telegraphLead(TeleportPathData data, BossAbility action, int actionDelay) {
+        int ability = action.kind();
         if (ability < 0 || !telegraphs(data, ability)) {
             return 0;
         }
@@ -3847,7 +2859,7 @@ public final class TeleportPathController {
         long overdue = gameTime - pendingWarningEndsAt;
         pendingWarningEndsAt = NOT_SCHEDULED;
         if (data.isTelegraphDodge() && !pendingTargetStillValid(level, phase)) {
-            PendingAction dodged = pendingAction;
+            BossAbility dodged = pendingAction;
             endCastRoot();
             clearPendingAction();
             // A short retry rather than the whole cooldown: a boss left standing for ten
@@ -3882,7 +2894,7 @@ public final class TeleportPathController {
                     && ProjectileEntityUtil.canShoot(npc);
             case MELEE_ATTACK -> isValidMeleeTarget(target, phase);
             case FLUID_SPIT -> isValidFluidSpitTarget(target, phase);
-            case HOOK -> hasWoundUpVictim(level, candidate -> isValidHookTarget(candidate, phase));
+            case HOOK -> hasWoundUpVictim(level, candidate -> hook.isValidTarget(candidate, phase));
             case GEYSER -> hasWoundUpVictim(level, candidate -> isValidGeyserTarget(candidate, phase));
             case TETHER -> hasWoundUpVictim(level, candidate -> isValidTetherTarget(candidate, phase));
             case MARK -> hasWoundUpVictim(level, this::isValidMarkTarget);
@@ -3893,7 +2905,7 @@ public final class TeleportPathController {
             case HUNT -> huntRuntime.isValidTarget(target, settings());
             // A leap at a fixed spot lands there whoever is standing on it.
             case LEAP -> phase.getLeapMode() != BossPhaseData.LEAP_MODE_TARGET
-                    || isValidLeapTarget(target, phase);
+                    || leap.isValidTarget(target, phase);
             // The corridor was committed to when the warning went up, so there is nothing
             // left to call off: walking out of it already is the dodge, and cancelling
             // would only bring the same strike back round in two seconds.
@@ -3927,63 +2939,86 @@ public final class TeleportPathController {
         return false;
     }
 
-    /** When one ability is next allowed to start. */
-    private long abilityScheduleAt(PendingAction action) {
-        return switch (action) {
-            case SUMMON -> nextSummonAt;
-            case GROUND_ATTACK -> nextGroundAttackAt;
-            case LINE_ATTACK -> nextLineAttackAt;
-            case RANGED_ATTACK -> nextRangedAttackAt;
-            case MELEE_ATTACK -> nextMeleeAttackAt;
-            case FLUID_SPIT -> nextFluidSpitAt;
-            case HOOK -> nextHookAt;
-            case CAPTURE -> nextCaptureAt;
-            case LEAP -> nextLeapAt;
-            case GEYSER -> nextGeyserAt;
-            case BOULDER -> nextBoulderAt;
-            case BOULDER_RAIN -> nextBoulderRainAt;
-            case TETHER -> nextTetherAt;
-            case GRAVITY -> nextGravityAt;
-            case MARK -> nextMarkAt;
-            case COVER -> nextCoverAt;
-            case HUNT -> nextHuntAt;
-            case BEAM -> nextBeamAt;
-            case COCOON -> nextCocoonAt;
-            case TELEPORT -> nextTeleportAt;
-            case NONE -> NOT_SCHEDULED;
-        };
+    /** A schedule with every ability idle, which is what a boss between fights owns. */
+    private static long[] newSchedule() {
+        long[] schedule = new long[BossAbility.values().length];
+        Arrays.fill(schedule, NOT_SCHEDULED);
+        return schedule;
     }
 
-    private void setAbilityScheduleAt(PendingAction action, long at) {
-        switch (action) {
-            case SUMMON -> nextSummonAt = at;
-            case GROUND_ATTACK -> nextGroundAttackAt = at;
-            case LINE_ATTACK -> nextLineAttackAt = at;
-            case RANGED_ATTACK -> nextRangedAttackAt = at;
-            case MELEE_ATTACK -> nextMeleeAttackAt = at;
-            case FLUID_SPIT -> nextFluidSpitAt = at;
-            case HOOK -> nextHookAt = at;
-            case CAPTURE -> nextCaptureAt = at;
-            case LEAP -> nextLeapAt = at;
-            case GEYSER -> nextGeyserAt = at;
-            case BOULDER -> nextBoulderAt = at;
-            case BOULDER_RAIN -> nextBoulderRainAt = at;
-            case TETHER -> nextTetherAt = at;
-            case GRAVITY -> nextGravityAt = at;
-            case MARK -> nextMarkAt = at;
-            case COVER -> nextCoverAt = at;
-            case HUNT -> nextHuntAt = at;
-            case BEAM -> nextBeamAt = at;
-            case COCOON -> nextCocoonAt = at;
-            case TELEPORT -> nextTeleportAt = at;
-            case NONE -> {
-                // Nothing was running, so there is no schedule to move.
-            }
+    /**
+     * Ticks left on one ability's cooldown, or 0 when it is ready or not on a clock. Shared
+     * by the status lines, which all used to spell the same ternary out for themselves.
+     */
+    private long abilityCooldownLeft(BossAbility ability, long gameTime) {
+        long at = abilityScheduleAt(ability);
+        return at == NOT_SCHEDULED ? 0L : at - gameTime;
+    }
+
+    /**
+     * Records the victims beyond the first of a multi-target ability, for the wind-up to
+     * mark and the hit to land on.
+     *
+     * <p>The first of the list is the pending target proper and is held by
+     * {@link #beginAction}; these are the rest. Every multi-target ability wrote the same
+     * three lines out for itself before this, which is three lines each to get the off-by-one
+     * wrong in.</p>
+     */
+    void rememberExtraTargets(List<LivingEntity> targets) {
+        pendingExtraTargets.clear();
+        for (int i = 1; i < targets.size(); i++) {
+            pendingExtraTargets.add(targets.get(i).getId());
         }
     }
 
+    /** The victims beyond the first that the wind-up is holding, by entity id. */
+    List<Integer> pendingExtraTargets() {
+        return pendingExtraTargets;
+    }
+
+    /** Where the boss stood when it activated - the spot a reset, and an arena offset, read from. */
+    double homeX() {
+        return homeX;
+    }
+
+    double homeY() {
+        return homeY;
+    }
+
+    double homeZ() {
+        return homeZ;
+    }
+
+    /** The action being wound up or run right now, which is NONE between casts. */
+    BossAbility pendingAction() {
+        return pendingAction;
+    }
+
+    /**
+     * Holds the boss in its after-cast pause until at least this tick, never letting a
+     * shorter claim cut an existing one short.
+     */
+    void holdBusyUntil(long gameTime) {
+        busyUntil = Math.max(busyUntil, gameTime);
+    }
+
+    /** When one ability is next allowed to start. */
+    long abilityScheduleAt(BossAbility action) {
+        return this.abilityScheduleAt[action.ordinal()];
+    }
+
+    void setAbilityScheduleAt(BossAbility action, long at) {
+        if (action == BossAbility.NONE) {
+            // Nothing was running, so there is no schedule to move. Kept as its own case
+            // rather than as a slot nobody reads: an idle boss must not come away from
+            // this holding a deadline.
+            return;
+        }
+        this.abilityScheduleAt[action.ordinal()] = at;
+    }
+
     /** Pulls a schedule in, and never pushes one out past the cooldown it already had. */
-    private void bringAbilityScheduleForward(PendingAction action, long at) {
+    private void bringAbilityScheduleForward(BossAbility action, long at) {
         long current = abilityScheduleAt(action);
         if (current == NOT_SCHEDULED || current > at) {
             setAbilityScheduleAt(action, at);
@@ -3991,7 +3026,7 @@ public final class TeleportPathController {
     }
 
     /** Pays back the ticks an ability spent warning before its wind-up ever started. */
-    private void delayAbilitySchedule(PendingAction action, int ticks) {
+    private void delayAbilitySchedule(BossAbility action, int ticks) {
         long current = abilityScheduleAt(action);
         if (ticks > 0 && current != NOT_SCHEDULED) {
             setAbilityScheduleAt(action, current + ticks);
@@ -3999,47 +3034,47 @@ public final class TeleportPathController {
     }
 
     private void executePendingAction(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (pendingAction == PendingAction.SUMMON) {
+        if (pendingAction == BossAbility.SUMMON) {
             summonMinions(level, phase);
             invulnerableSummonedOnce = true;
             minionAliveScanAt = NOT_SCHEDULED;
-        } else if (pendingAction == PendingAction.GROUND_ATTACK) {
+        } else if (pendingAction == BossAbility.GROUND_ATTACK) {
             performAreaAttack(level, phase);
-        } else if (pendingAction == PendingAction.LINE_ATTACK) {
+        } else if (pendingAction == BossAbility.LINE_ATTACK) {
             performLineAttack(level, phase);
-        } else if (pendingAction == PendingAction.RANGED_ATTACK) {
+        } else if (pendingAction == BossAbility.RANGED_ATTACK) {
             performRangedAttack(level, phase);
-        } else if (pendingAction == PendingAction.MELEE_ATTACK) {
+        } else if (pendingAction == BossAbility.MELEE_ATTACK) {
             performMeleeAttack(level, phase);
-        } else if (pendingAction == PendingAction.FLUID_SPIT) {
+        } else if (pendingAction == BossAbility.FLUID_SPIT) {
             performFluidSpit(level, phase);
-        } else if (pendingAction == PendingAction.HOOK) {
-            performHook(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.CAPTURE) {
+        } else if (pendingAction == BossAbility.HOOK) {
+            hook.perform(level, phase, gameTime);
+        } else if (pendingAction == BossAbility.CAPTURE) {
             performCapture(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.LEAP) {
-            performLeap(level, data, phase, gameTime);
-        } else if (pendingAction == PendingAction.GEYSER) {
+        } else if (pendingAction == BossAbility.LEAP) {
+            leap.perform(level, data, phase, gameTime);
+        } else if (pendingAction == BossAbility.GEYSER) {
             performGeyser(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.BOULDER) {
+        } else if (pendingAction == BossAbility.BOULDER) {
             performBoulder(level, phase);
-        } else if (pendingAction == PendingAction.BOULDER_RAIN) {
+        } else if (pendingAction == BossAbility.BOULDER_RAIN) {
             performBoulderRain(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.TETHER) {
+        } else if (pendingAction == BossAbility.TETHER) {
             performTether(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.GRAVITY) {
+        } else if (pendingAction == BossAbility.GRAVITY) {
             performGravity(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.MARK) {
+        } else if (pendingAction == BossAbility.MARK) {
             performMark(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.COVER) {
-            performCover(level);
-        } else if (pendingAction == PendingAction.HUNT) {
+        } else if (pendingAction == BossAbility.COVER) {
+            coverRuntime.perform(level);
+        } else if (pendingAction == BossAbility.HUNT) {
             huntRuntime.perform(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.BEAM) {
+        } else if (pendingAction == BossAbility.BEAM) {
             performBeam(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.COCOON) {
+        } else if (pendingAction == BossAbility.COCOON) {
             performCocoon(level, phase, gameTime);
-        } else if (pendingAction == PendingAction.TELEPORT) {
+        } else if (pendingAction == BossAbility.TELEPORT) {
             List<int[]> points = npc.ais.getMovingPath();
             if (points.size() >= 2 && teleportToNextSafePoint(level, points, data)) {
                 playPostTeleportAnimation(phase, gameTime);
@@ -4483,7 +3518,7 @@ public final class TeleportPathController {
      * who counts as an enemy - which is also why the ability being swept for is handed in
      * rather than assumed.</p>
      */
-    private List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius,
+    List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius,
                                                 int ability) {
         return victimsAround(level, centre, radius, ability, target -> true);
     }
@@ -4545,7 +3580,7 @@ public final class TeleportPathController {
      * <p>Who got out of the way is decided per victim at the strike, not here - this is only
      * who is in reach.</p>
      */
-    private List<LivingEntity> coverVictims(ServerLevel level, Vec3 centre, double range) {
+    List<LivingEntity> coverVictims(ServerLevel level, Vec3 centre, double range) {
         return arenaVictims(level, centre, range, BossAbilityKind.COVER);
     }
 
@@ -4758,7 +3793,7 @@ public final class TeleportPathController {
      * normal combat target, so turning a mode on never makes an ability quieter than MAIN
      * would have been.</p>
      */
-    private LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange,
+    LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange,
                                              Predicate<LivingEntity> canHit) {
         LivingEntity main = npc.getTarget();
         // The main target goes through the same hiding check every mode's candidates do, or
@@ -4794,7 +3829,7 @@ public final class TeleportPathController {
      * The multi-victim form of {@link #selectAbilityTarget}. Candidates are ordered by the
      * same rule, so FARTHEST with a count of three grabs the three victims furthest away.
      */
-    private List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange,
+    List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange,
                                                     Predicate<LivingEntity> canHit, int count) {
         List<LivingEntity> result = new ArrayList<>();
         if (count <= 1) {
@@ -4887,7 +3922,7 @@ public final class TeleportPathController {
      * warning was the last one - cannot be left behind by one of the callers.
      */
     private void clearPendingAction() {
-        pendingAction = PendingAction.NONE;
+        pendingAction = BossAbility.NONE;
         pendingActionAt = NOT_SCHEDULED;
         pendingWarningEndsAt = NOT_SCHEDULED;
         pendingAnimation = "";
@@ -4897,13 +3932,8 @@ public final class TeleportPathController {
         lineAttackAxis = null;
         boulderAxis = null;
         beamStartYaw = 0.0F;
-        coverCast = null;
-        // A leap still in the air is physics and keeps going; only a plan that has not been
-        // pushed off yet dies with the windup that was just thrown away.
-        if (!leapAirborne) {
-            leapDestination = null;
-            leapPhaseIndex = -1;
-        }
+        coverRuntime.clear();
+        leap.forgetPlanIfGrounded();
     }
 
     private void cancelPendingAndSchedules() {
@@ -4911,26 +3941,10 @@ public final class TeleportPathController {
         // on through its after-pause.
         endCastRoot();
         clearPendingAction();
-        nextTeleportAt = NOT_SCHEDULED;
-        nextSummonAt = NOT_SCHEDULED;
-        nextGroundAttackAt = NOT_SCHEDULED;
-        nextLineAttackAt = NOT_SCHEDULED;
-        nextRangedAttackAt = NOT_SCHEDULED;
-        nextMeleeAttackAt = NOT_SCHEDULED;
-        nextFluidSpitAt = NOT_SCHEDULED;
-        nextHookAt = NOT_SCHEDULED;
-        nextCaptureAt = NOT_SCHEDULED;
-        nextLeapAt = NOT_SCHEDULED;
-        nextGeyserAt = NOT_SCHEDULED;
-        nextBoulderAt = NOT_SCHEDULED;
-        nextBoulderRainAt = NOT_SCHEDULED;
-        nextTetherAt = NOT_SCHEDULED;
-        nextGravityAt = NOT_SCHEDULED;
-        nextMarkAt = NOT_SCHEDULED;
-        nextCoverAt = NOT_SCHEDULED;
-        nextHuntAt = NOT_SCHEDULED;
-        nextBeamAt = NOT_SCHEDULED;
-        nextCocoonAt = NOT_SCHEDULED;
+        // Every clock at once, the teleport's included: a boss that lost its target owes
+        // nobody the attack it was halfway to. One line rather than twenty, so an ability
+        // added later cannot be the one left running after the fight ended.
+        Arrays.fill(abilityScheduleAt, NOT_SCHEDULED);
         // A chase does not outlive the phase, the fight or the boss that started it, and
         // every one of those ends up here. Nor does a sweep.
         huntRuntime.end();
@@ -4948,14 +3962,14 @@ public final class TeleportPathController {
         healthScalingRuntime.clear(settings(), false);
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
-        clearHookPulls();
+        hook.clear();
         hazardRuntime.clear();
         barrierRuntime.clear();
         BossGeyserScheduler.clearBoss(npc);
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
-        clearLeap();
+        leap.clear();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
         BossCocoonManager.releaseByBoss(npc);

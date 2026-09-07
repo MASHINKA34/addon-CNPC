@@ -8,7 +8,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
@@ -111,10 +110,7 @@ public final class SubGuiBossChestEntry extends SubGuiFieldScreen {
             min.setValue(Integer.toString(entry.getMinCount()));
             max.setValue(Integer.toString(entry.getMaxCount()));
         }
-        GuiTextFieldNop chance = getTextField(CHANCE_FIELD);
-        if (chance != null) {
-            entry.setChancePercent(chance.getInteger());
-        }
+        applyNumberField(CHANCE_FIELD, entry::setChancePercent);
     }
 
     private void applyItemId(GuiTextFieldNop field) {

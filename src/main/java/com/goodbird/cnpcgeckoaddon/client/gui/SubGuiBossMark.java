@@ -249,25 +249,16 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setMarkAnimation(value);
             else animation.setValue(phase.getMarkAnimation());
         }
-        GuiTextFieldNop count = getTextField(TARGET_COUNT_FIELD);
-        if (count != null) phase.setMarkTargetCount(count.getInteger());
-        GuiTextFieldNop fuse = getTextField(FUSE_FIELD);
-        if (fuse != null) phase.setMarkFuseTicks(fuse.getInteger());
-        GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
-        if (radius != null) phase.setMarkRadius(radius.getInteger());
+        applyNumberField(TARGET_COUNT_FIELD, phase::setMarkTargetCount);
+        applyNumberField(FUSE_FIELD, phase::setMarkFuseTicks);
+        applyNumberField(RADIUS_FIELD, phase::setMarkRadius);
         // Read whether or not the rule in force shows them: a hidden row keeps the number a
         // builder typed into it under the other rule, rather than losing it on a stray click.
-        GuiTextFieldNop minPlayers = getTextField(MIN_PLAYERS_FIELD);
-        if (minPlayers != null) phase.setMarkMinPlayers(minPlayers.getInteger());
-        GuiTextFieldNop selfDamage = getTextField(SELF_DAMAGE_FIELD);
-        if (selfDamage != null) phase.setMarkSelfDamage(selfDamage.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setMarkDamage(damage.getInteger());
-        GuiTextFieldNop failDamage = getTextField(FAIL_DAMAGE_FIELD);
-        if (failDamage != null) phase.setMarkFailDamage(failDamage.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setMarkActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setMarkCooldownTicks(cooldown.getInteger());
+        applyNumberField(MIN_PLAYERS_FIELD, phase::setMarkMinPlayers);
+        applyNumberField(SELF_DAMAGE_FIELD, phase::setMarkSelfDamage);
+        applyNumberField(DAMAGE_FIELD, phase::setMarkDamage);
+        applyNumberField(FAIL_DAMAGE_FIELD, phase::setMarkFailDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setMarkActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setMarkCooldownTicks);
     }
 }

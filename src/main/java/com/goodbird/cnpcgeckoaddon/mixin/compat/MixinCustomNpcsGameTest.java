@@ -1,4 +1,4 @@
-package com.goodbird.cnpcgeckoaddon.mixin.impl;
+package com.goodbird.cnpcgeckoaddon.mixin.compat;
 
 import net.minecraft.gametest.framework.GameTestServer;
 import net.minecraft.world.level.storage.LevelResource;
@@ -14,6 +14,14 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * Points CustomNPCs' save directory at the gametest server's own world.
+ *
+ * <p>Gated to gametest runs by {@link CompatMixinPlugin}: {@code GameTestServer} is a type
+ * a packaged instance never builds, so in production this only ever added a branch to a
+ * hot-ish CustomNPCs call that could not be taken. It lives in the compat config for the
+ * same reason the third-party patches do - it is not part of what the addon does.</p>
+ */
 @Mixin(value = CustomNpcs.class, remap = false)
 public abstract class MixinCustomNpcsGameTest {
     @Inject(method = "getLevelSaveDirectory(Ljava/lang/String;)Ljava/io/File;",

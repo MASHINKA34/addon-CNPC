@@ -2,7 +2,6 @@ package com.goodbird.cnpcgeckoaddon.client;
 
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
-import com.goodbird.cnpcgeckoaddon.utils.MobModelTextureResolver;
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.entity.EntityCustomNpc;
 import org.jetbrains.annotations.Nullable;

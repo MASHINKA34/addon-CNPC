@@ -122,10 +122,6 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen {
         updateConditionalFields();
     }
 
-    private void addYesNo(int id, String label, int y, boolean value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + 142, y, 100, 20, value));
-    }
 
     /**
      * A row whose label runs on past the toggle column, with the toggle pushed hard right.
@@ -211,15 +207,10 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop phase = getTextField(PHASE_FIELD);
-        if (phase != null) data.setTotemActivationPhase(phase.getInteger());
-        GuiTextFieldNop activationDelay = getTextField(ACTIVATION_DELAY_FIELD);
-        if (activationDelay != null) data.setTotemActivationDelayTicks(activationDelay.getInteger());
-        GuiTextFieldNop respawnDelay = getTextField(RESPAWN_DELAY_FIELD);
-        if (respawnDelay != null) data.setTotemRespawnDelayTicks(respawnDelay.getInteger());
-        GuiTextFieldNop width = getTextField(BEAM_WIDTH_FIELD);
-        if (width != null) data.setTotemBeamWidthPercent(width.getInteger());
-        GuiTextFieldNop sag = getTextField(BEAM_SAG_FIELD);
-        if (sag != null) data.setTotemBeamSagPercent(sag.getInteger());
+        applyNumberField(PHASE_FIELD, data::setTotemActivationPhase);
+        applyNumberField(ACTIVATION_DELAY_FIELD, data::setTotemActivationDelayTicks);
+        applyNumberField(RESPAWN_DELAY_FIELD, data::setTotemRespawnDelayTicks);
+        applyNumberField(BEAM_WIDTH_FIELD, data::setTotemBeamWidthPercent);
+        applyNumberField(BEAM_SAG_FIELD, data::setTotemBeamSagPercent);
     }
 }

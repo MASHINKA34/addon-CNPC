@@ -195,23 +195,14 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setLineAttackAnimation(value);
             else animation.setValue(phase.getLineAttackAnimation());
         }
-        GuiTextFieldNop length = getTextField(LENGTH_FIELD);
-        if (length != null) phase.setLineAttackLength(length.getInteger());
-        GuiTextFieldNop width = getTextField(WIDTH_FIELD);
-        if (width != null) phase.setLineAttackWidth(width.getInteger());
-        GuiTextFieldNop height = getTextField(HEIGHT_FIELD);
-        if (height != null) phase.setLineAttackHeight(height.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setLineAttackDamage(damage.getInteger());
-        GuiTextFieldNop knockback = getTextField(KNOCKBACK_FIELD);
-        if (knockback != null) phase.setLineAttackKnockback(knockback.getInteger());
-        GuiTextFieldNop sideWidth = getTextField(SIDE_WIDTH_FIELD);
-        if (sideWidth != null) phase.setLineAttackSideWidth(sideWidth.getInteger());
-        GuiTextFieldNop sidePercent = getTextField(SIDE_PERCENT_FIELD);
-        if (sidePercent != null) phase.setLineAttackSidePercent(sidePercent.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setLineAttackActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setLineAttackCooldownTicks(cooldown.getInteger());
+        applyNumberField(LENGTH_FIELD, phase::setLineAttackLength);
+        applyNumberField(WIDTH_FIELD, phase::setLineAttackWidth);
+        applyNumberField(HEIGHT_FIELD, phase::setLineAttackHeight);
+        applyNumberField(DAMAGE_FIELD, phase::setLineAttackDamage);
+        applyNumberField(KNOCKBACK_FIELD, phase::setLineAttackKnockback);
+        applyNumberField(SIDE_WIDTH_FIELD, phase::setLineAttackSideWidth);
+        applyNumberField(SIDE_PERCENT_FIELD, phase::setLineAttackSidePercent);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setLineAttackActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setLineAttackCooldownTicks);
     }
 }

@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import net.minecraft.client.Minecraft;
 import noppes.npcs.entity.data.DataRanged;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;

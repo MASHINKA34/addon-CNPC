@@ -4,7 +4,6 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
-import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** What the boss shows and says before an ability lands, and how long it gives for it. */
 public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
@@ -65,10 +64,6 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
      * A row whose label runs the width of the screen, so the toggle sits hard against the
      * right edge: "warn before abilities" is a sentence in some languages, not a word.
      */
-    private void addYesNo(int id, String label, int y, boolean value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + 196, y, 46, 20, value));
-    }
 
     @Override
     protected int numberLabelX() {
@@ -96,9 +91,22 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop lead = getTextField(LEAD_FIELD);
-        if (lead != null) data.setTelegraphLeadTicks(lead.getInteger());
-        GuiTextFieldNop radius = getTextField(ZONE_RADIUS_FIELD);
-        if (radius != null) data.setTelegraphZoneRadius(radius.getInteger());
+        applyNumberField(LEAD_FIELD, data::setTelegraphLeadTicks);
+        applyNumberField(ZONE_RADIUS_FIELD, data::setTelegraphZoneRadius);
     }
+    @Override
+    protected int toggleLabelX() {
+        return 6;
+    }
+
+    @Override
+    protected int toggleButtonX() {
+        return 196;
+    }
+
+    @Override
+    protected int toggleButtonWidth() {
+        return 46;
+    }
+
 }

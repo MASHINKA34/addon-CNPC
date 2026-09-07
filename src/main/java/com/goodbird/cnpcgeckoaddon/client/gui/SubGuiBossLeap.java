@@ -220,8 +220,7 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
     protected void applyFields() {
         applyAnimation(ANIMATION_FIELD, phase.getLeapAnimation(), phase::setLeapAnimation);
         applyAnimation(LAND_ANIMATION_FIELD, phase.getLeapLandAnimation(), phase::setLeapLandAnimation);
-        GuiTextFieldNop height = getTextField(HEIGHT_FIELD);
-        if (height != null) phase.setLeapHeight(height.getInteger());
+        applyNumberField(HEIGHT_FIELD, phase::setLeapHeight);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
         if (min != null && max != null) phase.setLeapRange(min.getInteger(), max.getInteger());

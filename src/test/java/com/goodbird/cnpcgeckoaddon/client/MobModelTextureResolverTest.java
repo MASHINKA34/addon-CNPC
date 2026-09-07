@@ -1,6 +1,7 @@
-package com.goodbird.cnpcgeckoaddon.utils;
+package com.goodbird.cnpcgeckoaddon.client;
 
 import com.goodbird.cnpcgeckoaddon.util.TsvResource;
+import com.goodbird.cnpcgeckoaddon.utils.MobModelNameMatcher;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

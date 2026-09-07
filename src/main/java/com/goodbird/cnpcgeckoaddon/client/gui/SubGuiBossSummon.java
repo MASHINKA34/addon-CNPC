@@ -116,17 +116,11 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         }
         GuiTextFieldNop clone = getTextField(CLONE_NAME_FIELD);
         if (clone != null) phase.setMinionCloneName(clone.getValue());
-        GuiTextFieldNop tab = getTextField(CLONE_TAB_FIELD);
-        if (tab != null) phase.setMinionCloneTab(tab.getInteger());
-        GuiTextFieldNop count = getTextField(COUNT_FIELD);
-        if (count != null) phase.setMinionCount(count.getInteger());
-        GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
-        if (radius != null) phase.setMinionRadius(radius.getInteger());
-        GuiTextFieldNop maxAlive = getTextField(MAX_ALIVE_FIELD);
-        if (maxAlive != null) phase.setMaxAliveMinions(maxAlive.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setSummonActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setSummonCooldownTicks(cooldown.getInteger());
+        applyNumberField(CLONE_TAB_FIELD, phase::setMinionCloneTab);
+        applyNumberField(COUNT_FIELD, phase::setMinionCount);
+        applyNumberField(RADIUS_FIELD, phase::setMinionRadius);
+        applyNumberField(MAX_ALIVE_FIELD, phase::setMaxAliveMinions);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setSummonActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setSummonCooldownTicks);
     }
 }

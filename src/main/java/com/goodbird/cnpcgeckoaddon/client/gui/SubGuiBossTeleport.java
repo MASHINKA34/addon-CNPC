@@ -106,10 +106,8 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
     protected void applyFields() {
         applyAnimation(PRE_ANIMATION_FIELD, true);
         applyAnimation(POST_ANIMATION_FIELD, false);
-        GuiTextFieldNop preDelay = getTextField(PRE_DELAY_FIELD);
-        if (preDelay != null) phase.setTeleportPreparationTicks(preDelay.getInteger());
-        GuiTextFieldNop postLock = getTextField(POST_LOCK_FIELD);
-        if (postLock != null) phase.setAppearanceLockTicks(postLock.getInteger());
+        applyNumberField(PRE_DELAY_FIELD, phase::setTeleportPreparationTicks);
+        applyNumberField(POST_LOCK_FIELD, phase::setAppearanceLockTicks);
         GuiTextFieldNop min = getTextField(MIN_DELAY_FIELD);
         GuiTextFieldNop max = getTextField(MAX_DELAY_FIELD);
         if (min != null && max != null) phase.setTeleportDelayRange(min.getInteger(), max.getInteger());

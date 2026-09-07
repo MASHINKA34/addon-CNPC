@@ -238,27 +238,18 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setCocoonAnimation(value);
             else animation.setValue(phase.getCocoonAnimation());
         }
-        GuiTextFieldNop count = getTextField(TARGET_COUNT_FIELD);
-        if (count != null) phase.setCocoonTargetCount(count.getInteger());
-        GuiTextFieldNop cloneTab = getTextField(CLONE_TAB_FIELD);
-        if (cloneTab != null) phase.setCocoonCloneTab(cloneTab.getInteger());
+        applyNumberField(TARGET_COUNT_FIELD, phase::setCocoonTargetCount);
+        applyNumberField(CLONE_TAB_FIELD, phase::setCocoonCloneTab);
         GuiTextFieldNop cloneName = getTextField(CLONE_NAME_FIELD);
         if (cloneName != null) phase.setCocoonCloneName(cloneName.getValue());
-        GuiTextFieldNop guardTab = getTextField(GUARD_TAB_FIELD);
-        if (guardTab != null) phase.setCocoonGuardTab(guardTab.getInteger());
+        applyNumberField(GUARD_TAB_FIELD, phase::setCocoonGuardTab);
         GuiTextFieldNop guardName = getTextField(GUARD_NAME_FIELD);
         if (guardName != null) phase.setCocoonGuardName(guardName.getValue());
-        GuiTextFieldNop radius = getTextField(RESCUE_RADIUS_FIELD);
-        if (radius != null) phase.setCocoonRescueRadius(radius.getInteger());
-        GuiTextFieldNop ticks = getTextField(RESCUE_TICKS_FIELD);
-        if (ticks != null) phase.setCocoonRescueTicks(ticks.getInteger());
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) phase.setCocoonDurationTicks(duration.getInteger());
-        GuiTextFieldNop failDamage = getTextField(FAIL_DAMAGE_FIELD);
-        if (failDamage != null) phase.setCocoonFailDamage(failDamage.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setCocoonActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setCocoonCooldownTicks(cooldown.getInteger());
+        applyNumberField(RESCUE_RADIUS_FIELD, phase::setCocoonRescueRadius);
+        applyNumberField(RESCUE_TICKS_FIELD, phase::setCocoonRescueTicks);
+        applyNumberField(DURATION_FIELD, phase::setCocoonDurationTicks);
+        applyNumberField(FAIL_DAMAGE_FIELD, phase::setCocoonFailDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setCocoonActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setCocoonCooldownTicks);
     }
 }

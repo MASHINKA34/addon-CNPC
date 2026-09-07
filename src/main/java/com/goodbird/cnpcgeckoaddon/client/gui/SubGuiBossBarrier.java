@@ -250,22 +250,14 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
         applyAnimation(BREAK_ANIMATION_FIELD, phase.getBarrierBreakAnimation(), phase::setBarrierBreakAnimation);
         // Read whether or not the rule in force shows them: a hidden field keeps the number
         // a builder typed under the other rule, rather than losing it on a click.
-        GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);
-        if (interval != null) phase.setBarrierIntervalTicks(interval.getInteger());
-        GuiTextFieldNop amount = getTextField(AMOUNT_FIELD);
-        if (amount != null) phase.setBarrierAmount(amount.getInteger());
-        GuiTextFieldNop percent = getTextField(PERCENT_FIELD);
-        if (percent != null) phase.setBarrierPercent(percent.getInteger());
-        GuiTextFieldNop timeout = getTextField(TIMEOUT_FIELD);
-        if (timeout != null) phase.setBarrierTimeoutTicks(timeout.getInteger());
-        GuiTextFieldNop window = getTextField(WINDOW_FIELD);
-        if (window != null) phase.setBarrierBreakWindowTicks(window.getInteger());
-        GuiTextFieldNop windowDamage = getTextField(WINDOW_DAMAGE_FIELD);
-        if (windowDamage != null) phase.setBarrierBreakDamageTakenPercent(windowDamage.getInteger());
-        GuiTextFieldNop failDamage = getTextField(FAIL_DAMAGE_FIELD);
-        if (failDamage != null) phase.setBarrierFailDamage(failDamage.getInteger());
-        GuiTextFieldNop failHeal = getTextField(FAIL_HEAL_FIELD);
-        if (failHeal != null) phase.setBarrierFailHealPercent(failHeal.getInteger());
+        applyNumberField(INTERVAL_FIELD, phase::setBarrierIntervalTicks);
+        applyNumberField(AMOUNT_FIELD, phase::setBarrierAmount);
+        applyNumberField(PERCENT_FIELD, phase::setBarrierPercent);
+        applyNumberField(TIMEOUT_FIELD, phase::setBarrierTimeoutTicks);
+        applyNumberField(WINDOW_FIELD, phase::setBarrierBreakWindowTicks);
+        applyNumberField(WINDOW_DAMAGE_FIELD, phase::setBarrierBreakDamageTakenPercent);
+        applyNumberField(FAIL_DAMAGE_FIELD, phase::setBarrierFailDamage);
+        applyNumberField(FAIL_HEAL_FIELD, phase::setBarrierFailHealPercent);
     }
 
     /** Keeps a typed animation only when the model has it; otherwise the field snaps back. */

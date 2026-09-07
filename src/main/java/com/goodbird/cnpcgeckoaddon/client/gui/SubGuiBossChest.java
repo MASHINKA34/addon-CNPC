@@ -132,10 +132,8 @@ public final class SubGuiBossChest extends SubGuiFieldScreen {
         // falls back to a plain chest and says so in the log, and a block from a mod that
         // is not loaded right now should survive being looked at in this menu.
         if (block != null) data.setChestBlock(block.getValue());
-        GuiTextFieldNop delay = getTextField(DELAY_FIELD);
-        if (delay != null) data.setChestDelayTicks(delay.getInteger());
-        GuiTextFieldNop lifetime = getTextField(LIFETIME_FIELD);
-        if (lifetime != null) data.setChestLifetimeTicks(lifetime.getInteger());
+        applyNumberField(DELAY_FIELD, data::setChestDelayTicks);
+        applyNumberField(LIFETIME_FIELD, data::setChestLifetimeTicks);
         GuiTextFieldNop name = getTextField(NAME_FIELD);
         if (name != null) data.setChestName(name.getValue());
         GuiTextFieldNop lootTable = getTextField(LOOT_TABLE_FIELD);

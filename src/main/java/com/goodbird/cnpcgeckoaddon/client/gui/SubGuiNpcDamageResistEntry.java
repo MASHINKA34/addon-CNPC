@@ -60,9 +60,6 @@ public final class SubGuiNpcDamageResistEntry extends SubGuiFieldScreen {
         if (matcher != null) {
             entry.setMatcher(matcher.getValue());
         }
-        GuiTextFieldNop percent = getTextField(PERCENT_FIELD);
-        if (percent != null) {
-            entry.setPercent(percent.getInteger());
-        }
+        applyNumberField(PERCENT_FIELD, entry::setPercent);
     }
 }

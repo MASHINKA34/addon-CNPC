@@ -5,7 +5,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
-import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Boss-wide target selection: who the boss chases, and which species its abilities may pick. */
 public final class SubGuiBossTargeting extends SubGuiFieldScreen {
@@ -64,10 +63,6 @@ public final class SubGuiBossTargeting extends SubGuiFieldScreen {
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
-    private void addYesNo(int id, String label, int y, boolean value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + 155, y, 87, 20, value));
-    }
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
@@ -90,9 +85,17 @@ public final class SubGuiBossTargeting extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
-        if (radius != null) data.setTargetSearchRadius(radius.getInteger());
-        GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);
-        if (interval != null) data.setTargetRecheckTicks(interval.getInteger());
+        applyNumberField(RADIUS_FIELD, data::setTargetSearchRadius);
+        applyNumberField(INTERVAL_FIELD, data::setTargetRecheckTicks);
     }
+    @Override
+    protected int toggleButtonX() {
+        return 155;
+    }
+
+    @Override
+    protected int toggleButtonWidth() {
+        return 87;
+    }
+
 }

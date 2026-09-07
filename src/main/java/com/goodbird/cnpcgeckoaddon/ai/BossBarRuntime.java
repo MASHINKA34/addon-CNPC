@@ -14,7 +14,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import noppes.npcs.entity.EntityNPCInterface;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -40,6 +42,14 @@ final class BossBarRuntime {
     private final ServerBossEvent bossEvent;
     /** Everyone who has earned a look at the bar, whether or not they can see it right now. */
     private final Set<UUID> viewers = new HashSet<>();
+    /**
+     * Scratch space for {@link #update}, reused rather than allocated per tick.
+     *
+     * <p>Only ever live inside that one call, which is reached from the boss' tick and from
+     * nowhere else, so there is no second walk to trip over a half-filled buffer.</p>
+     */
+    private final Set<ServerPlayer> eligible = new HashSet<>();
+    private final List<ServerPlayer> dropped = new ArrayList<>();
 
     private String activeStyle = BossBarStyles.NONE;
     private int activeScalePercent = TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT;
@@ -86,18 +96,23 @@ final class BossBarRuntime {
         if (target instanceof ServerPlayer player) {
             viewers.add(player.getUUID());
         }
-        Set<ServerPlayer> eligible = new HashSet<>();
-        for (UUID playerId : Set.copyOf(viewers)) {
-            Player player = level.getPlayerByUUID(playerId);
+        eligible.clear();
+        // Walked through the iterator rather than over a copy: this runs every tick of every
+        // fight, and the copy was a fresh set per boss per tick for the sake of one removal.
+        for (Iterator<UUID> it = viewers.iterator(); it.hasNext(); ) {
+            Player player = level.getPlayerByUUID(it.next());
             if (player instanceof ServerPlayer serverPlayer && isViewer(serverPlayer)
                     && (serverPlayer == target || npc.distanceToSqr(serverPlayer) <= radiusSquared)) {
                 eligible.add(serverPlayer);
             } else {
-                viewers.remove(playerId);
+                it.remove();
             }
         }
 
-        for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
+        // This copy stays: removePlayer writes to the very list being walked.
+        dropped.clear();
+        dropped.addAll(bossEvent.getPlayers());
+        for (ServerPlayer player : dropped) {
             if (!eligible.contains(player)) {
                 bossEvent.removePlayer(player);
                 NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,

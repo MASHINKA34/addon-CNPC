@@ -40,6 +40,17 @@ they cover exactly what can be checked without a world:
   every one of `BossPhaseData`'s three hundred odd fields actually reaches the tag - a field
   added to the class and the GUI but not to `readFromNBT` is silently forgotten on the next
   load, and this is what catches it;
+- that every number in a boss save comes back clamped, by poisoning each one in turn with
+  `Integer.MAX_VALUE` - a setting read straight out of the tag is a cooldown of two billion
+  ticks or a scan radius past the world border, neither of which throws;
+- that each row of the boss ability table is wired to its own phase setting and its own
+  cooldown, which is the mistake a table of twenty near-identical rows invites;
+- the leap's arc, checked against the motion it stands for by stepping vanilla's own fall
+  constants tick by tick;
+- the take cover geometry: who a shelter covers, which shelters crowd each other out, how
+  long the shockwave is drawn for;
+- the phase thresholds and the party health scaling - the two sums a fight is decided by;
+- the five artwork tables, held to the fallback every one of them promises;
 - `TickQueue`'s reentrancy, its per-tick cap and its cancellation rules;
 - that every mob bundle with a recorded texture table is also listed in the resolver's
   namespaces, so an imported bundle cannot end up rendering with a stretched npc skin;

@@ -126,17 +126,11 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setLeapActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setLeapCooldownTicks(cooldown.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setLeapImpactDamage(damage.getInteger());
-        GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
-        if (radius != null) phase.setLeapImpactRadius(radius.getInteger());
-        GuiTextFieldNop knockback = getTextField(KNOCKBACK_FIELD);
-        if (knockback != null) phase.setLeapImpactKnockback(knockback.getInteger());
-        GuiTextFieldNop airTicks = getTextField(AIR_TICKS_FIELD);
-        if (airTicks != null) phase.setLeapMaxAirTicks(airTicks.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase::setLeapActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setLeapCooldownTicks);
+        applyNumberField(DAMAGE_FIELD, phase::setLeapImpactDamage);
+        applyNumberField(RADIUS_FIELD, phase::setLeapImpactRadius);
+        applyNumberField(KNOCKBACK_FIELD, phase::setLeapImpactKnockback);
+        applyNumberField(AIR_TICKS_FIELD, phase::setLeapMaxAirTicks);
     }
 }

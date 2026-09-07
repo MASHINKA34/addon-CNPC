@@ -3,7 +3,6 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 

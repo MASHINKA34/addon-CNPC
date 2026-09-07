@@ -137,9 +137,6 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop threshold = getTextField(THRESHOLD_FIELD);
-        if (threshold != null) {
-            phase.setStartHealthPercent(threshold.getInteger());
-        }
+        applyNumberField(THRESHOLD_FIELD, phase::setStartHealthPercent);
     }
 }

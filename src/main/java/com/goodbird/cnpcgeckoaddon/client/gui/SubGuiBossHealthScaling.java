@@ -4,7 +4,6 @@ import com.goodbird.cnpcgeckoaddon.ai.BossHealthScalingUtil;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -78,16 +77,6 @@ public final class SubGuiBossHealthScaling extends SubGuiFieldScreen implements 
                 guiLeft + 6, guiTop + 222, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 234, 60, 18);
         refreshControlsAndPreview();
-    }
-
-    private void addYesNo(int id, String label, int y, boolean value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 5));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + 151, y, 91, 18, value));
-    }
-
-    private void addCycle(int id, String label, int y, String[] values, int value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 5));
-        addButton(new GuiButtonNop(this, id, guiLeft + 126, y, 116, 18, values, value));
     }
 
     @Override
@@ -185,13 +174,44 @@ public final class SubGuiBossHealthScaling extends SubGuiFieldScreen implements 
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop percent = getTextField(PERCENT_FIELD);
-        if (percent != null) data.setHealthPerPlayerPercent(percent.getInteger());
-        GuiTextFieldNop flat = getTextField(FLAT_FIELD);
-        if (flat != null) data.setHealthPerPlayerFlat(flat.getInteger());
-        GuiTextFieldNop cap = getTextField(CAP_FIELD);
-        if (cap != null) data.setHealthScalingPlayerCap(cap.getInteger());
-        GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);
-        if (interval != null) data.setHealthScalingRecheckTicks(interval.getInteger());
+        applyNumberField(PERCENT_FIELD, data::setHealthPerPlayerPercent);
+        applyNumberField(FLAT_FIELD, data::setHealthPerPlayerFlat);
+        applyNumberField(CAP_FIELD, data::setHealthScalingPlayerCap);
+        applyNumberField(INTERVAL_FIELD, data::setHealthScalingRecheckTicks);
     }
+    @Override
+    protected int toggleLabelX() {
+        return 6;
+    }
+
+    @Override
+    protected int toggleLabelYOffset() {
+        return 5;
+    }
+
+    @Override
+    protected int toggleButtonX() {
+        return 151;
+    }
+
+    @Override
+    protected int toggleButtonWidth() {
+        return 91;
+    }
+
+    @Override
+    protected int toggleButtonHeight() {
+        return 18;
+    }
+
+    @Override
+    protected int cycleButtonX() {
+        return 126;
+    }
+
+    @Override
+    protected int cycleButtonWidth() {
+        return 116;
+    }
+
 }

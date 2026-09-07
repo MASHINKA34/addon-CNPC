@@ -1,7 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -65,12 +64,6 @@ public final class SubGuiBossReset extends SubGuiFieldScreen {
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
-    private void addYesNo(int id, String label, String tooltip, int y, boolean value) {
-        addLabel(tooltip == null
-                ? new GuiLabel(id, label, guiLeft + 8, y + 6)
-                : new GuiLabel(id, label, guiLeft + 8, y + 6, tooltip));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + 155, y, 87, 20, value));
-    }
 
     private void addNumberField(int id, String label, String tooltip, int y, int value,
                                 int min, int max, int fallback) {
@@ -99,11 +92,18 @@ public final class SubGuiBossReset extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop ticks = getTextField(TICKS_FIELD);
-        if (ticks != null) data.setResetTicks(ticks.getInteger());
-        GuiTextFieldNop radius = getTextField(HOME_RADIUS_FIELD);
-        if (radius != null) data.setHomeLeashRadius(radius.getInteger());
-        GuiTextFieldNop grace = getTextField(HOME_GRACE_FIELD);
-        if (grace != null) data.setHomeLeashGraceTicks(grace.getInteger());
+        applyNumberField(TICKS_FIELD, data::setResetTicks);
+        applyNumberField(HOME_RADIUS_FIELD, data::setHomeLeashRadius);
+        applyNumberField(HOME_GRACE_FIELD, data::setHomeLeashGraceTicks);
     }
+    @Override
+    protected int toggleButtonX() {
+        return 155;
+    }
+
+    @Override
+    protected int toggleButtonWidth() {
+        return 87;
+    }
+
 }

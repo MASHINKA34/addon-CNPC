@@ -1,7 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -79,7 +78,6 @@ public final class SubGuiBossInvulnerable extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) phase.setInvulnerableDurationTicks(duration.getInteger());
+        applyNumberField(DURATION_FIELD, phase::setInvulnerableDurationTicks);
     }
 }

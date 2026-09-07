@@ -104,15 +104,10 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setMeleeAttackAnimation(value);
             else animation.setValue(phase.getMeleeAttackAnimation());
         }
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setMeleeAttackDamage(damage.getInteger());
-        GuiTextFieldNop range = getTextField(RANGE_FIELD);
-        if (range != null) phase.setMeleeAttackRange(range.getInteger());
-        GuiTextFieldNop knockback = getTextField(KNOCKBACK_FIELD);
-        if (knockback != null) phase.setMeleeAttackKnockback(knockback.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setMeleeAttackActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setMeleeAttackCooldownTicks(cooldown.getInteger());
+        applyNumberField(DAMAGE_FIELD, phase::setMeleeAttackDamage);
+        applyNumberField(RANGE_FIELD, phase::setMeleeAttackRange);
+        applyNumberField(KNOCKBACK_FIELD, phase::setMeleeAttackKnockback);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setMeleeAttackActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setMeleeAttackCooldownTicks);
     }
 }

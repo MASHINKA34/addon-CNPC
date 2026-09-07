@@ -214,27 +214,20 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setCoverAnimation(value);
             else animation.setValue(phase.getCoverAnimation());
         }
-        GuiTextFieldNop range = getTextField(RANGE_FIELD);
-        if (range != null) phase.setCoverRange(range.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setCoverDamage(damage.getInteger());
-        GuiTextFieldNop knockback = getTextField(KNOCKBACK_FIELD);
-        if (knockback != null) phase.setCoverKnockback(knockback.getInteger());
+        applyNumberField(RANGE_FIELD, phase::setCoverRange);
+        applyNumberField(DAMAGE_FIELD, phase::setCoverDamage);
+        applyNumberField(KNOCKBACK_FIELD, phase::setCoverKnockback);
         // Read whether or not the rule in force shows them: a hidden row keeps the numbers a
         // builder typed into it under the other rule, rather than losing them on a stray click.
-        GuiTextFieldNop shelterCount = getTextField(SHELTER_COUNT_FIELD);
-        if (shelterCount != null) phase.setCoverShelterCount(shelterCount.getInteger());
-        GuiTextFieldNop shelterRadius = getTextField(SHELTER_RADIUS_FIELD);
-        if (shelterRadius != null) phase.setCoverShelterRadius(shelterRadius.getInteger());
+        applyNumberField(SHELTER_COUNT_FIELD, phase::setCoverShelterCount);
+        applyNumberField(SHELTER_RADIUS_FIELD, phase::setCoverShelterRadius);
         GuiTextFieldNop shelterMin = getTextField(SHELTER_MIN_FIELD);
         GuiTextFieldNop shelterMax = getTextField(SHELTER_MAX_FIELD);
         // Set as a pair: the inner edge is only legal against the outer one.
         if (shelterMin != null && shelterMax != null) {
             phase.setCoverShelterRing(shelterMin.getInteger(), shelterMax.getInteger());
         }
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setCoverActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setCoverCooldownTicks(cooldown.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase::setCoverActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setCoverCooldownTicks);
     }
 }

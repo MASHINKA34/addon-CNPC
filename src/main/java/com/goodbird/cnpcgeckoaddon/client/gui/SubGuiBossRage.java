@@ -75,12 +75,9 @@ public final class SubGuiBossRage extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop delay = getTextField(DELAY_FIELD);
-        if (delay != null) data.setRageDelayTicks(delay.getInteger());
-        GuiTextFieldNop multiplier = getTextField(MULTIPLIER_FIELD);
-        if (multiplier != null) data.setRageMultiplierPercent(multiplier.getInteger());
-        GuiTextFieldNop lock = getTextField(LOCK_FIELD);
-        if (lock != null) data.setRageLockTicks(lock.getInteger());
+        applyNumberField(DELAY_FIELD, data::setRageDelayTicks);
+        applyNumberField(MULTIPLIER_FIELD, data::setRageMultiplierPercent);
+        applyNumberField(LOCK_FIELD, data::setRageLockTicks);
         GuiTextFieldNop animation = getTextField(ANIMATION_FIELD);
         if (animation == null) return;
         String value = animation.getValue().trim();

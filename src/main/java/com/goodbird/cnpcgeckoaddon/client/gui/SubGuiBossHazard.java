@@ -271,14 +271,10 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop delay = getTextField(DELAY_FIELD);
-        if (delay != null) phase.setHazardDelayTicks(delay.getInteger());
-        GuiTextFieldNop warn = getTextField(WARN_FIELD);
-        if (warn != null) phase.setHazardWarnTicks(warn.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setHazardDamage(damage.getInteger());
-        GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);
-        if (interval != null) phase.setHazardIntervalTicks(interval.getInteger());
+        applyNumberField(DELAY_FIELD, phase::setHazardDelayTicks);
+        applyNumberField(WARN_FIELD, phase::setHazardWarnTicks);
+        applyNumberField(DAMAGE_FIELD, phase::setHazardDamage);
+        applyNumberField(INTERVAL_FIELD, phase::setHazardIntervalTicks);
         // Read whether or not the shape in force shows them: a hidden row keeps the numbers
         // a builder typed into it under the other shape, rather than losing them on a click.
         phase.setHazardCenter(signed(CENTER_X_FIELD), signed(CENTER_Z_FIELD));
@@ -288,8 +284,7 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
         if (start != null && end != null) {
             phase.setHazardRadii(start.getInteger(), end.getInteger());
         }
-        GuiTextFieldNop shrink = getTextField(SHRINK_FIELD);
-        if (shrink != null) phase.setHazardShrinkTicks(shrink.getInteger());
+        applyNumberField(SHRINK_FIELD, phase::setHazardShrinkTicks);
         phase.setHazardCorner1(signed(X1_FIELD), signed(Y1_FIELD), signed(Z1_FIELD));
         phase.setHazardCorner2(signed(X2_FIELD), signed(Y2_FIELD), signed(Z2_FIELD));
     }

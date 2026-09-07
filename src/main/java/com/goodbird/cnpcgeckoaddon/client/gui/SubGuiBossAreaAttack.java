@@ -141,17 +141,11 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setAreaAttackAnimation(value);
             else animation.setValue(phase.getAreaAttackAnimation());
         }
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setAreaAttackDamage(damage.getInteger());
-        GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
-        if (radius != null) phase.setAreaAttackRadius(radius.getInteger());
-        GuiTextFieldNop knockback = getTextField(KNOCKBACK_FIELD);
-        if (knockback != null) phase.setAreaAttackKnockback(knockback.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setAreaAttackActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setAreaAttackCooldownTicks(cooldown.getInteger());
-        GuiTextFieldNop vfxDuration = getTextField(VFX_DURATION_FIELD);
-        if (vfxDuration != null) phase.setAreaAttackVfxDurationTicks(vfxDuration.getInteger());
+        applyNumberField(DAMAGE_FIELD, phase::setAreaAttackDamage);
+        applyNumberField(RADIUS_FIELD, phase::setAreaAttackRadius);
+        applyNumberField(KNOCKBACK_FIELD, phase::setAreaAttackKnockback);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setAreaAttackActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setAreaAttackCooldownTicks);
+        applyNumberField(VFX_DURATION_FIELD, phase::setAreaAttackVfxDurationTicks);
     }
 }

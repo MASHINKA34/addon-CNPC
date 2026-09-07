@@ -29,6 +29,16 @@ public class CompatMixinPlugin implements IMixinConfigPlugin {
         if (mixinClassName.endsWith("MixinC2SMessageReload")) {
             return isModLoaded("scguns") && FMLLoader.getDist() == Dist.DEDICATED_SERVER;
         }
+        if (mixinClassName.endsWith("MixinCustomNpcsGameTest")) {
+            // Only a gametest run ever builds the server type it checks for, and the property
+            // is set by the run configurations rather than by a packaged instance.
+            return System.getProperty("neoforge.enabledGameTestNamespaces") != null;
+        }
+        // MixinLivingEntityEffects is deliberately unconditional. It is not compat with one
+        // named mod but a guard against any of them handing vanilla a MobEffectInstance built
+        // on an unregistered holder, which vanilla then throws on while writing the effect to
+        // the client - so there is nothing to gate it by. It lives in this config because it
+        // fixes somebody else's mistake rather than doing anything the addon needs.
         return true;
     }
 

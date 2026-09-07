@@ -2,7 +2,6 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;

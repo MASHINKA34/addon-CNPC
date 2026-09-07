@@ -157,18 +157,13 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
             if (FluidBlockUtil.isFluidBlock(value)) phase.setFluidSpitBlock(value);
             else fluid.setValue(phase.getFluidSpitBlock());
         }
-        GuiTextFieldNop lifetime = getTextField(LIFETIME_FIELD);
-        if (lifetime != null) phase.setFluidSpitLifetimeTicks(lifetime.getInteger());
-        GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
-        if (radius != null) phase.setFluidSpitRadius(radius.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setFluidSpitDamage(damage.getInteger());
+        applyNumberField(LIFETIME_FIELD, phase::setFluidSpitLifetimeTicks);
+        applyNumberField(RADIUS_FIELD, phase::setFluidSpitRadius);
+        applyNumberField(DAMAGE_FIELD, phase::setFluidSpitDamage);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
         if (min != null && max != null) phase.setFluidSpitRange(min.getInteger(), max.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setFluidSpitActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setFluidSpitCooldownTicks(cooldown.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase::setFluidSpitActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setFluidSpitCooldownTicks);
     }
 }

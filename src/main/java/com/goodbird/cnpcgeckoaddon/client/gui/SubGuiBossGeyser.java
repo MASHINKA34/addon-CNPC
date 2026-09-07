@@ -216,24 +216,16 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
             if (value.isEmpty() || FluidBlockUtil.isFluidBlock(value)) phase.setGeyserFluid(value);
             else fluid.setValue(phase.getGeyserFluid());
         }
-        GuiTextFieldNop count = getTextField(TARGET_COUNT_FIELD);
-        if (count != null) phase.setGeyserTargetCount(count.getInteger());
-        GuiTextFieldNop fuse = getTextField(FUSE_FIELD);
-        if (fuse != null) phase.setGeyserFuseTicks(fuse.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setGeyserDamage(damage.getInteger());
-        GuiTextFieldNop radius = getTextField(RADIUS_FIELD);
-        if (radius != null) phase.setGeyserRadius(radius.getInteger());
-        GuiTextFieldNop launch = getTextField(LAUNCH_FIELD);
-        if (launch != null) phase.setGeyserLaunch(launch.getInteger());
+        applyNumberField(TARGET_COUNT_FIELD, phase::setGeyserTargetCount);
+        applyNumberField(FUSE_FIELD, phase::setGeyserFuseTicks);
+        applyNumberField(DAMAGE_FIELD, phase::setGeyserDamage);
+        applyNumberField(RADIUS_FIELD, phase::setGeyserRadius);
+        applyNumberField(LAUNCH_FIELD, phase::setGeyserLaunch);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
         if (min != null && max != null) phase.setGeyserRange(min.getInteger(), max.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setGeyserActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setGeyserCooldownTicks(cooldown.getInteger());
-        GuiTextFieldNop fluidLife = getTextField(FLUID_LIFE_FIELD);
-        if (fluidLife != null) phase.setGeyserFluidLifetimeTicks(fluidLife.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase::setGeyserActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setGeyserCooldownTicks);
+        applyNumberField(FLUID_LIFE_FIELD, phase::setGeyserFluidLifetimeTicks);
     }
 }

@@ -1,7 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.model;
 
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
-import com.goodbird.cnpcgeckoaddon.utils.MobModelTextureResolver;
+import com.goodbird.cnpcgeckoaddon.client.MobModelTextureResolver;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import software.bernie.geckolib.cache.GeckoLibCache;

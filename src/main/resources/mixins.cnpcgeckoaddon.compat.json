@@ -8,7 +8,8 @@
     "MixinLivingEntityEffects",
     "MixinEntityLingeringSpell",
     "MixinEntityProjectileSpell",
-    "MixinC2SMessageReload"
+    "MixinC2SMessageReload",
+    "MixinCustomNpcsGameTest"
   ],
   "client": [],
   "server": [],

@@ -1,5 +1,6 @@
-package com.goodbird.cnpcgeckoaddon.utils;
+package com.goodbird.cnpcgeckoaddon.client;
 
+import com.goodbird.cnpcgeckoaddon.utils.MobModelNameMatcher;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 

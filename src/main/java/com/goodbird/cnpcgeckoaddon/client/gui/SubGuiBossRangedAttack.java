@@ -106,14 +106,11 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setRangedAttackAnimation(value);
             else animation.setValue(phase.getRangedAttackAnimation());
         }
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setRangedAttackDamage(damage.getInteger());
+        applyNumberField(DAMAGE_FIELD, phase::setRangedAttackDamage);
         GuiTextFieldNop min = getTextField(MIN_RANGE_FIELD);
         GuiTextFieldNop max = getTextField(MAX_RANGE_FIELD);
         if (min != null && max != null) phase.setRangedAttackRange(min.getInteger(), max.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setRangedAttackActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setRangedAttackCooldownTicks(cooldown.getInteger());
+        applyNumberField(ACTION_DELAY_FIELD, phase::setRangedAttackActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setRangedAttackCooldownTicks);
     }
 }

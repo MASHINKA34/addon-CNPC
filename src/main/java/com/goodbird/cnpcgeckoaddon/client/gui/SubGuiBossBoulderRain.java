@@ -219,25 +219,15 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
         if (radius != null && minRadius != null) {
             phase.setBoulderRainRing(radius.getInteger(), minRadius.getInteger());
         }
-        GuiTextFieldNop count = getTextField(COUNT_FIELD);
-        if (count != null) phase.setBoulderRainCount(count.getInteger());
-        GuiTextFieldNop interval = getTextField(INTERVAL_FIELD);
-        if (interval != null) phase.setBoulderRainIntervalTicks(interval.getInteger());
-        GuiTextFieldNop fallHeight = getTextField(FALL_HEIGHT_FIELD);
-        if (fallHeight != null) phase.setBoulderRainFallHeight(fallHeight.getInteger());
-        GuiTextFieldNop scale = getTextField(SCALE_FIELD);
-        if (scale != null) phase.setBoulderRainScale(scale.getInteger());
-        GuiTextFieldNop damage = getTextField(DAMAGE_FIELD);
-        if (damage != null) phase.setBoulderRainDamage(damage.getInteger());
-        GuiTextFieldNop knockback = getTextField(KNOCKBACK_FIELD);
-        if (knockback != null) phase.setBoulderRainKnockback(knockback.getInteger());
-        GuiTextFieldNop shatterDamage = getTextField(SHATTER_DAMAGE_FIELD);
-        if (shatterDamage != null) phase.setBoulderRainShatterDamage(shatterDamage.getInteger());
-        GuiTextFieldNop shatterRadius = getTextField(SHATTER_RADIUS_FIELD);
-        if (shatterRadius != null) phase.setBoulderRainShatterRadius(shatterRadius.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setBoulderRainActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setBoulderRainCooldownTicks(cooldown.getInteger());
+        applyNumberField(COUNT_FIELD, phase::setBoulderRainCount);
+        applyNumberField(INTERVAL_FIELD, phase::setBoulderRainIntervalTicks);
+        applyNumberField(FALL_HEIGHT_FIELD, phase::setBoulderRainFallHeight);
+        applyNumberField(SCALE_FIELD, phase::setBoulderRainScale);
+        applyNumberField(DAMAGE_FIELD, phase::setBoulderRainDamage);
+        applyNumberField(KNOCKBACK_FIELD, phase::setBoulderRainKnockback);
+        applyNumberField(SHATTER_DAMAGE_FIELD, phase::setBoulderRainShatterDamage);
+        applyNumberField(SHATTER_RADIUS_FIELD, phase::setBoulderRainShatterRadius);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setBoulderRainActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setBoulderRainCooldownTicks);
     }
 }

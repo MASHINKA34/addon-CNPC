@@ -7,7 +7,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -203,15 +202,13 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
 
     @Override
     protected void applyFields() {
-        GuiTextFieldNop tab = getTextField(CLONE_TAB_FIELD);
-        if (tab != null) entry.setCloneTab(tab.getInteger());
+        applyNumberField(CLONE_TAB_FIELD, entry::setCloneTab);
         GuiTextFieldNop name = getTextField(CLONE_NAME_FIELD);
         if (name != null) entry.setCloneName(name.getValue());
         entry.setPosition(signed(X_FIELD), signed(Y_FIELD), signed(Z_FIELD));
         GuiTextFieldNop yaw = getTextField(YAW_FIELD);
         if (yaw != null) entry.setYaw(yaw.getFloat());
-        GuiTextFieldNop width = getTextField(BEAM_WIDTH_FIELD);
-        if (width != null) entry.setBeamWidthPercentOverride(width.getInteger());
+        applyNumberField(BEAM_WIDTH_FIELD, entry::setBeamWidthPercentOverride);
     }
 
     private int signed(int id) {

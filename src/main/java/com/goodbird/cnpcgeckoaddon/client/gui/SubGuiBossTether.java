@@ -188,21 +188,13 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
             if (BossAnimationGuiUtil.isValid(npc, value)) phase.setTetherAnimation(value);
             else animation.setValue(phase.getTetherAnimation());
         }
-        GuiTextFieldNop count = getTextField(TARGET_COUNT_FIELD);
-        if (count != null) phase.setTetherTargetCount(count.getInteger());
-        GuiTextFieldNop distance = getTextField(BREAK_DISTANCE_FIELD);
-        if (distance != null) phase.setTetherBreakDistance(distance.getInteger());
-        GuiTextFieldNop duration = getTextField(DURATION_FIELD);
-        if (duration != null) phase.setTetherDurationTicks(duration.getInteger());
-        GuiTextFieldNop pull = getTextField(PULL_FIELD);
-        if (pull != null) phase.setTetherPull(pull.getInteger());
-        GuiTextFieldNop failDamage = getTextField(FAIL_DAMAGE_FIELD);
-        if (failDamage != null) phase.setTetherFailDamage(failDamage.getInteger());
-        GuiTextFieldNop delay = getTextField(ACTION_DELAY_FIELD);
-        if (delay != null) phase.setTetherActionDelayTicks(delay.getInteger());
-        GuiTextFieldNop cooldown = getTextField(COOLDOWN_FIELD);
-        if (cooldown != null) phase.setTetherCooldownTicks(cooldown.getInteger());
-        GuiTextFieldNop width = getTextField(WIDTH_FIELD);
-        if (width != null) phase.setTetherWidthPercent(width.getInteger());
+        applyNumberField(TARGET_COUNT_FIELD, phase::setTetherTargetCount);
+        applyNumberField(BREAK_DISTANCE_FIELD, phase::setTetherBreakDistance);
+        applyNumberField(DURATION_FIELD, phase::setTetherDurationTicks);
+        applyNumberField(PULL_FIELD, phase::setTetherPull);
+        applyNumberField(FAIL_DAMAGE_FIELD, phase::setTetherFailDamage);
+        applyNumberField(ACTION_DELAY_FIELD, phase::setTetherActionDelayTicks);
+        applyNumberField(COOLDOWN_FIELD, phase::setTetherCooldownTicks);
+        applyNumberField(WIDTH_FIELD, phase::setTetherWidthPercent);
     }
 }
