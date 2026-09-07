@@ -55,6 +55,39 @@ public class BossDataRoundTripGameTest {
     }
 
     @GameTest(template = "fluid_platform", timeoutTicks = 100)
+    public static void untouchedNpcStoresNoBossBlock(GameTestHelper helper) {
+        CompoundTag untouched = new TeleportPathData().writeToNBT(new CompoundTag());
+        helper.assertTrue(untouched.isEmpty(),
+                "an npc that has never been a boss should store no boss keys at all");
+
+        TeleportPathData opened = new TeleportPathData();
+        opened.markConfigured();
+        helper.assertFalse(opened.writeToNBT(new CompoundTag()).isEmpty(),
+                "opening the boss screen should start storing the settings");
+
+        TeleportPathData disabled = new TeleportPathData();
+        disabled.setEnabled(true);
+        disabled.getPhase(1).setAreaAttackDamage(42);
+        CompoundTag saved = disabled.writeToNBT(new CompoundTag());
+        TeleportPathData reread = new TeleportPathData();
+        reread.readFromNBT(saved);
+        reread.setEnabled(false);
+        TeleportPathData afterToggle = new TeleportPathData();
+        afterToggle.readFromNBT(reread.writeToNBT(new CompoundTag()));
+        helper.assertTrue(afterToggle.getPhase(1).getAreaAttackDamage() == 42,
+                "switching a configured boss off must not drop its settings");
+
+        TeleportPathData legacy = new TeleportPathData();
+        legacy.markConfigured();
+        CompoundTag allDefaults = legacy.writeToNBT(new CompoundTag());
+        TeleportPathData migrated = new TeleportPathData();
+        migrated.readFromNBT(allDefaults);
+        helper.assertTrue(migrated.writeToNBT(new CompoundTag()).isEmpty(),
+                "a block of nothing but defaults should be dropped on the next save");
+        helper.succeed();
+    }
+
+    @GameTest(template = "fluid_platform", timeoutTicks = 100)
     public static void npcSideSettingsSurviveTheSaveRoundTrip(GameTestHelper helper) {
         NpcCarryData carry = new NpcCarryData();
         carry.setCarryable(true);

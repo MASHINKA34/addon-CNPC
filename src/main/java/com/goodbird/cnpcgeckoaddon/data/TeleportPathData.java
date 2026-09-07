@@ -499,11 +499,46 @@ public final class TeleportPathData {
     private String bossBarStyle = BossBarStyles.NONE;
     private int bossBarScalePercent = DEFAULT_BOSS_BAR_SCALE_PERCENT;
 
+    private boolean configured;
+
     public TeleportPathData() {
         setPhaseCount(2);
     }
 
+    private static final class Defaults {
+        private static final CompoundTag PHASE = new BossPhaseData().writeToNBT();
+        private static final CompoundTag BLOCK = buildDefaultBlock();
+
+        private Defaults() {
+        }
+    }
+
+    private static CompoundTag buildDefaultBlock() {
+        TeleportPathData defaults = new TeleportPathData();
+        defaults.configured = true;
+        return defaults.writeToNBT(new CompoundTag());
+    }
+
+    private static boolean storesNonDefaults(CompoundTag tag) {
+        CompoundTag defaults = Defaults.BLOCK;
+        for (String key : defaults.getAllKeys()) {
+            Tag stored = tag.get(key);
+            if (stored != null && !stored.equals(defaults.get(key))) {
+                return true;
+            }
+        }
+        return storedPhaseDiffers(tag, PHASE_ONE_KEY) || storedPhaseDiffers(tag, PHASE_TWO_KEY);
+    }
+
+    private static boolean storedPhaseDiffers(CompoundTag tag, String key) {
+        return tag.contains(key, Tag.TAG_COMPOUND) && !Defaults.PHASE.equals(tag.getCompound(key));
+    }
+
     public CompoundTag writeToNBT(CompoundTag tag) {
+        if (!enabled && !configured) {
+            return tag;
+        }
+        configured = true;
         tag.putBoolean(ENABLED_KEY, enabled);
         tag.putBoolean(COMBAT_ONLY_KEY, combatOnly);
         tag.putBoolean(STATIONARY_KEY, stationary);
@@ -517,14 +552,6 @@ public final class TeleportPathData {
             list.add(phase.writeToNBT());
         }
         tag.put(PHASES_KEY, list);
-
-        // Keep the pre-1.7 keys populated so downgrading only loses the extra phases
-        // instead of resetting the whole boss.
-        tag.put(PHASE_ONE_KEY, phases.get(0).writeToNBT());
-        tag.put(PHASE_TWO_KEY, phases.get(Math.min(1, phases.size() - 1)).writeToNBT());
-        tag.putInt(PHASE_THRESHOLD_KEY, getPhaseTwoHealthPercent());
-        tag.putInt("GeckoTeleportPathMinDelay", phases.get(0).getTeleportMinDelayTicks());
-        tag.putInt("GeckoTeleportPathMaxDelay", phases.get(0).getTeleportMaxDelayTicks());
 
         tag.putBoolean(TARGET_NEAREST_KEY, targetNearestPlayer);
         tag.putInt(TARGET_RADIUS_KEY, targetSearchRadius);
@@ -617,6 +644,7 @@ public final class TeleportPathData {
     }
 
     public void readFromNBT(CompoundTag tag) {
+        configured = tag.getBoolean(ENABLED_KEY) || storesNonDefaults(tag);
         enabled = tag.getBoolean(ENABLED_KEY);
         combatOnly = !tag.contains(COMBAT_ONLY_KEY) || tag.getBoolean(COMBAT_ONLY_KEY);
         stationary = tag.contains(STATIONARY_KEY) && tag.getBoolean(STATIONARY_KEY);
@@ -869,6 +897,8 @@ public final class TeleportPathData {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public void markConfigured() { configured = true; }
     public boolean isCombatOnly() { return combatOnly; }
     public void setCombatOnly(boolean combatOnly) { this.combatOnly = combatOnly; }
     public boolean isStationary() { return stationary; }

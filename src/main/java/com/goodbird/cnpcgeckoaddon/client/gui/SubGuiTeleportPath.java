@@ -28,6 +28,7 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements IText
 
     public SubGuiTeleportPath(DataAI ai, EntityNPCInterface npc) {
         this.data = ((ITeleportPathData) ai).cnpcgeckoaddon$getTeleportPathData();
+        this.data.markConfigured();
         this.npc = npc;
         setBackground("menubg.png");
         imageWidth = 256;
