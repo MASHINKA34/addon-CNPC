@@ -5,12 +5,15 @@ import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Ownership bookkeeping for the clones a boss summons. */
 public final class BossMinionUtil {
@@ -51,12 +54,12 @@ public final class BossMinionUtil {
 
     public static boolean isMinionOf(Entity entity, Entity boss) {
         return entity != boss
-                && boss.getUUID().toString().equals(PersistentDataUtil.read(entity).getString(MINION_OWNER_KEY));
+                && boss.getUUID().toString().equals(PersistentDataUtil.getString(entity, MINION_OWNER_KEY));
     }
 
     /** Whether some boss summoned this, without caring which one - the owner may be unloaded. */
     public static boolean isMinion(Entity entity) {
-        return !PersistentDataUtil.read(entity).getString(MINION_OWNER_KEY).isEmpty();
+        return !PersistentDataUtil.getString(entity, MINION_OWNER_KEY).isEmpty();
     }
 
     public static int countAlive(ServerLevel level, Entity boss) {
@@ -91,14 +94,21 @@ public final class BossMinionUtil {
 
     /** Searches loaded entities only, so checking a slot never loads its chunk. */
     public static boolean isSlotOccupied(ServerLevel level, Entity boss, int phaseIndex, int pointId) {
+        return occupiedSlots(level, boss, phaseIndex).contains(pointId);
+    }
+
+    public static Set<Integer> occupiedSlots(ServerLevel level, Entity boss, int phaseIndex) {
+        Set<Integer> occupied = new HashSet<>();
         for (Entity entity : level.getAllEntities()) {
-            if (entity.isAlive() && isMinionOf(entity, boss)
-                    && PersistentDataUtil.read(entity).getInt(MINION_PHASE_KEY) == phaseIndex
-                    && PersistentDataUtil.read(entity).getInt(MINION_SLOT_KEY) == pointId) {
-                return true;
+            if (!entity.isAlive() || !isMinionOf(entity, boss)) {
+                continue;
+            }
+            CompoundTag data = PersistentDataUtil.read(entity);
+            if (data.getInt(MINION_PHASE_KEY) == phaseIndex) {
+                occupied.add(data.getInt(MINION_SLOT_KEY));
             }
         }
-        return false;
+        return occupied;
     }
 
     /**

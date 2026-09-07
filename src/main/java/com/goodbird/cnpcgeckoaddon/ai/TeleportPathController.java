@@ -89,7 +89,34 @@ public final class TeleportPathController {
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
     private static final int POST_ACTION_LOCK_TICKS = 10;
-    private static final int ABILITY_COUNT = 19;
+
+    @FunctionalInterface
+    private interface AbilityStarter {
+        boolean start(TeleportPathController controller, ServerLevel level, TeleportPathData data,
+                      BossPhaseData phase, long gameTime);
+    }
+
+    private static final List<AbilityStarter> ABILITY_STARTERS = List.of(
+            TeleportPathController::tryStartGroundAttack,
+            TeleportPathController::tryStartRangedAttack,
+            TeleportPathController::tryStartMeleeAttack,
+            TeleportPathController::tryStartFluidSpit,
+            TeleportPathController::tryStartHook,
+            TeleportPathController::tryStartCapture,
+            TeleportPathController::tryStartLeap,
+            TeleportPathController::tryStartLineAttack,
+            TeleportPathController::tryStartGeyser,
+            TeleportPathController::tryStartBoulder,
+            TeleportPathController::tryStartBoulderRain,
+            TeleportPathController::tryStartTether,
+            TeleportPathController::tryStartGravity,
+            TeleportPathController::tryStartMark,
+            TeleportPathController::tryStartCover,
+            TeleportPathController::tryStartHunt,
+            TeleportPathController::tryStartBeam,
+            TeleportPathController::tryStartCocoon,
+            TeleportPathController::tryStartSummon);
+    private static final int ABILITY_COUNT = ABILITY_STARTERS.size();
     /**
      * How far a leash tied to a spot or to a partner looks for its victims: the arena, not
      * the world. One tied to the boss reaches exactly as far as it breaks, so nobody is
@@ -214,6 +241,7 @@ public final class TeleportPathController {
      * held button faster than the health behind it ever could.</p>
      */
     private static final int BARRIER_HURT_COOLDOWN_TICKS = 10;
+    private static final int MINION_ALIVE_SCAN_INTERVAL_TICKS = 5;
     /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
     private static final List<Holder<Attribute>> RAGE_ATTRIBUTES =
             List.of(Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE);
@@ -578,6 +606,8 @@ public final class TeleportPathController {
     private long totemScanAt = NOT_SCHEDULED;
     /** Every loaded totem of this boss, collected at most once per tick and shared. */
     private List<Entity> totemScan = List.of();
+    private long minionAliveScanAt = NOT_SCHEDULED;
+    private boolean minionAliveScan;
 
     private static final class TotemRuntime {
         private UUID entityId;
@@ -1454,6 +1484,16 @@ public final class TeleportPathController {
         forcedPhaseFloor = Math.min(invulnerablePhaseIndex + 1, data.getPhaseCount() - 1);
     }
 
+    private boolean anyMinionAlive(ServerLevel level, long gameTime) {
+        if (minionAliveScanAt == NOT_SCHEDULED
+                || gameTime - minionAliveScanAt >= MINION_ALIVE_SCAN_INTERVAL_TICKS
+                || gameTime < minionAliveScanAt) {
+            minionAliveScanAt = gameTime;
+            minionAliveScan = BossMinionUtil.hasAlive(level, npc);
+        }
+        return minionAliveScan;
+    }
+
     private boolean isInvulnerableWindowOver(ServerLevel level, BossPhaseData phase, long gameTime) {
         boolean timerDone = gameTime >= invulnerableUntil;
         if (!phase.invulnerableWaitsForMinions()) {
@@ -1463,8 +1503,7 @@ public final class TeleportPathController {
         // otherwise the phase would end on the very tick it began. The summon counts as
         // called for even if nothing spawned, so a boss walled into a corner with nowhere
         // to put its clones still gets out of the phase.
-        // Asked every tick the phase waits, so the walk stops at the first living minion.
-        boolean minionsDone = invulnerableSummonedOnce && !BossMinionUtil.hasAlive(level, npc);
+        boolean minionsDone = invulnerableSummonedOnce && !anyMinionAlive(level, gameTime);
         if (!phase.invulnerableWaitsForTimer()) {
             return minionsDone;
         }
@@ -2617,6 +2656,13 @@ public final class TeleportPathController {
 
     /** Captured by the death event before the NPC can disappear without another tick. */
     public void onDeath() {
+        releaseRuntime();
+        if (npc.level() instanceof ServerLevel level) {
+            removeTotemsOnBossDeath(level, settings());
+        }
+    }
+
+    private void releaseRuntime() {
         stopBossBar();
         clearRage();
         endHunt();
@@ -2631,9 +2677,6 @@ public final class TeleportPathController {
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
         BossBeamScheduler.clearBoss(npc);
-        if (npc.level() instanceof ServerLevel level) {
-            removeTotemsOnBossDeath(level, settings());
-        }
     }
 
     private void removeTotemsOnBossDeath(ServerLevel level, TeleportPathData data) {
@@ -2647,23 +2690,10 @@ public final class TeleportPathController {
     }
 
     public void shutdown() {
-        stopBossBar();
         // The level is going away with the boss still enraged: the modifier is transient and
         // never reaches the save file, but the entity object outlives an unload, so it is
         // taken off here rather than left for a tick that may never come.
-        clearRage();
-        endHunt();
-        clearBarrier();
-        clearHealthScaling(settings(), false);
-        clearEncounter();
-        BossCaptureManager.releaseByBoss(npc);
-        BossTetherManager.releaseByBoss(npc);
-        BossCocoonManager.releaseByBoss(npc);
-        BossGeyserScheduler.clearBoss(npc);
-        BossMarkScheduler.clearBoss(npc);
-        BossBoulderRainScheduler.clearBoss(npc);
-        BossGravityScheduler.clearBoss(npc);
-        BossBeamScheduler.clearBoss(npc);
+        releaseRuntime();
         if (npc.level() instanceof ServerLevel level) {
             for (Entity totem : BossTotemUtil.findAllLoaded(level, npc)) {
                 dropTotemLink(totem, BossTotemUtil.slotId(totem));
@@ -3054,27 +3084,7 @@ public final class TeleportPathController {
         }
         for (int offset = 0; offset < ABILITY_COUNT; offset++) {
             int ability = (nextAbilityPriority + offset) % ABILITY_COUNT;
-            boolean started = switch (ability) {
-                case 0 -> tryStartGroundAttack(level, data, phase, gameTime);
-                case 1 -> tryStartRangedAttack(level, data, phase, gameTime);
-                case 2 -> tryStartMeleeAttack(level, data, phase, gameTime);
-                case 3 -> tryStartFluidSpit(level, data, phase, gameTime);
-                case 4 -> tryStartHook(level, data, phase, gameTime);
-                case 5 -> tryStartCapture(level, data, phase, gameTime);
-                case 6 -> tryStartLeap(level, data, phase, gameTime);
-                case 7 -> tryStartLineAttack(level, data, phase, gameTime);
-                case 8 -> tryStartGeyser(level, data, phase, gameTime);
-                case 9 -> tryStartBoulder(level, data, phase, gameTime);
-                case 10 -> tryStartBoulderRain(level, data, phase, gameTime);
-                case 11 -> tryStartTether(level, data, phase, gameTime);
-                case 12 -> tryStartGravity(level, data, phase, gameTime);
-                case 13 -> tryStartMark(level, data, phase, gameTime);
-                case 14 -> tryStartCover(level, data, phase, gameTime);
-                case 15 -> tryStartHunt(level, data, phase, gameTime);
-                case 16 -> tryStartBeam(level, data, phase, gameTime);
-                case 17 -> tryStartCocoon(level, data, phase, gameTime);
-                default -> tryStartSummon(level, data, phase, gameTime);
-            };
+            boolean started = ABILITY_STARTERS.get(ability).start(this, level, data, phase, gameTime);
             if (started) {
                 nextAbilityPriority = (ability + 1) % ABILITY_COUNT;
                 return true;
@@ -5599,6 +5609,7 @@ public final class TeleportPathController {
         if (pendingAction == PendingAction.SUMMON) {
             summonMinions(level, phase);
             invulnerableSummonedOnce = true;
+            minionAliveScanAt = NOT_SCHEDULED;
         } else if (pendingAction == PendingAction.GROUND_ATTACK) {
             performAreaAttack(level, phase);
         } else if (pendingAction == PendingAction.LINE_ATTACK) {
@@ -5817,6 +5828,8 @@ public final class TeleportPathController {
 
     private List<BossMinionSpawnPoint> orderedMinionSpawnPoints(ServerLevel level, BossPhaseData phase) {
         List<BossMinionSpawnPoint> candidates = new ArrayList<>();
+        Set<Integer> occupied = phase.isMinionReuseOccupiedPoints()
+                ? Set.of() : BossMinionUtil.occupiedSlots(level, npc, currentPhase);
         for (BossMinionSpawnPoint point : phase.getMinionSpawnPoints().entries()) {
             if (!point.isEnabled()) {
                 continue;
@@ -5826,8 +5839,7 @@ public final class TeleportPathController {
             if (cloneName.isEmpty()) {
                 continue;
             }
-            if (!phase.isMinionReuseOccupiedPoints()
-                    && BossMinionUtil.isSlotOccupied(level, npc, currentPhase, point.getPointId())) {
+            if (occupied.contains(point.getPointId())) {
                 warnBlockedMinionPoint(currentPhase, point.getPointId(),
                         "slot already has a living minion");
                 continue;
