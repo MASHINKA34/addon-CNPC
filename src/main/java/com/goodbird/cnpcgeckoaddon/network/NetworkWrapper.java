@@ -12,7 +12,6 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import noppes.npcs.CustomNpcs;
 
 import java.util.Locale;
 import java.util.function.BiConsumer;
@@ -96,17 +95,5 @@ public class NetworkWrapper {
      */
     public static <MSG extends CustomPacketPayload> void sendToTracking(Entity entity, MSG msg) {
         PacketDistributor.sendToPlayersTrackingEntity(entity, msg);
-    }
-
-
-    public static <MSG extends CustomPacketPayload> void sendAll(MSG msg) {
-        MinecraftServer server = CustomNpcs.Server;
-        if (server == null) {
-            // Called from a script or a boss tick before the server is up, or client-side.
-            return;
-        }
-        for(ServerPlayer player: server.getPlayerList().getPlayers()) {
-            send(player, msg);
-        }
     }
 }

@@ -58,9 +58,15 @@ public final class BossTetherManager {
      */
     private static final double PULL_PER_LEVEL = 0.02D;
     /**
-     * What a client keeps of its last tick's movement on plain ground: block friction times
-     * the air drag every entity gets. The pull is added on top of exactly this, so that with
-     * no pull at all the speed sent back is the one the client was about to work out itself.
+     * What an entity keeps of its last tick's movement on plain ground: block friction times
+     * the air drag every entity gets.
+     *
+     * <p>The server wears a player's speed down by exactly this once more between here and
+     * the tracker that sends it on, so a pull set as it reads would arrive at barely half
+     * its size. What is set for a player is therefore the step their client reported plus
+     * the pull over this drag, which is the sum the client would have made itself with the
+     * pull on top. A mob has had its own tick, drag and all, before this runs, and moves on
+     * the next by exactly what it holds now.</p>
      */
     private static final double CLIENT_GROUND_DRAG = 0.6D * 0.91D;
     /** Inside this the pull lets go, or a victim standing on the spot would twitch about it. */
@@ -338,8 +344,8 @@ public final class BossTetherManager {
      *
      * <p>A player's own client is what moves them, and each tick it starts from the speed
      * the server last sent and puts its own input on top. So what is sent is the movement
-     * the client itself reported, worn down by the ground drag it would have applied anyway,
-     * plus the pull: with no pull that reproduces plain walking, and with one it reads as a
+     * the client itself reported plus the pull, set so that it survives the drag the server
+     * still owes it: with no pull that reproduces plain walking, and with one it reads as a
      * steady force the victim has to out-run - which is the tug of war
      * {@link #PULL_PER_LEVEL} is pitched for. Only while they stand on the ground, and only
      * sideways, so the height they are already moving at is left alone: the server's idea of
@@ -360,11 +366,19 @@ public final class BossTetherManager {
             if (distance <= PULL_SLACK) {
                 continue;
             }
-            // For a player this is the last step their client reported; a mob's is simply its
-            // own speed, which the same drag leaves a little heavier than it would be alone.
-            Vec3 carried = victim.getKnownMovement();
-            Vec3 velocity = flat.scale(tether.pullSpeed / distance)
-                    .add(carried.x * CLIENT_GROUND_DRAG, 0.0D, carried.z * CLIENT_GROUND_DRAG);
+            Vec3 pullVector = flat.scale(tether.pullSpeed / distance);
+            Vec3 velocity;
+            if (victim instanceof ServerPlayer player) {
+                // The step as the client reported it, plus the pull over the drag the server
+                // is about to apply to both; see CLIENT_GROUND_DRAG for why that is the sum
+                // the client ends up with.
+                Vec3 step = player.getKnownMovement();
+                velocity = new Vec3(step.x + pullVector.x / CLIENT_GROUND_DRAG, 0.0D,
+                        step.z + pullVector.z / CLIENT_GROUND_DRAG);
+            } else {
+                Vec3 own = victim.getDeltaMovement();
+                velocity = new Vec3(own.x + pullVector.x, 0.0D, own.z + pullVector.z);
+            }
             victim.setDeltaMovement(velocity.x, victim.getDeltaMovement().y, velocity.z);
             // Players simulate their own movement, so the server has to push the new velocity
             // to them explicitly. hurtMarked is what makes ServerEntity send it.

@@ -38,7 +38,7 @@ import java.util.Optional;
  */
 public class RenderBossBoulder extends EntityRenderer<EntityBossBoulder> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** Model units across a whole boulder: the plain cube every entity texture is cut for. */
     private static final float MODEL_SIZE = 16.0F;

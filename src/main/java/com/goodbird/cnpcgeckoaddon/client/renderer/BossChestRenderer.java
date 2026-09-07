@@ -35,7 +35,7 @@ import java.util.Map;
  */
 public class BossChestRenderer implements BlockEntityRenderer<BossChestBlockEntity> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** What a skin looks like until somebody draws it. */
     private static final ResourceLocation FALLBACK =

@@ -79,6 +79,15 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.cocoon"
     };
 
+    static {
+        // Every mask indexes both by the same number, so an ability added to one and not the
+        // other would only show up as an out-of-bounds read somewhere in a gui.
+        if (LABELS.length != COUNT) {
+            throw new IllegalStateException(
+                    "BossAbilityKind.LABELS holds " + LABELS.length + " names for " + COUNT + " abilities");
+        }
+    }
+
     /**
      * The abilities an npc can be made immune to, in the order they are offered.
      *

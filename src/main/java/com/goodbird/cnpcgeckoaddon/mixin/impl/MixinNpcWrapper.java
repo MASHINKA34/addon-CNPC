@@ -77,8 +77,12 @@ public class MixinNpcWrapper<T extends EntityNPCInterface> extends EntityLivingW
     public void syncAnimationsFor(IPlayer player, RawAnimation builder) {
         NetworkWrapper.send(player.getMCEntity(), new PacketSyncAnimation(entity.getId(),builder));
     }
+    /**
+     * Everyone who has the npc loaded. A client without it drops the packet on arrival, so
+     * sending to the whole server only ever cost bandwidth.
+     */
     @Unique
     public void syncAnimationsForAll(RawAnimation builder) {
-        NetworkWrapper.sendAll(new PacketSyncAnimation(entity.getId(),builder));
+        NetworkWrapper.sendToTracking(entity, new PacketSyncAnimation(entity.getId(),builder));
     }
 }

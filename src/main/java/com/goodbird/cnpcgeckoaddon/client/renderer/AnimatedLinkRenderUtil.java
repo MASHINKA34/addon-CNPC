@@ -24,7 +24,7 @@ import java.util.Set;
 
 /** Shared filmstrip-ribbon geometry for hooks and every persistent boss link. */
 public final class AnimatedLinkRenderUtil {
-    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
     private static final double SEGMENTS_PER_BLOCK = 2.0D;
     private static final int MIN_SEGMENTS = 2;
     private static final int MAX_SEGMENTS = 64;

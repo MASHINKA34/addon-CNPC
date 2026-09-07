@@ -37,7 +37,6 @@ repositories {
 
 
 
-group = "noppes.npcs" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 
 
 

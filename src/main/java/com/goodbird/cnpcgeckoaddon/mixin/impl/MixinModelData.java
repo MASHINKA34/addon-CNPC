@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
@@ -21,7 +22,7 @@ import java.util.Set;
 public abstract class MixinModelData {
 
     @Unique
-    private static final Logger cnpcgeckoaddon$LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+    private static final Logger cnpcgeckoaddon$LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     @Unique
     private static final Set<String> cnpcgeckoaddon$reported = Collections.synchronizedSet(new HashSet<>());

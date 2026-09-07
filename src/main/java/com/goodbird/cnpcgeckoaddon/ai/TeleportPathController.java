@@ -84,7 +84,7 @@ import java.util.function.Predicate;
  * phases, clone minion summoning and three independently timed attacks.
  */
 public final class TeleportPathController {
-    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
     private static final long NOT_SCHEDULED = Long.MIN_VALUE;
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
@@ -2706,10 +2706,6 @@ public final class TeleportPathController {
     public void stopBossBar() {
         hideBossBar();
         npc.bossInfo.setVisible(false);
-    }
-
-    public static void removePlayerFromBossBars(ServerPlayer player) {
-        removePlayerFromEncounters(player);
     }
 
     public static void removePlayerFromEncounters(ServerPlayer player) {
@@ -5669,7 +5665,8 @@ public final class TeleportPathController {
         }
         try {
             RawAnimation raw = RawAnimation.begin().then(animation.trim(), Animation.LoopType.PLAY_ONCE);
-            NetworkWrapper.sendAll(new PacketSyncAnimation(npc.getId(), raw));
+            // Only whoever has the boss loaded: a client without it drops the packet anyway.
+            NetworkWrapper.sendToTracking(npc, new PacketSyncAnimation(npc.getId(), raw));
         } catch (Throwable error) {
             LOGGER.warn("Could not play boss animation {} for NPC {}: {}", animation,
                     npc.getName().getString(), error.getMessage());

@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.utils;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -21,7 +22,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 public class ProjectileEntityUtil {
-    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
     private static final Map<EntityType<?>, Boolean> USABLE = Collections.synchronizedMap(new WeakHashMap<>());
     private static final Set<String> PROJECTILE_NAMES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "minecraft:arrow",

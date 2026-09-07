@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.block.BossChestBlock;
 import com.goodbird.cnpcgeckoaddon.data.BossChestStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -59,7 +60,7 @@ import java.util.UUID;
  */
 public final class BossChestScheduler {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** How far around the death spot a replaceable block is looked for, horizontally. */
     private static final int SEARCH_RADIUS = 2;

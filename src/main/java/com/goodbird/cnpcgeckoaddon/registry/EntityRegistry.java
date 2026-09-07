@@ -29,24 +29,34 @@ public class EntityRegistry {
     @SubscribeEvent
     public static void registerEntities(RegisterEvent event) {
         if(event.getRegistry() == BuiltInRegistries.ENTITY_TYPE) {
-            entityCustomModel = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityCustomModel.class, "custommodelentity", EntityCustomModel::new, 64, 10, false, 0.7F, 2F);
-            entityFluidSpit = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityFluidSpit.class, "fluidspit", EntityFluidSpit::new, 64, 2, true, 0.4F, 0.4F);
+            // Never added to a level: CustomNPCs and the model picker build it client-side as
+            // the thing a geckolib npc is drawn as, so its tracking is nominal.
+            entityCustomModel = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), "custommodelentity", EntityCustomModel::new, 4, 10, false, 0.7F, 2F);
+            entityFluidSpit = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), "fluidspit", EntityFluidSpit::new, 4, 2, true, 0.4F, 0.4F);
             // The registered size is only the spawn-time default: the real box follows the
-            // per-cast scale through EntityBossBoulder#getDimensions.
-            entityBossBoulder = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityBossBoulder.class, "bossboulder", EntityBossBoulder::new, 64, 2, true, 1.5F, 1.5F);
+            // per-cast scale through EntityBossBoulder#getDimensions. Tracked further than a
+            // plain projectile because a boulder may be thrown the full 64 blocks of its
+            // range, and whoever is standing where it left must still see it land.
+            entityBossBoulder = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), "bossboulder", EntityBossBoulder::new, 8, 2, true, 1.5F, 1.5F);
             // The stake a spot tether is tied to never moves, so it is synced as rarely as the
-            // tracker allows; its size only sets where the beam ends, low over the spot.
-            entityBossTetherAnchor = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), EntityBossTetherAnchor.class, "bosstetheranchor", EntityBossTetherAnchor::new, 64, 20, false, 0.5F, 0.5F);
+            // tracker allows; its size only sets where the beam ends, low over the spot. The
+            // beam is drawn from the stake, so it is tracked past the longest break distance.
+            entityBossTetherAnchor = registerNewentity((Registry<EntityType<?>>)event.getRegistry(), "bosstetheranchor", EntityBossTetherAnchor::new, 8, 20, false, 0.5F, 0.5F);
         }
     }
 
-    private static <T extends Entity> EntityType<T> registerNewentity(final Registry<EntityType<?>> registry, final Class<T> c, final String name, final EntityType.EntityFactory<T> factoryIn, final int range, final int update, final boolean velocity, final float width, final float height) {
+    /**
+     * @param rangeChunks how far the entity is tracked, in chunks. NeoForge's
+     *                    {@code setTrackingRange} replaces the supplier {@code clientTrackingRange()}
+     *                    reads, so it is the only one of the two that has any effect and the
+     *                    vanilla setter must not be called after it.
+     */
+    private static <T extends Entity> EntityType<T> registerNewentity(final Registry<EntityType<?>> registry, final String name, final EntityType.EntityFactory<T> factoryIn, final int rangeChunks, final int update, final boolean velocity, final float width, final float height) {
         final EntityType.Builder<T> builder = EntityType.Builder.of(factoryIn, MobCategory.MISC);
-        builder.setTrackingRange(range);
+        builder.setTrackingRange(rangeChunks);
         builder.setUpdateInterval(update);
         builder.setShouldReceiveVelocityUpdates(velocity);
         builder.sized(width, height);
-        builder.clientTrackingRange(4);
         final ResourceLocation registryName = ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, name);
         EntityType<T> entityType = builder.build(registryName.toString());
         Registry.register(registry, registryName, entityType);

@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.utils;
 
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
@@ -19,7 +20,7 @@ import java.io.File;
 import static noppes.npcs.client.renderer.RenderNPCInterface.LastTextureTick;
 
 public class NpcTextureUtils {
-    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     public static ResourceLocation getNpcTexture(EntityNPCInterface npc) {
         if(npc.textureLocation == null){
