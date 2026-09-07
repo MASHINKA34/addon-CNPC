@@ -21,12 +21,10 @@ import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,10 +36,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
@@ -198,12 +192,7 @@ public final class TeleportPathController {
     private static final int TELEGRAPH_DODGE_RETRY_TICKS = 40;
     /** Yaw eased onto a wound-up line strike's axis per tick; the hit itself snaps the rest. */
     private static final float LINE_FACE_TURN_DEGREES_PER_TICK = 15.0F;
-    private static final ResourceLocation RAGE_MODIFIER_ID =
-            ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_rage");
     private static final int MINION_ALIVE_SCAN_INTERVAL_TICKS = 5;
-    /** Health is deliberately absent: enrage makes the boss hit harder, not last longer. */
-    private static final List<Holder<Attribute>> RAGE_ATTRIBUTES =
-            List.of(Attributes.MOVEMENT_SPEED, Attributes.ATTACK_DAMAGE);
     private static final Set<TeleportPathController> INSTANCES =
             Collections.newSetFromMap(new WeakHashMap<>());
 
@@ -248,10 +237,6 @@ public final class TeleportPathController {
     private boolean encounterResetDone;
     private boolean encounterRunning;
     private long encounterBeganAt = NOT_SCHEDULED;
-    /** Game time the fight started at, or NOT_SCHEDULED while no encounter is running. */
-    private long encounterStartedAt = NOT_SCHEDULED;
-    /** Once set, stays set until the encounter ends - a phase change does not calm the boss. */
-    private boolean rageActive;
     private double lockedX;
     private double lockedZ;
     /** Where the boss stood when it activated - the spot a reset sends it back to. */
@@ -285,6 +270,8 @@ public final class TeleportPathController {
     private final BossBarRuntime bar;
     /** The aggro zone that starts the fight and the retargeting that keeps it honest. */
     private final BossTargetingRuntime targeting;
+    /** The enrage clock and the attribute bonus it hangs on the boss. */
+    private final BossRageRuntime rage;
     /** The arena turning dangerous for a phase; armed on every phase this boss enters. */
     private final BossHazardRuntime hazardRuntime;
     /** The shield with a timer, armed on every phase this boss enters inside a fight. */
@@ -386,6 +373,7 @@ public final class TeleportPathController {
         this.npc = npc;
         this.bar = new BossBarRuntime(this, npc);
         this.targeting = new BossTargetingRuntime(this, npc);
+        this.rage = new BossRageRuntime(this, npc);
         this.hazardRuntime = new BossHazardRuntime(this, npc);
         this.barrierRuntime = new BossBarrierRuntime(this, npc);
         this.huntRuntime = new BossHuntRuntime(this, npc);
@@ -484,7 +472,7 @@ public final class TeleportPathController {
         tickInvulnerability(level, gameTime, data);
         updatePhase(level, gameTime, data);
         totems.tick(level, gameTime, data);
-        tickRage(level, gameTime, data);
+        rage.tick(level, gameTime, data);
         bar.update(level, data);
         bar.syncTimer(gameTime, data);
         BossPhaseData phase = data.getPhase(currentPhase);
@@ -615,7 +603,40 @@ public final class TeleportPathController {
 
     /** Game time the fight started at, or NOT_SCHEDULED while no encounter is running. */
     long encounterStartedAt() {
-        return encounterStartedAt;
+        return rage.encounterStartedAt();
+    }
+
+    /** True from the moment the enrage clock runs out until the fight ends. */
+    public boolean isRageActive() {
+        return rage.isActive();
+    }
+
+    /** @return ticks left before the enrage, or 0 when there is nothing to count */
+    public int rageTicksLeft() {
+        return rage.ticksLeft();
+    }
+
+    public int rageTotalTicks() {
+        return rage.totalTicks();
+    }
+
+    /** Takes the enrage bonus off and stops the clock; every ending of a fight goes through it. */
+    public void clearRage() {
+        rage.clear();
+    }
+
+    void beginRage(ServerLevel level, long gameTime, TeleportPathData data) {
+        rage.begin(level, gameTime, data);
+    }
+
+    /** Scales a number the enrage makes bigger - damage, knockback, a pull's strength. */
+    int rageUp(int value) {
+        return rage.up(value);
+    }
+
+    /** The other half of {@link #rageUp}, for cooldowns - the boss acts more often, not less. */
+    private int rageDown(int value) {
+        return rage.down(value);
     }
 
     /** Everyone this fight is being run against, read-only for the subsystems that address them. */
@@ -971,7 +992,7 @@ public final class TeleportPathController {
         clearEncounter();
         clearInvulnerability();
         minionRoundRobinCursor.clear();
-        clearRage();
+        rage.clear();
         cancelPendingAndSchedules();
         clearHookPulls();
         hazardRuntime.clear();
@@ -1008,146 +1029,6 @@ public final class TeleportPathController {
             // the teleport is undone before anyone sees it.
             lockedX = homeX;
             lockedZ = homeZ;
-        }
-    }
-
-    /**
-     * Runs the enrage countdown and sets the boss off once it expires.
-     *
-     * <p>The clock freezes instead of resetting whenever the boss is left without a combat
-     * target: a lap around the nearest corner is not supposed to buy a fresh timer. Pushing
-     * the start forward is what freezes it, and keeps the deadline exactly
-     * {@code encounterStartedAt + delay}. Only {@link #endEncounter} clears the whole thing,
-     * at the same moment the phase rolls back.</p>
-     */
-    private void tickRage(ServerLevel level, long gameTime, TeleportPathData data) {
-        if (!data.isRageEnabled()) {
-            // Switching the timer off mid-fight has to take the bonus away with it,
-            // otherwise the boss stays enraged until somebody kills it.
-            clearRage();
-            return;
-        }
-        if (encounterStartedAt == NOT_SCHEDULED) {
-            if (!hasCombatTarget()) {
-                return;
-            }
-            encounterStartedAt = gameTime;
-        }
-        if (rageActive) {
-            return;
-        }
-        if (!hasCombatTarget()) {
-            encounterStartedAt++;
-            return;
-        }
-        if (gameTime < encounterStartedAt + data.getRageDelayTicks()) {
-            return;
-        }
-        beginRage(level, gameTime, data);
-    }
-
-    void beginRage(ServerLevel level, long gameTime, TeleportPathData data) {
-        rageActive = true;
-        applyRageAttributes(rageMultiplier());
-        playAnimation(data.getRageAnimation());
-        busyUntil = Math.max(busyUntil, gameTime + data.getRageLockTicks());
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ENDER_DRAGON_GROWL,
-                SoundSource.HOSTILE, 2.0F, 0.7F);
-        level.sendParticles(ParticleTypes.ANGRY_VILLAGER, npc.getX(), npc.getY(0.9D), npc.getZ(), 40,
-                npc.getBbWidth() * 0.8D, npc.getBbHeight() * 0.5D, npc.getBbWidth() * 0.8D, 0.1D);
-        level.sendParticles(ParticleTypes.LARGE_SMOKE, npc.getX(), npc.getY(0.4D), npc.getZ(), 30,
-                npc.getBbWidth() * 0.7D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.7D, 0.02D);
-    }
-
-    /** Whether the boss is enraged right now. Read by the HUD and by the stat scaling below. */
-    public boolean isRageActive() {
-        return active && rageActive;
-    }
-
-    /** @return ticks left before the boss enrages, or 0 when it already has or never will */
-    public int rageTicksLeft() {
-        TeleportPathData data = settings();
-        if (rageActive || !data.isRageEnabled() || encounterStartedAt == NOT_SCHEDULED
-                || !(npc.level() instanceof ServerLevel level)) {
-            return 0;
-        }
-        return (int) Math.max(0L, encounterStartedAt + data.getRageDelayTicks() - level.getGameTime());
-    }
-
-    /** @return the full length of the countdown, for the HUD to draw a fill fraction against */
-    public int rageTotalTicks() {
-        TeleportPathData data = settings();
-        return data.isRageEnabled() ? data.getRageDelayTicks() : 0;
-    }
-
-    private double rageMultiplier() {
-        return settings().getRageMultiplierPercent() / 100.0D;
-    }
-
-    /**
-     * Scales a stat that grows with the rage: damage, knockback, pull strength.
-     *
-     * <p>Applied everywhere the setting is read rather than written back into the phase,
-     * because a phase is persisted NBT - multiplying it in place would save the doubled
-     * value and let every fight stack another factor on top of the last one.</p>
-     *
-     * <p>A zero passes through untouched: zero knockback and zero hook damage mean "none at
-     * all", and the rage is not supposed to invent an effect the boss never had.</p>
-     */
-    int rageUp(int value) {
-        if (!rageActive || value <= 0) {
-            return value;
-        }
-        return Math.max(1, (int) Math.round(value * rageMultiplier()));
-    }
-
-    /** The other half of {@link #rageUp}, for cooldowns - the boss acts more often, not less. */
-    private int rageDown(int value) {
-        if (!rageActive || value <= 0) {
-            return value;
-        }
-        return Math.max(1, (int) Math.round(value / rageMultiplier()));
-    }
-
-    /**
-     * Hangs the rage bonus on the entity itself.
-     *
-     * <p>Transient on purpose: a permanent modifier is written into the entity NBT, and the
-     * boss would come back from a world reload still doubled, forever.</p>
-     */
-    private void applyRageAttributes(double multiplier) {
-        // ADD_MULTIPLIED_TOTAL is the 1.21 name of the old MULTIPLY_TOTAL - it scales the
-        // finished value by 1 + amount, so a 200% setting has to be handed 1.0.
-        AttributeModifier modifier = new AttributeModifier(RAGE_MODIFIER_ID, multiplier - 1.0D,
-                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-        for (Holder<Attribute> attribute : RAGE_ATTRIBUTES) {
-            AttributeInstance instance = npc.getAttribute(attribute);
-            if (instance == null) {
-                continue;
-            }
-            instance.removeModifier(RAGE_MODIFIER_ID);
-            instance.addTransientModifier(modifier);
-        }
-    }
-
-    /**
-     * Calms the boss down and takes the attribute bonus off again.
-     *
-     * <p>Idempotent, so every path that ends a fight - a reset, a death, the level being
-     * unloaded - can call it without checking first.</p>
-     */
-    public void clearRage() {
-        if (!rageActive && encounterStartedAt == NOT_SCHEDULED) {
-            return;
-        }
-        rageActive = false;
-        encounterStartedAt = NOT_SCHEDULED;
-        for (Holder<Attribute> attribute : RAGE_ATTRIBUTES) {
-            AttributeInstance instance = npc.getAttribute(attribute);
-            if (instance != null) {
-                // Removing a modifier that is not there is a no-op, not an error.
-                instance.removeModifier(RAGE_MODIFIER_ID);
-            }
         }
     }
 
@@ -1370,7 +1251,7 @@ public final class TeleportPathController {
 
     private void releaseRuntime() {
         stopBossBar();
-        clearRage();
+        rage.clear();
         huntRuntime.end();
         barrierRuntime.clear();
         healthScalingRuntime.clear(settings(), false);
@@ -2897,6 +2778,11 @@ public final class TeleportPathController {
         endCastRoot();
         clearPendingAction();
         bringAbilityScheduleForward(interrupted, windowEndsAt);
+    }
+
+    /** Holds the boss off its own rotation until this game time; never brings it forward. */
+    void lockActionsUntil(long gameTime) {
+        busyUntil = Math.max(busyUntil, gameTime);
     }
 
     /** Whether this boss is between its activation and its reset. */
@@ -5062,7 +4948,7 @@ public final class TeleportPathController {
         currentPhase = -1;
         clearInvulnerability();
         minionRoundRobinCursor.clear();
-        clearRage();
+        rage.clear();
         healthScalingRuntime.clear(settings(), false);
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
