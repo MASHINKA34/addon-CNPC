@@ -17,8 +17,6 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
-import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossBarStyle;
-import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossTimer;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import net.minecraft.core.BlockPos;
@@ -45,7 +43,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.BossEvent;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
@@ -201,8 +198,6 @@ public final class TeleportPathController {
     private static final int TELEGRAPH_DODGE_RETRY_TICKS = 40;
     /** Yaw eased onto a wound-up line strike's axis per tick; the hit itself snaps the rest. */
     private static final float LINE_FACE_TURN_DEGREES_PER_TICK = 15.0F;
-    /** The client counts down on its own, so the server only has to correct it now and then. */
-    private static final int TIMER_SYNC_INTERVAL_TICKS = 5;
     private static final ResourceLocation RAGE_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_rage");
     private static final int MINION_ALIVE_SCAN_INTERVAL_TICKS = 5;
@@ -231,12 +226,8 @@ public final class TeleportPathController {
     }
 
     private final EntityNPCInterface npc;
-    private final ServerBossEvent bossEvent;
-    private final Set<UUID> bossBarParticipants = new HashSet<>();
     /** Server-side encounter membership, independent of whether any boss bar is visible. */
     private final Set<UUID> encounterParticipants = new HashSet<>();
-    private String activeBossBarStyle = BossBarStyles.NONE;
-    private int activeBossBarScalePercent = TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT;
     private boolean active;
     private int currentPhase = -1;
     private int highestPhaseReached;
@@ -261,8 +252,6 @@ public final class TeleportPathController {
     private long encounterStartedAt = NOT_SCHEDULED;
     /** Once set, stays set until the encounter ends - a phase change does not calm the boss. */
     private boolean rageActive;
-    private byte lastTimerState = PacketSyncBossTimer.STATE_NONE;
-    private long nextTimerSyncAt;
     private double lockedX;
     private double lockedZ;
     /** Where the boss stood when it activated - the spot a reset sends it back to. */
@@ -292,6 +281,8 @@ public final class TeleportPathController {
     private long nextCocoonAt = NOT_SCHEDULED;
 
     /** The take cover strike being wound up, or null outside one. */
+    /** The styled boss bar and the countdown printed under it. */
+    private final BossBarRuntime bar;
     /** The arena turning dangerous for a phase; armed on every phase this boss enters. */
     private final BossHazardRuntime hazardRuntime;
     /** The shield with a timer, armed on every phase this boss enters inside a fight. */
@@ -393,8 +384,7 @@ public final class TeleportPathController {
 
     public TeleportPathController(EntityNPCInterface npc) {
         this.npc = npc;
-        this.bossEvent = new ServerBossEvent(npc.getDisplayName(), BossEvent.BossBarColor.WHITE,
-                BossEvent.BossBarOverlay.PROGRESS);
+        this.bar = new BossBarRuntime(this, npc);
         this.hazardRuntime = new BossHazardRuntime(this, npc);
         this.barrierRuntime = new BossBarrierRuntime(this, npc);
         this.huntRuntime = new BossHuntRuntime(this, npc);
@@ -494,8 +484,8 @@ public final class TeleportPathController {
         updatePhase(level, gameTime, data);
         totems.tick(level, gameTime, data);
         tickRage(level, gameTime, data);
-        updateBossBar(level, data);
-        syncBossTimer(gameTime, data);
+        bar.update(level, data);
+        bar.syncTimer(gameTime, data);
         BossPhaseData phase = data.getPhase(currentPhase);
         // Above the combat-only return and the busy gate on purpose: a leap already in the
         // air has to come down and land even if the boss loses its target mid flight.
@@ -601,6 +591,16 @@ public final class TeleportPathController {
     /** The phase being fought by index, which is -1 until the boss is activated. */
     int currentPhaseIndex() {
         return currentPhase;
+    }
+
+    /** The phase whose immune window is running, for the countdown that draws it. */
+    int invulnerablePhaseIndex() {
+        return invulnerablePhaseIndex;
+    }
+
+    /** Game time the fight started at, or NOT_SCHEDULED while no encounter is running. */
+    long encounterStartedAt() {
+        return encounterStartedAt;
     }
 
     /** Everyone this fight is being run against, read-only for the subsystems that address them. */
@@ -982,7 +982,7 @@ public final class TeleportPathController {
         // that is on; and whatever it says, a guard was posted for a fight that is over.
         BossCocoonUtil.removeGuards(level, npc);
         totems.resetAfterEncounter(level, data);
-        hideBossBar();
+        bar.hide();
 
         if (data.isResetReturn()) {
             npc.teleportTo(homeX, homeY, homeZ);
@@ -1136,69 +1136,9 @@ public final class TeleportPathController {
         }
     }
 
-    /**
-     * Keeps the countdown on everyone watching the boss bar in step with the server.
-     *
-     * <p>A state change goes out at once; a running countdown only needs the occasional
-     * correction, because the client subtracts the ticks itself in between. The two states
-     * with nothing left to count are sent once and then left alone.</p>
-     */
-    private void syncBossTimer(long gameTime, TeleportPathData data) {
-        ServerBossEvent bar = timerBossEvent();
-        if (bar.getPlayers().isEmpty()) {
-            return;
-        }
-        byte state = timerState(data);
-        boolean counting = state == PacketSyncBossTimer.STATE_COUNTDOWN
-                || state == PacketSyncBossTimer.STATE_INVULNERABLE;
-        if (state == lastTimerState && (!counting || gameTime < nextTimerSyncAt)) {
-            return;
-        }
-        lastTimerState = state;
-        nextTimerSyncAt = gameTime + TIMER_SYNC_INTERVAL_TICKS;
-        PacketSyncBossTimer packet = buildTimerPacket(data);
-        for (ServerPlayer player : bar.getPlayers()) {
-            NetworkWrapper.send(player, packet);
-        }
-    }
-
-    /**
-     * The bar the countdown belongs on: the styled one while it is up, the NPC's own bar
-     * otherwise. Without this a boss left on style {@code none} would count down against a
-     * bar id nobody is drawing.
-     */
+    /** The bar this boss' countdown belongs on, and the audience every announcement uses. */
     ServerBossEvent timerBossEvent() {
-        return BossBarStyles.isEnabled(activeBossBarStyle) ? bossEvent : npc.bossInfo;
-    }
-
-    private byte timerState(TeleportPathData data) {
-        if (isInvulnerable()) {
-            return PacketSyncBossTimer.STATE_INVULNERABLE;
-        }
-        if (rageActive) {
-            return PacketSyncBossTimer.STATE_RAGE;
-        }
-        if (!data.isRageEnabled() || encounterStartedAt == NOT_SCHEDULED) {
-            return PacketSyncBossTimer.STATE_NONE;
-        }
-        return PacketSyncBossTimer.STATE_COUNTDOWN;
-    }
-
-    /** The immune window borrows the same countdown, so the HUD only has one thing to draw. */
-    private PacketSyncBossTimer buildTimerPacket(TeleportPathData data) {
-        byte state = timerState(data);
-        int remaining = 0;
-        int total = 0;
-        if (state == PacketSyncBossTimer.STATE_INVULNERABLE) {
-            remaining = invulnerableTicksLeft();
-            total = data.getPhase(invulnerablePhaseIndex).getInvulnerableDurationTicks();
-        } else if (state == PacketSyncBossTimer.STATE_COUNTDOWN) {
-            remaining = rageTicksLeft();
-            total = data.getRageDelayTicks();
-        } else if (state == PacketSyncBossTimer.STATE_RAGE) {
-            total = data.getRageDelayTicks();
-        }
-        return new PacketSyncBossTimer(timerBossEvent().getId(), remaining, total, state);
+        return bar.timerBossEvent();
     }
 
     private int healthPercent() {
@@ -1435,73 +1375,6 @@ public final class TeleportPathController {
         return npc.distanceToSqr(target) <= leash * leash;
     }
 
-    private void updateBossBar(ServerLevel level, TeleportPathData data) {
-        String style = BossBarStyles.normalize(data.getBossBarStyle());
-        int scalePercent = data.getBossBarScalePercent();
-        if (!BossBarStyles.isEnabled(style)) {
-            hideBossBar();
-            restoreNativeBossBar();
-            return;
-        }
-
-        npc.bossInfo.setVisible(false);
-        if (!hasCombatTarget()) {
-            hideBossBar();
-            return;
-        }
-
-        bossEvent.setName(npc.getDisplayName());
-        float maximum = npc.getMaxHealth();
-        bossEvent.setProgress(maximum <= 0.0F ? 0.0F : Mth.clamp(npc.getHealth() / maximum, 0.0F, 1.0F));
-        bossEvent.setVisible(true);
-
-        if (!style.equals(activeBossBarStyle) || scalePercent != activeBossBarScalePercent) {
-            activeBossBarStyle = style;
-            activeBossBarScalePercent = scalePercent;
-            for (ServerPlayer player : bossEvent.getPlayers()) {
-                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style, scalePercent));
-            }
-        }
-
-        double radiusSquared = data.getTargetSearchRadius() * (double) data.getTargetSearchRadius();
-        LivingEntity target = npc.getTarget();
-        if (target instanceof ServerPlayer player) {
-            bossBarParticipants.add(player.getUUID());
-        }
-        Set<ServerPlayer> eligible = new HashSet<>();
-        for (UUID playerId : Set.copyOf(bossBarParticipants)) {
-            Player player = level.getPlayerByUUID(playerId);
-            if (player instanceof ServerPlayer serverPlayer && isBossBarViewer(serverPlayer)
-                    && (serverPlayer == target || npc.distanceToSqr(serverPlayer) <= radiusSquared)) {
-                eligible.add(serverPlayer);
-            } else {
-                bossBarParticipants.remove(playerId);
-            }
-        }
-
-        for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
-            if (!eligible.contains(player)) {
-                bossEvent.removePlayer(player);
-                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,
-                        TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
-            }
-        }
-        for (ServerPlayer player : eligible) {
-            if (!bossEvent.getPlayers().contains(player)) {
-                NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), style, scalePercent));
-                // Whoever just joined the bar has no countdown yet, and the throttled sync
-                // below would leave them staring at an empty timer for up to five ticks.
-                NetworkWrapper.send(player, buildTimerPacket(data));
-                bossEvent.addPlayer(player);
-            }
-        }
-    }
-
-    private boolean isBossBarViewer(ServerPlayer player) {
-        return player.isAlive() && !player.isSpectator() && !player.isCreative() && !player.isRemoved()
-                && (player == npc.getTarget() || npc.canAttack(player) && !npc.isAlliedTo(player));
-    }
-
     public void trackParticipant(ServerPlayer player) {
         TeleportPathData data = settings();
         if (player.level() != npc.level() || !data.isEnabled() || !isParticipant(player)) {
@@ -1509,7 +1382,7 @@ public final class TeleportPathController {
         }
         encounterParticipants.add(player.getUUID());
         if (BossBarStyles.isEnabled(data.getBossBarStyle())) {
-            bossBarParticipants.add(player.getUUID());
+            bar.addViewer(player);
         }
     }
 
@@ -1607,13 +1480,7 @@ public final class TeleportPathController {
                 .replaceAll("0+$", "").replaceAll("\\.$", "");
     }
     public void removeBossBarPlayer(ServerPlayer player) {
-        bossBarParticipants.remove(player.getUUID());
-        if (!bossEvent.getPlayers().contains(player)) {
-            return;
-        }
-        bossEvent.removePlayer(player);
-        NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,
-                TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
+        bar.removeViewer(player);
     }
 
     public void removeParticipant(ServerPlayer player) {
@@ -1722,8 +1589,7 @@ public final class TeleportPathController {
     }
 
     public void stopBossBar() {
-        hideBossBar();
-        npc.bossInfo.setVisible(false);
+        bar.stop();
     }
 
     public static void removePlayerFromEncounters(ServerPlayer player) {
@@ -1738,29 +1604,6 @@ public final class TeleportPathController {
                 controller.shutdown();
             }
         }
-    }
-
-    private void hideBossBar() {
-        if (BossBarStyles.isEnabled(activeBossBarStyle)) {
-            // Only when the styled bar really was up. On style `none` this runs every tick,
-            // and resetting the throttle there would put a countdown packet on every one.
-            lastTimerState = PacketSyncBossTimer.STATE_NONE;
-            nextTimerSyncAt = 0L;
-        }
-        for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
-            bossEvent.removePlayer(player);
-            NetworkWrapper.send(player, new PacketSyncBossBarStyle(bossEvent.getId(), BossBarStyles.NONE,
-                    TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT));
-        }
-        activeBossBarStyle = BossBarStyles.NONE;
-        activeBossBarScalePercent = TeleportPathData.DEFAULT_BOSS_BAR_SCALE_PERCENT;
-        bossBarParticipants.clear();
-    }
-
-    private void restoreNativeBossBar() {
-        int mode = npc.display.getBossbar();
-        npc.bossInfo.setVisible(npc.isAlive() && !npc.isRemoved()
-                && (mode == 1 || mode == 2 && hasCombatTarget()));
     }
 
     private void keepStationary() {
@@ -5404,8 +5247,7 @@ public final class TeleportPathController {
     }
 
     private void reset() {
-        hideBossBar();
-        restoreNativeBossBar();
+        bar.stop();
         active = false;
         highestPhaseReached = 0;
         currentPhase = -1;
