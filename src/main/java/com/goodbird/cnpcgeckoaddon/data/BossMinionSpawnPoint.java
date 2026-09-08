@@ -86,7 +86,11 @@ public final class BossMinionSpawnPoint {
     public int getCloneTabOverride() { return cloneTabOverride; }
     public void setCloneTabOverride(int value) { cloneTabOverride = Mth.clamp(value, 0, 9); }
     public float getYaw() { return yaw; }
-    public void setYaw(float value) { yaw = Mth.clamp(value, -180.0F, 180.0F); }
+    /** A clamp alone lets a NaN through - it compares false against both ends - and a facing
+     * of NaN turns into a spawn nobody can see straight. */
+    public void setYaw(float value) {
+        yaw = Float.isFinite(value) ? Mth.clamp(value, -180.0F, 180.0F) : 0.0F;
+    }
     public int getWeight() { return weight; }
     public void setWeight(int value) { weight = Mth.clamp(value, 1, 100); }
     public int getPointId() { return pointId; }

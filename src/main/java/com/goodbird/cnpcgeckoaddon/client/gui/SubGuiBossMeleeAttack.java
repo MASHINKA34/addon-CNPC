@@ -87,7 +87,7 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         } else if (button.id == ENABLED_BUTTON) {
             phase.meleeAttack().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting melee attack animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.melee_attack_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.meleeAttack().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

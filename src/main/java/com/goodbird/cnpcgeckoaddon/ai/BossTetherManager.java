@@ -257,6 +257,11 @@ public final class BossTetherManager {
         return false;
     }
 
+    /** Whether any leash is held at all, so an idle level skips the walk below. */
+    public static boolean hasPending() {
+        return !TETHERS.isEmpty();
+    }
+
     public static void tick(ServerLevel level) {
         if (TETHERS.isEmpty()) {
             return;

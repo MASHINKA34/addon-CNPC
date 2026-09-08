@@ -127,14 +127,14 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         } else if (button.id == ENABLED_BUTTON) {
             phase.fluidSpit().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting fluid spit animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.fluid_spit_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.fluidSpit().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, ACTION_DELAY_FIELD, phase.fluidSpit()::setActionDelayTicks);
             }));
         } else if (button.id == FLUID_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting fluid block:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.fluid_block",
                     FluidBlockUtil.getSelectableIds(), name -> {
                 phase.fluidSpit().setBlock(name);
                 getTextField(FLUID_FIELD).setValue(name);

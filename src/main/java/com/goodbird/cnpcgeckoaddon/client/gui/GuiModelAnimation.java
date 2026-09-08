@@ -22,12 +22,12 @@ public class GuiModelAnimation extends GuiNPCInterface implements ITextfieldList
     public void init() {
         super.init();
         int y = guiTop + 44;
-        addSelectionBlock(1,y,"Animation File:",getModelData(npc).getAnimFile());
-        addSelectionBlock(2,y+=23,"Idle:",getModelData(npc).getIdleAnim());
-        addSelectionBlock(3,y+=23,"Walk:",getModelData(npc).getWalkAnim());
-        addSelectionBlock(4,y+=23,"Attack:",String.join(", ", getModelData(npc).getAttackAnims()));
-        addSelectionBlock(5,y+=23,"Hurt:",getModelData(npc).getHurtAnim());
-        addSelectionBlock(6,y+23,"Death:",getModelData(npc).getDeathAnim());
+        addSelectionBlock(1,y,"cnpcgeckoaddon.model.animation_file",getModelData(npc).getAnimFile());
+        addSelectionBlock(2,y+=23,"cnpcgeckoaddon.model.idle",getModelData(npc).getIdleAnim());
+        addSelectionBlock(3,y+=23,"cnpcgeckoaddon.model.walk",getModelData(npc).getWalkAnim());
+        addSelectionBlock(4,y+=23,"cnpcgeckoaddon.model.attack",String.join(", ", getModelData(npc).getAttackAnims()));
+        addSelectionBlock(5,y+=23,"cnpcgeckoaddon.model.hurt",getModelData(npc).getHurtAnim());
+        addSelectionBlock(6,y+23,"cnpcgeckoaddon.model.death",getModelData(npc).getDeathAnim());
         this.addButton(new GuiButtonNop(this, 670, width - 22, 2, 20, 20, "X"));
     }
 
@@ -58,30 +58,30 @@ public class GuiModelAnimation extends GuiNPCInterface implements ITextfieldList
             close();
         }
         if(button.id==1){
-            setSubGui(new GuiStringSelection(this,"Selecting geckolib animation file:",
+            setSubGui(new GuiStringSelection(this,"cnpcgeckoaddon.string_picker.animation_file",
                     AnimationFileUtil.getAnimationFileList(), (name)-> {
                 getModelData(npc).setAnimFile(name);
                 getTextField(1).setValue(name);
             }));
         }
         if(button.id==2){
-            selectAnimation(2, "Selecting geckolib idle animation:", (name)-> getModelData(npc).setIdleAnim(name));
+            selectAnimation(2, "cnpcgeckoaddon.string_picker.idle_animation", (name)-> getModelData(npc).setIdleAnim(name));
         }
         if(button.id==3){
-            selectAnimation(3, "Selecting geckolib walk animation:", (name)-> getModelData(npc).setWalkAnim(name));
+            selectAnimation(3, "cnpcgeckoaddon.string_picker.walk_animation", (name)-> getModelData(npc).setWalkAnim(name));
         }
         if(button.id==4){
-            setSubGui(new GuiStringSelection(this,"Selecting geckolib attack animations:",
+            setSubGui(new GuiStringSelection(this,"cnpcgeckoaddon.string_picker.attack_animations",
                     getAnimationList(), getModelData(npc).getAttackAnims(), (names)-> {
                 getModelData(npc).setAttackAnims(names);
                 getTextField(4).setValue(String.join(", ", names));
             }));
         }
         if(button.id==5){
-            selectAnimation(5, "Selecting geckolib hurt animation:", (name)-> getModelData(npc).setHurtAnim(name));
+            selectAnimation(5, "cnpcgeckoaddon.string_picker.hurt_animation", (name)-> getModelData(npc).setHurtAnim(name));
         }
         if(button.id==6){
-            selectAnimation(6, "Selecting geckolib death animation:", (name)-> getModelData(npc).setDeathAnim(name));
+            selectAnimation(6, "cnpcgeckoaddon.string_picker.death_animation", (name)-> getModelData(npc).setDeathAnim(name));
         }
     }
 

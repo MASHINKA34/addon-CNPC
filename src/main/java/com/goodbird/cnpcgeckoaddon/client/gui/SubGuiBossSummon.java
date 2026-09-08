@@ -94,7 +94,7 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         if (button.id == ENABLED_BUTTON) {
             phase.summon().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting minion summon animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.summon_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.summon().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

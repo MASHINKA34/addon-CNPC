@@ -109,7 +109,7 @@ public final class SubGuiBossChest extends SubGuiFieldScreen {
         } else if (button.id == NPC_DROPS_BUTTON) {
             data.setChestUseNpcDrops(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == BLOCK_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting chest block:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.chest_block",
                     ContainerBlockUtil.getSelectableIds(), name -> {
                 data.setChestBlock(name);
                 getTextField(BLOCK_FIELD).setValue(name);

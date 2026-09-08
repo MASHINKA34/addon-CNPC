@@ -145,7 +145,7 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         } else if (button.id == VFX_STYLE_BUTTON) {
             phase.gravity().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting gravity animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.gravity_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.gravity().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

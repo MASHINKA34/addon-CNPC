@@ -54,9 +54,15 @@ public final class BossSchedulerEvents {
         if (BossBeamScheduler.hasPending()) {
             BossBeamScheduler.tick(level);
         }
-        BossCaptureManager.tick(level);
-        BossTetherManager.tick(level);
-        BossCocoonManager.tick(level);
+        if (BossCaptureManager.hasPending()) {
+            BossCaptureManager.tick(level);
+        }
+        if (BossTetherManager.hasPending()) {
+            BossTetherManager.tick(level);
+        }
+        if (BossCocoonManager.hasPending()) {
+            BossCocoonManager.tick(level);
+        }
     }
 
     @SubscribeEvent

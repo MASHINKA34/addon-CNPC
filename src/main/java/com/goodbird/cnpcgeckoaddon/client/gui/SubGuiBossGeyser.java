@@ -184,7 +184,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         } else if (button.id == VFX_STYLE_BUTTON) {
             phase.geyser().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting geyser animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.geyser_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.geyser().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
@@ -192,7 +192,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
                         phase.geyser()::setActionDelayTicks);
             }));
         } else if (button.id == FLUID_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting geyser fluid:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.geyser_fluid",
                     FluidBlockUtil.getSelectableIds(), name -> {
                 phase.geyser().setFluid(name);
                 getTextField(FLUID_FIELD).setValue(name);

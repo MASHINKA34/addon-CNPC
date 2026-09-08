@@ -157,7 +157,7 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
         } else if (button.id == CORD_STYLE_BUTTON) {
             phase.hook().setCordStyle(HookCordStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting hook animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.hook_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.hook().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

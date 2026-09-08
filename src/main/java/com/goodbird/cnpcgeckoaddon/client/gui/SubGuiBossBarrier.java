@@ -230,13 +230,13 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
             phase.barrier().setFailMode(button.getValue());
             applyRuleRows();
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting barrier animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.barrier_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.barrier().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
             }));
         } else if (button.id == BREAK_ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting barrier break animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.barrier_break_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.barrier().setBreakAnimation(name);
                 getTextField(BREAK_ANIMATION_FIELD).setValue(name);

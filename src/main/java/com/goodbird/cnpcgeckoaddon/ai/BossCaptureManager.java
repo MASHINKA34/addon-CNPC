@@ -113,6 +113,11 @@ public final class BossCaptureManager {
         return true;
     }
 
+    /** Whether any capture is running at all, so an idle level skips the walk below. */
+    public static boolean hasPending() {
+        return !BY_VICTIM.isEmpty();
+    }
+
     public static boolean isCaptured(UUID victimId) {
         return BY_VICTIM.containsKey(victimId);
     }

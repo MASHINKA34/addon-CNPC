@@ -27,23 +27,23 @@ public class SubGuiRangedExtras extends SubGuiFieldScreen implements ITextfieldL
         super.init();
         int y = guiTop + 20;
 
-        addLabel(new GuiLabel(1, "Projectile Entity", guiLeft + 5, y + 6, 0xffffff));
+        addLabel(new GuiLabel(1, "cnpcgeckoaddon.ranged_extras.projectile_entity", guiLeft + 5, y + 6, 0xffffff));
         addTextField(new GuiTextFieldNop(1, this, guiLeft + 100, y, 95, 20, data.getProjectileEntity()));
         addButton(new GuiButtonNop(this, 1, guiLeft + 199, y, 50, 20, "mco.template.button.select", (b) ->
-                setSubGui(new GuiStringSelection(this, "Selecting projectile entity:", getEntityList(), (name) -> {
+                setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.projectile_entity", getEntityList(), (name) -> {
                     data.setProjectileEntity(name);
                     getTextField(1).setValue(name);
                 }))));
         y += 24;
 
-        addLabel(new GuiLabel(2, "Keep Distance", guiLeft + 5, y + 6, 0xffffff));
+        addLabel(new GuiLabel(2, "cnpcgeckoaddon.ranged_extras.keep_distance", guiLeft + 5, y + 6, 0xffffff));
         GuiTextFieldNop keepDistance = new GuiTextFieldNop(2, this, guiLeft + 100, y, 50, 20, "" + data.getKeepDistance());
         keepDistance.setNumbersOnly();
-        keepDistance.setMinMaxDefault(0, 64, 0);
+        keepDistance.setMinMaxDefault(0, RangedExtraData.MAX_KEEP_DISTANCE, 0);
         addTextField(keepDistance);
         y += 24;
 
-        addButton(new GuiButtonNop(this, 2, guiLeft + 100, y, 100, 20, "Reset projectile", (b) -> {
+        addButton(new GuiButtonNop(this, 2, guiLeft + 100, y, 100, 20, "cnpcgeckoaddon.ranged_extras.reset_projectile", (b) -> {
             data.setProjectileEntity("");
             getTextField(1).setValue("");
         }));

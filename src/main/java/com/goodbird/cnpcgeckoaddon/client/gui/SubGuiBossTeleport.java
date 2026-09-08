@@ -86,14 +86,14 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
         } else if (button.id == SOUND_BUTTON) {
             data.setPlaySound(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == PRE_ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting teleport preparation animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.teleport_prepare_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.teleport().setPreparationAnimation(name);
                 getTextField(PRE_ANIMATION_FIELD).setValue(name);
                 BossAnimationGuiUtil.syncDelayToAnimation(this, npc, name, PRE_DELAY_FIELD, phase.teleport()::setPreparationTicks);
             }));
         } else if (button.id == POST_ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting post-teleport animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.teleport_after_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.setAppearanceAnimation(name);
                 getTextField(POST_ANIMATION_FIELD).setValue(name);

@@ -92,6 +92,12 @@ public final class BossLifecycleEvents {
         }
         if (data.isChestEnabled()) {
             BossChestScheduler.schedule(level, npc, data, event.getSource().getEntity(), encounterHome);
+        } else {
+            // The chest was on when the npc's own death event handed its inventory over and
+            // off by the time this ran - a script on the died event is enough to do that.
+            // The boss is dead and nothing is coming to hold the items, so they go on the
+            // floor rather than waiting out the staging timeout and disappearing.
+            BossChestScheduler.releaseStagedDrops(level, npc);
         }
     }
 

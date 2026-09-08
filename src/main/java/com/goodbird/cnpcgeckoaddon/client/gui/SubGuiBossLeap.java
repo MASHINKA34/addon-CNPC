@@ -179,7 +179,7 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting leap animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.leap_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.leap().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
@@ -188,7 +188,7 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
                         SubGuiBossLeapImpact.ACTION_DELAY_FIELD, phase.leap()::setActionDelayTicks);
             }));
         } else if (button.id == LAND_ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting landing animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.landing_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.leap().setLandAnimation(name);
                 getTextField(LAND_ANIMATION_FIELD).setValue(name);

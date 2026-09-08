@@ -124,7 +124,7 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
         } else if (button.id == VFX_STYLE_BUTTON) {
             phase.areaAttack().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting area attack animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.area_attack_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.areaAttack().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

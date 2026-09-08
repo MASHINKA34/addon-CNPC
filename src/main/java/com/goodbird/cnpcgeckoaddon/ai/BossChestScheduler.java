@@ -78,7 +78,7 @@ public final class BossChestScheduler {
     private record DropOwner(ResourceKey<Level> dimension, UUID bossId) {
     }
 
-    private record StagedDrops(long stagedAt, List<ItemStack> items) {
+    private record StagedDrops(long stagedAt, BlockPos deathPos, List<ItemStack> items) {
     }
 
     /**
@@ -150,7 +150,7 @@ public final class BossChestScheduler {
      * Hands the drops of a dead boss to the chest it is about to leave behind, whether that
      * chest has been scheduled yet or not.
      */
-    public static void takeDrops(ServerLevel level, UUID bossId, List<ItemStack> drops) {
+    public static void takeDrops(ServerLevel level, UUID bossId, BlockPos deathPos, List<ItemStack> drops) {
         if (drops.isEmpty()) {
             return;
         }
@@ -158,8 +158,26 @@ public final class BossChestScheduler {
             return;
         }
         StagedDrops staged = STAGED_DROPS.computeIfAbsent(new DropOwner(level.dimension(), bossId),
-                key -> new StagedDrops(level.getGameTime(), new ArrayList<>()));
+                key -> new StagedDrops(level.getGameTime(), deathPos.immutable(), new ArrayList<>()));
         staged.items().addAll(drops);
+    }
+
+    /**
+     * Puts staged drops back on the ground, for a boss that really died with no chest coming.
+     *
+     * <p>The one way out that is allowed to spill. The timeout below deliberately is not:
+     * the case it exists for is a death another mod cancelled, where the boss is still
+     * standing with its inventory intact and dropping it again would be handing out a second
+     * copy of the loot every time it happens.</p>
+     */
+    public static void releaseStagedDrops(ServerLevel level, Entity boss) {
+        StagedDrops staged = STAGED_DROPS.remove(new DropOwner(level.dimension(), boss.getUUID()));
+        if (staged == null || staged.items().isEmpty()) {
+            return;
+        }
+        LOGGER.warn("No loot chest was scheduled for the boss that died at {}; dropping its {} stacks there",
+                staged.deathPos(), staged.items().size());
+        dropStacks(level, staged.deathPos(), staged.items());
     }
 
     public static boolean hasPending(ServerLevel level) {
@@ -168,11 +186,14 @@ public final class BossChestScheduler {
 
     public static void tick(ServerLevel level) {
         long gameTime = level.getGameTime();
-        // Drops nobody came back for: the death was cancelled, or the chest was switched off
-        // between the two events. Holding on to them would leak the items forever. Swept
-        // before any chest is placed, so a death set off by the placement can still stage.
+        // Drops nobody came back for, which in practice means a death another mod cancelled:
+        // the boss is alive with its inventory intact, so these are a copy and not the loot.
+        // Dropped rather than spilled for that reason, and said out loud rather than dropped
+        // in silence, because a real loss here would otherwise look like nothing at all.
+        // Swept before any chest is placed, so a death set off by the placement can still stage.
         STAGED_DROPS.entrySet().removeIf(entry -> entry.getKey().dimension().equals(level.dimension())
-                && gameTime - entry.getValue().stagedAt() > STAGED_DROPS_TIMEOUT);
+                && gameTime - entry.getValue().stagedAt() > STAGED_DROPS_TIMEOUT
+                && reportAbandoned(entry.getValue()));
 
         PendingBossChestStore.get(level).drain(
                 pending -> gameTime >= pending.spawnAt() && level.isLoaded(pending.deathPos())
@@ -182,7 +203,19 @@ public final class BossChestScheduler {
     }
 
     public static void clear(ServerLevel level) {
-        STAGED_DROPS.keySet().removeIf(owner -> owner.dimension().equals(level.dimension()));
+        STAGED_DROPS.entrySet().removeIf(entry -> entry.getKey().dimension().equals(level.dimension())
+                && reportAbandoned(entry.getValue()));
+    }
+
+    /**
+     * @return always true, so this reads as the removal condition it is attached to
+     */
+    private static boolean reportAbandoned(StagedDrops staged) {
+        if (!staged.items().isEmpty()) {
+            LOGGER.warn("Dropping {} staged stacks from the boss at {}: no chest claimed them",
+                    staged.items().size(), staged.deathPos());
+        }
+        return true;
     }
 
     private static void place(ServerLevel level, Pending pending) {

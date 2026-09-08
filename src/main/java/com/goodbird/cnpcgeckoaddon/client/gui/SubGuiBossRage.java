@@ -65,7 +65,7 @@ public final class SubGuiBossRage extends SubGuiFieldScreen {
         if (button.id == ENABLED_BUTTON) {
             data.setRageEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting enrage animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.rage_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 data.setRageAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

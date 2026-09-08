@@ -92,7 +92,7 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
         } else if (button.id == STATIONARY_BUTTON) {
             data.setStationary(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TRANSITION_ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting phase transition animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.phase_transition_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 data.setPhaseTransitionAnimation(name);
                 getTextField(TRANSITION_ANIMATION_FIELD).setValue(name);

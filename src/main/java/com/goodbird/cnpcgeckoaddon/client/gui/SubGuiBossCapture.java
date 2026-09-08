@@ -107,7 +107,7 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
         } else if (button.id == MODE_BUTTON) {
             phase.capture().setMode(button.getValue());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting capture animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.capture_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.capture().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

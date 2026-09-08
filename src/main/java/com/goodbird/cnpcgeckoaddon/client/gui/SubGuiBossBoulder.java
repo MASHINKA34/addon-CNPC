@@ -201,7 +201,7 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
         } else if (button.id == LOOK_BUTTON) {
             phase.boulder().setStyle(BoulderStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting boulder animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.boulder_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.boulder().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

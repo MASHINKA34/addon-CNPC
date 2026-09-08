@@ -6,12 +6,22 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class CustomModelData {
     public static final float MAX_HITBOX_SIZE = 32.0F;
+    /**
+     * The longest crossfade between two animations, ten seconds.
+     *
+     * <p>Bounded for the reason the hitbox is: the number goes straight into GeckoLib's
+     * transition length, and one that never runs out is a model frozen halfway between two
+     * poses for the life of the npc - which reads as a broken model rather than as a setting.
+     * Ten seconds is far longer than any blend anybody plays and still visibly a blend.</p>
+     */
+    public static final int MAX_TRANSITION_LENGTH_TICKS = 200;
     private String model = CNPCGeckoAddon.MODID + ":geo/geo_npc.geo.json";
     private String animFile = CNPCGeckoAddon.MODID + ":animations/geo_npc.animation.json";
     private String idleAnim = "idle";
@@ -92,7 +102,7 @@ public class CustomModelData {
                 setHitboxScale(nbttagcompound.getFloat("HitboxScale"));
 
             if (nbttagcompound.contains("TransitionLengthTicks"))
-                transitionLengthTicks = nbttagcompound.getInt("TransitionLengthTicks");
+                setTransitionLengthTicks(nbttagcompound.getInt("TransitionLengthTicks"));
 
             if (nbttagcompound.contains("HurtTintEnabled"))
                 hurtTintEnabled = nbttagcompound.getBoolean("HurtTintEnabled");
@@ -184,7 +194,7 @@ public class CustomModelData {
     }
 
     public void setTransitionLengthTicks(int transitionLengthTicks) {
-        this.transitionLengthTicks = transitionLengthTicks;
+        this.transitionLengthTicks = Mth.clamp(transitionLengthTicks, 0, MAX_TRANSITION_LENGTH_TICKS);
     }
 
     public float getWidth() {

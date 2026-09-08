@@ -1,16 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
+import com.goodbird.cnpcgeckoaddon.util.NbtNumericSweep;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.DoubleTag;
-import net.minecraft.nbt.FloatTag;
-import net.minecraft.nbt.IntTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NumericTag;
-import net.minecraft.nbt.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -63,26 +57,25 @@ class BossFieldRangeTest {
     @DisplayName("every number in a boss save is clamped on the way back in")
     void everyNumericSettingIsClamped() {
         CompoundTag baseline = configuredHost().writeToNBT(new CompoundTag());
-        List<String> paths = new ArrayList<>();
-        collectNumericPaths(baseline, "", paths);
+        List<String> paths = NbtNumericSweep.numericPaths(baseline);
         assertTrue(paths.size() > 100,
                 "the sweep found only " + paths.size() + " numbers, so it is not reading the save");
 
         Set<String> unclamped = new TreeSet<>();
         for (String path : paths) {
-            String key = path.substring(path.lastIndexOf('/') + 1);
+            String key = NbtNumericSweep.keyOf(path);
             if (UNBOUNDED.contains(key)) {
                 continue;
             }
             for (double extreme : new double[]{Integer.MAX_VALUE, Integer.MIN_VALUE}) {
                 CompoundTag poisoned = baseline.copy();
-                if (!writeAt(poisoned, path, extreme)) {
+                if (!NbtNumericSweep.writeAt(poisoned, path, extreme)) {
                     continue;
                 }
                 TeleportPathData reloaded = new TeleportPathData();
                 reloaded.readFromNBT(poisoned);
                 CompoundTag round = reloaded.writeToNBT(new CompoundTag());
-                Double back = readAt(round, path);
+                Double back = NbtNumericSweep.readAt(round, path);
                 if (back != null && Math.abs(back) > limitFor(key)) {
                     unclamped.add(path + " kept " + back);
                 }
@@ -96,11 +89,10 @@ class BossFieldRangeTest {
     @DisplayName("a save full of extremes still round-trips instead of throwing")
     void anEntirelyPoisonedSaveStillLoads() {
         CompoundTag baseline = configuredHost().writeToNBT(new CompoundTag());
-        List<String> paths = new ArrayList<>();
-        collectNumericPaths(baseline, "", paths);
+        List<String> paths = NbtNumericSweep.numericPaths(baseline);
         CompoundTag poisoned = baseline.copy();
         for (String path : paths) {
-            writeAt(poisoned, path, Integer.MIN_VALUE);
+            NbtNumericSweep.writeAt(poisoned, path, Integer.MIN_VALUE);
         }
         TeleportPathData reloaded = new TeleportPathData();
         reloaded.readFromNBT(poisoned);
@@ -129,75 +121,5 @@ class BossFieldRangeTest {
         data.setEnabled(true);
         data.markConfigured();
         return data;
-    }
-
-    private static void collectNumericPaths(CompoundTag tag, String prefix, List<String> out) {
-        for (String key : tag.getAllKeys()) {
-            Tag value = tag.get(key);
-            String path = prefix + key;
-            if (value instanceof CompoundTag compound) {
-                collectNumericPaths(compound, path + "/", out);
-            } else if (value instanceof ListTag list) {
-                for (int i = 0; i < list.size(); i++) {
-                    if (list.get(i) instanceof CompoundTag element) {
-                        collectNumericPaths(element, path + "[" + i + "]/", out);
-                    }
-                }
-            } else if (value instanceof IntTag || value instanceof FloatTag || value instanceof DoubleTag) {
-                // Bytes and shorts are booleans and enum ordinals here, both of which are
-                // read through their own guards rather than as magnitudes.
-                out.add(path);
-            }
-        }
-    }
-
-    private static boolean writeAt(CompoundTag root, String path, double value) {
-        String[] steps = path.split("/");
-        CompoundTag current = root;
-        for (int i = 0; i < steps.length - 1; i++) {
-            current = descend(current, steps[i]);
-            if (current == null) {
-                return false;
-            }
-        }
-        String key = steps[steps.length - 1];
-        Tag existing = current.get(key);
-        if (existing instanceof IntTag) {
-            current.putInt(key, (int) value);
-        } else if (existing instanceof FloatTag) {
-            current.putFloat(key, (float) value);
-        } else if (existing instanceof DoubleTag) {
-            current.putDouble(key, value);
-        } else {
-            return false;
-        }
-        return true;
-    }
-
-    private static Double readAt(CompoundTag root, String path) {
-        String[] steps = path.split("/");
-        CompoundTag current = root;
-        for (int i = 0; i < steps.length - 1; i++) {
-            current = descend(current, steps[i]);
-            if (current == null) {
-                return null;
-            }
-        }
-        Tag value = current.get(steps[steps.length - 1]);
-        return value instanceof NumericTag numeric ? numeric.getAsDouble() : null;
-    }
-
-    /** One step of a path, which is either a plain key or {@code key[index]} inside a list. */
-    private static CompoundTag descend(CompoundTag tag, String step) {
-        int bracket = step.indexOf('[');
-        if (bracket < 0) {
-            return tag.get(step) instanceof CompoundTag compound ? compound : null;
-        }
-        String key = step.substring(0, bracket);
-        int index = Integer.parseInt(step.substring(bracket + 1, step.length() - 1));
-        if (!(tag.get(key) instanceof ListTag list) || index >= list.size()) {
-            return null;
-        }
-        return list.get(index) instanceof CompoundTag compound ? compound : null;
     }
 }

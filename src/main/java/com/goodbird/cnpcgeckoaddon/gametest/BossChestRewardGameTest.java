@@ -96,7 +96,8 @@ public class BossChestRewardGameTest {
         data.getChestLoot().get(0).setStack(sword);
         data.getChestLoot().get(0).setCountRange(2, 2);
         UUID bossId = schedule(helper, data);
-        BossChestScheduler.takeDrops(helper.getLevel(), bossId, List.of(new ItemStack(Items.EMERALD, 7)));
+        BossChestScheduler.takeDrops(helper.getLevel(), bossId, helper.absolutePos(POS),
+                List.of(new ItemStack(Items.EMERALD, 7)));
         PendingBossChestStore original = PendingBossChestStore.get(helper.getLevel());
         helper.assertTrue(original.isDirty(), "scheduling and captured drops must mark the data for saving");
         CompoundTag saved = original.save(new CompoundTag(), helper.getLevel().registryAccess());

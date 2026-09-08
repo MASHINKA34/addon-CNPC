@@ -72,25 +72,33 @@ public final class BossCocoonUtil {
      * with nobody inside. Discarded rather than killed, exactly as a cocoon that has done its
      * job is: no drops and no death scripts. Searches loaded entities only and never asks a
      * chunk to load; a cocoon in a chunk that loads later is dropped as it comes in.</p>
+     *
+     * <p>Read out of {@link BossOwnedEntityIndex} rather than off a walk of the level: both
+     * roles are marked as minions of the boss, so they are already in the one walk the index
+     * takes per level per tick. A walk of its own here was a second pass over every entity in
+     * the world, per boss, on the tick a chunk full of them loaded.</p>
      */
     public static void removeStrayCocoons(ServerLevel level, Entity boss) {
         List<Entity> stray = new ArrayList<>();
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : BossOwnedEntityIndex.minionsOf(level, boss)) {
             if (isCocoonOf(entity, boss) && !BossCocoonManager.isHolding(entity.getUUID())) {
                 stray.add(entity);
             }
         }
-        // Collected first: discarding while walking the level's entity list would modify it
-        // mid-iteration.
+        // Collected first: discarding an entity invalidates the index, and emptying the list
+        // being walked mid-walk is exactly the crash the index was built to stop.
         for (Entity cocoon : stray) {
             cocoon.discard();
         }
     }
 
-    /** Discards every loaded guard of this boss, for the ways out of a fight that take everything. */
+    /**
+     * Discards every loaded guard of this boss, for the ways out of a fight that take
+     * everything. Reads the shared index for the reason {@link #removeStrayCocoons} does.
+     */
     public static void removeGuards(ServerLevel level, Entity boss) {
         List<Entity> guards = new ArrayList<>();
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : BossOwnedEntityIndex.minionsOf(level, boss)) {
             if (isGuardOf(entity, boss)) {
                 guards.add(entity);
             }

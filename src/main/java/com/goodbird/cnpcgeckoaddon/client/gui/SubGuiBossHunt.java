@@ -196,7 +196,7 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
         } else if (button.id == TARGET_MODE_BUTTON) {
             phase.hunt().setTargetMode(button.getValue());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting hunt animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.hunt_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.hunt().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

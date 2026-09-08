@@ -215,6 +215,11 @@ public final class BossCocoonManager {
         return true;
     }
 
+    /** Whether any shell is closed at all, so an idle level skips the walk below. */
+    public static boolean hasPending() {
+        return !COCOONS.isEmpty();
+    }
+
     public static void tick(ServerLevel level) {
         if (COCOONS.isEmpty()) {
             return;

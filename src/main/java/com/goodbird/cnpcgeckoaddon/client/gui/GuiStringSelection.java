@@ -48,7 +48,11 @@ public class GuiStringSelection extends GuiNPCInterface {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(0, title, width / 2 - (this.font.width(title) / 2), 20, 0xffffff));
+        // Resolved here rather than left to the label: the label would translate it anyway,
+        // but the centring is measured off the string, and measuring the key instead of the
+        // sentence puts every picker's heading off to one side.
+        String heading = Component.translatable(title).getString();
+        addLabel(new GuiLabel(0, heading, width / 2 - (this.font.width(heading) / 2), 20, 0xffffff));
         options.sort(String.CASE_INSENSITIVE_ORDER);
         slot = new GuiStringSlotNop(options, this, multiSelect);
         if (multiSelect) {

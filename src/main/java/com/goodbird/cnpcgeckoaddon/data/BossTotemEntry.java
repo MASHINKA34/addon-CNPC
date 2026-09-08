@@ -107,7 +107,10 @@ public final class BossTotemEntry {
         this.z = Mth.clamp(z, -MAX_COORDINATE, MAX_COORDINATE);
     }
     public float getYaw() { return yaw; }
-    public void setYaw(float value) { yaw = Mth.clamp(value, -180.0F, 180.0F); }
+    /** NaN survives a clamp - it compares false against both ends - so it is caught first. */
+    public void setYaw(float value) {
+        yaw = Float.isFinite(value) ? Mth.clamp(value, -180.0F, 180.0F) : 0.0F;
+    }
     public String getBeamStyleOverride() { return beamStyleOverride; }
     public void setBeamStyleOverride(String value) {
         String trimmed = value == null ? "" : value.trim();

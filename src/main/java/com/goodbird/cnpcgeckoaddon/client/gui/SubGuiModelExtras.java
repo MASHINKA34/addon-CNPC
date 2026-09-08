@@ -42,7 +42,8 @@ public class SubGuiModelExtras extends GuiNPCInterface implements ITextfieldList
         GuiTextFieldNop transitionLength = new GuiTextFieldNop(FIELD_TRANSITION,this, guiLeft + 50, y,
                 200, 20, ""+getModelData(npc).getTransitionLengthTicks());
         transitionLength.setNumbersOnly();
-        transitionLength.setMinMaxDefault(0, Integer.MAX_VALUE, getModelData(npc).getTransitionLengthTicks());
+        transitionLength.setMinMaxDefault(0, CustomModelData.MAX_TRANSITION_LENGTH_TICKS,
+                getModelData(npc).getTransitionLengthTicks());
         addTextField(transitionLength);
         y+=23;
 

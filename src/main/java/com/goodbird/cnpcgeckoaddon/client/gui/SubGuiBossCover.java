@@ -193,7 +193,7 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
         } else if (button.id == VFX_STYLE_BUTTON) {
             phase.cover().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting take cover animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.cover_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.cover().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

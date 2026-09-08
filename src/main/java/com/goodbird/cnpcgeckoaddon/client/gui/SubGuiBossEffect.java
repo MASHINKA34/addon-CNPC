@@ -58,7 +58,7 @@ public final class SubGuiBossEffect extends SubGuiFieldScreen {
         } else if (button.id == PARTICLES_BUTTON) {
             effect.setShowParticles(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == EFFECT_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting potion effect:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.potion_effect",
                     BossEffectData.getSelectableIds(), name -> {
                 effect.setEffectId(name);
                 getTextField(EFFECT_FIELD).setValue(name);

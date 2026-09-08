@@ -89,7 +89,7 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         } else if (button.id == ENABLED_BUTTON) {
             phase.rangedAttack().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting ranged attack animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.ranged_attack_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.rangedAttack().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

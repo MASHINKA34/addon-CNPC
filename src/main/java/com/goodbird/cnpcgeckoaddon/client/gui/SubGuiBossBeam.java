@@ -207,7 +207,7 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         } else if (button.id == START_MODE_BUTTON) {
             phase.beam().setStartMode(button.getValue());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting beam animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.beam_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.beam().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

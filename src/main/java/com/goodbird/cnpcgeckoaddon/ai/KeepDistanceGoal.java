@@ -32,7 +32,9 @@ public class KeepDistanceGoal extends Goal {
             return false;
         }
         this.target = entity;
-        return npc.distanceToSqr(entity) < (double) (distance * distance);
+        // Squared as a double: an int square overflows past 46340 blocks and reads back as a
+        // radius of one, or as a negative one the check can never pass.
+        return npc.distanceToSqr(entity) < (double) distance * (double) distance;
     }
 
     @Override

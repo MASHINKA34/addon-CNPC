@@ -24,6 +24,24 @@ This is an ***addon***: install CustomNPCs and GeckoLib first, then drop the jar
   - protection totems with configurable activation, respawn and cleanup rules
   - arena boundaries, configurable minion cleanup, death explosions and reward chests
 
+## Changes in 1.29.9
+
+- Numbers on an npc's own settings are clamped when they are read back, the way the boss
+  configuration already was. The keep-distance radius is squared by the goal that uses it,
+  which overflowed an int past 46340 blocks and read back as a radius of one; the animation
+  transition length went into GeckoLib's blend length, where a value that never runs out is
+  a model frozen halfway between two poses.
+- Every screen goes through the language files. Forty-seven labels, buttons and picker
+  headings were English literals, so both locale files were complete and the editor was
+  not; a test now fails on the next one.
+- Boss loot that no chest claimed says so in the log instead of disappearing quietly, and a
+  boss that really died with its chest switched off in between drops it on the floor.
+- Cocoons and their guards are counted out of the shared owned-entity index rather than off
+  a walk of the whole level per boss, and the capture, tether and cocoon managers are asked
+  whether they hold anything before they are ticked.
+- A mixin that no longer fits the installed CustomNPCs build is now a hard failure rather
+  than a warning, and the addon says at startup which of its nine hooks are in place.
+
 ## Changes in 1.29.8
 
 - Barrier failure damage receives the enrage multiplier once. Opening percentage
@@ -63,6 +81,10 @@ they cover exactly what can be checked without a world:
 - that every number in a boss save comes back clamped, by poisoning each one in turn with
   `Integer.MAX_VALUE` - a setting read straight out of the tag is a cooldown of two billion
   ticks or a scan radius past the world border, neither of which throws;
+- the same sweep over the settings that live on a plain npc - the model, the extra ranged
+  options, carrying, sound reaction and ability immunity - against a range written out per
+  key, floats poisoned with NaN and both infinities as well. A number saved by one of those
+  classes with no range stated fails the test rather than joining the unchecked ones;
 - that each row of the boss ability table is wired to its own phase setting and its own
   cooldown, which is the mistake a table of twenty near-identical rows invites, and that
   everything the boss can wind up also has something to carry it out - an ability that
@@ -80,7 +102,12 @@ they cover exactly what can be checked without a world:
 - that every mob bundle with a recorded texture table is also listed in the resolver's
   namespaces, so an imported bundle cannot end up rendering with a stretched npc skin;
 - the model-to-texture name scoring;
-- that `en_us` and `ru_ru` carry the same keys and that every key the sources name exists.
+- that `en_us` and `ru_ru` carry the same keys and that every key the sources name exists,
+  and that no screen holds display text instead of a key - a label built from a literal names
+  no key, so it is invisible to the check above and shows up only as an English word in the
+  middle of a Russian editor;
+- that every interface the mixins bolt onto CustomNPCs is on the startup integration check,
+  which is only worth having while it is complete.
 
 The gametests under `src/main/java/.../gametest` run on a full CustomNPCs server:
 

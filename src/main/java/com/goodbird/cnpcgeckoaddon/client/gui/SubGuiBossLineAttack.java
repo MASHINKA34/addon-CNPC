@@ -177,7 +177,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
         } else if (button.id == BLOCK_WAVE_BUTTON) {
             phase.lineAttack().setBlockWave(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting line strike animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.line_attack_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.lineAttack().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

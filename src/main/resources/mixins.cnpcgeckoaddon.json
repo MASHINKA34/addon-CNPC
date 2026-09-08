@@ -1,6 +1,7 @@
 {
   "minVersion": "0.8.5",
   "compatibilityLevel": "JAVA_21",
+  "required": true,
   "package": "com.goodbird.cnpcgeckoaddon.mixin.impl",
   "mixins": [
     "BlockEntityAccessor",
@@ -36,5 +37,8 @@
     "MixinSubGuiNpcProjectiles",
     "MixinSubGuiNpcRangeProperties"
   ],
-  "server": []
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
 }

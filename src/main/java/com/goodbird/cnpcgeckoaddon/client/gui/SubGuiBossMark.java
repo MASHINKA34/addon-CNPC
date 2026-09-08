@@ -231,7 +231,7 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         } else if (button.id == VFX_STYLE_BUTTON) {
             phase.mark().setVfx(AreaVfxStyles.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting mark animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.mark_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.mark().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);

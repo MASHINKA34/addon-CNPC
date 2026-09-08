@@ -220,7 +220,7 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
             phase.cocoon().setRescueMode(button.getValue());
             updateRescueFields();
         } else if (button.id == ANIMATION_FIELD) {
-            setSubGui(new GuiStringSelection(this, "Selecting cocoon animation:",
+            setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.cocoon_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
                 phase.cocoon().setAnimation(name);
                 getTextField(ANIMATION_FIELD).setValue(name);
