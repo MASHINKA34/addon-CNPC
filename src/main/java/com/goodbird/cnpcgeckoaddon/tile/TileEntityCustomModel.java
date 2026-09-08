@@ -78,8 +78,14 @@ public class TileEntityCustomModel extends BlockEntity implements GeoAnimatable,
         // A tag written by an older version - or by a hand-edited/partial NBT - can be
         // missing or malformed. ResourceLocation.parse("") throws, which would abort
         // loading the whole block entity, so keep the defaults instead.
-        modelResLoc = AnimationFileUtil.parseOr(compound.getString("modelResLoc"), modelResLoc);
-        animResLoc = AnimationFileUtil.parseOr(compound.getString("animResLoc"), animResLoc);
+        ResourceLocation model = AnimationFileUtil.parseOr(compound.getString("modelResLoc"), modelResLoc);
+        ResourceLocation animation = AnimationFileUtil.parseOr(compound.getString("animResLoc"), animResLoc);
+        if (!model.equals(modelResLoc) || !animation.equals(animResLoc)) {
+            manualAnim = null;
+            factory = GeckoLibUtil.createInstanceCache(this);
+        }
+        modelResLoc = model;
+        animResLoc = animation;
         textureResLoc = AnimationFileUtil.parseOr(compound.getString("textureResLoc"), textureResLoc);
         idleAnimName = compound.getString("idleAnimName");
     }

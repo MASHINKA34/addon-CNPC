@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
+import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.world.BossCocoonGuardCleanupStore;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 
@@ -36,11 +38,16 @@ public final class BossCocoonUtil {
     public static void markAsGuard(Entity clone, Entity boss) {
         BossMinionUtil.markAsMinion(clone, boss);
         clone.getPersistentData().putString(ROLE_KEY, ROLE_GUARD);
+        if (boss.level() instanceof ServerLevel level) {
+            clone.getPersistentData().putLong(BossCocoonGuardCleanupStore.GENERATION_KEY,
+                    BossCocoonGuardCleanupStore.get(level).generation(boss.getUUID()));
+        }
     }
 
     /** Takes the role off, for a clone that is being made an ordinary minion or a totem. */
     public static void clearRole(Entity clone) {
         clone.getPersistentData().remove(ROLE_KEY);
+        clone.getPersistentData().remove(BossCocoonGuardCleanupStore.GENERATION_KEY);
     }
 
     public static boolean isCocoon(Entity entity) {
@@ -97,10 +104,13 @@ public final class BossCocoonUtil {
      * everything. Reads the shared index for the reason {@link #removeStrayCocoons} does.
      */
     public static void removeGuards(ServerLevel level, Entity boss) {
+        BossCocoonGuardCleanupStore.get(level).invalidate(boss.getUUID(), TeleportPathData.MINION_REMOVAL_VANISH);
         List<Entity> guards = new ArrayList<>();
-        for (Entity entity : BossOwnedEntityIndex.minionsOf(level, boss)) {
-            if (isGuardOf(entity, boss)) {
-                guards.add(entity);
+        for (ServerLevel dimension : level.getServer().getAllLevels()) {
+            for (Entity entity : BossOwnedEntityIndex.minionsOf(dimension, boss)) {
+                if (isGuardOf(entity, boss)) {
+                    guards.add(entity);
+                }
             }
         }
         for (Entity guard : guards) {

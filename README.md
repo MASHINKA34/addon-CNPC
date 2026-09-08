@@ -24,6 +24,20 @@ This is an ***addon***: install CustomNPCs and GeckoLib first, then drop the jar
   - protection totems with configurable activation, respawn and cleanup rules
   - arena boundaries, configurable minion cleanup, death explosions and reward chests
 
+## Changes in 1.29.10
+
+- Updating scripted block display settings or textures preserves the running animation and
+  controller cache. Switching model or animation files resets the previous animation state.
+- Held items render through GeckoLib's bone layers, inheriting the current animation pose,
+  NPC size and body rotations. Removing an offhand item clears its previous rendered stack.
+- Disabling the boss framework releases its controller, restores the configured native boss
+  bar and clears the addon timer. Reenabling creates fresh runtime state.
+- Cocoon guard cleanup survives unloaded chunks and restarts and applies across dimensions.
+  Ordinary minions and guards from later encounters remain valid; configured kill cleanup
+  still takes precedence over guard removal.
+- Encounter reset, death, unload and disable share combat cleanup. Regression tests cover
+  animation updates, item transforms, native boss bars, victim release and guard persistence.
+
 ## Changes in 1.29.9
 
 - Numbers on an npc's own settings are clamped when they are read back, the way the boss
@@ -120,6 +134,10 @@ directory, keeping the normal development world separate. They cover combat timi
 barrier penalties and party scaling, totem and minion reload cleanup, collision limits,
 projectiles, carry state, temporary blocks, animations and rewards. Test classes are
 excluded from the release jar.
+
+Held-item matrix tests exercise GeckoLib's bone traversal without opening a graphics window.
+Visual placement, animation smoothness and FPS/TPS under a large multiplayer encounter
+still need an in-game check on the target client and server.
 
 ## A note on the bundled mob models
 

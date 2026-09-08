@@ -240,12 +240,18 @@ final class BossBarRuntime {
     /** Takes the styled bar down and the npc's own with it, for every ending of a fight. */
     void stop() {
         hide();
+        for (ServerPlayer player : npc.bossInfo.getPlayers()) {
+            NetworkWrapper.send(player, new PacketSyncBossTimer(npc.bossInfo.getId(), 0, 0,
+                    PacketSyncBossTimer.STATE_NONE));
+        }
+        lastTimerState = PacketSyncBossTimer.STATE_NONE;
+        nextTimerSyncAt = 0L;
         npc.bossInfo.setVisible(false);
     }
 
-    private void restoreNative() {
+    void restoreNative() {
         int mode = npc.display.getBossbar();
         npc.bossInfo.setVisible(npc.isAlive() && !npc.isRemoved()
-                && (mode == 1 || mode == 2 && boss.hasCombatTarget()));
+                && (mode == 1 || mode == 2 && npc.getTarget() != null));
     }
 }

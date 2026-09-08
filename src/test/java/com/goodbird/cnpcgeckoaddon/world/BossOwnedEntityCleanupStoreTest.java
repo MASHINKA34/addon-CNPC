@@ -41,7 +41,7 @@ class BossOwnedEntityCleanupStoreTest {
     @Test
     void cleanupIsNotForgottenWhenMoreBossesDie() {
         for (BossOwnedEntityCleanupStore store : new BossOwnedEntityCleanupStore[]{
-                new BossMinionCleanupStore(), new BossTotemCleanupStore()}) {
+                new BossMinionCleanupStore(), new BossTotemCleanupStore(), new BossCocoonGuardCleanupStore()}) {
             UUID oldest = UUID.randomUUID();
             store.invalidate(oldest, TeleportPathData.MINION_REMOVAL_VANISH);
             for (int i = 0; i < 5000; i++) {

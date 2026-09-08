@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import com.goodbird.cnpcgeckoaddon.utils.NpcTextureUtils;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import noppes.npcs.client.EntityUtil;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Mixin;
@@ -46,9 +47,8 @@ public class MixinEntityUtil {
                 modelEntity.hurtTime = 0;
                 modelEntity.deathTime = 0;
             }
-            if(npc.inventory.getLeftHand()!=null) {
-                modelEntity.leftHeldItem = npc.inventory.getLeftHand().getMCItemStack();
-            }
+            var leftHand = npc.inventory.getLeftHand();
+            modelEntity.leftHeldItem = leftHand == null ? ItemStack.EMPTY : leftHand.getMCItemStack();
             modelEntity.headBoneName = display.getCustomModelData().getHeadBoneName();
             AnimatableManager animationData = modelEntity.getAnimatableInstanceCache().getManagerForId(modelEntity.getUUID().hashCode());
             for(Object obj : animationData.getAnimationControllers().values()){

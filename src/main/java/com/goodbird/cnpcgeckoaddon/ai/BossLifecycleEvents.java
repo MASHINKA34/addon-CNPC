@@ -10,6 +10,7 @@ import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
+import com.goodbird.cnpcgeckoaddon.world.BossCocoonGuardCleanupStore;
 import com.goodbird.cnpcgeckoaddon.world.BossTotemCleanupStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.Tag;
@@ -149,6 +150,11 @@ public final class BossLifecycleEvents {
                 }
                 return;
             }
+        }
+        if (event.loadedFromDisk() && BossCocoonUtil.isGuard(event.getEntity())
+                && BossCocoonGuardCleanupStore.get(level).pendingRemovalMode(event.getEntity()) >= 0) {
+            event.setCanceled(true);
+            return;
         }
         if (!(event.getEntity() instanceof EntityNPCInterface npc)) {
             return;

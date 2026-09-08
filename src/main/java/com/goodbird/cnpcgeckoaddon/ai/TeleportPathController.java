@@ -406,7 +406,16 @@ public final class TeleportPathController {
 
     private void tickGuarded() {
         TeleportPathData data = settings();
-        if (!data.isEnabled() || !(npc.level() instanceof ServerLevel level) || !npc.isAlive()) {
+        if (!data.isEnabled()) {
+            if (npc.level() instanceof ServerLevel level) {
+                totems.removeConfigured(level);
+                BossCocoonUtil.removeGuards(level, npc);
+            }
+            shutdown();
+            bar.restoreNative();
+            return;
+        }
+        if (!(npc.level() instanceof ServerLevel level) || !npc.isAlive()) {
             // `active` is only true between activate() and reset(), so this runs exactly
             // once on the tick the boss dies rather than every tick it lies dead.
             if (active && npc.level() instanceof ServerLevel inactiveLevel) {
@@ -415,11 +424,10 @@ public final class TeleportPathController {
                         BossMinionUtil.clear(inactiveLevel, npc, data.getMinionRemovalMode());
                     }
                     totems.removeOnBossDeath(inactiveLevel, data);
-                } else if (!data.isEnabled()) {
-                    totems.removeConfigured(inactiveLevel);
                 }
+                BossCocoonUtil.removeGuards(inactiveLevel, npc);
+                reset();
             }
-            reset();
             return;
         }
         if (NpcCarryManager.isCarried(npc)) {
@@ -995,28 +1003,8 @@ public final class TeleportPathController {
         currentPhase = 0;
         highestPhaseReached = 0;
         // Restore the base maximum before reset healing decides whether to fill it.
-        healthScalingRuntime.clear(data, data.isResetHeal());
-        clearEncounter();
-        clearInvulnerability();
+        clearCombatRuntime(data, data.isResetHeal());
         minionSpawns.clearCursor();
-        rage.clear();
-        cancelPendingAndSchedules();
-        hook.clear();
-        hazardRuntime.clear();
-        barrierRuntime.clear();
-        BossGeyserScheduler.clearBoss(npc);
-        BossMarkScheduler.clearBoss(npc);
-        BossBoulderRainScheduler.clearBoss(npc);
-        BossGravityScheduler.clearBoss(npc);
-        // Before the return below: clearing the leap re-pins the boss where it stands, and
-        // the return then moves that pin home rather than the other way round.
-        leap.clear();
-        BossCaptureManager.releaseByBoss(npc);
-        BossTetherManager.releaseByBoss(npc);
-        // Before the minions are cleared: a cocoon is discarded, never killed, and the
-        // clear would run it through the builder's removal mode like any other minion.
-        BossCocoonManager.releaseByBoss(npc);
-        busyUntil = 0L;
 
         if (data.isClearMinionsOnReset()) {
             BossMinionUtil.clear(level, npc, data.getMinionRemovalMode());
@@ -1258,11 +1246,19 @@ public final class TeleportPathController {
 
     private void releaseRuntime() {
         stopBossBar();
-        rage.clear();
-        huntRuntime.end();
-        barrierRuntime.clear();
-        healthScalingRuntime.clear(settings(), false);
+        clearCombatRuntime(settings(), false);
+    }
+
+    private void clearCombatRuntime(TeleportPathData data, boolean heal) {
+        healthScalingRuntime.clear(data, heal);
         clearEncounter();
+        clearInvulnerability();
+        rage.clear();
+        cancelPendingAndSchedules();
+        hook.clear();
+        hazardRuntime.clear();
+        barrierRuntime.clear();
+        leap.clear();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
         BossCocoonManager.releaseByBoss(npc);
@@ -1270,7 +1266,7 @@ public final class TeleportPathController {
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
-        BossBeamScheduler.clearBoss(npc);
+        busyUntil = 0L;
     }
 
     public void shutdown() {
@@ -2031,32 +2027,15 @@ public final class TeleportPathController {
     }
 
     private void reset() {
-        bar.stop();
+        releaseRuntime();
         active = false;
         highestPhaseReached = 0;
         currentPhase = -1;
-        clearInvulnerability();
-        rage.clear();
-        healthScalingRuntime.clear(settings(), false);
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
-        hook.clear();
-        hazardRuntime.clear();
-        barrierRuntime.clear();
-        BossGeyserScheduler.clearBoss(npc);
-        BossMarkScheduler.clearBoss(npc);
-        BossBoulderRainScheduler.clearBoss(npc);
-        BossGravityScheduler.clearBoss(npc);
-        leap.clear();
-        BossCaptureManager.releaseByBoss(npc);
-        BossTetherManager.releaseByBoss(npc);
-        BossCocoonManager.releaseByBoss(npc);
-        busyUntil = 0L;
-        cancelPendingAndSchedules();
         path.clear();
         nextAbilityPriority = 0;
         targeting.reset();
-        clearEncounter();
         totems.clearRuntime();
         minionSpawns.clear();
         cocoon.clear();

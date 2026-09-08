@@ -38,7 +38,7 @@ public class EntityCustomModel extends Animal implements GeoAnimatable, GeoEntit
     public List<String> attackAnims = new ArrayList<>();
     public RawAnimation dialogAnim = null;
     public RawAnimation manualAnim = null;
-    public ItemStack leftHeldItem;
+    public ItemStack leftHeldItem = ItemStack.EMPTY;
     public String headBoneName = "head";
     private EntityDimensions dims;
     public int size = 5;
