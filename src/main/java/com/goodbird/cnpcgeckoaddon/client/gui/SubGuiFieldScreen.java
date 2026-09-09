@@ -8,6 +8,8 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.IntConsumer;
 
 /**
@@ -25,7 +27,9 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
     protected static final int DONE_BUTTON = 66;
 
     private static final int HINT_COLOR = 0xA0A0A0;
-    private static final int HINT_LINE_HEIGHT = 9;
+
+    /** One line of text plus the pixel that keeps two of them apart. */
+    protected static final int LINE_HEIGHT = 9;
 
     /** The panel every settings screen is drawn on; a screen that wants another sets its own. */
     protected SubGuiFieldScreen() {
@@ -223,12 +227,38 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
     /** The same, for a hint that is already a finished line rather than a translation key. */
     protected int addWrappedText(int id, String text, int y) {
         int width = imageWidth - 16;
+        for (String line : wrapLines(text, width)) {
+            addLabel(new GuiLabel(id++, Component.literal(line), HINT_COLOR,
+                    guiLeft + 8, y, width, LINE_HEIGHT));
+            y += LINE_HEIGHT;
+        }
+        return y;
+    }
+
+    /**
+     * How tall {@link #addWrappedHint} will draw this hint.
+     *
+     * <p>A screen that sizes its own panel has to know that before it places anything, and the
+     * answer belongs to the locale rather than to the screen: the shackle hint is three lines
+     * in English and two in Russian.</p>
+     */
+    protected int wrappedHintHeight(String key) {
+        return wrapLines(I18n.get(key), imageWidth - 16).size() * LINE_HEIGHT;
+    }
+
+    /**
+     * The lines {@code text} breaks into to fit {@code width} pixels.
+     *
+     * <p>Breaking on spaces rather than through {@code Font.split} keeps this countable without
+     * drawing it, which is what lets a screen add up its own height. A single word too wide for
+     * the column still gets its own over-long line - there is nowhere else to put it.</p>
+     */
+    protected List<String> wrapLines(String text, int width) {
+        List<String> lines = new ArrayList<>();
         StringBuilder line = new StringBuilder();
         for (String word : text.split(" ")) {
             if (!line.isEmpty() && font.width(line + " " + word) > width) {
-                addLabel(new GuiLabel(id++, Component.literal(line.toString()), HINT_COLOR,
-                        guiLeft + 8, y, width, HINT_LINE_HEIGHT));
-                y += HINT_LINE_HEIGHT;
+                lines.add(line.toString());
                 line.setLength(0);
             }
             if (!line.isEmpty()) {
@@ -237,10 +267,8 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
             line.append(word);
         }
         if (!line.isEmpty()) {
-            addLabel(new GuiLabel(id, Component.literal(line.toString()), HINT_COLOR,
-                    guiLeft + 8, y, width, HINT_LINE_HEIGHT));
-            y += HINT_LINE_HEIGHT;
+            lines.add(line.toString());
         }
-        return y;
+        return lines;
     }
 }
