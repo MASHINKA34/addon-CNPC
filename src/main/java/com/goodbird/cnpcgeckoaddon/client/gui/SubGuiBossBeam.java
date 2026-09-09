@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.data.BeamLooks;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
@@ -26,6 +27,7 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
     private static final int KNOCKBACK_FIELD = 13;
     private static final int ACTION_DELAY_FIELD = 14;
     private static final int COOLDOWN_FIELD = 15;
+    private static final int LOOK_BUTTON = 16;
     private static final int EFFECTS_BUTTON = 67;
     /** Row labels take ids from here up, two per row, so a wrapped one keeps both its lines. */
     private static final int FIRST_ROW_LABEL = 100;
@@ -40,6 +42,16 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
     private static final int TRIPLE_FIELD_STEP = 43;
     /** The yes/no buttons start here, so a toggle row's label may run up to this. */
     private static final int TOGGLE_BUTTON_X = 155;
+    /** Where the hints start: ten rows of 21 from 18, and three pixels under the last. */
+    private static final int HINTS_Y = 18 + 10 * 21 + 3;
+    /** The buttons never sit above this, so a locale whose hints wrap short keeps the old panel. */
+    private static final int MIN_BUTTONS_Y = 258;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int BOTTOM_MARGIN = 6;
+
+    private static final String[] LOOK_LABELS = BeamLooks.values().stream()
+            .map(BeamLooks.Look::translationKey)
+            .toArray(String[]::new);
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -51,12 +63,14 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 284;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // The panel is centred from imageHeight, so it is settled before super.init() reads
+        // it: the hints under the rows wrap to three lines in English and four in Russian.
+        imageHeight = buttonsY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
         nextRowLabel = FIRST_ROW_LABEL;
         addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.beam_phase", phaseIndex),
@@ -86,6 +100,10 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
                 Integer.toString(phase.beam().getDegreesPerSecond())));
         y += 21;
 
+        addLabel(new GuiLabel(LOOK_BUTTON, "cnpcgeckoaddon.boss.beam_look", guiLeft + 6, y + 6));
+        addButton(new GuiButtonNop(this, LOOK_BUTTON, guiLeft + 112, y, 130, 20, LOOK_LABELS, lookIndex()));
+        y += 21;
+
         addLabel(new GuiLabel(START_MODE_BUTTON, "cnpcgeckoaddon.boss.beam_start", guiLeft + 6, y + 6));
         addButton(new GuiButtonNop(this, START_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.BEAM_START_LABELS, phase.beam().getStartMode()));
@@ -96,22 +114,45 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         addToggleRow(WALLS_BUTTON, "cnpcgeckoaddon.boss.beam_walls", y, phase.beam().isStopsAtWalls());
         y += 21;
 
-        addPairRow(DAMAGE_FIELD, INTERVAL_FIELD, "cnpcgeckoaddon.boss.beam_hit", y,
-                phase.beam().getDamage(), 0, 1000, 6,
+        // Three to a row, the way the shape is: the knockback's own row is the one the look took.
+        addRowLabel("cnpcgeckoaddon.boss.beam_hit", y, TRIPLE_FIELD_X - 6 - 2);
+        addSmallField(DAMAGE_FIELD, guiLeft + TRIPLE_FIELD_X, y, TRIPLE_FIELD_WIDTH,
+                phase.beam().getDamage(), 0, 1000, 6);
+        addSmallField(INTERVAL_FIELD, guiLeft + TRIPLE_FIELD_X + TRIPLE_FIELD_STEP, y, TRIPLE_FIELD_WIDTH,
                 phase.beam().getHitIntervalTicks(), 1, 100, 10);
-        y += 21;
-        addNumberField(KNOCKBACK_FIELD, "cnpcgeckoaddon.boss.knockback", y, phase.beam().getKnockback(), 0, 10, 1);
+        addSmallField(KNOCKBACK_FIELD, guiLeft + TRIPLE_FIELD_X + 2 * TRIPLE_FIELD_STEP, y, TRIPLE_FIELD_WIDTH,
+                phase.beam().getKnockback(), 0, 10, 1);
         y += 21;
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
                 phase.beam().getActionDelayTicks(), 0, 1200, 20,
                 phase.beam().getCooldownTicks(), 1, 12000, 360);
-        y += 21;
 
-        int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.beam_hint", y + 3);
-        int buttonsY = Math.max(hintY + 4, guiTop + 258);
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
+        int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.beam_hint", guiTop + HINTS_Y);
+        addWrappedHint(40, "cnpcgeckoaddon.boss.beam_look_hint", hintY);
+        int buttonsY = guiTop + buttonsY();
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, buttonsY, 60, 20);
+        addDoneButton(guiLeft + 182, buttonsY, 60, BUTTON_HEIGHT);
+    }
+
+    /**
+     * Where the two buttons go, from the panel's top: under both hints, and never above
+     * where they sat before the look's hint joined them.
+     */
+    private int buttonsY() {
+        int hints = wrappedHintHeight("cnpcgeckoaddon.boss.beam_hint")
+                + wrappedHintHeight("cnpcgeckoaddon.boss.beam_look_hint");
+        return Math.max(HINTS_Y + hints + 4, MIN_BUTTONS_Y);
+    }
+
+    private int lookIndex() {
+        String id = phase.beam().getLook();
+        for (int i = 0; i < BeamLooks.values().size(); i++) {
+            if (BeamLooks.values().get(i).id().equals(id)) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     private void addSelectRow(int id, String label, int y, String value) {
@@ -179,21 +220,6 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
     }
 
     @Override
-    protected int numberLabelX() {
-        return 6;
-    }
-
-    @Override
-    protected int numberFieldX() {
-        return 175;
-    }
-
-    @Override
-    protected int numberFieldWidth() {
-        return 67;
-    }
-
-    @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
@@ -206,6 +232,8 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
             phase.beam().setStopsAtWalls(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == START_MODE_BUTTON) {
             phase.beam().setStartMode(button.getValue());
+        } else if (button.id == LOOK_BUTTON) {
+            phase.beam().setLook(BeamLooks.values().get(button.getValue()).id());
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.beam_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {
