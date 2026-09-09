@@ -40,6 +40,8 @@ public final class BossLeapSettings {
     private String leapVfx = AreaVfxStyles.NONE;
     private boolean leapBlockWave;
     private final BossEffectSet leapEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot leapCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return leapEnabled; }
 
@@ -141,6 +143,9 @@ public final class BossLeapSettings {
 
     public BossEffectSet getEffects() { return leapEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return leapCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("LeapEnabled", leapEnabled);
         tag.putString("LeapAnimation", leapAnimation);
@@ -166,6 +171,7 @@ public final class BossLeapSettings {
         tag.putString("LeapVfx", leapVfx);
         tag.putBoolean("LeapBlockWave", leapBlockWave);
         tag.put("LeapEffects", leapEffects.writeToNBT());
+        leapCastSpot.writeToNBT(tag, "Leap");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -197,5 +203,6 @@ public final class BossLeapSettings {
         leapVfx = AreaVfxStyles.normalize(tag.getString("LeapVfx"));
         leapBlockWave = tag.getBoolean("LeapBlockWave");
         leapEffects.readFromNBT(tag, "LeapEffects");
+        leapCastSpot.readFromNBT(tag, "Leap");
     }
 }

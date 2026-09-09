@@ -24,6 +24,8 @@ public final class BossMeleeAttackSettings {
     private int meleeAttackKnockback = 1;
     private int meleeAttackTargetMode = BossTargetMode.MAIN;
     private final BossEffectSet meleeAttackEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot meleeAttackCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return meleeAttackEnabled; }
 
@@ -65,6 +67,9 @@ public final class BossMeleeAttackSettings {
 
     public BossEffectSet getEffects() { return meleeAttackEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return meleeAttackCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("MeleeAttackEnabled", meleeAttackEnabled);
         tag.putString("MeleeAttackAnimation", meleeAttackAnimation);
@@ -75,6 +80,7 @@ public final class BossMeleeAttackSettings {
         tag.putInt("MeleeAttackKnockback", meleeAttackKnockback);
         tag.putInt("MeleeAttackTargetMode", meleeAttackTargetMode);
         tag.put("MeleeAttackEffects", meleeAttackEffects.writeToNBT());
+        meleeAttackCastSpot.writeToNBT(tag, "MeleeAttack");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -88,5 +94,6 @@ public final class BossMeleeAttackSettings {
         meleeAttackTargetMode = value(tag, "MeleeAttackTargetMode",
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         meleeAttackEffects.readFromNBT(tag, "MeleeAttackEffects");
+        meleeAttackCastSpot.readFromNBT(tag, "MeleeAttack");
     }
 }

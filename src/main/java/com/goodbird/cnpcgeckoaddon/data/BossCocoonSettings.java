@@ -46,6 +46,8 @@ public final class BossCocoonSettings {
     private final BossEffectSet cocoonFailEffects = new BossEffectSet();
     /** Landed once, on a victim the party let out. */
     private final BossEffectSet cocoonFreeEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot cocoonCastSpot = new BossCastSpot();
 
     /** Whether the boss ever locks victims inside cocoons in this phase. */
     public boolean isEnabled() { return cocoonEnabled; }
@@ -126,6 +128,9 @@ public final class BossCocoonSettings {
 
     public BossEffectSet getFreeEffects() { return cocoonFreeEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return cocoonCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("CocoonEnabled", cocoonEnabled);
         tag.putString("CocoonAnimation", cocoonAnimation);
@@ -145,6 +150,7 @@ public final class BossCocoonSettings {
         tag.put("CocoonVictimEffects", cocoonVictimEffects.writeToNBT());
         tag.put("CocoonFailEffects", cocoonFailEffects.writeToNBT());
         tag.put("CocoonFreeEffects", cocoonFreeEffects.writeToNBT());
+        cocoonCastSpot.writeToNBT(tag, "Cocoon");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -169,5 +175,6 @@ public final class BossCocoonSettings {
         cocoonVictimEffects.readFromNBT(tag, "CocoonVictimEffects");
         cocoonFailEffects.readFromNBT(tag, "CocoonFailEffects");
         cocoonFreeEffects.readFromNBT(tag, "CocoonFreeEffects");
+        cocoonCastSpot.readFromNBT(tag, "Cocoon");
     }
 }

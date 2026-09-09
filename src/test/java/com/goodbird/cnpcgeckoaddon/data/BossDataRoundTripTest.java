@@ -4,6 +4,8 @@ import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -61,6 +63,41 @@ class BossDataRoundTripTest {
         reread.readFromNBT(tag);
         assertEquals(BeamLooks.KIND, reread.beam().getLook(),
                 "a look this build does not know should fall back rather than throw");
+    }
+
+    @Test
+    @DisplayName("a boss saved before the cast spots existed casts where it stands")
+    void aSpotWithoutKeysReadsAsUnset() {
+        BossPhaseData saved = new BossPhaseData();
+        saved.beam().castSpot().setMode(BossCastSpot.MODE_TELEPORT);
+        saved.beam().castSpot().setPosition(12, 64, -7);
+        saved.beam().castSpot().setYaw(90.0F);
+        saved.beam().castSpot().setStayMode(BossCastSpot.STAY_TICKS);
+        CompoundTag tag = saved.writeToNBT();
+        for (String key : List.copyOf(tag.getAllKeys())) {
+            if (key.startsWith("BeamSpot")) {
+                tag.remove(key);
+            }
+        }
+
+        BossPhaseData reread = new BossPhaseData();
+        reread.readFromNBT(tag);
+        BossCastSpot spot = reread.beam().castSpot();
+        assertFalse(spot.isSet(), "a tag with no BeamSpot keys should leave the beam cast where it stands");
+        assertEquals(0, spot.getX());
+        assertEquals(0.0F, spot.getYaw());
+        assertEquals(BossCastSpot.STAY_ACTIVE, spot.getStayMode());
+        assertEquals(100, spot.getTravelTimeoutTicks());
+        assertEquals(100, spot.getStayTicks());
+
+        // A spot read from a tag full of bad numbers still lands inside its ranges.
+        tag.putInt("BeamSpotMode", 7);
+        tag.putFloat("BeamSpotYaw", Float.NaN);
+        tag.putInt("BeamSpotTravelTimeoutTicks", -5);
+        reread.readFromNBT(tag);
+        assertEquals(BossCastSpot.MODE_WALK, spot.getMode());
+        assertEquals(0.0F, spot.getYaw(), "a yaw of NaN should read as straight ahead, not as NaN");
+        assertEquals(BossCastSpot.MIN_TRAVEL_TIMEOUT_TICKS, spot.getTravelTimeoutTicks());
     }
 
     @Test

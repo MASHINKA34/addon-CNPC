@@ -29,6 +29,8 @@ public final class BossSummonSettings {
     private int minionPointSearchRadius;
     private boolean minionReuseOccupiedPoints;
     private final BossMinionSpawnList minionSpawnPoints = new BossMinionSpawnList();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot summonCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return summonEnabled; }
 
@@ -99,6 +101,9 @@ public final class BossSummonSettings {
                 || (minionSpawnMode == BossPhaseData.MINION_SPAWN_POINTS_THEN_RANDOM && !minionCloneName.isEmpty());
     }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return summonCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("SummonEnabled", summonEnabled);
         tag.putString("SummonAnimation", summonAnimation);
@@ -114,6 +119,7 @@ public final class BossSummonSettings {
         tag.putInt("MinionPointSearchRadius", minionPointSearchRadius);
         tag.putBoolean("MinionReuseOccupiedPoints", minionReuseOccupiedPoints);
         tag.put("MinionSpawnPoints", minionSpawnPoints.writeToNBT());
+        summonCastSpot.writeToNBT(tag, "Summon");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -133,5 +139,6 @@ public final class BossSummonSettings {
         minionPointSearchRadius = value(tag, "MinionPointSearchRadius", 0, 0, 4);
         minionReuseOccupiedPoints = tag.getBoolean("MinionReuseOccupiedPoints");
         minionSpawnPoints.readFromNBT(tag, "MinionSpawnPoints");
+        summonCastSpot.readFromNBT(tag, "Summon");
     }
 }

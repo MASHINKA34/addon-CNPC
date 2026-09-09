@@ -39,6 +39,8 @@ public final class BossGravitySettings {
     private String gravityVfx = AreaVfxStyles.NONE;
     /** Dosed every second to everyone inside the field, whichever way it is pushing them. */
     private final BossEffectSet gravityEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot gravityCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return gravityEnabled; }
 
@@ -93,6 +95,9 @@ public final class BossGravitySettings {
 
     public BossEffectSet getEffects() { return gravityEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return gravityCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("GravityEnabled", gravityEnabled);
         tag.putString("GravityAnimation", gravityAnimation);
@@ -106,6 +111,7 @@ public final class BossGravitySettings {
         tag.putInt("GravityDamage", gravityDamage);
         tag.putString("GravityVfx", gravityVfx);
         tag.put("GravityEffects", gravityEffects.writeToNBT());
+        gravityCastSpot.writeToNBT(tag, "Gravity");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -121,5 +127,6 @@ public final class BossGravitySettings {
         gravityDamage = value(tag, "GravityDamage", 8, 0, 1000);
         gravityVfx = AreaVfxStyles.normalize(tag.getString("GravityVfx"));
         gravityEffects.readFromNBT(tag, "GravityEffects");
+        gravityCastSpot.readFromNBT(tag, "Gravity");
     }
 }

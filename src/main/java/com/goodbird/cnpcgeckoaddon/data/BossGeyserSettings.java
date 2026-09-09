@@ -36,6 +36,8 @@ public final class BossGeyserSettings {
     private String geyserVfx = AreaVfxStyles.NONE;
     private boolean geyserBlockWave;
     private final BossEffectSet geyserEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot geyserCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return geyserEnabled; }
 
@@ -119,6 +121,9 @@ public final class BossGeyserSettings {
 
     public BossEffectSet getEffects() { return geyserEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return geyserCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("GeyserEnabled", geyserEnabled);
         tag.putString("GeyserAnimation", geyserAnimation);
@@ -138,6 +143,7 @@ public final class BossGeyserSettings {
         tag.putString("GeyserVfx", geyserVfx);
         tag.putBoolean("GeyserBlockWave", geyserBlockWave);
         tag.put("GeyserEffects", geyserEffects.writeToNBT());
+        geyserCastSpot.writeToNBT(tag, "Geyser");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -161,5 +167,6 @@ public final class BossGeyserSettings {
         geyserVfx = AreaVfxStyles.normalize(tag.getString("GeyserVfx"));
         geyserBlockWave = tag.getBoolean("GeyserBlockWave");
         geyserEffects.readFromNBT(tag, "GeyserEffects");
+        geyserCastSpot.readFromNBT(tag, "Geyser");
     }
 }

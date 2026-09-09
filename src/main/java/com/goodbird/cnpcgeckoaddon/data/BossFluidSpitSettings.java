@@ -27,6 +27,8 @@ public final class BossFluidSpitSettings {
     private int fluidSpitMaxRange = 24;
     private int fluidSpitTargetMode = BossTargetMode.MAIN;
     private final BossEffectSet fluidSpitEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot fluidSpitCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return fluidSpitEnabled; }
 
@@ -88,6 +90,9 @@ public final class BossFluidSpitSettings {
 
     public BossEffectSet getEffects() { return fluidSpitEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return fluidSpitCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("FluidSpitEnabled", fluidSpitEnabled);
         tag.putString("FluidSpitAnimation", fluidSpitAnimation);
@@ -101,6 +106,7 @@ public final class BossFluidSpitSettings {
         tag.putInt("FluidSpitMaxRange", fluidSpitMaxRange);
         tag.putInt("FluidSpitTargetMode", fluidSpitTargetMode);
         tag.put("FluidSpitEffects", fluidSpitEffects.writeToNBT());
+        fluidSpitCastSpot.writeToNBT(tag, "FluidSpit");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -119,5 +125,6 @@ public final class BossFluidSpitSettings {
         fluidSpitTargetMode = value(tag, "FluidSpitTargetMode",
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         fluidSpitEffects.readFromNBT(tag, "FluidSpitEffects");
+        fluidSpitCastSpot.readFromNBT(tag, "FluidSpit");
     }
 }

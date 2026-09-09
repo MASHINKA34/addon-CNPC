@@ -34,6 +34,8 @@ public final class BossLineAttackSettings {
     private String lineAttackVfx = AreaVfxStyles.NONE;
     private boolean lineAttackBlockWave;
     private final BossEffectSet lineAttackEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot lineAttackCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return lineAttackEnabled; }
 
@@ -110,6 +112,9 @@ public final class BossLineAttackSettings {
 
     public BossEffectSet getEffects() { return lineAttackEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return lineAttackCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("LineAttackEnabled", lineAttackEnabled);
         tag.putString("LineAttackAnimation", lineAttackAnimation);
@@ -128,6 +133,7 @@ public final class BossLineAttackSettings {
         tag.putString("LineAttackVfx", lineAttackVfx);
         tag.putBoolean("LineAttackBlockWave", lineAttackBlockWave);
         tag.put("LineAttackEffects", lineAttackEffects.writeToNBT());
+        lineAttackCastSpot.writeToNBT(tag, "LineAttack");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -150,5 +156,6 @@ public final class BossLineAttackSettings {
         lineAttackVfx = AreaVfxStyles.normalize(tag.getString("LineAttackVfx"));
         lineAttackBlockWave = tag.getBoolean("LineAttackBlockWave");
         lineAttackEffects.readFromNBT(tag, "LineAttackEffects");
+        lineAttackCastSpot.readFromNBT(tag, "LineAttack");
     }
 }

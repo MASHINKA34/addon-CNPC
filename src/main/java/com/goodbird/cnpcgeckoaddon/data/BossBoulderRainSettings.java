@@ -39,6 +39,8 @@ public final class BossBoulderRainSettings {
     private int boulderRainShatterDamage = 4;
     private String boulderRainVfx = AreaVfxStyles.NONE;
     private final BossEffectSet boulderRainEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot boulderRainCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return boulderRainEnabled; }
 
@@ -129,6 +131,9 @@ public final class BossBoulderRainSettings {
 
     public BossEffectSet getEffects() { return boulderRainEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return boulderRainCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("BoulderRainEnabled", boulderRainEnabled);
         tag.putString("BoulderRainAnimation", boulderRainAnimation);
@@ -148,6 +153,7 @@ public final class BossBoulderRainSettings {
         tag.putInt("BoulderRainShatterDamage", boulderRainShatterDamage);
         tag.putString("BoulderRainVfx", boulderRainVfx);
         tag.put("BoulderRainEffects", boulderRainEffects.writeToNBT());
+        boulderRainCastSpot.writeToNBT(tag, "BoulderRain");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -171,5 +177,6 @@ public final class BossBoulderRainSettings {
         boulderRainShatterDamage = value(tag, "BoulderRainShatterDamage", 4, 0, 1000);
         boulderRainVfx = AreaVfxStyles.normalize(tag.getString("BoulderRainVfx"));
         boulderRainEffects.readFromNBT(tag, "BoulderRainEffects");
+        boulderRainCastSpot.readFromNBT(tag, "BoulderRain");
     }
 }

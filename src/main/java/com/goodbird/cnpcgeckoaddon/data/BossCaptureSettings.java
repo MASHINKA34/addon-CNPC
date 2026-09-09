@@ -32,6 +32,8 @@ public final class BossCaptureSettings {
     private int captureBeamSagPercent;
     private boolean captureAllowLook = true;
     private final BossEffectSet captureEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot captureCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return captureEnabled; }
 
@@ -104,6 +106,9 @@ public final class BossCaptureSettings {
 
     public BossEffectSet getEffects() { return captureEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return captureCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("CaptureEnabled", captureEnabled);
         tag.putString("CaptureAnimation", captureAnimation);
@@ -122,6 +127,7 @@ public final class BossCaptureSettings {
         tag.putInt("CaptureBeamSagPercent", captureBeamSagPercent);
         tag.putBoolean("CaptureAllowLook", captureAllowLook);
         tag.put("CaptureEffects", captureEffects.writeToNBT());
+        captureCastSpot.writeToNBT(tag, "Capture");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -146,5 +152,6 @@ public final class BossCaptureSettings {
         captureBeamSagPercent = value(tag, "CaptureBeamSagPercent", 0, 0, 200);
         captureAllowLook = !tag.contains("CaptureAllowLook") || tag.getBoolean("CaptureAllowLook");
         captureEffects.readFromNBT(tag, "CaptureEffects");
+        captureCastSpot.readFromNBT(tag, "Capture");
     }
 }

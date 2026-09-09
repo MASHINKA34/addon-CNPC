@@ -38,6 +38,8 @@ public final class BossCoverSettings {
     private String coverVfx = AreaVfxStyles.NONE;
     /** Landed on everyone the strike caught out in the open. */
     private final BossEffectSet coverEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot coverCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return coverEnabled; }
 
@@ -104,6 +106,9 @@ public final class BossCoverSettings {
 
     public BossEffectSet getEffects() { return coverEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return coverCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("CoverEnabled", coverEnabled);
         tag.putString("CoverAnimation", coverAnimation);
@@ -119,6 +124,7 @@ public final class BossCoverSettings {
         tag.putInt("CoverShelterMaxRange", coverShelterMaxRange);
         tag.putString("CoverVfx", coverVfx);
         tag.put("CoverEffects", coverEffects.writeToNBT());
+        coverCastSpot.writeToNBT(tag, "Cover");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -137,5 +143,6 @@ public final class BossCoverSettings {
                 value(tag, "CoverShelterMaxRange", 14, 2, 64));
         coverVfx = AreaVfxStyles.normalize(tag.getString("CoverVfx"));
         coverEffects.readFromNBT(tag, "CoverEffects");
+        coverCastSpot.readFromNBT(tag, "Cover");
     }
 }

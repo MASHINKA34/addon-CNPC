@@ -24,6 +24,8 @@ public final class BossRangedAttackSettings {
     private int rangedAttackMaxRange = 24;
     private int rangedAttackTargetMode = BossTargetMode.MAIN;
     private final BossEffectSet rangedAttackEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot rangedAttackCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return rangedAttackEnabled; }
 
@@ -68,6 +70,9 @@ public final class BossRangedAttackSettings {
 
     public BossEffectSet getEffects() { return rangedAttackEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return rangedAttackCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("RangedAttackEnabled", rangedAttackEnabled);
         tag.putString("RangedAttackAnimation", rangedAttackAnimation);
@@ -78,6 +83,7 @@ public final class BossRangedAttackSettings {
         tag.putInt("RangedAttackMaxRange", rangedAttackMaxRange);
         tag.putInt("RangedAttackTargetMode", rangedAttackTargetMode);
         tag.put("RangedAttackEffects", rangedAttackEffects.writeToNBT());
+        rangedAttackCastSpot.writeToNBT(tag, "RangedAttack");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -92,5 +98,6 @@ public final class BossRangedAttackSettings {
         rangedAttackTargetMode = value(tag, "RangedAttackTargetMode",
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         rangedAttackEffects.readFromNBT(tag, "RangedAttackEffects");
+        rangedAttackCastSpot.readFromNBT(tag, "RangedAttack");
     }
 }

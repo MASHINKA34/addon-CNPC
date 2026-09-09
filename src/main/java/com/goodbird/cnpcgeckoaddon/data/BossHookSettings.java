@@ -31,6 +31,8 @@ public final class BossHookSettings {
     private int hookMode = BossPhaseData.HOOK_MODE_PULL;
     private String hookCordStyle = HookCordStyles.PARTICLES;
     private final BossEffectSet hookEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot hookCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return hookEnabled; }
 
@@ -96,6 +98,9 @@ public final class BossHookSettings {
 
     public BossEffectSet getEffects() { return hookEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return hookCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("HookEnabled", hookEnabled);
         tag.putString("HookAnimation", hookAnimation);
@@ -112,6 +117,7 @@ public final class BossHookSettings {
         tag.putInt("HookMode", hookMode);
         tag.putString("HookCordStyle", hookCordStyle);
         tag.put("HookEffects", hookEffects.writeToNBT());
+        hookCastSpot.writeToNBT(tag, "Hook");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -133,5 +139,6 @@ public final class BossHookSettings {
         // An absent key reads as an empty string, which normalizes back to the plain sparks.
         hookCordStyle = HookCordStyles.normalize(tag.getString("HookCordStyle"));
         hookEffects.readFromNBT(tag, "HookEffects");
+        hookCastSpot.readFromNBT(tag, "Hook");
     }
 }

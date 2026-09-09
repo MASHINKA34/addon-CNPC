@@ -40,6 +40,8 @@ public final class BossMarkSettings {
     private final BossEffectSet markEffects = new BossEffectSet();
     /** Gather up: landed instead on everyone inside when there were not enough of them. */
     private final BossEffectSet markFailEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot markCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return markEnabled; }
 
@@ -110,6 +112,9 @@ public final class BossMarkSettings {
 
     public BossEffectSet getFailEffects() { return markFailEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return markCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("MarkEnabled", markEnabled);
         tag.putString("MarkAnimation", markAnimation);
@@ -128,6 +133,7 @@ public final class BossMarkSettings {
         tag.putString("MarkVfx", markVfx);
         tag.put("MarkEffects", markEffects.writeToNBT());
         tag.put("MarkFailEffects", markFailEffects.writeToNBT());
+        markCastSpot.writeToNBT(tag, "Mark");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -149,5 +155,6 @@ public final class BossMarkSettings {
         markVfx = AreaVfxStyles.normalize(tag.getString("MarkVfx"));
         markEffects.readFromNBT(tag, "MarkEffects");
         markFailEffects.readFromNBT(tag, "MarkFailEffects");
+        markCastSpot.readFromNBT(tag, "Mark");
     }
 }

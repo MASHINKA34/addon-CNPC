@@ -46,6 +46,8 @@ public final class BossBeamSettings {
     private String beamLook = BeamLooks.KIND;
     /** Landed with every hit of a beam, on whoever it caught up with. */
     private final BossEffectSet beamEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot beamCastSpot = new BossCastSpot();
 
     /** Whether the boss ever sweeps beams round itself in this phase. */
     public boolean isEnabled() { return beamEnabled; }
@@ -128,6 +130,9 @@ public final class BossBeamSettings {
 
     public BossEffectSet getEffects() { return beamEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return beamCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("BeamEnabled", beamEnabled);
         tag.putString("BeamAnimation", beamAnimation);
@@ -146,6 +151,7 @@ public final class BossBeamSettings {
         tag.putInt("BeamKnockback", beamKnockback);
         tag.putString("BeamLook", beamLook);
         tag.put("BeamEffects", beamEffects.writeToNBT());
+        beamCastSpot.writeToNBT(tag, "Beam");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -169,5 +175,6 @@ public final class BossBeamSettings {
         // A boss saved before the looks existed carries no key, and reads as the dust it always had.
         beamLook = BeamLooks.normalize(tag.getString("BeamLook"));
         beamEffects.readFromNBT(tag, "BeamEffects");
+        beamCastSpot.readFromNBT(tag, "Beam");
     }
 }

@@ -88,6 +88,42 @@ class BossFieldPersistenceTest {
                                 data -> entry.getValue().apply(data.getPhase(1)))));
     }
 
+    /**
+     * The same sweep over the cast spot every ability carries.
+     *
+     * <p>The spot is a final field of its settings class, which the sweep above skips as a
+     * nested object, and it writes its keys under the owning ability's prefix rather than
+     * as a block of its own - so nineteen copies of it can each be silent on their own.
+     * Every one is swept through its owner here, one line per ability.</p>
+     */
+    @TestFactory
+    @DisplayName("every cast spot field reaches the save tag")
+    Stream<DynamicTest> everyCastSpotFieldIsPersisted() {
+        return Stream.<Map.Entry<String, Function<BossPhaseData, BossCastSpot>>>of(
+                        Map.entry("AreaAttack", phase -> phase.areaAttack().castSpot()),
+                        Map.entry("RangedAttack", phase -> phase.rangedAttack().castSpot()),
+                        Map.entry("MeleeAttack", phase -> phase.meleeAttack().castSpot()),
+                        Map.entry("FluidSpit", phase -> phase.fluidSpit().castSpot()),
+                        Map.entry("Hook", phase -> phase.hook().castSpot()),
+                        Map.entry("Capture", phase -> phase.capture().castSpot()),
+                        Map.entry("Leap", phase -> phase.leap().castSpot()),
+                        Map.entry("LineAttack", phase -> phase.lineAttack().castSpot()),
+                        Map.entry("Geyser", phase -> phase.geyser().castSpot()),
+                        Map.entry("Boulder", phase -> phase.boulder().castSpot()),
+                        Map.entry("BoulderRain", phase -> phase.boulderRain().castSpot()),
+                        Map.entry("Tether", phase -> phase.tether().castSpot()),
+                        Map.entry("Gravity", phase -> phase.gravity().castSpot()),
+                        Map.entry("Mark", phase -> phase.mark().castSpot()),
+                        Map.entry("Cover", phase -> phase.cover().castSpot()),
+                        Map.entry("Hunt", phase -> phase.hunt().castSpot()),
+                        Map.entry("Beam", phase -> phase.beam().castSpot()),
+                        Map.entry("Cocoon", phase -> phase.cocoon().castSpot()),
+                        Map.entry("Summon", phase -> phase.summon().castSpot()))
+                .map(entry -> DynamicTest.dynamicTest(entry.getKey() + " cast spot",
+                        () -> assertPersisted(BossCastSpot.class, BossFieldPersistenceTest::configuredHost,
+                                data -> entry.getValue().apply(data.getPhase(1)))));
+    }
+
     @Test
     @DisplayName("every boss-wide field reaches the save tag")
     void everyBossFieldIsPersisted() {

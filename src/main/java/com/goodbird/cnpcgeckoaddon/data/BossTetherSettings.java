@@ -35,6 +35,8 @@ public final class BossTetherSettings {
     private final BossEffectSet tetherEffects = new BossEffectSet();
     /** Landed once, on whoever was still leashed when the time ran out. */
     private final BossEffectSet tetherFailEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot tetherCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return tetherEnabled; }
 
@@ -97,6 +99,9 @@ public final class BossTetherSettings {
 
     public BossEffectSet getFailEffects() { return tetherFailEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return tetherCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("TetherEnabled", tetherEnabled);
         tag.putString("TetherAnimation", tetherAnimation);
@@ -113,6 +118,7 @@ public final class BossTetherSettings {
         tag.putInt("TetherWidthPercent", tetherWidthPercent);
         tag.put("TetherEffects", tetherEffects.writeToNBT());
         tag.put("TetherFailEffects", tetherFailEffects.writeToNBT());
+        tetherCastSpot.writeToNBT(tag, "Tether");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -133,5 +139,6 @@ public final class BossTetherSettings {
         tetherWidthPercent = value(tag, "TetherWidthPercent", 100, 25, 400);
         tetherEffects.readFromNBT(tag, "TetherEffects");
         tetherFailEffects.readFromNBT(tag, "TetherFailEffects");
+        tetherCastSpot.readFromNBT(tag, "Tether");
     }
 }

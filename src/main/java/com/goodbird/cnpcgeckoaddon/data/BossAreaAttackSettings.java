@@ -26,6 +26,8 @@ public final class BossAreaAttackSettings {
     private int areaAttackVfxDurationTicks = 20;
     private boolean areaAttackBlockWave;
     private final BossEffectSet areaAttackEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot areaAttackCastSpot = new BossCastSpot();
 
     public boolean isEnabled() { return areaAttackEnabled; }
 
@@ -69,6 +71,9 @@ public final class BossAreaAttackSettings {
 
     public BossEffectSet getEffects() { return areaAttackEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return areaAttackCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("AreaAttackEnabled", areaAttackEnabled);
         tag.putString("AreaAttackAnimation", areaAttackAnimation);
@@ -81,6 +86,7 @@ public final class BossAreaAttackSettings {
         tag.putInt("AreaAttackVfxDuration", areaAttackVfxDurationTicks);
         tag.putBoolean("AreaAttackBlockWave", areaAttackBlockWave);
         tag.put("AreaAttackEffects", areaAttackEffects.writeToNBT());
+        areaAttackCastSpot.writeToNBT(tag, "AreaAttack");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -95,5 +101,6 @@ public final class BossAreaAttackSettings {
         areaAttackVfxDurationTicks = value(tag, "AreaAttackVfxDuration", 20, 5, 100);
         areaAttackBlockWave = tag.getBoolean("AreaAttackBlockWave");
         areaAttackEffects.readFromNBT(tag, "AreaAttackEffects");
+        areaAttackCastSpot.readFromNBT(tag, "AreaAttack");
     }
 }

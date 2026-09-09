@@ -40,6 +40,8 @@ public final class BossHuntSettings {
     private boolean huntGlow = true;
     /** Landed on the prey each time the hunt catches it. */
     private final BossEffectSet huntEffects = new BossEffectSet();
+    /** Where the boss goes before it casts this, if anywhere. */
+    private final BossCastSpot huntCastSpot = new BossCastSpot();
 
     /** Whether the boss ever singles one victim out and goes after them in this phase. */
     public boolean isEnabled() { return huntEnabled; }
@@ -100,6 +102,9 @@ public final class BossHuntSettings {
 
     public BossEffectSet getEffects() { return huntEffects; }
 
+    /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public BossCastSpot castSpot() { return huntCastSpot; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("HuntEnabled", huntEnabled);
         tag.putString("HuntAnimation", huntAnimation);
@@ -114,6 +119,7 @@ public final class BossHuntSettings {
         tag.putBoolean("HuntSilence", huntSilence);
         tag.putBoolean("HuntGlow", huntGlow);
         tag.put("HuntEffects", huntEffects.writeToNBT());
+        huntCastSpot.writeToNBT(tag, "Hunt");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -133,5 +139,6 @@ public final class BossHuntSettings {
         huntSilence = tag.getBoolean("HuntSilence");
         huntGlow = !tag.contains("HuntGlow") || tag.getBoolean("HuntGlow");
         huntEffects.readFromNBT(tag, "HuntEffects");
+        huntCastSpot.readFromNBT(tag, "Hunt");
     }
 }
