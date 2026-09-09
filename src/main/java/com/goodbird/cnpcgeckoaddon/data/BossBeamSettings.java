@@ -42,6 +42,8 @@ public final class BossBeamSettings {
     private int beamHitIntervalTicks = 10;
     /** Sideways, off the beam's line, rather than away from the boss. */
     private int beamKnockback = 1;
+    /** What the beams are drawn out of. Default keeps the ability's dust the beam started life with. */
+    private String beamLook = BeamLooks.KIND;
     /** Landed with every hit of a beam, on whoever it caught up with. */
     private final BossEffectSet beamEffects = new BossEffectSet();
 
@@ -119,6 +121,11 @@ public final class BossBeamSettings {
 
     public void setKnockback(int value) { beamKnockback = Mth.clamp(value, 0, 10); }
 
+    /** What the beams are drawn out of: only the particles, never the reach or the burn. */
+    public String getLook() { return beamLook; }
+
+    public void setLook(String value) { beamLook = BeamLooks.normalize(value); }
+
     public BossEffectSet getEffects() { return beamEffects; }
 
     void writeToNBT(CompoundTag tag) {
@@ -137,6 +144,7 @@ public final class BossBeamSettings {
         tag.putInt("BeamDamage", beamDamage);
         tag.putInt("BeamHitIntervalTicks", beamHitIntervalTicks);
         tag.putInt("BeamKnockback", beamKnockback);
+        tag.putString("BeamLook", beamLook);
         tag.put("BeamEffects", beamEffects.writeToNBT());
     }
 
@@ -158,6 +166,8 @@ public final class BossBeamSettings {
         beamDamage = value(tag, "BeamDamage", 6, 0, 1000);
         beamHitIntervalTicks = value(tag, "BeamHitIntervalTicks", 10, 1, 100);
         beamKnockback = value(tag, "BeamKnockback", 1, 0, 10);
+        // A boss saved before the looks existed carries no key, and reads as the dust it always had.
+        beamLook = BeamLooks.normalize(tag.getString("BeamLook"));
         beamEffects.readFromNBT(tag, "BeamEffects");
     }
 }

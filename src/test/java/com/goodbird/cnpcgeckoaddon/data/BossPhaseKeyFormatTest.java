@@ -62,6 +62,7 @@ class BossPhaseKeyFormatTest {
             "BeamHitIntervalTicks",
             "BeamKnockback",
             "BeamLength",
+            "BeamLook",
             "BeamStartMode",
             "BeamStopsAtWalls",
             "BeamWidth",

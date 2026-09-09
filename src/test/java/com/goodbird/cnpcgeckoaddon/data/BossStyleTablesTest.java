@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The five artwork tables, held to the one contract they all promise.
+ * The six artwork tables, held to the one contract they all promise.
  *
  * <p>Every style id in a boss save is a plain string that came off a button, out of a tag
  * written by an older build, or out of a pack that has since lost the artwork. Each table
@@ -33,6 +33,8 @@ class BossStyleTablesTest {
     private static final List<Table> TABLES = List.of(
             new Table("AreaVfxStyles", () -> idsOf(AreaVfxStyles.values(), AreaVfxStyles.Style::id),
                     AreaVfxStyles::normalize),
+            new Table("BeamLooks", () -> idsOf(BeamLooks.values(), BeamLooks.Look::id),
+                    BeamLooks::normalize),
             new Table("BossBarStyles", () -> idsOf(BossBarStyles.values(), BossBarStyles.Style::id),
                     BossBarStyles::normalize),
             new Table("BoulderStyles", () -> idsOf(BoulderStyles.values(), BoulderStyles.Style::id),

@@ -45,6 +45,25 @@ class BossDataRoundTripTest {
     }
 
     @Test
+    @DisplayName("a beam saved before the looks existed keeps the ability's dust")
+    void aBeamWithoutALookReadsAsTheAbilityColour() {
+        BossPhaseData saved = new BossPhaseData();
+        saved.beam().setLook(BeamLooks.FIRE);
+        CompoundTag tag = saved.writeToNBT();
+        tag.remove("BeamLook");
+
+        BossPhaseData reread = new BossPhaseData();
+        reread.readFromNBT(tag);
+        assertEquals(BeamLooks.KIND, reread.beam().getLook(),
+                "a tag with no BeamLook key should draw the beam the way it was drawn before");
+
+        tag.putString("BeamLook", "plasma");
+        reread.readFromNBT(tag);
+        assertEquals(BeamLooks.KIND, reread.beam().getLook(),
+                "a look this build does not know should fall back rather than throw");
+    }
+
+    @Test
     @DisplayName("an npc that has never been a boss stores no boss keys")
     void untouchedNpcStoresNoBossBlock() {
         CompoundTag untouched = new TeleportPathData().writeToNBT(new CompoundTag());
@@ -186,6 +205,7 @@ class BossDataRoundTripTest {
         phase.beam().setStartMode(BossPhaseData.BEAM_START_RANDOM);
         phase.beam().setFollowsBoss(false);
         phase.beam().setStopsAtWalls(false);
+        phase.beam().setLook(BeamLooks.SOUL);
         phase.setCastRooted(BossAbilityKind.BEAM, false);
         phase.cocoon().setEnabled(true);
         phase.cocoon().setTargetMode(BossTargetMode.FARTHEST);
