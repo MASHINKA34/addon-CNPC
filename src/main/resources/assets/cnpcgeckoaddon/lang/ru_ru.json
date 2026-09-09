@@ -673,6 +673,8 @@
   "cnpcgeckoaddon.carry.updates_home": "Постановка меняет дом",
   "cnpcgeckoaddon.carry.leash": "Поводок от места подъёма",
   "cnpcgeckoaddon.carry.hint": "Присяд оставляет обычный правый клик диалогу.",
+  "death.attack.cnpcgeckoaddon.thrown_npc": "%1$s расплющило брошенным НПС",
+  "death.attack.cnpcgeckoaddon.thrown_npc.item": "%1$s расплющило брошенным НПС",
   "cnpcgeckoaddon.npc.immunity_open": "Иммунитет к способностям...",
   "cnpcgeckoaddon.npc.immunity_title": "Не действуют",
   "cnpcgeckoaddon.npc.immunity_hint": "Отмеченные способности проходят мимо: ни урона, ни эффектов, ни рывка.",

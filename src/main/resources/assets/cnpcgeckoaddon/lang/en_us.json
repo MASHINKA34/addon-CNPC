@@ -673,6 +673,8 @@
   "cnpcgeckoaddon.carry.updates_home": "Placing sets its home",
   "cnpcgeckoaddon.carry.leash": "Leash from pickup spot",
   "cnpcgeckoaddon.carry.hint": "Sneak-click keeps normal right-click free for dialogue.",
+  "death.attack.cnpcgeckoaddon.thrown_npc": "%1$s was flattened by a thrown npc",
+  "death.attack.cnpcgeckoaddon.thrown_npc.item": "%1$s was flattened by a thrown npc",
   "cnpcgeckoaddon.npc.immunity_open": "Boss immunities...",
   "cnpcgeckoaddon.npc.immunity_title": "Immune to",
   "cnpcgeckoaddon.npc.immunity_hint": "Checked abilities pass this npc by entirely: no damage, no effects, no pull.",
