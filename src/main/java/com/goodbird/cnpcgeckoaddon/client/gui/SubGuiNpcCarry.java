@@ -21,15 +21,27 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
     private static final int INVULNERABLE_BUTTON = 6;
     private static final int UPDATES_HOME_BUTTON = 7;
     private static final int LEASH_FIELD = 8;
+    private static final int THROWABLE_BUTTON = 9;
+    private static final int THROW_SPEED_FIELD = 10;
+    private static final int THROW_DAMAGE_FIELD = 11;
+    private static final int THROW_KNOCKBACK_FIELD = 12;
+    private static final int THROW_SELF_DAMAGE_FIELD = 13;
+    private static final int THROW_BOMB_BUTTON = 14;
+    private static final int THROW_COOLDOWN_FIELD = 15;
+    private static final int THROW_TITLE_LABEL = 31;
 
     private static final int ROW_HEIGHT = 22;
+    /** Where the buttons sit: under two hints of two lines each, in either locale. */
+    private static final int DONE_Y = 396;
 
     private final NpcCarryData data;
 
     public SubGuiNpcCarry(DataAI ai) {
         data = ((INpcCarryData) ai).cnpcgeckoaddon$getNpcCarryData();
         imageWidth = 256;
-        imageHeight = 256;
+        // Fifteen rows and two hints outgrow the panel, so the screen is as tall as it
+        // needs and scrolls.
+        imageHeight = DONE_Y + 28;
         closeOnEsc = true;
     }
 
@@ -66,9 +78,57 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
 
         addNumberField(LEASH_FIELD, "cnpcgeckoaddon.carry.leash", y, data.getLeashRadius(),
                 0, NpcCarryData.MAX_LEASH_RADIUS, 0);
+        y += ROW_HEIGHT;
 
-        addWrappedHint(40, "cnpcgeckoaddon.carry.hint", guiTop + 208);
-        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
+        addLabel(new GuiLabel(THROW_TITLE_LABEL, "cnpcgeckoaddon.carry.throw_title",
+                guiLeft + 8, y + 4, 0xFFFFFF));
+        y += 16;
+
+        addYesNo(THROWABLE_BUTTON, "cnpcgeckoaddon.carry.throw_enabled", y, data.isThrowable());
+        y += ROW_HEIGHT;
+
+        addNumberField(THROW_SPEED_FIELD, "cnpcgeckoaddon.carry.throw_speed", y,
+                data.getThrowSpeed(), NpcCarryData.MIN_THROW_SPEED, NpcCarryData.MAX_THROW_SPEED,
+                NpcCarryData.DEFAULT_THROW_SPEED);
+        y += ROW_HEIGHT;
+
+        addPairRow(THROW_DAMAGE_FIELD, THROW_KNOCKBACK_FIELD, "cnpcgeckoaddon.carry.throw_hit", y,
+                data.getThrowDamage(), 0, NpcCarryData.MAX_THROW_DAMAGE, NpcCarryData.DEFAULT_THROW_DAMAGE,
+                data.getThrowKnockback(), 0, NpcCarryData.MAX_THROW_KNOCKBACK,
+                NpcCarryData.DEFAULT_THROW_KNOCKBACK);
+        y += ROW_HEIGHT;
+
+        addNumberField(THROW_SELF_DAMAGE_FIELD, "cnpcgeckoaddon.carry.throw_self_damage", y,
+                data.getThrowSelfDamage(), 0, NpcCarryData.MAX_THROW_DAMAGE, 0);
+        y += ROW_HEIGHT;
+
+        addYesNo(THROW_BOMB_BUTTON, "cnpcgeckoaddon.carry.throw_bomb", y, data.isThrowDiesOnImpact());
+        y += ROW_HEIGHT;
+
+        addNumberField(THROW_COOLDOWN_FIELD, "cnpcgeckoaddon.carry.throw_cooldown", y,
+                data.getThrowCooldownTicks(), 0, NpcCarryData.MAX_THROW_COOLDOWN_TICKS,
+                NpcCarryData.DEFAULT_THROW_COOLDOWN_TICKS);
+        y += ROW_HEIGHT;
+
+        int hintY = addWrappedHint(40, "cnpcgeckoaddon.carry.hint", y + 6);
+        addWrappedHint(50, "cnpcgeckoaddon.carry.throw_hint", hintY);
+        addDoneButton(guiLeft + 182, guiTop + DONE_Y, 60, 20);
+    }
+
+    /** Two short numbers on one row, for the pair that is read together: damage and shove. */
+    private void addPairRow(int leftId, int rightId, String label, int y,
+                            int leftValue, int leftMin, int leftMax, int leftFallback,
+                            int rightValue, int rightMin, int rightMax, int rightFallback) {
+        addLabel(new GuiLabel(leftId, label, guiLeft + 8, y + 6));
+        addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
+        addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
+    }
+
+    private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
+        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        field.setNumbersOnly();
+        field.setMinMaxDefault(min, max, fallback);
+        addTextField(field);
     }
 
 
@@ -84,6 +144,10 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
             data.setInvulnerable(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == UPDATES_HOME_BUTTON) {
             data.setUpdatesHome(((GuiButtonYesNo) button).getBoolean());
+        } else if (button.id == THROWABLE_BUTTON) {
+            data.setThrowable(((GuiButtonYesNo) button).getBoolean());
+        } else if (button.id == THROW_BOMB_BUTTON) {
+            data.setThrowDiesOnImpact(((GuiButtonYesNo) button).getBoolean());
         }
     }
 
@@ -95,6 +159,11 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
         }
         applyNumberField(SLOWNESS_FIELD, data::setSlownessPercent);
         applyNumberField(LEASH_FIELD, data::setLeashRadius);
+        applyNumberField(THROW_SPEED_FIELD, data::setThrowSpeed);
+        applyNumberField(THROW_DAMAGE_FIELD, data::setThrowDamage);
+        applyNumberField(THROW_KNOCKBACK_FIELD, data::setThrowKnockback);
+        applyNumberField(THROW_SELF_DAMAGE_FIELD, data::setThrowSelfDamage);
+        applyNumberField(THROW_COOLDOWN_FIELD, data::setThrowCooldownTicks);
     }
 
     private void applyItemId(GuiTextFieldNop field) {
