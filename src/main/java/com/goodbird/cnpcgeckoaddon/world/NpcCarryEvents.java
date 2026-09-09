@@ -40,9 +40,10 @@ public final class NpcCarryEvents {
         }
         ServerPlayer player = (ServerPlayer) event.getEntity();
         if (NpcCarryManager.isCarrying(player)) {
-            // Hands are full, so this click puts the npc down whatever it landed on: a held
+            // Hands are full, so this click is about the npc in them whatever it landed on:
+            // a throw at that thing when the npc allows one, otherwise it is put down - a held
             // npc has no hitbox, and the crosshair reaches straight through it.
-            if (NpcCarryManager.placeFromAim(player)) {
+            if (NpcCarryManager.throwFromAim(player) || NpcCarryManager.placeFromAim(player)) {
                 event.setCancellationResult(InteractionResult.SUCCESS);
                 event.setCanceled(true);
             }
@@ -76,9 +77,15 @@ public final class NpcCarryEvents {
         }
     }
 
+    /**
+     * The click that reached no block on the client, with an item in hand: a throw when the
+     * held npc allows one and the server's longer aim finds no block either, otherwise the
+     * placement it always was. The same click with an empty hand never reaches the server on
+     * its own and arrives as {@link com.goodbird.cnpcgeckoaddon.network.PacketNpcCarryThrow}.
+     */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onRightClickItem(final PlayerInteractEvent.RightClickItem event) {
-        if (isPlaceClick(event) && NpcCarryManager.placeFromAim((ServerPlayer) event.getEntity())) {
+        if (isPlaceClick(event) && NpcCarryManager.throwOrPlace((ServerPlayer) event.getEntity())) {
             event.setCancellationResult(InteractionResult.SUCCESS);
             event.setCanceled(true);
         }

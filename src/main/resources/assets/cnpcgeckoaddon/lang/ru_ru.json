@@ -662,6 +662,8 @@
   "cnpcgeckoaddon.carry.busy": "Этого НПС уже несут",
   "cnpcgeckoaddon.carry.returned": "%s возвращён на место, откуда его взяли",
   "cnpcgeckoaddon.carry.too_far": "Он выскользнул из рук",
+  "cnpcgeckoaddon.carry.thrown": "Брошен %s",
+  "cnpcgeckoaddon.carry.throw_wait": "Бросать ещё рано",
   "cnpcgeckoaddon.carry.open": "Переноска...",
   "cnpcgeckoaddon.carry.title": "Переноска",
   "cnpcgeckoaddon.carry.carryable": "Игроки могут носить",

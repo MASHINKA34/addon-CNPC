@@ -164,6 +164,12 @@ public final class NpcDamageInfoManager {
         if (direct != null) {
             text.append("  entity=").append(BuiltInRegistries.ENTITY_TYPE.getKey(direct.getType()));
         }
+        Entity attacker = source.getEntity();
+        if (attacker != null && attacker != direct) {
+            // A hit delivered by something other than its attacker - a bullet, a thrown npc -
+            // names both, or the breakdown could not say who threw what.
+            text.append("  by=").append(attacker.getName().getString());
+        }
         String tags = source.typeHolder().tags()
                 .map(tag -> "#" + tag.location())
                 .collect(Collectors.joining(" "));
