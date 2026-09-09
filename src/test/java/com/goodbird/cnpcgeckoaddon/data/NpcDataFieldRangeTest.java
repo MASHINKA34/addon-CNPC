@@ -70,6 +70,11 @@ class NpcDataFieldRangeTest {
         bounds.put("GeckoKeepDistance", new Bound(0.0D, RangedExtraData.MAX_KEEP_DISTANCE));
         bounds.put("GeckoNpcCarrySlow", new Bound(0.0D, NpcCarryData.MAX_SLOWNESS_PERCENT));
         bounds.put("GeckoNpcCarryLeash", new Bound(0.0D, NpcCarryData.MAX_LEASH_RADIUS));
+        bounds.put("GeckoNpcCarryThrowSpeed", new Bound(NpcCarryData.MIN_THROW_SPEED, NpcCarryData.MAX_THROW_SPEED));
+        bounds.put("GeckoNpcCarryThrowDamage", new Bound(0.0D, NpcCarryData.MAX_THROW_DAMAGE));
+        bounds.put("GeckoNpcCarryThrowKnockback", new Bound(0.0D, NpcCarryData.MAX_THROW_KNOCKBACK));
+        bounds.put("GeckoNpcCarryThrowSelfDamage", new Bound(0.0D, NpcCarryData.MAX_THROW_DAMAGE));
+        bounds.put("GeckoNpcCarryThrowCooldown", new Bound(0.0D, NpcCarryData.MAX_THROW_COOLDOWN_TICKS));
         bounds.put("GeckoSoundReactionRadius", new Bound(1.0D, 16.0D));
         bounds.put("GeckoSoundReactionMemory", new Bound(20.0D, 1200.0D));
         bounds.put("GeckoSoundReactionCooldown", new Bound(0.0D, 200.0D));
