@@ -3,11 +3,14 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
+
+import java.util.function.Supplier;
 
 /**
  * The shapes a boss paints on the arena while it winds an ability up.
@@ -246,11 +249,19 @@ public final class BossTelegraphUtil {
 
     /** A straight run of dust from the boss to whatever it has picked out. */
     public static void line(ServerLevel level, Vec3 from, Vec3 to, DustParticleOptions dust) {
+        line(level, from, to, () -> dust);
+    }
+
+    /**
+     * The same run in whatever each point asks for: a sweeping beam's look picks a particle
+     * point by point, and the run keeps its spacing and its ceiling whichever it picks.
+     */
+    public static void line(ServerLevel level, Vec3 from, Vec3 to, Supplier<ParticleOptions> particle) {
         Vec3 step = to.subtract(from);
         int points = Mth.clamp((int) Math.round(step.length() / EMIT_SPACING), 1, MAX_LINE_POINTS);
         for (int i = 0; i <= points; i++) {
             Vec3 point = from.add(step.scale((double) i / points));
-            level.sendParticles(dust, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            level.sendParticles(particle.get(), point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
         }
     }
 

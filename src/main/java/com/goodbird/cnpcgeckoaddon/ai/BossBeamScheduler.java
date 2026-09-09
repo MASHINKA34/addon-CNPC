@@ -1,17 +1,21 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BeamLooks;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
@@ -63,6 +67,18 @@ public final class BossBeamScheduler {
     private static final double VICTIM_SEARCH_SLACK = 2.0D;
     /** Sparks where a beam meets a wall, so the cut reads as the wall's doing. */
     private static final int WALL_SPARKS = 2;
+    /**
+     * One point in this many carries a look's second particle instead of its first - the
+     * smoke in a fire beam, the wisp in a soul one. Enough to be noticed, too few to thin
+     * the line they sit in.
+     */
+    private static final int ACCENT_ONE_IN = 6;
+    /** Rarer still for the void: its swirl is the odd fleck in a line of rods, not a second colour. */
+    private static final int RARE_ACCENT_ONE_IN = 12;
+    /** The dust under the lightning's sparks, the frost's snow and the toxic beam's slime. */
+    private static final DustParticleOptions LIGHTNING_DUST = BossTelegraphUtil.dustOf(0xFFFFFF);
+    private static final DustParticleOptions FROST_DUST = BossTelegraphUtil.dustOf(0xBFE8FF);
+    private static final DustParticleOptions TOXIC_DUST = BossTelegraphUtil.dustOf(0xAAFF33);
 
     /** One sweep, mid turn. */
     private static final class Sweep {
@@ -83,6 +99,8 @@ public final class BossBeamScheduler {
         private final int knockback;
         private final int hitIntervalTicks;
         private final BossEffectSet effects;
+        /** What the beams are drawn out of, by {@link BeamLooks} id. */
+        private final String look;
         private final long startedAt;
         private final long endsAt;
         /** Where the beams turn round: the boss, tick by tick, or the spot it cast them from. */
@@ -105,6 +123,7 @@ public final class BossBeamScheduler {
             this.knockback = knockback;
             this.hitIntervalTicks = phase.beam().getHitIntervalTicks();
             this.effects = phase.beam().getEffects();
+            this.look = phase.beam().getLook();
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.beam().getDurationTicks();
             this.centre = centreOf(boss);
@@ -188,7 +207,7 @@ public final class BossBeamScheduler {
                     sweep.length, sweep.stopsAtWalls);
         }
         burn(level, sweep, ends, gameTime);
-        paint(level, sweep.centre, ends, sweep.length);
+        paint(level, sweep.centre, ends, sweep.length, sweep.look);
         return true;
     }
 
@@ -333,7 +352,8 @@ public final class BossBeamScheduler {
      *
      * <p>Painted from the boss' centre at the yaw the cast committed to, and cut short by
      * the same walls the sweep will be: a warning that ran through a pillar would promise a
-     * beam the pillar is going to stop.</p>
+     * beam the pillar is going to stop. Always in the ability's colour, whatever look the
+     * beams themselves have: it is a warning, and has to read the same under every boss.</p>
      */
     public static void paintStart(ServerLevel level, EntityNPCInterface boss, float startYaw, int count,
                                   double length, boolean stopsAtWalls) {
@@ -343,29 +363,70 @@ public final class BossBeamScheduler {
             float yaw = (float) (startYaw + i * 360.0D / count);
             ends[i] = reach(level, boss, centre, direction(yaw), length, stopsAtWalls);
         }
-        paint(level, centre, ends, length);
+        paint(level, centre, ends, length, BeamLooks.KIND);
     }
 
     /**
-     * The beams themselves, one run of dust each from the centre to wherever they end.
+     * The beams themselves, one run of the look's particles each from the centre to wherever
+     * they end.
      *
      * <p>At the wind-up mark's own spacing and ceiling, so four beams a tick cost what a
      * corridor's outline does every other one; and only with somebody near enough to see
-     * them, since a beam is drawn on every tick it turns.</p>
+     * them, since a beam is drawn on every tick it turns. A look only says which particle a
+     * point or a wall gets, never how many, so a fire beam costs exactly what a plain one does.</p>
      */
-    private static void paint(ServerLevel level, Vec3 centre, Vec3[] ends, double length) {
+    private static void paint(ServerLevel level, Vec3 centre, Vec3[] ends, double length, String look) {
         if (level.getNearestPlayer(centre.x, centre.y, centre.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
-        DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.BEAM);
+        RandomSource random = level.getRandom();
         double fullSquared = length * length - 1.0E-3D;
         for (Vec3 end : ends) {
-            BossTelegraphUtil.line(level, centre, end, dust);
+            BossTelegraphUtil.line(level, centre, end, () -> pointParticle(look, random));
             // A beam cut short is burning into whatever cut it.
             if (end.distanceToSqr(centre) < fullSquared) {
-                level.sendParticles(ParticleTypes.CRIT, end.x, end.y, end.z, WALL_SPARKS,
+                level.sendParticles(wallParticle(look), end.x, end.y, end.z, WALL_SPARKS,
                         0.1D, 0.1D, 0.1D, 0.05D);
             }
         }
+    }
+
+    /**
+     * What one point of a beam of this look is drawn with.
+     *
+     * <p>A look is a main particle with a second one scattered through it, or a short-lived
+     * one and a dust of its colour half and half: a spark or a snowflake is gone in a few
+     * ticks, and it is the dust between them that keeps the line readable from twenty blocks.</p>
+     */
+    private static ParticleOptions pointParticle(String look, RandomSource random) {
+        return switch (look) {
+            case BeamLooks.FIRE -> accent(random) ? ParticleTypes.SMOKE : ParticleTypes.FLAME;
+            case BeamLooks.SOUL -> accent(random) ? ParticleTypes.SOUL : ParticleTypes.SOUL_FIRE_FLAME;
+            case BeamLooks.VOID -> random.nextInt(RARE_ACCENT_ONE_IN) == 0 ? ParticleTypes.PORTAL : ParticleTypes.END_ROD;
+            case BeamLooks.LIGHTNING -> random.nextBoolean() ? ParticleTypes.ELECTRIC_SPARK : LIGHTNING_DUST;
+            case BeamLooks.FROST -> random.nextBoolean() ? ParticleTypes.SNOWFLAKE : FROST_DUST;
+            case BeamLooks.SCULK -> accent(random) ? ParticleTypes.SCULK_CHARGE_POP : ParticleTypes.SCULK_SOUL;
+            case BeamLooks.TOXIC -> accent(random) ? ParticleTypes.ITEM_SLIME : TOXIC_DUST;
+            // BeamLooks.KIND: the ability's own dust, the way the beam has always been drawn.
+            default -> BossTelegraphUtil.dust(BossAbilityKind.BEAM);
+        };
+    }
+
+    private static boolean accent(RandomSource random) {
+        return random.nextInt(ACCENT_ONE_IN) == 0;
+    }
+
+    /** What a beam of this look throws where a wall cuts it. */
+    private static SimpleParticleType wallParticle(String look) {
+        return switch (look) {
+            case BeamLooks.FIRE -> ParticleTypes.LAVA;
+            case BeamLooks.SOUL -> ParticleTypes.SOUL;
+            case BeamLooks.VOID -> ParticleTypes.REVERSE_PORTAL;
+            case BeamLooks.FROST -> ParticleTypes.ITEM_SNOWBALL;
+            case BeamLooks.SCULK -> ParticleTypes.SCULK_CHARGE_POP;
+            case BeamLooks.TOXIC -> ParticleTypes.ITEM_SLIME;
+            // The ability colour and the lightning both strike plain sparks off the wall.
+            default -> ParticleTypes.CRIT;
+        };
     }
 }
