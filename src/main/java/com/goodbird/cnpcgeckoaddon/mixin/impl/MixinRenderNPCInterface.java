@@ -81,7 +81,16 @@ public abstract class MixinRenderNPCInterface <T extends EntityNPCInterface, M e
         }
         EntityRenderDispatcher dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
         boolean shadow = ((EntityRenderDispatcherAccessor) dispatcher).cnpcgeckoaddon$shouldRenderShadow();
-        float[] color = RenderSystem.getShaderColor().clone();
+        // Read out component by component rather than cloned. An array's clone() compiles to
+        // INVOKEVIRTUAL on the owner "[F", and Mixin looks every method owner up as a class
+        // while copying this method into RenderNPCInterface: "[F" is not one, the lookup
+        // returns null and the NPE that follows fails the whole apply, which takes CustomNPCs'
+        // registration - and with it the game's startup - down with it.
+        float[] shaderColor = RenderSystem.getShaderColor();
+        float red = shaderColor[0];
+        float green = shaderColor[1];
+        float blue = shaderColor[2];
+        float alpha = shaderColor[3];
         boolean depthMask = !translucent || GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
         boolean blend = translucent && GL11.glIsEnabled(GL11.GL_BLEND);
         int srcRgb = translucent ? GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB) : 0;
@@ -100,7 +109,7 @@ public abstract class MixinRenderNPCInterface <T extends EntityNPCInterface, M e
                     partialTicks, matrixStack, buffer, packedLight));
         } finally {
             dispatcher.setRenderShadow(shadow);
-            RenderSystem.setShaderColor(color[0], color[1], color[2], color[3]);
+            RenderSystem.setShaderColor(red, green, blue, alpha);
             if (translucent) {
                 RenderSystem.depthMask(depthMask);
                 RenderSystem.blendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
