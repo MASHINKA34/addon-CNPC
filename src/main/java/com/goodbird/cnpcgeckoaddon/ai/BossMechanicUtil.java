@@ -25,7 +25,25 @@ public final class BossMechanicUtil {
         // A boss stunned by its broken barrier is held the same way.
         TeleportPathController controller = npc instanceof IBossController holder
                 ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
-        return controller != null && (controller.isTotemHeld() || controller.isBarrierStunned());
+        // And one holding the cast spot it went to: the hold is the point of the spot.
+        return controller != null && (controller.isTotemHeld() || controller.isBarrierStunned()
+                || controller.isCastSpotHeld());
+    }
+
+    /**
+     * Whether the boss is on its way to a cast spot.
+     *
+     * <p>The one time its own chase has to let go of the navigation: the walk to the spot
+     * and the walk after the target cannot both own the path, and the spot is what the boss
+     * set off for. The pounce stands aside for the same reason.</p>
+     */
+    public static boolean isBoundForCastSpot(EntityNPCInterface npc) {
+        if (!replacesVanillaAttacks(npc)) {
+            return false;
+        }
+        TeleportPathController controller = npc instanceof IBossController holder
+                ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
+        return controller != null && controller.isBoundForCastSpot();
     }
 
     /**

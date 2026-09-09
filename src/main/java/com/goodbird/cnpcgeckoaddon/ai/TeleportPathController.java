@@ -300,6 +300,8 @@ public final class TeleportPathController {
     /** Whether the boss may call for help right now, and the wave it calls. */
     private final BossSummonRuntime summonRuntime;
     private final BossTelegraphRuntime telegraphs;
+    /** Where each ability sends the boss before it casts: the journey there, and the hold after. */
+    private final BossCastSpotRuntime castSpots;
 
     /**
      * Which way the action being wound up is going to go, unit length and flat, or null for
@@ -379,6 +381,7 @@ public final class TeleportPathController {
         this.meleeAttack = new BossMeleeAttackRuntime(this, npc);
         this.summonRuntime = new BossSummonRuntime(this, npc);
         this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, minionSpawns);
+        this.castSpots = new BossCastSpotRuntime(this, npc, hook, leap, huntRuntime);
         INSTANCES.add(this);
     }
 
@@ -457,12 +460,15 @@ public final class TeleportPathController {
             return;
         }
         tickCastRoot(gameTime);
+        castSpots.tickHold(gameTime, pendingAction);
         // Held and rooted are read in this order, not merged: the root has to keep its own
         // deadline so the last totem falling mid wind-up cannot cut the swing short, and the
         // hold has to outlive that deadline so the end of a cast cannot set the boss loose.
         // A boss stunned by its broken barrier is pinned the way a held one is, and for as
-        // long: the pin is the stun.
-        if ((data.isStationary() || totems.isHolding() || isBarrierStunned()) && !leap.isAirborne()) {
+        // long: the pin is the stun. And a boss holding the cast spot it went to is pinned
+        // the same way, for as long as the spot's stay rule keeps it there.
+        if ((data.isStationary() || totems.isHolding() || isBarrierStunned() || castSpots.isHolding())
+                && !leap.isAirborne()) {
             keepStationary();
         } else if (castRootActive) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
@@ -504,6 +510,11 @@ public final class TeleportPathController {
         if (gameTime < busyUntil) {
             return;
         }
+        // On its way to a cast spot the boss starts nothing else: the journey is the first
+        // stage of the cast it set off for, and ends in that cast or in nothing.
+        if (castSpots.tickTravel(level, data, phase, gameTime)) {
+            return;
+        }
         if (pendingAction != BossAbility.NONE) {
             if (pendingWarningEndsAt != NOT_SCHEDULED && gameTime >= pendingWarningEndsAt
                     && !endTelegraphWarning(level, data, phase, gameTime)) {
@@ -511,6 +522,7 @@ public final class TeleportPathController {
             }
             if (gameTime >= pendingActionAt) {
                 executePendingAction(level, data, phase, gameTime);
+                castSpots.onActionPerformed(pendingAction, gameTime);
                 // The cooldown was counted from before the warning was put in front of the
                 // wind-up. Handing those ticks back keeps a warned ability on exactly the
                 // rhythm it had without one.
@@ -529,8 +541,10 @@ public final class TeleportPathController {
         // A held boss is barred from the path as well as from walking it: leaving the spot the
         // totems pin it to is exactly what the hold is there to stop, however it is done. A
         // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
-        // And a stun: a boss that cannot walk cannot blink out of the window either.
-        if (points.size() >= 2 && gameTime >= abilityScheduleAt(BossAbility.TELEPORT) && !totems.isHolding() && !huntRuntime.isSilenced()
+        // And a stun: a boss that cannot walk cannot blink out of the window either. And a
+        // cast spot it is holding: leaving the spot is exactly what the hold is there to stop.
+        if (points.size() >= 2 && gameTime >= abilityScheduleAt(BossAbility.TELEPORT) && !totems.isHolding()
+                && !castSpots.isHolding() && !huntRuntime.isSilenced()
                 && !isBarrierStunned() && (!isInvulnerable() || phase.invulnerable().isAllowTeleport())) {
             setAbilityScheduleAt(BossAbility.TELEPORT, NOT_SCHEDULED);
             beginAction(BossAbility.TELEPORT, phase.teleport().getPreparationAnimation(),
@@ -1124,6 +1138,21 @@ public final class TeleportPathController {
         return totems.isHolding();
     }
 
+    /** True while the boss is held on the cast spot it went to, winding up or staying. */
+    public boolean isCastSpotHeld() {
+        return castSpots.isHolding();
+    }
+
+    /** True while the boss is walking to a cast spot, which is when its own chase stands aside. */
+    public boolean isBoundForCastSpot() {
+        return castSpots.isTravelling();
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    public String castSpotStatus(long gameTime) {
+        return castSpots.status(gameTime);
+    }
+
     /** True while a standing formation keeps the boss from starting anything of its own. */
     public boolean isTotemSilenced() {
         return totems.isSilencing();
@@ -1417,9 +1446,19 @@ public final class TeleportPathController {
         outsideHomeLeashSince = NOT_SCHEDULED;
     }
 
-    /** The removed vanilla damage must not also remove the boss' visual tracking of its target. */
-    private void faceCombatTarget(TeleportPathData data) {
+    /**
+     * The removed vanilla damage must not also remove the boss' visual tracking of its target.
+     *
+     * <p>A committed corridor comes first, then a cast spot's fixed yaw, then the target: the
+     * corridor is a promise already drawn on the floor, and the spot's yaw is what the
+     * builder asked for on that spot. Also asked by the spot itself on arrival, so an
+     * ability aimed along the gaze reads the turn before it aims.</p>
+     */
+    void faceCombatTarget(TeleportPathData data) {
         if (faceCommittedAxis(data)) {
+            return;
+        }
+        if (castSpots.faceFixedYaw()) {
             return;
         }
         LivingEntity target = npc.getTarget();
@@ -1524,7 +1563,7 @@ public final class TeleportPathController {
         // cooldowns keep running down underneath, so a boss whose last totem falls after two
         // hours of silence swings on the very tick it comes loose. A stunned boss is quiet
         // the same way, and its wind-up was already dropped when the stun landed.
-        if (totems.isSilencing() || huntRuntime.isSilenced() || isBarrierStunned()) {
+        if (abilitiesSilenced()) {
             return false;
         }
         if (isInvulnerable()) {
@@ -1536,12 +1575,34 @@ public final class TeleportPathController {
         for (int offset = 0; offset < count; offset++) {
             int index = (nextAbilityPriority + offset) % count;
             BossAbility ability = BossAbility.ROTATION.get(index);
-            if (ABILITY_STARTERS.get(ability).start(this, level, data, phase, gameTime)) {
+            // The two that would carry the boss off a spot it is holding wait for the hold to end.
+            if (castSpots.blocks(ability)) {
+                continue;
+            }
+            // The spot is asked before the starter: an ability with one is taken there first
+            // and started on arrival, so a start from here is one the spot had no say in.
+            if (castSpots.tryTravel(level, data, phase, ability, gameTime)
+                    || startAbility(ability, level, data, phase, gameTime)) {
                 nextAbilityPriority = (index + 1) % count;
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Whether the boss is kept from starting anything of its own right now: silenced by its
+     * totems, running a silent hunt, or staggered by its broken barrier. Read by the rotation
+     * and by a journey to a cast spot, which is a start that happens a few ticks late.
+     */
+    boolean abilitiesSilenced() {
+        return totems.isSilencing() || huntRuntime.isSilenced() || isBarrierStunned();
+    }
+
+    /** Runs one ability's starter, which winds it up when it can and says no when it cannot. */
+    boolean startAbility(BossAbility ability, ServerLevel level, TeleportPathData data,
+                         BossPhaseData phase, long gameTime) {
+        return ABILITY_STARTERS.get(ability).start(this, level, data, phase, gameTime);
     }
 
     /** Where the boss is looking, flattened onto the plane the corridor is worked out in. */
@@ -1642,6 +1703,8 @@ public final class TeleportPathController {
      * way every cancel leaves it.
      */
     void interruptForBarrierStun(long windowEndsAt) {
+        // A boss that cannot walk is not on its way anywhere; the hold, if any, stays with the pin.
+        castSpots.abortTravel();
         if (pendingAction == BossAbility.NONE) {
             return;
         }
@@ -1684,6 +1747,7 @@ public final class TeleportPathController {
             if (npc.level() instanceof ServerLevel level) {
                 executePendingAction(level, data, phase, gameTime);
             }
+            castSpots.onActionPerformed(action, gameTime);
             clearPendingAction();
             busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
             holdCastRootThroughLock(gameTime);
@@ -2016,6 +2080,9 @@ public final class TeleportPathController {
         // on through its after-pause.
         endCastRoot();
         clearPendingAction();
+        // The journey to a cast spot and the hold on one go the way the root does: a boss
+        // that changed phase, lost its target or died owes nobody the spot it was headed for.
+        castSpots.clear();
         // Every clock at once, the teleport's included: a boss that lost its target owes
         // nobody the attack it was halfway to. One line rather than twenty, so an ability
         // added later cannot be the one left running after the fight ended.
@@ -2034,6 +2101,7 @@ public final class TeleportPathController {
         outOfCombatSince = NOT_SCHEDULED;
         encounterResetDone = false;
         path.clear();
+        castSpots.forgetReports();
         nextAbilityPriority = 0;
         targeting.reset();
         totems.clearRuntime();

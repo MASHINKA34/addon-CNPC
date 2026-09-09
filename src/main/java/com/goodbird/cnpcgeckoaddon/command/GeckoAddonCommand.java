@@ -123,6 +123,8 @@ public class GeckoAddonCommand {
                         : controller.beamStatus(level.getGameTime());
                 String cocoonLine = controller == null ? "Cocoon: ready"
                         : controller.cocoonStatus(level.getGameTime());
+                String castSpotLine = controller == null ? "Cast spot: free"
+                        : controller.castSpotStatus(level.getGameTime());
                 String leashLine = controller == null
                         ? (data.isHomeLeashEnabled() ? "Home leash: awaiting controller" : "Home leash: off")
                         : controller.homeLeashStatus(level.getGameTime(), data);
@@ -139,6 +141,7 @@ public class GeckoAddonCommand {
                 source.sendSuccess(() -> Component.literal(barrierLine), false);
                 source.sendSuccess(() -> Component.literal(beamLine), false);
                 source.sendSuccess(() -> Component.literal(cocoonLine), false);
+                source.sendSuccess(() -> Component.literal(castSpotLine), false);
                 source.sendSuccess(() -> Component.literal(leashLine), false);
                 source.sendSuccess(() -> Component.literal(partyHealthLine), false);
             }

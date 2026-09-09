@@ -17,6 +17,8 @@ public abstract class MixinEntityAIPounceTarget {
 
     @Inject(method = {"canUse", "canContinueToUse"}, at = @At("HEAD"), cancellable = true)
     private void cnpcgeckoaddon$disableBossPounce(CallbackInfoReturnable<Boolean> cir) {
-        if (BossMechanicUtil.keepsStationary(npc)) cir.setReturnValue(false);
+        if (BossMechanicUtil.keepsStationary(npc) || BossMechanicUtil.isBoundForCastSpot(npc)) {
+            cir.setReturnValue(false);
+        }
     }
 }

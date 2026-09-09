@@ -1,18 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
-import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
-import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.level.gameevent.GameEvent;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -29,8 +21,6 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULE
  * the path mid fight.</p>
  */
 final class BossPathRuntime {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -111,61 +101,15 @@ final class BossPathRuntime {
             int[] point = points.get(candidate);
             if (point == null || point.length < 3) continue;
 
-            Vec3 destination = findSafeDestination(level, point);
+            Vec3 destination = BossTeleportUtil.findSafeDestination(level, npc,
+                    point[0] + 0.5D, point[1], point[2] + 0.5D);
             if (destination == null) continue;
-            double x = destination.x;
-            double y = destination.y;
-            double z = destination.z;
-            try {
-                if (data.shouldPlaySound()) {
-                    level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ENDERMAN_TELEPORT,
-                            SoundSource.HOSTILE, 1.0F, 1.0F);
-                }
-                npc.teleportTo(x, y, z);
-                npc.fallDistance = 0.0F;
-                npc.setDeltaMovement(Vec3.ZERO);
-                npc.getNavigation().stop();
-                // The npc is standing on the destination now, so the pin is taken from it
-                // rather than set by hand - one place decides what "where the boss is" means.
-                boss.rememberCurrentPosition();
-                npc.gameEvent(GameEvent.TELEPORT);
-                if (data.shouldPlaySound()) {
-                    level.playSound(null, x, y, z, SoundEvents.ENDERMAN_TELEPORT,
-                            SoundSource.HOSTILE, 1.0F, 1.0F);
-                }
-                return true;
-            } catch (Throwable error) {
-                // CustomNPCs is free to veto or break a teleport from a script hook. The
-                // boss stays where it is and tries again on its next window, but somebody
-                // debugging a boss that never moves deserves to find this in the log.
-                LOGGER.warn("Boss {} could not teleport to path point {}: {}",
-                        npc.getName().getString(), candidate, error.getMessage());
-                boss.rememberCurrentPosition();
-                return false;
-            }
+            // A hop a script vetoed leaves the boss where it is until its next window rather
+            // than trying the rest of the path on the same tick.
+            return BossTeleportUtil.teleport(level, npc, boss, destination, data.shouldPlaySound(),
+                    "path point " + candidate);
         }
         return false;
-    }
-
-    /**
-     * The CustomNPCs pather stores the block that was clicked. For a normal floor click that block
-     * is one block below the NPC's feet, while the initial path point already stores feet Y. Try the
-     * exact coordinate first for compatibility, then transparently lift floor-clicked points by one.
-     */
-    private Vec3 findSafeDestination(ServerLevel level, int[] point) {
-        double x = point[0] + 0.5D;
-        double z = point[2] + 0.5D;
-        for (int yOffset = 0; yOffset <= 1; yOffset++) {
-            double y = point[1] + yOffset;
-            BlockPos blockPos = BlockPos.containing(x, y, z);
-            AABB destinationBox = npc.getBoundingBox().move(x - npc.getX(), y - npc.getY(), z - npc.getZ());
-            if (level.hasChunkAt(blockPos)
-                    && level.getWorldBorder().isWithinBounds(blockPos)
-                    && level.noCollision(npc, destinationBox)) {
-                return new Vec3(x, y, z);
-            }
-        }
-        return null;
     }
 
     private int nextIndex(int size, int order) {

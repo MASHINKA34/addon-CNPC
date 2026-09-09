@@ -155,6 +155,11 @@ public final class BossMarkScheduler {
         return !PENDING.isEmpty();
     }
 
+    /** Whether this boss still has a mark burning on the way; what a cast spot's stay rule waits on. */
+    public static boolean hasPending(EntityNPCInterface boss) {
+        return !PENDING.isEmpty() && PENDING.find(pending -> pending.boss == boss) != null;
+    }
+
     public static void tick(ServerLevel level) {
         long gameTime = level.getGameTime();
         PENDING.sweep(pending -> pending.dimension.equals(level.dimension()),

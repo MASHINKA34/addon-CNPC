@@ -155,6 +155,11 @@ public final class BossBoulderRainScheduler {
         return !PENDING.isEmpty();
     }
 
+    /** Whether this boss still has stones falling on the way; what a cast spot's stay rule waits on. */
+    public static boolean hasPending(EntityNPCInterface boss) {
+        return !PENDING.isEmpty() && PENDING.find(pending -> pending.boss == boss) != null;
+    }
+
     public static void tick(ServerLevel level) {
         long gameTime = level.getGameTime();
         // A stone whose turn in the interval has not come round yet is deliberately not

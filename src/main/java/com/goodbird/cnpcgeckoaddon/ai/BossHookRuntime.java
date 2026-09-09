@@ -51,6 +51,11 @@ final class BossHookRuntime {
         this.npc = npc;
     }
 
+    /** Whether a cord is still dragging somebody: the throw is over, the pull is not. */
+    boolean isPulling() {
+        return !activePulls.isEmpty();
+    }
+
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!phase.hook().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.HOOK)) {
             return false;
