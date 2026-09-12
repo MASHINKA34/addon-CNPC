@@ -104,7 +104,9 @@ public class GeckoAddonCommand {
                     case TeleportPathData.TOTEM_RESPAWN_DELAYED -> "delayed";
                     default -> "next encounter";
                 };
-                String bossLine = describe(npc, "boss status");
+                String encounter = controller != null && controller.isEncounterRunning()
+                        ? "encounter running" : "no encounter";
+                String bossLine = describe(npc, "boss status, " + encounter + aggroZoneFlags(data));
                 String totemLine = "Totems: " + alive + "/" + configured + ", protection="
                         + protection + (protectedNow ? " (active)" : " (inactive)")
                         + ", hold=" + hold + ", silence=" + silence + ", hidden=" + hidden
@@ -154,6 +156,24 @@ public class GeckoAddonCommand {
                     "... and " + hidden + " more loaded bosses not listed"), false);
         }
         return found;
+    }
+
+    /**
+     * The zone flags that decide who can start and hurt the fight, named only when set, and
+     * marked when the zone they need is off - so an arrow that did nothing has its answer here.
+     */
+    private static String aggroZoneFlags(TeleportPathData data) {
+        List<String> flags = new ArrayList<>();
+        if (data.isAggroZoneExclusive()) {
+            flags.add("exclusive");
+        }
+        if (data.isAggroZoneBlocksOutsideDamage()) {
+            flags.add("blocks outside");
+        }
+        if (flags.isEmpty()) {
+            return "";
+        }
+        return ", zone: " + String.join(" / ", flags) + (data.isAggroZoneEnabled() ? "" : " (zone off, ignored)");
     }
 
     private static int check(CommandSourceStack source, boolean fix) {

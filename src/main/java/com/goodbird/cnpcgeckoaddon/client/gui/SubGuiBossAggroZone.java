@@ -26,18 +26,28 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
     private static final int Z2_FIELD = 11;
     private static final int CORNER2_HERE_BUTTON = 12;
     private static final int SHOW_BUTTON = 13;
+    private static final int EXCLUSIVE_BUTTON = 14;
+    private static final int BLOCK_OUTSIDE_BUTTON = 15;
+    /** Where the hints start, under the show button. */
+    private static final int HINTS_Y = 255;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int BOTTOM_MARGIN = 6;
+    private static final String HINT = "cnpcgeckoaddon.boss.aggro_zone_hint";
+    private static final String EXCLUSIVE_HINT = "cnpcgeckoaddon.boss.aggro_zone_exclusive_hint";
 
     private final TeleportPathData data;
 
     public SubGuiBossAggroZone(TeleportPathData data) {
         this.data = data;
         imageWidth = 256;
-        imageHeight = 256;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Settled before super.init() centres the panel on it: how many lines the hints wrap
+        // to is up to the locale.
+        imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
         addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.aggro_zone_title",
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
@@ -58,21 +68,31 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         addTextField(interval);
         addYesNo(KEEP_BUTTON, "cnpcgeckoaddon.boss.aggro_zone_keep", guiTop + 88,
                 data.isAggroZoneKeepInside());
+        addYesNo(EXCLUSIVE_BUTTON, "cnpcgeckoaddon.boss.aggro_zone_exclusive", guiTop + 110,
+                data.isAggroZoneExclusive());
+        addYesNo(BLOCK_OUTSIDE_BUTTON, "cnpcgeckoaddon.boss.aggro_zone_block_outside", guiTop + 132,
+                data.isAggroZoneBlocksOutsideDamage());
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.aggro_zone_corner1",
-                guiLeft + 8, guiTop + 113));
-        addCornerFields(X1_FIELD, Y1_FIELD, Z1_FIELD, CORNER1_HERE_BUTTON, guiTop + 123,
+                guiLeft + 8, guiTop + 157));
+        addCornerFields(X1_FIELD, Y1_FIELD, Z1_FIELD, CORNER1_HERE_BUTTON, guiTop + 167,
                 data.getAggroZoneX1(), data.getAggroZoneY1(), data.getAggroZoneZ1());
         addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.aggro_zone_corner2",
-                guiLeft + 8, guiTop + 149));
-        addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, guiTop + 159,
+                guiLeft + 8, guiTop + 193));
+        addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, guiTop + 203,
                 data.getAggroZoneX2(), data.getAggroZoneY2(), data.getAggroZoneZ2());
 
-        addButton(new GuiButtonNop(this, SHOW_BUTTON, guiLeft + 8, guiTop + 185, 234, 20,
+        addButton(new GuiButtonNop(this, SHOW_BUTTON, guiLeft + 8, guiTop + 229, 234, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_show"));
-        addLabel(new GuiLabel(33, "cnpcgeckoaddon.boss.aggro_zone_hint",
-                guiLeft + 8, guiTop + 211, 0xA0A0A0));
-        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
+        // Wrapped, both: a single label never wraps, and the second hint is wider than the panel.
+        int hintY = addWrappedHint(33, HINT, guiTop + HINTS_Y);
+        addWrappedHint(40, EXCLUSIVE_HINT, hintY);
+        addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, BUTTON_HEIGHT);
+    }
+
+    /** Where the done button goes, from the panel's top: just under both hints. */
+    private int doneButtonY() {
+        return HINTS_Y + wrappedHintHeight(HINT) + wrappedHintHeight(EXCLUSIVE_HINT) + 4;
     }
 
 
@@ -94,6 +114,10 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
             data.setAggroZoneTargetMode(button.getValue());
         } else if (button.id == KEEP_BUTTON) {
             data.setAggroZoneKeepInside(((GuiButtonYesNo) button).getBoolean());
+        } else if (button.id == EXCLUSIVE_BUTTON) {
+            data.setAggroZoneExclusive(((GuiButtonYesNo) button).getBoolean());
+        } else if (button.id == BLOCK_OUTSIDE_BUTTON) {
+            data.setAggroZoneBlocksOutsideDamage(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == CORNER1_HERE_BUTTON) {
             takePlayerPosition(true);
         } else if (button.id == CORNER2_HERE_BUTTON) {
