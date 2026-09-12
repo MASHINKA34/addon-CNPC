@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
+import com.goodbird.cnpcgeckoaddon.ai.BossMinionUtil;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -16,8 +17,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** One potion effect a boss attack hangs on whoever it hits. */
+/**
+ * One effect a boss attack hangs on whoever it hits: a potion by its registry id, or
+ * {@link #FIRE_ID}, which sets the victim alight instead.
+ */
 public final class BossEffectData {
+    /**
+     * Not a potion: a slot holding this id sets the victim on fire for its duration.
+     *
+     * <p>An id in the existing slot rather than a setting of its own, so fire rides along on
+     * every effect set an ability already carries - projectiles and cocoons included - with no
+     * new key in the save.</p>
+     */
+    public static final String FIRE_ID = "cnpcgeckoaddon:fire";
+
     private boolean enabled;
     private String effectId = "minecraft:poison";
     private int durationTicks = 100;
@@ -44,7 +57,8 @@ public final class BossEffectData {
     }
 
     /**
-     * Applies the effect if it is switched on and its id still resolves.
+     * Applies the effect if it is switched on and its id still resolves, or lights the fire
+     * when the id is {@link #FIRE_ID} - asked first, since no registry knows that one.
      *
      * <p>Unknown ids are ignored rather than reported: a modpack can lose the mod an effect
      * came from, and a boss that spams the log every swing for it would be worse than one
@@ -52,6 +66,10 @@ public final class BossEffectData {
      */
     public void apply(LivingEntity victim, Entity source) {
         if (!enabled || victim == null) {
+            return;
+        }
+        if (isFire(effectId)) {
+            ignite(victim, source);
             return;
         }
         Holder<MobEffect> effect = resolve(effectId);
@@ -62,8 +80,30 @@ public final class BossEffectData {
                 false, showParticles, showParticles), source);
     }
 
+    /**
+     * Sets the victim alight the way lava does.
+     *
+     * <p>{@code igniteForTicks} only ever lengthens a fire and scales by the victim's burning
+     * time, and fire immunity, fire resistance and water keep their vanilla say over the burn.
+     * The particles switch is left out: the flames are the effect.</p>
+     */
+    private void ignite(LivingEntity victim, Entity source) {
+        // The capture's boss half hands its slots to the boss itself, and a stray shot can
+        // land on a summon; a boss lighting its own side is never what the slot meant.
+        if (victim == source || source != null && BossMinionUtil.isMinionOf(victim, source)) {
+            return;
+        }
+        victim.igniteForTicks(durationTicks);
+    }
+
+    /** Whether this id names the fire rather than a potion. */
+    public static boolean isFire(String id) {
+        return id != null && FIRE_ID.equals(id.trim());
+    }
+
+    /** The potion behind an id, or null - always for {@link #FIRE_ID}, which is not a MobEffect. */
     public static Holder<MobEffect> resolve(String id) {
-        if (id == null || id.isEmpty()) {
+        if (id == null || id.isEmpty() || isFire(id)) {
             return null;
         }
         ResourceLocation location = ResourceLocation.tryParse(id.trim());
@@ -77,16 +117,17 @@ public final class BossEffectData {
     }
 
     public static boolean isKnownEffect(String id) {
-        return resolve(id) != null;
+        return isFire(id) || resolve(id) != null;
     }
 
-    /** Every registered effect id, for the selection GUI. */
+    /** Every registered effect id for the selection GUI, the fire ahead of them all. */
     public static List<String> getSelectableIds() {
         List<String> ids = new ArrayList<>();
         for (ResourceLocation key : BuiltInRegistries.MOB_EFFECT.keySet()) {
             ids.add(key.toString());
         }
         Collections.sort(ids);
+        ids.add(0, FIRE_ID);
         return ids;
     }
 
