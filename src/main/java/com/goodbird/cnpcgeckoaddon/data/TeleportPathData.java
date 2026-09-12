@@ -310,6 +310,8 @@ public final class TeleportPathData {
     private static final String AGGRO_ZONE_INTERVAL_KEY = "GeckoBossAggroZoneInterval";
     private static final String AGGRO_ZONE_TARGET_KEY = "GeckoBossAggroZoneTarget";
     private static final String AGGRO_ZONE_KEEP_KEY = "GeckoBossAggroZoneKeepInside";
+    private static final String AGGRO_ZONE_EXCLUSIVE_KEY = "GeckoBossAggroZoneExclusive";
+    private static final String AGGRO_ZONE_BLOCK_OUTSIDE_KEY = "GeckoBossAggroZoneBlockOutside";
     private static final String HEALTH_SCALING_ENABLED_KEY = "GeckoBossHealthScalingEnabled";
     private static final String HEALTH_SCALING_MODE_KEY = "GeckoBossHealthScalingMode";
     private static final String HEALTH_PER_PLAYER_PERCENT_KEY = "GeckoBossHealthPerPlayerPercent";
@@ -413,6 +415,8 @@ public final class TeleportPathData {
     private int aggroZoneRecheckTicks = 5;
     private int aggroZoneTargetMode = AGGRO_ZONE_TARGET_NEAREST;
     private boolean aggroZoneKeepInside;
+    private boolean aggroZoneExclusive;
+    private boolean aggroZoneBlocksOutsideDamage;
 
     private boolean healthScalingEnabled;
     private int healthScalingMode = HEALTH_SCALING_PERCENT;
@@ -569,6 +573,8 @@ public final class TeleportPathData {
         tag.putInt(AGGRO_ZONE_INTERVAL_KEY, aggroZoneRecheckTicks);
         tag.putInt(AGGRO_ZONE_TARGET_KEY, aggroZoneTargetMode);
         tag.putBoolean(AGGRO_ZONE_KEEP_KEY, aggroZoneKeepInside);
+        tag.putBoolean(AGGRO_ZONE_EXCLUSIVE_KEY, aggroZoneExclusive);
+        tag.putBoolean(AGGRO_ZONE_BLOCK_OUTSIDE_KEY, aggroZoneBlocksOutsideDamage);
         tag.putBoolean(HEALTH_SCALING_ENABLED_KEY, healthScalingEnabled);
         tag.putInt(HEALTH_SCALING_MODE_KEY, healthScalingMode);
         tag.putInt(HEALTH_PER_PLAYER_PERCENT_KEY, healthPerPlayerPercent);
@@ -682,6 +688,9 @@ public final class TeleportPathData {
                 ? Mth.clamp(tag.getInt(AGGRO_ZONE_TARGET_KEY), AGGRO_ZONE_TARGET_NEAREST,
                 AGGRO_ZONE_TARGET_RANDOM) : AGGRO_ZONE_TARGET_NEAREST;
         aggroZoneKeepInside = tag.getBoolean(AGGRO_ZONE_KEEP_KEY);
+        // Missing on bosses saved before these existed, which reads as off: the old rules.
+        aggroZoneExclusive = tag.getBoolean(AGGRO_ZONE_EXCLUSIVE_KEY);
+        aggroZoneBlocksOutsideDamage = tag.getBoolean(AGGRO_ZONE_BLOCK_OUTSIDE_KEY);
         healthScalingEnabled = tag.getBoolean(HEALTH_SCALING_ENABLED_KEY);
         healthScalingMode = tag.contains(HEALTH_SCALING_MODE_KEY)
                 ? Mth.clamp(tag.getInt(HEALTH_SCALING_MODE_KEY), HEALTH_SCALING_PERCENT,
@@ -1009,6 +1018,31 @@ public final class TeleportPathData {
     }
     public boolean isAggroZoneKeepInside() { return aggroZoneKeepInside; }
     public void setAggroZoneKeepInside(boolean value) { aggroZoneKeepInside = value; }
+    /** The stored flag, as the screen shows it; the fight reads {@link #isAggroZoneOnlyWayIn()}. */
+    public boolean isAggroZoneExclusive() { return aggroZoneExclusive; }
+    public void setAggroZoneExclusive(boolean value) { aggroZoneExclusive = value; }
+    /** The stored flag, as the screen shows it; the fight reads {@link #blocksHitsFromOutsideAggroZone()}. */
+    public boolean isAggroZoneBlocksOutsideDamage() { return aggroZoneBlocksOutsideDamage; }
+    public void setAggroZoneBlocksOutsideDamage(boolean value) { aggroZoneBlocksOutsideDamage = value; }
+
+    /**
+     * Whether the zone is the only way into the fight: a target outside the box is neither
+     * taken nor kept. Needs the zone itself on - without a box there is no outside, and a
+     * leftover flag must not leave the boss with no way into any fight at all.
+     */
+    public boolean isAggroZoneOnlyWayIn() { return aggroZoneEnabled && aggroZoneExclusive; }
+
+    /** Whether a player's hit from outside the box is turned away; ignored without a zone, likewise. */
+    public boolean blocksHitsFromOutsideAggroZone() { return aggroZoneEnabled && aggroZoneBlocksOutsideDamage; }
+
+    /**
+     * Whether the retargeting stays inside the box and lets go of whoever leaves it. The only way
+     * in implies it - a fight nobody outside can start is not one they can be kept in either -
+     * but the keep flag itself is left as the builder set it.
+     */
+    public boolean holdsTargetsInAggroZone() {
+        return aggroZoneEnabled && (aggroZoneKeepInside || aggroZoneExclusive);
+    }
 
     public boolean isHealthScalingEnabled() { return healthScalingEnabled; }
     public void setHealthScalingEnabled(boolean value) { healthScalingEnabled = value; }
