@@ -107,6 +107,16 @@ public enum BossAbility {
         return kind;
     }
 
+    /** The rotation row that casts this kind, or {@link #NONE} for a kind the rotation never casts. */
+    static BossAbility ofKind(int kind) {
+        for (BossAbility ability : ROTATION) {
+            if (ability.kind == kind) {
+                return ability;
+            }
+        }
+        return NONE;
+    }
+
     /** Whether the rotation owns this one's clock, which is what puts it in {@link #ROTATION}. */
     boolean isScheduledFromCooldown() {
         return enabled != null;

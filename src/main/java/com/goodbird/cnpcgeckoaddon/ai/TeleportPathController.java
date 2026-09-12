@@ -302,6 +302,8 @@ public final class TeleportPathController {
     private final BossTelegraphRuntime telegraphs;
     /** Where each ability sends the boss before it casts: the journey there, and the hold after. */
     private final BossCastSpotRuntime castSpots;
+    /** Which abilities are owed a follow-up when they end, and the follow-up waiting to start. */
+    private final BossComboChain combo = new BossComboChain();
 
     /**
      * Which way the action being wound up is going to go, unit length and flat, or null for
@@ -339,6 +341,8 @@ public final class TeleportPathController {
     private String pendingAnimation = "";
     /** Warning ticks put in front of this action, owed back to its cooldown afterwards. */
     private int pendingLeadTicks;
+    /** The place in its chain of the action being wound up: 1 for one the boss started on its own. */
+    private int pendingLinks;
     /**
      * Whether the action running right now holds a walking boss on its spot. While it is
      * set, lockedX/Z stop following the boss and the stationary pin takes over, so the
@@ -493,6 +497,9 @@ public final class TeleportPathController {
         // Above the combat-only return and the busy gate on purpose: a leap already in the
         // air has to come down and land even if the boss loses its target mid flight.
         leap.tick(level, data, gameTime);
+        // Right after the touchdown that tick may have caught, and above every gate: a leap ends
+        // when it lands, and an effect that runs out under a lock or a wind-up still ended then.
+        tickComboWatch(phase, gameTime);
         // Above the busy gate and the pending block below on purpose: a wind-up has to stay
         // marked through a lock, and the mark has to stop on the tick the ability goes off.
         if (pendingAction != BossAbility.NONE && gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
@@ -522,6 +529,7 @@ public final class TeleportPathController {
             }
             if (gameTime >= pendingActionAt) {
                 executePendingAction(level, data, phase, gameTime);
+                watchForFollowUp(phase, gameTime);
                 castSpots.onActionPerformed(pendingAction, gameTime);
                 // The cooldown was counted from before the warning was put in front of the
                 // wind-up. Handing those ticks back keeps a warned ability on exactly the
@@ -1673,6 +1681,33 @@ public final class TeleportPathController {
     }
 
     /**
+     * Notes the action that has just gone off as owed its follow-up, and hands that on at once
+     * when the action ended with its own perform: a slam, a shot, a summon.
+     */
+    private void watchForFollowUp(BossPhaseData phase, long gameTime) {
+        combo.watch(pendingAction, pendingLinks, phase);
+        tickComboWatch(phase, gameTime);
+    }
+
+    /**
+     * Arms the follow-up of every watched ability whose effect is over.
+     *
+     * <p>Over means what {@link #isAbilityRunning} says and nothing else, so a chain cannot
+     * disagree with a cast spot's stay or with the finish gate about when an ability ended. A
+     * wind-up that was called off never went off, so it was never watched and hands on nothing.</p>
+     */
+    private void tickComboWatch(BossPhaseData phase, long gameTime) {
+        if (!combo.isWatching()) {
+            return;
+        }
+        for (BossAbility ability : combo.watchedAbilities()) {
+            if (!isAbilityRunning(ability, gameTime)) {
+                combo.finish(ability, phase, gameTime);
+            }
+        }
+    }
+
+    /**
      * The ability whose effect this phase is still seeing out, or NONE when the boss is free
      * to start the next thing.
      *
@@ -1789,6 +1824,9 @@ public final class TeleportPathController {
     void interruptForBarrierStun(long windowEndsAt) {
         // A boss that cannot walk is not on its way anywhere; the hold, if any, stays with the pin.
         castSpots.abortTravel();
+        // The follow-up waiting to start goes the way the wind-up does: the stagger breaks the
+        // chain it lands in. An effect still running keeps its claim on a follow-up of its own.
+        combo.clearPending();
         if (pendingAction == BossAbility.NONE) {
             return;
         }
@@ -1824,12 +1862,15 @@ public final class TeleportPathController {
                              LivingEntity target, TeleportPathData data, BossPhaseData phase) {
         pendingAction = action;
         pendingTargetId = target == null ? -1 : target.getId();
+        // Every start opens a chain of its own.
+        pendingLinks = 1;
         pendingLeadTicks = telegraphs.lead(data, action, actionDelay);
         beginCastRoot(data, phase, action);
         if (pendingLeadTicks <= 0 && actionDelay <= 0) {
             playAnimation(animation);
             if (npc.level() instanceof ServerLevel level) {
                 executePendingAction(level, data, phase, gameTime);
+                watchForFollowUp(phase, gameTime);
             }
             castSpots.onActionPerformed(action, gameTime);
             clearPendingAction();
@@ -2151,6 +2192,7 @@ public final class TeleportPathController {
         pendingWarningEndsAt = NOT_SCHEDULED;
         pendingAnimation = "";
         pendingLeadTicks = 0;
+        pendingLinks = 0;
         pendingTargetId = -1;
         pendingExtraTargets.clear();
         committedAxis = null;
@@ -2171,6 +2213,9 @@ public final class TeleportPathController {
         // nobody the attack it was halfway to. One line rather than twenty, so an ability
         // added later cannot be the one left running after the fight ended.
         Arrays.fill(abilityScheduleAt, NOT_SCHEDULED);
+        // The chains go with them: a follow-up owed to a phase that is over, a fight that ended
+        // or a boss that died is owed to nobody, and an effect still running hands on nothing.
+        combo.clear();
         // A chase does not outlive the phase, the fight or the boss that started it, and
         // every one of those ends up here. Nor does a sweep.
         huntRuntime.end();
