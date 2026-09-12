@@ -222,6 +222,7 @@ class BossPhaseKeyFormatTest {
             "CoverSpotYawMode",
             "CoverSpotZ",
             "CoverVfx",
+            "FinishMask",
             "FluidSpitActionDelayTicks",
             "FluidSpitAnimation",
             "FluidSpitBlock",

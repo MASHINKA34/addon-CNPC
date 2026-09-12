@@ -16,8 +16,9 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  * has to be scrolled past to find it.</p>
  *
  * <p>What stayed here is what belongs to the phase rather than to any one ability: the
- * health it opens at, the animation it opens with, and the mask saying which abilities pin
- * a walking boss down while they cast. The save format did not move with the settings -
+ * health it opens at, the animation it opens with, the mask saying which abilities pin
+ * a walking boss down while they cast, and the one saying which effects it sees out before
+ * starting anything else. The save format did not move with the settings -
  * every key is written into the phase's own tag exactly where it always was, so a boss
  * saved before the split loads unchanged.</p>
  */
@@ -291,6 +292,11 @@ public final class BossPhaseData {
     private int appearanceLockTicks = 20;
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
+    /**
+     * Which lasting abilities this phase sees through before it starts anything else, one bit
+     * per {@link BossAbilityKind}. Off by default: the boss only ever waited out its wind-ups.
+     */
+    private int finishMask;
 
     private final BossAreaAttackSettings areaAttack = new BossAreaAttackSettings();
     private final BossBarrierSettings barrier = new BossBarrierSettings();
@@ -469,6 +475,26 @@ public final class BossPhaseData {
     }
 
     /**
+     * Whether the boss lets this ability's effect run out before it starts anything else:
+     * another ability, a hop along its path, a walk to a cast spot.
+     */
+    public boolean waitsForFinish(int ability) {
+        return isLasting(ability) && (finishMask & 1 << ability) != 0;
+    }
+
+    public void setWaitsForFinish(int ability, boolean value) {
+        if (!isLasting(ability)) {
+            return;
+        }
+        finishMask = value ? finishMask | 1 << ability : finishMask & ~(1 << ability);
+    }
+
+    /** Whether this ability has a bit in the finish mask: only one whose effect outlives its cast. */
+    private static boolean isLasting(int ability) {
+        return ability >= 0 && ability < Integer.SIZE && (BossAbilityKind.LASTING_ALL & 1 << ability) != 0;
+    }
+
+    /**
      * Whether dead minions are part of this phase's exit condition.
      *
      * <p>A phase with no clone configured can never satisfy "all minions are dead", so the
@@ -490,6 +516,7 @@ public final class BossPhaseData {
         tag.putString("AppearanceAnimation", appearanceAnimation);
         tag.putInt("AppearanceLockTicks", appearanceLockTicks);
         tag.putInt("CastRootMask", castRootMask);
+        tag.putInt("FinishMask", finishMask);
         areaAttack.writeToNBT(tag);
         barrier.writeToNBT(tag);
         beam.writeToNBT(tag);
@@ -562,6 +589,9 @@ public final class BossPhaseData {
         if (!tag.contains("CocoonEnabled")) {
             castRootMask |= 1 << BossAbilityKind.COCOON;
         }
+        // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
+        // existed never waited for an effect to end, and must not start freezing mid fight.
+        finishMask = tag.getInt("FinishMask") & BossAbilityKind.LASTING_ALL;
         areaAttack.readFromNBT(tag);
         barrier.readFromNBT(tag);
         beam.readFromNBT(tag);

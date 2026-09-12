@@ -99,6 +99,28 @@ public final class BossAbilityKind {
             BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON
     };
 
+    /**
+     * The abilities whose effect outlives the cast, in the order they are offered: the only
+     * ones a boss can be told to see through before it starts anything else.
+     *
+     * <p>The leap is absent because its flight already keeps the boss busy until it lands,
+     * and the hunt because its own silence switch does the same job for the chase.</p>
+     */
+    public static final int[] LASTING_ABILITIES = {
+            HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON
+    };
+
+    /** Every bit {@link #LASTING_ABILITIES} owns; any other bit in a finish mask is never read. */
+    public static final int LASTING_ALL = maskOf(LASTING_ABILITIES);
+
+    private static int maskOf(int[] abilities) {
+        int mask = 0;
+        for (int ability : abilities) {
+            mask |= 1 << ability;
+        }
+        return mask;
+    }
+
     private BossAbilityKind() {
     }
 }

@@ -244,6 +244,7 @@ class BossDataRoundTripTest {
         phase.beam().setStopsAtWalls(false);
         phase.beam().setLook(BeamLooks.SOUL);
         phase.setCastRooted(BossAbilityKind.BEAM, false);
+        phase.setWaitsForFinish(BossAbilityKind.BEAM, true);
         phase.cocoon().setEnabled(true);
         phase.cocoon().setTargetMode(BossTargetMode.FARTHEST);
         phase.cocoon().setTargetCount(3);
