@@ -538,6 +538,14 @@ public final class TeleportPathController {
         path.prepare(points);
         scheduleMissingAbilities(gameTime, phase, points.size() >= 2);
 
+        // An effect this phase marks to be seen out holds every new start - a cast, a hop, a
+        // walk to a cast spot - but nothing already under way: the wind-up above has landed
+        // and a journey already started carries on. Cooldowns keep running down underneath,
+        // so whatever came due in the meantime goes the tick the effect ends.
+        if (awaitedFinish(phase, gameTime) != BossAbility.NONE) {
+            return;
+        }
+
         // A held boss is barred from the path as well as from walking it: leaving the spot the
         // totems pin it to is exactly what the hold is there to stop, however it is done. A
         // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
@@ -1635,10 +1643,10 @@ public final class TeleportPathController {
      * Whether the effect this ability left behind on its last cast is still going.
      *
      * <p>One table for everyone who asks, so they cannot disagree about when an effect is
-     * over: a cast spot's "while it lasts" stay, and its journey, which does not set off for
-     * a cast whose last effect is still running. The instant ones - a slam, a shot, a swing,
-     * a corridor, a rolled stone, the take-cover strike, a summon - leave nothing behind that
-     * the boss is still doing, so they are never running.</p>
+     * over: a cast spot's "while it lasts" stay, its journey, which does not set off for a
+     * cast whose last effect is still running, and the finish gate. The instant ones - a
+     * slam, a shot, a swing, a corridor, a rolled stone, the take-cover strike, a summon -
+     * leave nothing behind that the boss is still doing, so they are never running.</p>
      */
     boolean isAbilityRunning(BossAbility ability, long gameTime) {
         return switch (ability) {
@@ -1655,6 +1663,23 @@ public final class TeleportPathController {
             case COCOON -> BossCocoonManager.countForBoss(npc.getUUID()) > 0;
             default -> false;
         };
+    }
+
+    /**
+     * The ability whose effect this phase is still seeing out, or NONE when the boss is free
+     * to start the next thing.
+     *
+     * <p>Only holds new starts back: the effect is never cut short from here, so a phase
+     * change, a reset or a death still end it the way they always did.</p>
+     */
+    BossAbility awaitedFinish(BossPhaseData phase, long gameTime) {
+        for (BossAbility ability : BossAbility.ROTATION) {
+            // The bit first: it is free, and most phases mark nothing at all.
+            if (phase.waitsForFinish(ability.kind()) && isAbilityRunning(ability, gameTime)) {
+                return ability;
+            }
+        }
+        return BossAbility.NONE;
     }
 
     /** Where the boss is looking, flattened onto the plane the corridor is worked out in. */
