@@ -67,9 +67,6 @@ final class BossCastSpotRuntime {
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
-    private final BossHookRuntime hook;
-    private final BossLeapRuntime leap;
-    private final BossHuntRuntime hunt;
 
     /** The ability whose spot the boss is walking to, or NONE. */
     private BossAbility travelling = BossAbility.NONE;
@@ -92,13 +89,9 @@ final class BossCastSpotRuntime {
     /** The last spot each ability was found unusable at, so the log gets one line per spot. */
     private final Map<BossAbility, BlockPos> reportedUnsafe = new EnumMap<>(BossAbility.class);
 
-    BossCastSpotRuntime(TeleportPathController boss, EntityNPCInterface npc, BossHookRuntime hook,
-                        BossLeapRuntime leap, BossHuntRuntime hunt) {
+    BossCastSpotRuntime(TeleportPathController boss, EntityNPCInterface npc) {
         this.boss = boss;
         this.npc = npc;
-        this.hook = hook;
-        this.leap = leap;
-        this.hunt = hunt;
     }
 
     /** Whether the boss is on its way to a spot right now. */
@@ -146,7 +139,7 @@ final class BossCastSpotRuntime {
         // The effect the last cast left is still running: a second sweep on top of the first
         // would double the hits, and the beam's own starter refuses that anyway. Looked at
         // again shortly, the way a starter that found a sweep already turning does.
-        if (isRunning(ability, gameTime)) {
+        if (boss.isAbilityRunning(ability, gameTime)) {
             boss.setAbilityScheduleAt(ability, gameTime + RETRY_LONG_TICKS);
             return false;
         }
@@ -294,7 +287,7 @@ final class BossCastSpotRuntime {
                 if (gameTime < holdUntil) {
                     return;
                 }
-                if (stayMode == BossCastSpot.STAY_ACTIVE && isRunning(occupied, gameTime)) {
+                if (stayMode == BossCastSpot.STAY_ACTIVE && boss.isAbilityRunning(occupied, gameTime)) {
                     return;
                 }
                 release();
@@ -315,32 +308,6 @@ final class BossCastSpotRuntime {
         double radians = yaw * Mth.DEG_TO_RAD;
         boss.turnTowardAxis(new Vec3(-Math.sin(radians), 0.0D, Math.cos(radians)), FIXED_LOOK_DISTANCE, SNAP_DEGREES);
         return true;
-    }
-
-    /**
-     * Whether the effect this ability left behind on its last cast is still going.
-     *
-     * <p>Two things read it: the stay rule that keeps the boss on its spot "while it lasts",
-     * and the journey, which does not set off for a cast whose last effect is still
-     * running. The instant ones - a slam, a shot, a swing, a corridor, a rolled stone, the
-     * take-cover strike, a summon - leave nothing behind that the boss is still doing, so
-     * for them the stay ends with the after-pause.</p>
-     */
-    private boolean isRunning(BossAbility ability, long gameTime) {
-        return switch (ability) {
-            case HOOK -> hook.isPulling();
-            case CAPTURE -> BossCaptureManager.hasCaptureForBoss(npc.getUUID());
-            case LEAP -> leap.isAirborne();
-            case GEYSER -> BossGeyserScheduler.hasPending(npc);
-            case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
-            case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
-            case GRAVITY -> BossGravityScheduler.remainingTicks(npc, gameTime) > 0L;
-            case MARK -> BossMarkScheduler.hasPending(npc);
-            case HUNT -> hunt.isHunting();
-            case BEAM -> BossBeamScheduler.isSweeping(npc);
-            case COCOON -> BossCocoonManager.countForBoss(npc.getUUID()) > 0;
-            default -> false;
-        };
     }
 
     /**

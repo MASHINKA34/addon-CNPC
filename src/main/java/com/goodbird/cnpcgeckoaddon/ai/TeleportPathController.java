@@ -381,7 +381,7 @@ public final class TeleportPathController {
         this.meleeAttack = new BossMeleeAttackRuntime(this, npc);
         this.summonRuntime = new BossSummonRuntime(this, npc);
         this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, minionSpawns);
-        this.castSpots = new BossCastSpotRuntime(this, npc, hook, leap, huntRuntime);
+        this.castSpots = new BossCastSpotRuntime(this, npc);
         INSTANCES.add(this);
     }
 
@@ -1629,6 +1629,32 @@ public final class TeleportPathController {
     boolean startAbility(BossAbility ability, ServerLevel level, TeleportPathData data,
                          BossPhaseData phase, long gameTime) {
         return ABILITY_STARTERS.get(ability).start(this, level, data, phase, gameTime);
+    }
+
+    /**
+     * Whether the effect this ability left behind on its last cast is still going.
+     *
+     * <p>One table for everyone who asks, so they cannot disagree about when an effect is
+     * over: a cast spot's "while it lasts" stay, and its journey, which does not set off for
+     * a cast whose last effect is still running. The instant ones - a slam, a shot, a swing,
+     * a corridor, a rolled stone, the take-cover strike, a summon - leave nothing behind that
+     * the boss is still doing, so they are never running.</p>
+     */
+    boolean isAbilityRunning(BossAbility ability, long gameTime) {
+        return switch (ability) {
+            case HOOK -> hook.isPulling();
+            case CAPTURE -> BossCaptureManager.hasCaptureForBoss(npc.getUUID());
+            case LEAP -> leap.isAirborne();
+            case GEYSER -> BossGeyserScheduler.hasPending(npc);
+            case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
+            case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
+            case GRAVITY -> BossGravityScheduler.remainingTicks(npc, gameTime) > 0L;
+            case MARK -> BossMarkScheduler.hasPending(npc);
+            case HUNT -> huntRuntime.isHunting();
+            case BEAM -> BossBeamScheduler.isSweeping(npc);
+            case COCOON -> BossCocoonManager.countForBoss(npc.getUUID()) > 0;
+            default -> false;
+        };
     }
 
     /** Where the boss is looking, flattened onto the plane the corridor is worked out in. */
