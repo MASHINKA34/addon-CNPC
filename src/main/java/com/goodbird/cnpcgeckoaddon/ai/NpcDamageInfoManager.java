@@ -136,6 +136,23 @@ public final class NpcDamageInfoManager {
         }
     }
 
+    /**
+     * Chats why a boss turned a hit away whole: its attacker stood outside the aggro zone.
+     *
+     * <p>The whole breakdown, the way a totem refusal gets it, since the hit was dropped before
+     * the resistance listener could describe it. Only to the attacker: this refusal always has
+     * one, and they are the one left wondering where their arrow went.</p>
+     */
+    public static void reportOutsideZoneBlock(LivingIncomingDamageEvent event, float before) {
+        if (ENABLED.isEmpty() || !(event.getSource().getEntity() instanceof ServerPlayer player)
+                || !ENABLED.contains(player.getUUID())) {
+            return;
+        }
+        String text = describe(event.getSource()).append("\ndamage=").append(format(before))
+                .append(" -> 0.0 (blocked: attacker outside the aggro zone)").toString();
+        player.sendSystemMessage(Component.literal(text).withStyle(ChatFormatting.GRAY));
+    }
+
     /** The attacker when there is one, plus every listener within sight of the totem. */
     private static List<ServerPlayer> listeners(LivingIncomingDamageEvent event) {
         List<ServerPlayer> result = new ArrayList<>();

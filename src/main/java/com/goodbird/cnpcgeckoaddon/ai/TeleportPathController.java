@@ -621,6 +621,15 @@ public final class TeleportPathController {
         return npc.level() instanceof ServerLevel level && targeting.isInsideZone(level, entity, data);
     }
 
+    /**
+     * Whether this player's hit is turned away for standing outside the aggro zone. Asked on
+     * every player hit on the boss, so the box is only worked out once the flag is on.
+     */
+    boolean turnsAwayHitFrom(ServerPlayer attacker) {
+        TeleportPathData data = settings();
+        return data.isEnabled() && data.blocksHitsFromOutsideAggroZone() && !isInsideAggroZone(attacker, data);
+    }
+
     void setTargetIfChanged(LivingEntity target) {
         targeting.setTargetIfChanged(target);
     }

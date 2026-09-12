@@ -89,14 +89,15 @@ public final class BossDamageEvents {
     /**
      * The protections that drop a hit whole, in the order they are allowed to claim it.
      *
-     * <p>All three fire before any mitigation is calculated, so what they turn away is
+     * <p>All of them fire before any mitigation is calculated, so what they turn away is
      * dropped rather than reduced to zero - nothing downstream sees a damage number at all.
      * A cancelled event stops the rest of the bus, so each stage below only runs on a hit
      * the one above it let through.</p>
      */
     @SubscribeEvent
     public static void onIncomingDamage(final LivingIncomingDamageEvent event) {
-        if (blockTotemsOwnSwing(event) || blockProtectedBoss(event) || blockTotemVulnerability(event)) {
+        if (blockTotemsOwnSwing(event) || blockProtectedBoss(event) || blockOutsideAggroZone(event)
+                || blockTotemVulnerability(event)) {
             return;
         }
         blockBlastImmunity(event);
@@ -144,6 +145,35 @@ public final class BossDamageEvents {
             controller.playInvulnerableHitFeedback();
         }
         event.setCanceled(true);
+        return true;
+    }
+
+    /**
+     * Turns away a player's hit on a boss whose aggro zone keeps hits from outside out, when
+     * that player is standing outside the box.
+     *
+     * <p>Under the phase and totem protection, so an immune boss still answers the way it
+     * always did. Nobody is signed up for the fight here: hitting in from outside is exactly
+     * what does not make somebody part of it. The attacker is the causing entity, so an arrow
+     * or a thrown npc is judged by where its thrower stands, not by where it lands.</p>
+     */
+    private static boolean blockOutsideAggroZone(LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)
+                || !(event.getSource().getEntity() instanceof ServerPlayer player)
+                // The escape hatch the rest of this row leaves: /kill and the void keep working.
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return false;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null || !controller.turnsAwayHitFrom(player)) {
+            return false;
+        }
+        float before = event.getAmount();
+        event.setCanceled(true);
+        controller.playInvulnerableHitFeedback();
+        // Nothing downstream is told a cancelled hit existed, so the reason is given here.
+        NpcDamageInfoManager.reportOutsideZoneBlock(event, before);
         return true;
     }
 
