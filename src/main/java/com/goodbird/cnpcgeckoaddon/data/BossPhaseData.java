@@ -3,6 +3,8 @@ package com.goodbird.cnpcgeckoaddon.data;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
 
+import java.util.Arrays;
+
 import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.clean;
 import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
 
@@ -17,8 +19,9 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  *
  * <p>What stayed here is what belongs to the phase rather than to any one ability: the
  * health it opens at, the animation it opens with, the mask saying which abilities pin
- * a walking boss down while they cast, and the one saying which effects it sees out before
- * starting anything else. The save format did not move with the settings -
+ * a walking boss down while they cast, the one saying which effects it sees out before
+ * starting anything else, and the chain table saying which ability each one hands straight
+ * on to. The save format did not move with the settings -
  * every key is written into the phase's own tag exactly where it always was, so a boss
  * saved before the split loads unchanged.</p>
  */
@@ -286,6 +289,12 @@ public final class BossPhaseData {
      */
     public static final int CAST_ROOT_ALL = castRootAllMask();
 
+    /** A chain slot with nothing in it: the ability ends and the rotation carries on. */
+    public static final int NO_COMBO = -1;
+
+    /** The longest wait between an ability ending and its follow-up starting: a minute. */
+    public static final int MAX_COMBO_DELAY = 1200;
+
     /** Health percentage at which this phase takes over. Phase 1 is pinned to 100. */
     private int startHealthPercent = 100;
     private String appearanceAnimation = "";
@@ -297,6 +306,14 @@ public final class BossPhaseData {
      * per {@link BossAbilityKind}. Off by default: the boss only ever waited out its wind-ups.
      */
     private int finishMask;
+    /**
+     * The ability each ability hands straight on to when it ends, one slot per
+     * {@link BossAbilityKind}, or {@link #NO_COMBO}. Empty by default: the rotation alone
+     * decided what came next.
+     */
+    private final int[] comboFollowUp = newComboFollowUps();
+    /** How many ticks after its ability ends each slot's follow-up starts. */
+    private final int[] comboDelay = new int[BossAbilityKind.COUNT];
 
     private final BossAreaAttackSettings areaAttack = new BossAreaAttackSettings();
     private final BossBarrierSettings barrier = new BossBarrierSettings();
@@ -494,6 +511,65 @@ public final class BossPhaseData {
         return ability >= 0 && ability < Integer.SIZE && (BossAbilityKind.LASTING_ALL & 1 << ability) != 0;
     }
 
+    /** The ability this one hands straight on to when it ends, or {@link #NO_COMBO}. */
+    public int comboFollowUp(int ability) {
+        return isComboAbility(ability) ? comboFollowUp[ability] : NO_COMBO;
+    }
+
+    /**
+     * Chains {@code next} onto this ability, or empties the slot with {@link #NO_COMBO}.
+     *
+     * <p>Anything the rotation does not cast empties it too, and so does the ability itself:
+     * a slot pointing at nothing that can start is a chain no screen can show.</p>
+     */
+    public void setComboFollowUp(int ability, int next) {
+        if (isComboAbility(ability)) {
+            comboFollowUp[ability] = validFollowUp(ability, next);
+        }
+    }
+
+    /** Ticks between this ability ending and its follow-up starting. */
+    public int comboDelay(int ability) {
+        return isComboAbility(ability) ? comboDelay[ability] : 0;
+    }
+
+    public void setComboDelay(int ability, int ticks) {
+        if (isComboAbility(ability)) {
+            comboDelay[ability] = Mth.clamp(ticks, 0, MAX_COMBO_DELAY);
+        }
+    }
+
+    /**
+     * Whether some ability of this phase hands on to this one. A follow-up starts with its
+     * switch off, so whatever lets its effect go once the switch is off has to ask this too.
+     */
+    public boolean isComboFollowUp(int ability) {
+        if (!isComboAbility(ability)) {
+            return false;
+        }
+        for (int next : comboFollowUp) {
+            if (next == ability) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether this ability owns a chain slot: only one the rotation casts. */
+    private static boolean isComboAbility(int ability) {
+        return ability >= 0 && ability < BossAbilityKind.COUNT && (BossAbilityKind.COMBO_ALL & 1 << ability) != 0;
+    }
+
+    private static int validFollowUp(int ability, int next) {
+        return next != ability && isComboAbility(next) ? next : NO_COMBO;
+    }
+
+    private static int[] newComboFollowUps() {
+        int[] slots = new int[BossAbilityKind.COUNT];
+        Arrays.fill(slots, NO_COMBO);
+        return slots;
+    }
+
     /**
      * Whether dead minions are part of this phase's exit condition.
      *
@@ -517,6 +593,9 @@ public final class BossPhaseData {
         tag.putInt("AppearanceLockTicks", appearanceLockTicks);
         tag.putInt("CastRootMask", castRootMask);
         tag.putInt("FinishMask", finishMask);
+        // Copied: an int array tag keeps the very array it is handed, and these go on being edited.
+        tag.putIntArray("ComboFollowUp", Arrays.copyOf(comboFollowUp, comboFollowUp.length));
+        tag.putIntArray("ComboDelay", Arrays.copyOf(comboDelay, comboDelay.length));
         areaAttack.writeToNBT(tag);
         barrier.writeToNBT(tag);
         beam.writeToNBT(tag);
@@ -592,6 +671,18 @@ public final class BossPhaseData {
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight.
         finishMask = tag.getInt("FinishMask") & BossAbilityKind.LASTING_ALL;
+        // A tag from before the chains has neither array and reads as no chains at all. A saved
+        // array is laid over the slots rather than trusted: one from a build that knew fewer
+        // abilities is short, one from a newer build long, and either may point anywhere.
+        int[] followUps = tag.getIntArray("ComboFollowUp");
+        int[] delays = tag.getIntArray("ComboDelay");
+        for (int ability = 0; ability < BossAbilityKind.COUNT; ability++) {
+            boolean owned = isComboAbility(ability);
+            comboFollowUp[ability] = owned && ability < followUps.length
+                    ? validFollowUp(ability, followUps[ability]) : NO_COMBO;
+            comboDelay[ability] = owned && ability < delays.length
+                    ? Mth.clamp(delays[ability], 0, MAX_COMBO_DELAY) : 0;
+        }
         areaAttack.readFromNBT(tag);
         barrier.readFromNBT(tag);
         beam.readFromNBT(tag);

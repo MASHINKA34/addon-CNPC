@@ -198,6 +198,8 @@ class BossPhaseKeyFormatTest {
             "CocoonTargetCount",
             "CocoonTargetMode",
             "CocoonVictimEffects",
+            "ComboDelay",
+            "ComboFollowUp",
             "CoverActionDelayTicks",
             "CoverAnimation",
             "CoverCooldownTicks",

@@ -113,6 +113,20 @@ public final class BossAbilityKind {
     /** Every bit {@link #LASTING_ABILITIES} owns; any other bit in a finish mask is never read. */
     public static final int LASTING_ALL = maskOf(LASTING_ABILITIES);
 
+    /**
+     * The abilities a phase can chain one after another: every one the rotation casts.
+     *
+     * <p>The death blast and the arena hazard are absent. Neither is cast, so neither ends in
+     * a way that could hand on to anything, and neither can be started as a follow-up.</p>
+     */
+    public static final int[] COMBO_ABILITIES = {
+            AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, SUMMON, LEAP, LINE, GEYSER, BOULDER,
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON
+    };
+
+    /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */
+    public static final int COMBO_ALL = maskOf(COMBO_ABILITIES);
+
     private static int maskOf(int[] abilities) {
         int mask = 0;
         for (int ability : abilities) {

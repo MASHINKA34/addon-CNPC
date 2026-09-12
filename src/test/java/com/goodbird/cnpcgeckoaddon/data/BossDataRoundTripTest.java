@@ -245,6 +245,9 @@ class BossDataRoundTripTest {
         phase.beam().setLook(BeamLooks.SOUL);
         phase.setCastRooted(BossAbilityKind.BEAM, false);
         phase.setWaitsForFinish(BossAbilityKind.BEAM, true);
+        phase.setComboFollowUp(BossAbilityKind.LEAP, BossAbilityKind.BOULDER_RAIN);
+        phase.setComboDelay(BossAbilityKind.LEAP, 10);
+        phase.setComboFollowUp(BossAbilityKind.BEAM, BossAbilityKind.GRAVITY);
         phase.cocoon().setEnabled(true);
         phase.cocoon().setTargetMode(BossTargetMode.FARTHEST);
         phase.cocoon().setTargetCount(3);

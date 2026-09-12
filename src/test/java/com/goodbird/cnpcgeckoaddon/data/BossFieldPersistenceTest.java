@@ -8,6 +8,7 @@ import org.junit.jupiter.api.TestFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -143,10 +144,22 @@ class BossFieldPersistenceTest {
         Set<String> silent = new TreeSet<>();
         int checked = 0;
         for (Field field : owned.getDeclaredFields()) {
-            if (Modifier.isStatic(field.getModifiers()) || Modifier.isFinal(field.getModifiers())) {
+            if (Modifier.isStatic(field.getModifiers())) {
                 continue;
             }
             if (NOT_PERSISTED.contains(owned.getSimpleName() + "." + field.getName())) {
+                continue;
+            }
+            if (field.getType() == int[].class) {
+                // A table indexed by ability is final and filled in place, so it is swept one
+                // slot at a time: a writer that dropped the tail of it would still pass a sweep
+                // that only swapped the whole array.
+                checked++;
+                field.setAccessible(true);
+                silent.addAll(silentSlots(owned, field, host, target));
+                continue;
+            }
+            if (Modifier.isFinal(field.getModifiers())) {
                 continue;
             }
             List<Object> candidates = candidatesFor(field.getType());
@@ -186,6 +199,45 @@ class BossFieldPersistenceTest {
             }
         }
         return false;
+    }
+
+    /** The slots of an int array field whose value never reaches the written tag. */
+    private static List<String> silentSlots(Class<?> owned, Field field, Supplier<TeleportPathData> host,
+                                            Function<TeleportPathData, ?> target) {
+        CompoundTag baseline = host.get().writeToNBT(new CompoundTag());
+        int length = slotsOf(field, target.apply(host.get())).length;
+        List<String> silent = new ArrayList<>();
+        for (int slot = 0; slot < length; slot++) {
+            if (!perturbsSlot(field, slot, host, target, baseline)) {
+                silent.add(owned.getSimpleName() + "." + field.getName() + "[" + slot + "]");
+            }
+        }
+        return silent;
+    }
+
+    private static boolean perturbsSlot(Field field, int slot, Supplier<TeleportPathData> host,
+                                        Function<TeleportPathData, ?> target, CompoundTag baseline) {
+        for (Object candidate : candidatesFor(int.class)) {
+            TeleportPathData data = host.get();
+            int[] slots = slotsOf(field, target.apply(data));
+            int value = (Integer) candidate;
+            if (slots[slot] == value) {
+                continue;
+            }
+            slots[slot] = value;
+            if (!baseline.equals(data.writeToNBT(new CompoundTag()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int[] slotsOf(Field field, Object owner) {
+        try {
+            return (int[]) field.get(owner);
+        } catch (IllegalAccessException error) {
+            throw new AssertionError("could not reach " + field.getName(), error);
+        }
     }
 
     private static List<Object> candidatesFor(Class<?> type) {
