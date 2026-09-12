@@ -134,6 +134,22 @@ class BossAbilityTableTest {
                     (phase, ticks) -> phase.summon().setCooldownTicks(ticks),
                     phase -> phase.summon().castSpot()))));
 
+    /** How to fill in and empty what an ability is built from, for the rows that have anything. */
+    private record Setup(Consumer<BossPhaseData> fill, Consumer<BossPhaseData> empty) {
+    }
+
+    private static final Map<BossAbility, Setup> SETUP = new EnumMap<>(Map.of(
+            BossAbility.FLUID_SPIT, new Setup(phase -> phase.fluidSpit().setBlock("minecraft:water"),
+                    phase -> phase.fluidSpit().setBlock("")),
+            BossAbility.BOULDER, new Setup(phase -> phase.boulder().setBlock("minecraft:deepslate"),
+                    phase -> phase.boulder().setBlock("")),
+            BossAbility.BOULDER_RAIN, new Setup(phase -> phase.boulderRain().setBlock("minecraft:deepslate"),
+                    phase -> phase.boulderRain().setBlock("")),
+            BossAbility.COCOON, new Setup(phase -> phase.cocoon().setCloneName("cocoon"),
+                    phase -> phase.cocoon().setCloneName("")),
+            BossAbility.SUMMON, new Setup(phase -> phase.summon().setCloneName("minion"),
+                    phase -> phase.summon().setCloneName(""))));
+
     @Test
     @DisplayName("the rotation is exactly the abilities that run off a cooldown")
     void rotationHoldsEveryConfigurableAbility() {
@@ -170,6 +186,51 @@ class BossAbilityTableTest {
         BossPhaseData phase = new BossPhaseData();
         assertNull(BossAbility.TELEPORT.castSpot(phase), "a teleport has no settings to keep a spot in");
         assertNull(BossAbility.NONE.castSpot(phase), "doing nothing is done from nowhere in particular");
+        assertFalse(BossAbility.TELEPORT.isConfiguredIn(phase), "a hop is never anybody's follow-up");
+        assertFalse(BossAbility.NONE.isConfiguredIn(phase));
+    }
+
+    @Test
+    @DisplayName("what an ability is built from is read apart from its switch")
+    void setupIsReadApartFromTheSwitch() {
+        for (BossAbility ability : BossAbility.ROTATION) {
+            Setup setup = SETUP.get(ability);
+            if (setup == null) {
+                assertTrue(ability.isConfiguredIn(new BossPhaseData()),
+                        ability + " has nothing to fill in, so a follow-up must always be able to cast it");
+                continue;
+            }
+            BossPhaseData on = new BossPhaseData();
+            WIRING.get(ability).enable().accept(on);
+            // Emptied after switching on, since switching some of them on fills the clone in.
+            setup.empty().accept(on);
+            assertFalse(ability.isConfiguredIn(on), ability + " reads as set up with nothing filled in");
+            assertFalse(ability.isEnabledIn(on), ability + " switched on with nothing to cast must stay off the rotation");
+            setup.fill().accept(on);
+            assertTrue(ability.isConfiguredIn(on), ability + " reads as not set up once it is");
+            assertTrue(ability.isEnabledIn(on));
+
+            // The case a chain is for: filled in with the switch left off.
+            BossPhaseData off = new BossPhaseData();
+            setup.empty().accept(off);
+            setup.fill().accept(off);
+            assertTrue(ability.isConfiguredIn(off), ability + "'s setup should not hang on its switch");
+            assertFalse(ability.isEnabledIn(off), ability + " filled in but switched off is not on the rotation");
+        }
+    }
+
+    @Test
+    @DisplayName("filling in one ability's setup sets up that one and no other")
+    void fillingOneSetupFillsOnlyThatRow() {
+        for (Map.Entry<BossAbility, Setup> entry : SETUP.entrySet()) {
+            BossPhaseData phase = new BossPhaseData();
+            SETUP.values().forEach(setup -> setup.empty().accept(phase));
+            entry.getValue().fill().accept(phase);
+            for (BossAbility other : SETUP.keySet()) {
+                assertEquals(other == entry.getKey(), other.isConfiguredIn(phase),
+                        other + " read the wrong setup after only " + entry.getKey() + " was filled in");
+            }
+        }
     }
 
     @Test

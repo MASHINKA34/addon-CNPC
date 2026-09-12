@@ -61,7 +61,7 @@ final class BossBoulderRuntime {
      * whoever it picked spends the whole wind-up running sideways.</p>
      */
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.boulder().canLaunch() || gameTime < boss.abilityScheduleAt(BossAbility.BOULDER)) return false;
+        if (!boss.mayStart(BossAbility.BOULDER, phase) || gameTime < boss.abilityScheduleAt(BossAbility.BOULDER)) return false;
         LivingEntity target = boss.selectAbilityTarget(level, phase.boulder().getTargetMode(),
                 phase.boulder().getRange(), candidate -> isValidTarget(candidate, phase));
         if (target == null || EntityBossBoulder.resolveBlock(phase.boulder().getBlock()) == null) {
@@ -147,7 +147,7 @@ final class BossBoulderRuntime {
      * back on its rotation long before the last of them arrives.</p>
      */
     boolean tryStartRain(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.boulderRain().canLaunch()
+        if (!boss.mayStart(BossAbility.BOULDER_RAIN, phase)
                 || gameTime < boss.abilityScheduleAt(BossAbility.BOULDER_RAIN)) return false;
         if (EntityBossBoulder.resolveBlock(phase.boulderRain().getBlock()) == null
                 || !hasRainTargets(level, phase)) {

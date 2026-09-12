@@ -91,9 +91,14 @@ public final class BossSummonSettings {
     public BossMinionSpawnList getSpawnPoints() { return minionSpawnPoints; }
 
     public boolean canSummon() {
-        if (!summonEnabled) {
-            return false;
-        }
+        return summonEnabled && isConfigured();
+    }
+
+    /**
+     * Whether there is a clone to call wherever the spawn mode looks for one, whatever the
+     * switch says: all a chained start still needs.
+     */
+    public boolean isConfigured() {
         if (minionSpawnMode == BossPhaseData.MINION_SPAWN_RANDOM_RADIUS) {
             return !minionCloneName.isEmpty();
         }

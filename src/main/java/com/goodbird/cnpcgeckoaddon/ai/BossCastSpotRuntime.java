@@ -127,7 +127,7 @@ final class BossCastSpotRuntime {
     boolean tryTravel(ServerLevel level, TeleportPathData data, BossPhaseData phase,
                       BossAbility ability, long gameTime) {
         BossCastSpot spot = ability.castSpot(phase);
-        if (spot == null || !spot.isSet() || !ability.isEnabledIn(phase)
+        if (spot == null || !spot.isSet() || !boss.mayStart(ability, phase)
                 || gameTime < boss.abilityScheduleAt(ability)) {
             return false;
         }

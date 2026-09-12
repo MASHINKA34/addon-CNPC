@@ -96,7 +96,7 @@ final class BossLeapRuntime {
 
     boolean tryStart(ServerLevel level, TeleportPathData data,
                                  BossPhaseData phase, long gameTime) {
-        if (!phase.leap().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.LEAP) || airborne) return false;
+        if (!boss.mayStart(BossAbility.LEAP, phase) || gameTime < boss.abilityScheduleAt(BossAbility.LEAP) || airborne) return false;
         if (!npc.onGround()) {
             // Nothing to push off from. Knocked into the air or standing in a boat, the
             // boss simply tries again in half a second.

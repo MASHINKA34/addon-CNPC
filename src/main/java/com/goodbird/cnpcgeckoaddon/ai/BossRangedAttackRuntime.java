@@ -35,7 +35,7 @@ final class BossRangedAttackRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.rangedAttack().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.RANGED_ATTACK)) {
+        if (!boss.mayStart(BossAbility.RANGED_ATTACK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.RANGED_ATTACK)) {
             return false;
         }
         LivingEntity target = boss.selectAbilityTarget(level, phase.rangedAttack().getTargetMode(),

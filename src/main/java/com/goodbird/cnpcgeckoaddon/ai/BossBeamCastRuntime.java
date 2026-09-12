@@ -32,7 +32,7 @@ final class BossBeamCastRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.beam().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.BEAM)) return false;
+        if (!boss.mayStart(BossAbility.BEAM, phase) || gameTime < boss.abilityScheduleAt(BossAbility.BEAM)) return false;
         // One sweep at a time: a second set of beams on top of the first would double the
         // hits and leave nowhere to walk to.
         if (BossBeamScheduler.isSweeping(npc)) {

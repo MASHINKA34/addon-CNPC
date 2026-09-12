@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
@@ -304,6 +305,14 @@ public final class TeleportPathController {
     private final BossCastSpotRuntime castSpots;
     /** Which abilities are owed a follow-up when they end, and the follow-up waiting to start. */
     private final BossComboChain combo = new BossComboChain();
+    /**
+     * The follow-up being started right now, or NONE: the one ability whose starter may skip its
+     * switch. Held from the chain's attempt until the ability winds up - through the walk to its
+     * cast spot, when it has one - and never past the attempt that came to nothing.
+     */
+    private BossAbility forcedAbility = BossAbility.NONE;
+    /** The forced ability's own clock from before the attempt, handed back if the attempt comes to nothing. */
+    private long forcedScheduleBefore = NOT_SCHEDULED;
 
     /**
      * Which way the action being wound up is going to go, unit length and flat, or null for
@@ -554,6 +563,12 @@ public final class TeleportPathController {
             return;
         }
 
+        // A follow-up owed to an ability that ended goes before the hop and the rotation, and
+        // holds both back for as long as it is owed.
+        if (tickCombo(level, data, phase, gameTime)) {
+            return;
+        }
+
         // A held boss is barred from the path as well as from walking it: leaving the spot the
         // totems pin it to is exactly what the hold is there to stop, however it is done. A
         // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
@@ -583,14 +598,21 @@ public final class TeleportPathController {
         return data.isEnabled() ? data.getPhase(currentPhase) : null;
     }
 
-    /** Keeps an active capture tied to the phase configuration that started it. */
+    /**
+     * Keeps an active capture tied to the phase configuration that started it. A capture the
+     * phase chains onto another ability counts as configured too: a follow-up starts with its
+     * switch off, and letting it go for that would end it on the tick after it began.
+     */
     boolean isCaptureEnabledForPhase(int phaseIndex) {
         if (!active || !encounterRunning) {
             return false;
         }
         TeleportPathData data = settings();
-        return data.isEnabled() && phaseIndex >= 0 && phaseIndex < data.getPhaseCount()
-                && data.getPhase(phaseIndex).capture().isEnabled();
+        if (!data.isEnabled() || phaseIndex < 0 || phaseIndex >= data.getPhaseCount()) {
+            return false;
+        }
+        BossPhaseData phase = data.getPhase(phaseIndex);
+        return phase.capture().isEnabled() || phase.isComboFollowUp(BossAbilityKind.CAPTURE);
     }
 
     /** Keeps a cocoon tied to the phase configuration that closed it, the way a capture is. */
@@ -599,8 +621,11 @@ public final class TeleportPathController {
             return false;
         }
         TeleportPathData data = settings();
-        return data.isEnabled() && phaseIndex >= 0 && phaseIndex < data.getPhaseCount()
-                && data.getPhase(phaseIndex).cocoon().isEnabled();
+        if (!data.isEnabled() || phaseIndex < 0 || phaseIndex >= data.getPhaseCount()) {
+            return false;
+        }
+        BossPhaseData phase = data.getPhase(phaseIndex);
+        return phase.cocoon().isEnabled() || phase.isComboFollowUp(BossAbilityKind.COCOON);
     }
 
     /** Keeps a leash tied to the phase configuration that threw it, the way a capture is. */
@@ -609,8 +634,11 @@ public final class TeleportPathController {
             return false;
         }
         TeleportPathData data = settings();
-        return data.isEnabled() && phaseIndex >= 0 && phaseIndex < data.getPhaseCount()
-                && data.getPhase(phaseIndex).tether().isEnabled();
+        if (!data.isEnabled() || phaseIndex < 0 || phaseIndex >= data.getPhaseCount()) {
+            return false;
+        }
+        BossPhaseData phase = data.getPhase(phaseIndex);
+        return phase.tether().isEnabled() || phase.isComboFollowUp(BossAbilityKind.TETHER);
     }
 
     TeleportPathData settings() {
@@ -1655,11 +1683,82 @@ public final class TeleportPathController {
     }
 
     /**
+     * Whether an ability may start in this phase: switched on, or the follow-up being started
+     * right now with what it is built from filled in.
+     *
+     * <p>Every starter asks this instead of its own switch, so a chain skips the switch in one
+     * place and skips nothing else there: the cooldown is skipped by making the follow-up due,
+     * and the reach, the ground underfoot and the rest stay each starter's own business.</p>
+     */
+    boolean mayStart(BossAbility ability, BossPhaseData phase) {
+        return ability.isEnabledIn(phase) || ability == forcedAbility && ability.isConfiguredIn(phase);
+    }
+
+    /**
+     * Starts the follow-up the chain is waiting on once it is due, the way the rotation starts
+     * anything: its cast spot first, its own starter otherwise.
+     *
+     * <p>The hop and the rotation are held back for as long as a follow-up is owed - through its
+     * delay, a silence or an immune window it waits out, and the retries after a refusal - since
+     * anything started in between would come between the ability and its follow-up. Only the
+     * switch and the cooldown are skipped; everything else the starter asks, it still asks.</p>
+     *
+     * @return true while the chain owns the boss' next start
+     */
+    private boolean tickCombo(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
+        if (forcedAbility != BossAbility.NONE) {
+            // Only a walk to the follow-up's spot keeps the flag past its own tick, and this runs
+            // once that walk is over: whatever ended it, the follow-up did not start.
+            abandonForcedStart();
+            combo.refused(gameTime);
+        }
+        if (!combo.hasPending()) {
+            return false;
+        }
+        if (combo.isStale(gameTime)) {
+            combo.clearPending();
+            return false;
+        }
+        BossAbility next = combo.next();
+        // Waiting is not refusing: a boss that may not start anything right now keeps the
+        // follow-up owed until it is free again or the follow-up goes stale.
+        if (!combo.isDue(gameTime) || abilitiesSilenced() || isInvulnerable() || castSpots.blocks(next)) {
+            return true;
+        }
+        forcedAbility = next;
+        forcedScheduleBefore = abilityScheduleAt(next);
+        setAbilityScheduleAt(next, gameTime);
+        if (!castSpots.tryTravel(level, data, phase, next, gameTime)) {
+            startAbility(next, level, data, phase, gameTime);
+        }
+        // A start hands the flag to beginAction, and a walk to the spot keeps it for the arrival.
+        if (forcedAbility == BossAbility.NONE || castSpots.isTravelling()) {
+            return true;
+        }
+        abandonForcedStart();
+        return combo.refused(gameTime);
+    }
+
+    /**
+     * Lets go of a forced start that came to nothing, handing the ability back its own clock:
+     * an attempt that did not start it must not have spent or shortened its cooldown.
+     */
+    private void abandonForcedStart() {
+        if (forcedAbility == BossAbility.NONE) {
+            return;
+        }
+        setAbilityScheduleAt(forcedAbility, forcedScheduleBefore);
+        forcedAbility = BossAbility.NONE;
+        forcedScheduleBefore = NOT_SCHEDULED;
+    }
+
+    /**
      * Whether the effect this ability left behind on its last cast is still going.
      *
      * <p>One table for everyone who asks, so they cannot disagree about when an effect is
      * over: a cast spot's "while it lasts" stay, its journey, which does not set off for a
-     * cast whose last effect is still running, and the finish gate. The instant ones - a
+     * cast whose last effect is still running, the finish gate, and the chains, which hand on
+     * to a follow-up the moment this turns false. The instant ones - a
      * slam, a shot, a swing, a corridor, a rolled stone, the take-cover strike, a summon -
      * leave nothing behind that the boss is still doing, so they are never running.</p>
      */
@@ -1701,8 +1800,11 @@ public final class TeleportPathController {
             return;
         }
         for (BossAbility ability : combo.watchedAbilities()) {
-            if (!isAbilityRunning(ability, gameTime)) {
-                combo.finish(ability, phase, gameTime);
+            if (!isAbilityRunning(ability, gameTime) && combo.finish(ability, phase, gameTime)
+                    && forcedAbility != BossAbility.NONE) {
+                // The newer follow-up takes the place of the one still walking to its spot.
+                castSpots.abortTravel();
+                abandonForcedStart();
             }
         }
     }
@@ -1741,7 +1843,7 @@ public final class TeleportPathController {
      */
     private boolean tryStartHunt(ServerLevel level, TeleportPathData data,
                                  BossPhaseData phase, long gameTime) {
-        if (!phase.hunt().isEnabled() || gameTime < abilityScheduleAt(BossAbility.HUNT)) return false;
+        if (!mayStart(BossAbility.HUNT, phase) || gameTime < abilityScheduleAt(BossAbility.HUNT)) return false;
         if (huntRuntime.isHunting()) {
             // One prey at a time. A cooldown shorter than the chase looks again once it is over.
             setAbilityScheduleAt(BossAbility.HUNT, gameTime + RETRY_LONG_TICKS);
@@ -1824,8 +1926,10 @@ public final class TeleportPathController {
     void interruptForBarrierStun(long windowEndsAt) {
         // A boss that cannot walk is not on its way anywhere; the hold, if any, stays with the pin.
         castSpots.abortTravel();
-        // The follow-up waiting to start goes the way the wind-up does: the stagger breaks the
-        // chain it lands in. An effect still running keeps its claim on a follow-up of its own.
+        // The follow-up waiting to start goes the way the wind-up does, walk to its spot and all:
+        // the stagger breaks the chain it lands in. An effect still running keeps its claim, and
+        // a follow-up it hands on during the stagger waits the stagger out.
+        abandonForcedStart();
         combo.clearPending();
         if (pendingAction == BossAbility.NONE) {
             return;
@@ -1862,8 +1966,16 @@ public final class TeleportPathController {
                              LivingEntity target, TeleportPathData data, BossPhaseData phase) {
         pendingAction = action;
         pendingTargetId = target == null ? -1 : target.getId();
-        // Every start opens a chain of its own.
-        pendingLinks = 1;
+        // The follow-up the chain is starting takes its place in the chain with it, and is owed
+        // nothing more; every other start opens a chain of its own.
+        if (action != BossAbility.NONE && action == forcedAbility) {
+            pendingLinks = combo.links();
+            combo.clearPending();
+            forcedAbility = BossAbility.NONE;
+            forcedScheduleBefore = NOT_SCHEDULED;
+        } else {
+            pendingLinks = 1;
+        }
         pendingLeadTicks = telegraphs.lead(data, action, actionDelay);
         beginCastRoot(data, phase, action);
         if (pendingLeadTicks <= 0 && actionDelay <= 0) {
@@ -2216,6 +2328,8 @@ public final class TeleportPathController {
         // The chains go with them: a follow-up owed to a phase that is over, a fight that ended
         // or a boss that died is owed to nobody, and an effect still running hands on nothing.
         combo.clear();
+        forcedAbility = BossAbility.NONE;
+        forcedScheduleBefore = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and
         // every one of those ends up here. Nor does a sweep.
         huntRuntime.end();

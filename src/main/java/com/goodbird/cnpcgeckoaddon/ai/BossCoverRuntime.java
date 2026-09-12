@@ -84,7 +84,7 @@ final class BossCoverRuntime {
      * are drawn from wherever the boss is when they are checked.</p>
      */
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.cover().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.COVER)) {
+        if (!boss.mayStart(BossAbility.COVER, phase) || gameTime < boss.abilityScheduleAt(BossAbility.COVER)) {
             return false;
         }
         if (boss.coverVictims(level, npc.position(), phase.cover().getRange()).isEmpty()) {

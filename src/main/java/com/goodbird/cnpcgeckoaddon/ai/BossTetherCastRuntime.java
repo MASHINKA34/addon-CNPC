@@ -38,7 +38,7 @@ final class BossTetherCastRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.tether().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.TETHER)) return false;
+        if (!boss.mayStart(BossAbility.TETHER, phase) || gameTime < boss.abilityScheduleAt(BossAbility.TETHER)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.tether().getTargetMode(),
                 reach(phase), candidate -> isValidTarget(candidate, phase),
                 phase.tether().getTargetCount());

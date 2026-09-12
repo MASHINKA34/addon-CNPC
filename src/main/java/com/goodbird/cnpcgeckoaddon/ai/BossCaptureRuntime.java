@@ -35,7 +35,7 @@ final class BossCaptureRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.capture().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.CAPTURE)
+        if (!boss.mayStart(BossAbility.CAPTURE, phase) || gameTime < boss.abilityScheduleAt(BossAbility.CAPTURE)
                 || BossCaptureManager.hasCaptureForBoss(npc.getUUID())) return false;
         LivingEntity target = selectTarget(level, phase);
         if (target == null) {

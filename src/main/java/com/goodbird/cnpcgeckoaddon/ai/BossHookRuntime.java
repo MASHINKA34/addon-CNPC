@@ -57,7 +57,7 @@ final class BossHookRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.hook().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.HOOK)) {
+        if (!boss.mayStart(BossAbility.HOOK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.HOOK)) {
             return false;
         }
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.hook().getTargetMode(),

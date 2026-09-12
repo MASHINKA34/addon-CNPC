@@ -47,7 +47,7 @@ final class BossGeyserRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.geyser().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.GEYSER)) return false;
+        if (!boss.mayStart(BossAbility.GEYSER, phase) || gameTime < boss.abilityScheduleAt(BossAbility.GEYSER)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.geyser().getTargetMode(),
                 phase.geyser().getMaxRange(), candidate -> isValidTarget(candidate, phase),
                 phase.geyser().getTargetCount());

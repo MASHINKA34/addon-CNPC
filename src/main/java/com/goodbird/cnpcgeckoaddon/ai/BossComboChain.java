@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The chains a phase hangs off its abilities: which abilities that went off are still owed
@@ -28,6 +29,15 @@ final class BossComboChain {
      */
     static final int MAX_LINKS = BossAbilityKind.COUNT;
 
+    /**
+     * How far past its time a follow-up may be kept waiting - by a silence, an immune window, a
+     * wind-up or a lock - before it is dropped: past ten seconds it no longer reads as one.
+     */
+    static final int STALE_TICKS = 200;
+
+    /** How long a follow-up that refuses to start - nobody in reach, say - is tried again for. */
+    static final int RETRY_WINDOW_TICKS = 60;
+
     /** Abilities that went off and are owed a follow-up when they end, each with its place in a chain. */
     private final Map<BossAbility, Integer> watched = new EnumMap<>(BossAbility.class);
 
@@ -39,6 +49,10 @@ final class BossComboChain {
     private long readyAt = NOT_SCHEDULED;
     /** Its place in its chain: 2 for the follow-up of an ability the boss started on its own. */
     private int links;
+    /** Game time it may next be tried at: its ready time at first, a little later after each refusal. */
+    private long nextTryAt = NOT_SCHEDULED;
+    /** Game time the retries give up at, or NOT_SCHEDULED while it has never refused. */
+    private long retryUntil = NOT_SCHEDULED;
 
     /**
      * Notes an action that has just gone off, when the phase chains something onto it.
@@ -87,6 +101,40 @@ final class BossComboChain {
         from = ended;
         readyAt = gameTime + phase.comboDelay(ended.kind());
         links = place + 1;
+        nextTryAt = readyAt;
+        retryUntil = NOT_SCHEDULED;
+        return true;
+    }
+
+    /** Whether the waiting follow-up may be tried now: its delay is over, and so is any pause after a refusal. */
+    boolean isDue(long gameTime) {
+        return hasPending() && gameTime >= Math.max(readyAt, nextTryAt);
+    }
+
+    /** Whether the waiting follow-up was kept from starting for too long past its time to still be owed. */
+    boolean isStale(long gameTime) {
+        return hasPending() && gameTime - readyAt > STALE_TICKS;
+    }
+
+    /**
+     * The waiting follow-up refused to start: it is tried again every {@code RETRY_TICKS} for
+     * {@link #RETRY_WINDOW_TICKS} from the first refusal, and then dropped without a word - a
+     * boss with nobody in reach is not a broken boss.
+     *
+     * @return whether the follow-up is still waiting
+     */
+    boolean refused(long gameTime) {
+        if (!hasPending()) {
+            return false;
+        }
+        if (retryUntil == NOT_SCHEDULED) {
+            retryUntil = gameTime + RETRY_WINDOW_TICKS;
+        }
+        if (gameTime >= retryUntil) {
+            clearPending();
+            return false;
+        }
+        nextTryAt = gameTime + RETRY_TICKS;
         return true;
     }
 
@@ -122,6 +170,8 @@ final class BossComboChain {
         from = BossAbility.NONE;
         readyAt = NOT_SCHEDULED;
         links = 0;
+        nextTryAt = NOT_SCHEDULED;
+        retryUntil = NOT_SCHEDULED;
     }
 
     /** Drops everything: the follow-up waiting to start, and every claim on one. */

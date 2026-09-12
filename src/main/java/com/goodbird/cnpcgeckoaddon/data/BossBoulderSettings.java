@@ -118,7 +118,10 @@ public final class BossBoulderSettings {
     public void setVfx(String value) { boulderVfx = AreaVfxStyles.normalize(value); }
 
     /** Whether the ability is worth scheduling: on, and with a block to be made of. */
-    public boolean canLaunch() { return boulderEnabled && !boulderBlock.isEmpty(); }
+    public boolean canLaunch() { return boulderEnabled && isConfigured(); }
+
+    /** Whether there is a block to make the stone of, whatever the switch says: all a chained start still needs. */
+    public boolean isConfigured() { return !boulderBlock.isEmpty(); }
 
     public BossEffectSet getEffects() { return boulderEffects; }
 

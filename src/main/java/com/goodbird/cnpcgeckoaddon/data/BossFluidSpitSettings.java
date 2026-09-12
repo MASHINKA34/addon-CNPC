@@ -86,7 +86,10 @@ public final class BossFluidSpitSettings {
         fluidSpitTargetMode = BossTargetMode.clamp(value);
     }
 
-    public boolean canSpit() { return fluidSpitEnabled && !fluidSpitBlock.isEmpty(); }
+    public boolean canSpit() { return fluidSpitEnabled && isConfigured(); }
+
+    /** Whether there is a block to spit, whatever the switch says: all a chained start still needs. */
+    public boolean isConfigured() { return !fluidSpitBlock.isEmpty(); }
 
     public BossEffectSet getEffects() { return fluidSpitEffects; }
 

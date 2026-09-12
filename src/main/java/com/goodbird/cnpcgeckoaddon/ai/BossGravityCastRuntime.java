@@ -28,7 +28,7 @@ final class BossGravityCastRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.gravity().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.GRAVITY)) return false;
+        if (!boss.mayStart(BossAbility.GRAVITY, phase) || gameTime < boss.abilityScheduleAt(BossAbility.GRAVITY)) return false;
         if (!hasTargets(level, phase)) {
             boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + RETRY_LONG_TICKS);
             return false;

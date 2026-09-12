@@ -127,7 +127,10 @@ public final class BossBoulderRainSettings {
 
     public void setVfx(String value) { boulderRainVfx = AreaVfxStyles.normalize(value); }
 
-    public boolean canLaunch() { return boulderRainEnabled && !boulderRainBlock.isEmpty(); }
+    public boolean canLaunch() { return boulderRainEnabled && isConfigured(); }
+
+    /** Whether there is a block to make the stones of, whatever the switch says: all a chained start still needs. */
+    public boolean isConfigured() { return !boulderRainBlock.isEmpty(); }
 
     public BossEffectSet getEffects() { return boulderRainEffects; }
 

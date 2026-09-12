@@ -29,7 +29,7 @@ final class BossAreaAttackRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.areaAttack().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.GROUND_ATTACK)) {
+        if (!boss.mayStart(BossAbility.GROUND_ATTACK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.GROUND_ATTACK)) {
             return false;
         }
         if (targets(level, phase).isEmpty()) {

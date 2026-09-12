@@ -164,6 +164,69 @@ class BossComboChainTest {
     }
 
     @Test
+    @DisplayName("a follow-up is due once its delay is over, and goes stale two hundred ticks past it")
+    void dueAndStale() {
+        BossComboChain chain = armed(leapIntoRain(10), 100L);
+        assertFalse(chain.isDue(109L));
+        assertTrue(chain.isDue(110L));
+        assertFalse(chain.isStale(110L + BossComboChain.STALE_TICKS), "exactly that late is still owed");
+        assertTrue(chain.isStale(111L + BossComboChain.STALE_TICKS));
+        chain.clearPending();
+        assertFalse(chain.isDue(500L), "nothing waiting is never due");
+        assertFalse(chain.isStale(5000L));
+    }
+
+    @Test
+    @DisplayName("a follow-up that refuses is tried again every few ticks for three seconds, then dropped")
+    void refusalsRetryThenGiveUp() {
+        BossComboChain chain = armed(leapIntoRain(0), 100L);
+        long gameTime = 100L;
+        int attempts = 0;
+        while (chain.hasPending()) {
+            assertTrue(chain.isDue(gameTime), "every retry is due on its own tick, attempt " + attempts);
+            attempts++;
+            if (chain.refused(gameTime)) {
+                assertFalse(chain.isDue(gameTime + TeleportPathController.RETRY_TICKS - 1), "a retry waits its pause");
+                gameTime += TeleportPathController.RETRY_TICKS;
+            }
+        }
+        assertEquals(100L + BossComboChain.RETRY_WINDOW_TICKS, gameTime, "the last try is the one at the end of the window");
+        assertEquals(BossComboChain.RETRY_WINDOW_TICKS / TeleportPathController.RETRY_TICKS + 1, attempts);
+        assertEquals(60, BossComboChain.RETRY_WINDOW_TICKS);
+        assertFalse(chain.refused(gameTime), "nothing is left to refuse");
+    }
+
+    @Test
+    @DisplayName("the retry window opens at the first refusal, not at the ready time")
+    void theWindowOpensAtTheFirstRefusal() {
+        BossComboChain chain = armed(leapIntoRain(0), 100L);
+        // Kept waiting by a silence for a while, and only then refused for the first time.
+        assertTrue(chain.refused(250L));
+        assertTrue(chain.refused(300L));
+        assertFalse(chain.refused(310L));
+        assertFalse(chain.hasPending());
+    }
+
+    @Test
+    @DisplayName("a newer follow-up starts its retries afresh")
+    void aNewerFollowUpStartsFresh() {
+        BossPhaseData phase = leapIntoRain(0);
+        phase.setComboFollowUp(BossAbilityKind.BEAM, BossAbilityKind.GRAVITY);
+        BossComboChain chain = new BossComboChain();
+        chain.watch(BossAbility.LEAP, 1, phase);
+        chain.watch(BossAbility.BEAM, 1, phase);
+        assertTrue(chain.finish(BossAbility.LEAP, phase, 100L));
+        chain.refused(100L);
+        chain.refused(150L);
+        assertFalse(chain.isDue(155L));
+
+        assertTrue(chain.finish(BossAbility.BEAM, phase, 155L));
+        assertTrue(chain.isDue(155L), "the pause after the rain's refusal is not the gravity's");
+        assertTrue(chain.refused(155L));
+        assertTrue(chain.refused(210L), "and neither is the rain's window");
+    }
+
+    @Test
     @DisplayName("every chainable kind is started through a rotation row")
     void everyKindHasARow() {
         for (int kind : BossAbilityKind.COMBO_ABILITIES) {
@@ -174,6 +237,14 @@ class BossComboChainTest {
         assertEquals(BossAbility.NONE, BossAbility.ofKind(BossAbilityKind.BLAST));
         assertEquals(BossAbility.NONE, BossAbility.ofKind(BossAbilityKind.HAZARD));
         assertEquals(BossAbility.NONE, BossAbility.ofKind(-1), "the hop and an idle boss are on no list");
+    }
+
+    /** A chain whose leap has just ended, with its follow-up waiting. */
+    private static BossComboChain armed(BossPhaseData phase, long endedAt) {
+        BossComboChain chain = new BossComboChain();
+        chain.watch(BossAbility.LEAP, 1, phase);
+        assertTrue(chain.finish(BossAbility.LEAP, phase, endedAt));
+        return chain;
     }
 
     private static BossPhaseData leapIntoRain(int delay) {

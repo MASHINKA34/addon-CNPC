@@ -50,7 +50,7 @@ final class BossFluidSpitRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.fluidSpit().canSpit() || gameTime < boss.abilityScheduleAt(BossAbility.FLUID_SPIT)) return false;
+        if (!boss.mayStart(BossAbility.FLUID_SPIT, phase) || gameTime < boss.abilityScheduleAt(BossAbility.FLUID_SPIT)) return false;
         LivingEntity target = boss.selectAbilityTarget(level, phase.fluidSpit().getTargetMode(),
                 phase.fluidSpit().getMaxRange(), candidate -> isValidTarget(candidate, phase));
         if (target == null || FluidBlockUtil.resolve(phase.fluidSpit().getBlock()) == null) {

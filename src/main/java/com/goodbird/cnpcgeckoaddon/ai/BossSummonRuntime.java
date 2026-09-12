@@ -29,7 +29,7 @@ final class BossSummonRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.summon().canSummon() || gameTime < boss.abilityScheduleAt(BossAbility.SUMMON)) {
+        if (!boss.mayStart(BossAbility.SUMMON, phase) || gameTime < boss.abilityScheduleAt(BossAbility.SUMMON)) {
             return false;
         }
         if (BossMinionUtil.countAlive(level, npc, phase.summon().getMaxAlives())

@@ -70,8 +70,9 @@ final class BossCocoonRuntime {
      * <p>Aimed the way the marks are, at up to a handful of victims anywhere in the arena.</p>
      */
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.cocoon().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.COCOON)) return false;
-        if (!phase.cocoon().canCocoon()) {
+        // Asked ahead of the start check, which a cocoon with no clone never passes: this is the
+        // one case the builder has to be told about rather than left to wonder over.
+        if (phase.cocoon().isEnabled() && !phase.cocoon().isConfigured()) {
             // Switched on with no clone to close round anybody: said once, then left quiet.
             if (reportedEmptyPhases.add(boss.currentPhaseIndex())) {
                 LOGGER.warn("Boss {} phase {} has the cocoon on but no cocoon clone name; it will not fire",
@@ -79,6 +80,7 @@ final class BossCocoonRuntime {
             }
             return false;
         }
+        if (!boss.mayStart(BossAbility.COCOON, phase) || gameTime < boss.abilityScheduleAt(BossAbility.COCOON)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.cocoon().getTargetMode(),
                 REACH, this::isValidTarget, phase.cocoon().getTargetCount());
         if (targets.isEmpty()) {

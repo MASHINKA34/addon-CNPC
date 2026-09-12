@@ -27,7 +27,7 @@ final class BossMeleeAttackRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.meleeAttack().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.MELEE_ATTACK)) {
+        if (!boss.mayStart(BossAbility.MELEE_ATTACK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.MELEE_ATTACK)) {
             return false;
         }
         // Melee reach is measured hitbox to hitbox, so the search box carries the boss own

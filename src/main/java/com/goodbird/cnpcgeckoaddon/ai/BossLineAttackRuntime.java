@@ -41,7 +41,7 @@ final class BossLineAttackRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.lineAttack().isEnabled()
+        if (!boss.mayStart(BossAbility.LINE_ATTACK, phase)
                 || gameTime < boss.abilityScheduleAt(BossAbility.LINE_ATTACK)) return false;
         LivingEntity target = boss.selectAbilityTarget(level, phase.lineAttack().getTargetMode(),
                 phase.lineAttack().getLength(), candidate -> isValidTarget(candidate, phase));

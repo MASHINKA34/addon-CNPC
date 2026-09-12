@@ -38,7 +38,7 @@ final class BossMarkRuntime {
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!phase.mark().isEnabled() || gameTime < boss.abilityScheduleAt(BossAbility.MARK)) return false;
+        if (!boss.mayStart(BossAbility.MARK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.MARK)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.mark().getTargetMode(),
                 REACH, this::isValidTarget, phase.mark().getTargetCount());
         if (targets.isEmpty()) {

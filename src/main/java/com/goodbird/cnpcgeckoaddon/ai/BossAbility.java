@@ -39,6 +39,7 @@ public enum BossAbility {
     MELEE_ATTACK(BossAbilityKind.MELEE, phase -> phase.meleeAttack().isEnabled(),
             phase -> phase.meleeAttack().getCooldownTicks(), phase -> phase.meleeAttack().castSpot()),
     FLUID_SPIT(BossAbilityKind.FLUID, phase -> phase.fluidSpit().canSpit(),
+            phase -> phase.fluidSpit().isConfigured(),
             phase -> phase.fluidSpit().getCooldownTicks(), phase -> phase.fluidSpit().castSpot()),
     HOOK(BossAbilityKind.HOOK, phase -> phase.hook().isEnabled(),
             phase -> phase.hook().getCooldownTicks(), phase -> phase.hook().castSpot()),
@@ -51,8 +52,10 @@ public enum BossAbility {
     GEYSER(BossAbilityKind.GEYSER, phase -> phase.geyser().isEnabled(),
             phase -> phase.geyser().getCooldownTicks(), phase -> phase.geyser().castSpot()),
     BOULDER(BossAbilityKind.BOULDER, phase -> phase.boulder().canLaunch(),
+            phase -> phase.boulder().isConfigured(),
             phase -> phase.boulder().getCooldownTicks(), phase -> phase.boulder().castSpot()),
     BOULDER_RAIN(BossAbilityKind.BOULDER_RAIN, phase -> phase.boulderRain().canLaunch(),
+            phase -> phase.boulderRain().isConfigured(),
             phase -> phase.boulderRain().getCooldownTicks(), phase -> phase.boulderRain().castSpot()),
     TETHER(BossAbilityKind.TETHER, phase -> phase.tether().isEnabled(),
             phase -> phase.tether().getCooldownTicks(), phase -> phase.tether().castSpot()),
@@ -67,8 +70,10 @@ public enum BossAbility {
     BEAM(BossAbilityKind.BEAM, phase -> phase.beam().isEnabled(),
             phase -> phase.beam().getCooldownTicks(), phase -> phase.beam().castSpot()),
     COCOON(BossAbilityKind.COCOON, phase -> phase.cocoon().canCocoon(),
+            phase -> phase.cocoon().isConfigured(),
             phase -> phase.cocoon().getCooldownTicks(), phase -> phase.cocoon().castSpot()),
     SUMMON(BossAbilityKind.SUMMON, phase -> phase.summon().canSummon(),
+            phase -> phase.summon().isConfigured(),
             phase -> phase.summon().getCooldownTicks(), phase -> phase.summon().castSpot()),
 
     /** Scheduled from its own random delay range rather than from a flat cooldown. */
@@ -88,13 +93,21 @@ public enum BossAbility {
 
     private final int kind;
     private final Predicate<BossPhaseData> enabled;
+    private final Predicate<BossPhaseData> configured;
     private final ToIntFunction<BossPhaseData> cooldown;
     private final Function<BossPhaseData, BossCastSpot> castSpot;
 
+    /** A row with nothing to fill in beyond its numbers, so a follow-up can always cast it. */
     BossAbility(int kind, Predicate<BossPhaseData> enabled, ToIntFunction<BossPhaseData> cooldown,
                 Function<BossPhaseData, BossCastSpot> castSpot) {
+        this(kind, enabled, enabled == null ? null : phase -> true, cooldown, castSpot);
+    }
+
+    BossAbility(int kind, Predicate<BossPhaseData> enabled, Predicate<BossPhaseData> configured,
+                ToIntFunction<BossPhaseData> cooldown, Function<BossPhaseData, BossCastSpot> castSpot) {
         this.kind = kind;
         this.enabled = enabled;
+        this.configured = configured;
         this.cooldown = cooldown;
         this.castSpot = castSpot;
     }
@@ -125,6 +138,15 @@ public enum BossAbility {
     /** Whether this phase has the ability switched on at all. */
     boolean isEnabledIn(BossPhaseData phase) {
         return enabled != null && enabled.test(phase);
+    }
+
+    /**
+     * Whether this phase has filled in what the ability cannot be cast without - the block a
+     * stone or a spit is made of, the clone a cocoon or a summon spawns - whatever its switch
+     * says. It is what a follow-up still needs once it has skipped the switch.
+     */
+    boolean isConfiguredIn(BossPhaseData phase) {
+        return configured != null && configured.test(phase);
     }
 
     /** The configured cooldown in ticks, before the enrage bonus is taken off it. */

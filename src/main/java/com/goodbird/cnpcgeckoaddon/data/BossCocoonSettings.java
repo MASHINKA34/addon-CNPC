@@ -120,7 +120,10 @@ public final class BossCocoonSettings {
     public void setGuardName(String value) { cocoonGuardName = clean(value); }
 
     /** Whether the cocoon can fire at all: switched on, and with a clone to close round somebody. */
-    public boolean canCocoon() { return cocoonEnabled && !cocoonCloneName.isEmpty(); }
+    public boolean canCocoon() { return cocoonEnabled && isConfigured(); }
+
+    /** Whether there is a clone to close round somebody, whatever the switch says: all a chained start still needs. */
+    public boolean isConfigured() { return !cocoonCloneName.isEmpty(); }
 
     public BossEffectSet getVictimEffects() { return cocoonVictimEffects; }
 
