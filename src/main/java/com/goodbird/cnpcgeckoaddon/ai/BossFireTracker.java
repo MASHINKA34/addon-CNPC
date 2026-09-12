@@ -39,7 +39,7 @@ public final class BossFireTracker {
      */
     public static void ignite(LivingEntity victim, int durationTicks, int multiplier) {
         victim.igniteForTicks(durationTicks);
-        // A fire-immune victim, or one whose armour burns the fire down to nothing, never caught.
+        // A fire-immune victim, or one whose fire protection cuts the burn to nothing, never caught.
         if (victim.isOnFire() && victim.level() instanceof ServerLevel level) {
             long now = level.getGameTime();
             BURNS.light(victim.getUUID(), level.dimension(), multiplier, now + durationTicks, now);
