@@ -1187,6 +1187,13 @@ public final class TeleportPathController {
         return castSpots.status(gameTime);
     }
 
+    /** Read-only status used by the boss diagnostic command: the same question the gate asks. */
+    public String finishStatus(long gameTime) {
+        BossPhaseData phase = activePhase();
+        BossAbility awaited = phase == null ? BossAbility.NONE : awaitedFinish(phase, gameTime);
+        return awaited == BossAbility.NONE ? "Finish: free" : "Finish: waiting for " + awaited;
+    }
+
     /** True while a standing formation keeps the boss from starting anything of its own. */
     public boolean isTotemSilenced() {
         return totems.isSilencing();

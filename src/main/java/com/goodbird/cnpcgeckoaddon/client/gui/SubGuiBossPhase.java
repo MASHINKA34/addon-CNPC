@@ -74,6 +74,7 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
         addAbilityButton(32, 0, 11, "cnpcgeckoaddon.boss.beam_settings");
         addAbilityButton(33, 1, 11, "cnpcgeckoaddon.boss.cocoon_settings");
         addAbilityButton(34, 0, 12, "cnpcgeckoaddon.boss.cast_spots_settings");
+        addAbilityButton(35, 1, 12, "cnpcgeckoaddon.boss.finish_settings");
         // The grid runs to thirteen rows now, so Done gets a line of its own below it.
         addDoneButton(guiLeft + 182, guiTop + 398, 60, 20);
     }
@@ -135,6 +136,8 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
             setSubGui(new SubGuiBossCocoon(npc, phase, phaseIndex));
         } else if (button.id == 34) {
             setSubGui(new SubGuiBossCastSpots(npc, phase, phaseIndex));
+        } else if (button.id == 35) {
+            setSubGui(new SubGuiBossFinish(phase, phaseIndex));
         }
     }
 
