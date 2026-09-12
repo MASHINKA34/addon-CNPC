@@ -8,6 +8,7 @@ import java.util.function.Predicate;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
@@ -56,6 +57,12 @@ final class BossTargetingRuntime {
             nextZoneCheckAt = NOT_SCHEDULED;
             return;
         }
+        // Every tick rather than on the interval: CustomNPCs' own aggro and its switch to a
+        // closer attacker in hurt() can hand the boss somebody outside the box at any moment.
+        if (data.isAggroZoneOnlyWayIn() && dropTargetOutsideZone(level, data)) {
+            // The seat is empty now, so whoever is inside takes it on this tick, not at the next check.
+            nextZoneCheckAt = NOT_SCHEDULED;
+        }
         if (nextZoneCheckAt != NOT_SCHEDULED && gameTime < nextZoneCheckAt) {
             return;
         }
@@ -77,7 +84,7 @@ final class BossTargetingRuntime {
         }
         LivingEntity current = npc.getTarget();
         boolean currentIsCandidate = current instanceof ServerPlayer player && candidates.contains(player);
-        if (data.isAggroZoneKeepInside() && current instanceof Player && !currentIsCandidate) {
+        if (data.holdsTargetsInAggroZone() && current instanceof Player && !currentIsCandidate) {
             setTargetIfChanged(selectZoneTarget(candidates, data));
             return;
         }
@@ -101,12 +108,60 @@ final class BossTargetingRuntime {
         return candidates;
     }
 
+    /**
+     * Lets go of a target standing outside an exclusive zone, player or not.
+     *
+     * <p>A running hunt is left to its own rule, which already ends the chase once the prey is
+     * outside. Anything else goes together with CustomNPCs' list of everyone who hurt the boss,
+     * or that list hands the archer on the wall straight back.</p>
+     *
+     * @return true when a target was dropped
+     */
+    private boolean dropTargetOutsideZone(ServerLevel level, TeleportPathData data) {
+        LivingEntity hurtBy = npc.getLastHurtByMob();
+        LivingEntity current = npc.getTarget();
+        if (hurtBy == null && current == null) {
+            return false;
+        }
+        AABB zone = zoneBounds(level, data);
+        // With no target, CustomNPCs' attack goal keeps chasing whoever hurt the boss last, so an
+        // outside attacker has to be forgotten there too or the boss walks at them anyway.
+        if (hurtBy != null && !isInside(zone, level, hurtBy)) {
+            npc.setLastHurtByMob(null);
+        }
+        if (current == null || boss.isHunting() || isInside(zone, level, current)) {
+            return false;
+        }
+        npc.setTarget(null);
+        npc.combatHandler.reset();
+        return true;
+    }
+
+    /** Whether this entity stands in the zone's box; nobody is inside a box whose corners leave no room. */
+    boolean isInsideZone(ServerLevel level, Entity entity, TeleportPathData data) {
+        return isInside(zoneBounds(level, data), level, entity);
+    }
+
+    private static boolean isInside(AABB zone, ServerLevel level, Entity entity) {
+        return zone != null && entity.level() == level && zone.contains(entity.position());
+    }
+
     /** Intersects Y with this dimension's real build height instead of an obsolete 0..255 range. */
     AABB zoneBounds(ServerLevel level, TeleportPathData data) {
+        return zoneBounds(data, level.getMinBuildHeight(), level.getMaxBuildHeight());
+    }
+
+    /**
+     * The same box without a level, so the geometry can be pinned by a test.
+     *
+     * @param maxBuildHeight exclusive, the way {@code Level.getMaxBuildHeight()} reports it
+     * @return null when the corners' Y range lies wholly outside the build height
+     */
+    static AABB zoneBounds(TeleportPathData data, int minBuildHeight, int maxBuildHeight) {
         int minY = Math.max(Math.min(data.getAggroZoneY1(), data.getAggroZoneY2()),
-                level.getMinBuildHeight());
+                minBuildHeight);
         int maxY = Math.min(Math.max(data.getAggroZoneY1(), data.getAggroZoneY2()),
-                level.getMaxBuildHeight() - 1);
+                maxBuildHeight - 1);
         if (minY > maxY) {
             return null;
         }
@@ -171,7 +226,7 @@ final class BossTargetingRuntime {
         }
         nextRetargetAt = gameTime + data.getTargetRecheckTicks();
 
-        boolean restrictToZone = data.isAggroZoneEnabled() && data.isAggroZoneKeepInside();
+        boolean restrictToZone = data.holdsTargetsInAggroZone();
         AABB zoneConstraint = restrictToZone ? zoneBounds(level, data) : null;
         double radius = data.getTargetSearchRadius();
         double radiusSquared = radius * radius;

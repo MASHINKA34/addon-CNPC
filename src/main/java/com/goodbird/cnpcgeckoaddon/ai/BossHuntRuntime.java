@@ -103,8 +103,7 @@ final class BossHuntRuntime {
                 || target.isRemoved() || !boss.isAbilityTarget(target, BossAbilityKind.HUNT)) {
             return false;
         }
-        if (data.isAggroZoneEnabled() && data.isAggroZoneKeepInside()
-                && npc.level() instanceof ServerLevel level) {
+        if (data.holdsTargetsInAggroZone() && npc.level() instanceof ServerLevel level) {
             AABB zone = boss.aggroZoneBounds(level, data);
             if (zone == null || !zone.contains(target.position())) {
                 return false;

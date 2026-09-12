@@ -616,6 +616,11 @@ public final class TeleportPathController {
         return targeting.zoneBounds(level, data);
     }
 
+    /** Whether this entity stands inside the aggro zone's box, in the boss' own level. */
+    boolean isInsideAggroZone(Entity entity, TeleportPathData data) {
+        return npc.level() instanceof ServerLevel level && targeting.isInsideZone(level, entity, data);
+    }
+
     void setTargetIfChanged(LivingEntity target) {
         targeting.setTargetIfChanged(target);
     }
@@ -1068,9 +1073,15 @@ public final class TeleportPathController {
         if (target instanceof Player player && (player.isSpectator() || player.isCreative())) {
             return false;
         }
+        TeleportPathData data = settings();
+        // Under an exclusive zone somebody outside the box is nobody to fight, whatever put
+        // them on the target: they open no fight, keep none going and run no clock.
+        if (data.isAggroZoneOnlyWayIn() && !isInsideAggroZone(target, data)) {
+            return false;
+        }
         // Half a search radius of slack on top, so a target standing right on the edge of
         // it does not flicker the fight on and off from one tick to the next.
-        double leash = settings().getTargetSearchRadius() * 1.5D;
+        double leash = data.getTargetSearchRadius() * 1.5D;
         return npc.distanceToSqr(target) <= leash * leash;
     }
 
@@ -1091,8 +1102,14 @@ public final class TeleportPathController {
     }
 
     boolean isParticipant(ServerPlayer player) {
-        return player.isAlive() && !player.isSpectator() && !player.isCreative() && !player.isRemoved()
-                && npc.canAttack(player) && !npc.isAlliedTo(player);
+        if (!(player.isAlive() && !player.isSpectator() && !player.isCreative() && !player.isRemoved()
+                && npc.canAttack(player) && !npc.isAlliedTo(player))) {
+            return false;
+        }
+        TeleportPathData data = settings();
+        // Under an exclusive zone the box is the fight: a hit landed from outside it signs
+        // nobody up for the bar or the party's head count.
+        return !data.isAggroZoneOnlyWayIn() || isInsideAggroZone(player, data);
     }
 
     /** Adds the whole nearby group before a lock-at-start encounter takes its snapshot. */
