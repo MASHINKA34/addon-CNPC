@@ -22,7 +22,7 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
         this.phaseIndex = phaseIndex;
         this.phase = data.getPhase(phaseIndex);
         imageWidth = 256;
-        imageHeight = 424;
+        imageHeight = 451;
         closeOnEsc = true;
     }
 
@@ -75,8 +75,9 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
         addAbilityButton(33, 1, 11, "cnpcgeckoaddon.boss.cocoon_settings");
         addAbilityButton(34, 0, 12, "cnpcgeckoaddon.boss.cast_spots_settings");
         addAbilityButton(35, 1, 12, "cnpcgeckoaddon.boss.finish_settings");
-        // The grid runs to thirteen rows now, so Done gets a line of its own below it.
-        addDoneButton(guiLeft + 182, guiTop + 398, 60, 20);
+        addAbilityButton(36, 0, 13, "cnpcgeckoaddon.boss.combo_settings");
+        // The grid runs to fourteen rows now, so Done gets a line of its own below it.
+        addDoneButton(guiLeft + 182, guiTop + 425, 60, 20);
     }
 
     private void addAbilityButton(int id, int column, int row, String label) {
@@ -138,6 +139,8 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
             setSubGui(new SubGuiBossCastSpots(npc, phase, phaseIndex));
         } else if (button.id == 35) {
             setSubGui(new SubGuiBossFinish(phase, phaseIndex));
+        } else if (button.id == 36) {
+            setSubGui(new SubGuiBossCombos(phase, phaseIndex));
         }
     }
 

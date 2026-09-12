@@ -227,6 +227,24 @@ class BossComboChainTest {
     }
 
     @Test
+    @DisplayName("the status line says what the chain is waiting on, the way the boss command prints it")
+    void theStatusLineNamesTheChain() {
+        BossComboChain chain = new BossComboChain();
+        assertEquals("Combo: none", chain.status(0L));
+
+        BossPhaseData phase = leapIntoRain(10);
+        chain.watch(BossAbility.LEAP, 1, phase);
+        assertEquals("Combo: waiting for LEAP to end", chain.status(50L));
+
+        chain.finish(BossAbility.LEAP, phase, 100L);
+        assertEquals("Combo: LEAP -> BOULDER_RAIN in 10", chain.status(100L));
+        assertEquals("Combo: LEAP -> BOULDER_RAIN in 0", chain.status(140L), "an overdue follow-up is not counted below zero");
+        chain.refused(140L);
+        assertEquals("Combo: LEAP -> BOULDER_RAIN in " + TeleportPathController.RETRY_TICKS, chain.status(140L),
+                "after a refusal the count is to the retry");
+    }
+
+    @Test
     @DisplayName("every chainable kind is started through a rotation row")
     void everyKindHasARow() {
         for (int kind : BossAbilityKind.COMBO_ABILITIES) {

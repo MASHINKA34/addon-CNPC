@@ -6,6 +6,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
@@ -162,6 +163,21 @@ final class BossComboChain {
 
     int links() {
         return links;
+    }
+
+    /**
+     * Read-only status used by the boss diagnostic command: the follow-up waiting and how soon it
+     * is tried, else the abilities still owed one.
+     */
+    String status(long gameTime) {
+        if (hasPending()) {
+            return "Combo: " + from + " -> " + next + " in " + Math.max(0L, Math.max(readyAt, nextTryAt) - gameTime);
+        }
+        if (isWatching()) {
+            return "Combo: waiting for " + watched.keySet().stream().map(Enum::name)
+                    .collect(Collectors.joining(", ")) + " to end";
+        }
+        return "Combo: none";
     }
 
     /** Drops the follow-up waiting to start; abilities still running keep their claim. */

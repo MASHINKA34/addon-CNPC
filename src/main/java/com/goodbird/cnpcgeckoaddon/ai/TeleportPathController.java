@@ -1230,6 +1230,11 @@ public final class TeleportPathController {
         return awaited == BossAbility.NONE ? "Finish: free" : "Finish: waiting for " + awaited;
     }
 
+    /** Read-only status used by the boss diagnostic command. */
+    public String comboStatus(long gameTime) {
+        return combo.status(gameTime);
+    }
+
     /** True while a standing formation keeps the boss from starting anything of its own. */
     public boolean isTotemSilenced() {
         return totems.isSilencing();
