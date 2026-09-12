@@ -202,6 +202,8 @@
   "cnpcgeckoaddon.boss.effect_level": "Level (1-10)",
   "cnpcgeckoaddon.boss.effect_particles": "Show particles",
   "cnpcgeckoaddon.boss.effect_hint": "20 ticks = 1 second. Applies even if the damage was blocked.",
+  "cnpcgeckoaddon.boss.effect_fire": "Fire",
+  "cnpcgeckoaddon.boss.effect_fire_hint": "cnpcgeckoaddon:fire sets the victim on fire for the duration; the level multiplies the burn.",
   "cnpcgeckoaddon.boss.effect_off": "not set",
   "cnpcgeckoaddon.boss.effect_short_level": "lvl ",
   "cnpcgeckoaddon.boss.effects_hint": "Up to 3 effects per attack.",

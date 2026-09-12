@@ -6,25 +6,31 @@ import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
-/** Editor for one potion effect slot of a boss attack. */
+/** Editor for one potion effect slot of a boss attack, or of the fire that shares the slot. */
 public final class SubGuiBossEffect extends SubGuiFieldScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int EFFECT_FIELD = 2;
     private static final int DURATION_FIELD = 3;
     private static final int LEVEL_FIELD = 4;
     private static final int PARTICLES_BUTTON = 5;
+    /** Where the hints start: under the particles row, where the one hint always sat. */
+    private static final int HINTS_Y = 166;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int BOTTOM_MARGIN = 6;
 
     private final BossEffectData effect;
 
     public SubGuiBossEffect(BossEffectData effect) {
         this.effect = effect;
         imageWidth = 256;
-        imageHeight = 216;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Settled before super.init() centres the panel on it: how many lines the two hints
+        // wrap to is up to the locale.
+        imageHeight = buttonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
         addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.effect", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 26;
@@ -47,8 +53,17 @@ public final class SubGuiBossEffect extends SubGuiFieldScreen {
         addLabel(new GuiLabel(PARTICLES_BUTTON, "cnpcgeckoaddon.boss.effect_particles", guiLeft + 8, y + 6));
         addButton(new GuiButtonYesNo(this, PARTICLES_BUTTON, guiLeft + 155, y, 87, 20, effect.isShowParticles()));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.effect_hint", guiLeft + 8, guiTop + 166, 0xA0A0A0));
-        addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
+        // Wrapped, both of them: a single label never wraps, and the first hint alone was
+        // already wider than the panel in either locale.
+        int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.effect_hint", guiTop + HINTS_Y);
+        addWrappedHint(40, "cnpcgeckoaddon.boss.effect_fire_hint", hintY);
+        addDoneButton(guiLeft + 182, guiTop + buttonY(), 60, BUTTON_HEIGHT);
+    }
+
+    /** Where the done button goes, from the panel's top: just under both hints. */
+    private int buttonY() {
+        return HINTS_Y + wrappedHintHeight("cnpcgeckoaddon.boss.effect_hint")
+                + wrappedHintHeight("cnpcgeckoaddon.boss.effect_fire_hint") + 4;
     }
 
     @Override

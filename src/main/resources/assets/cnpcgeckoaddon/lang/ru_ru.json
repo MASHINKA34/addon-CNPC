@@ -202,6 +202,8 @@
   "cnpcgeckoaddon.boss.effect_level": "Уровень (1-10)",
   "cnpcgeckoaddon.boss.effect_particles": "Показывать частицы",
   "cnpcgeckoaddon.boss.effect_hint": "20 тиков = 1 секунда. Работает даже если урон заблокирован.",
+  "cnpcgeckoaddon.boss.effect_fire": "Поджог",
+  "cnpcgeckoaddon.boss.effect_fire_hint": "cnpcgeckoaddon:fire поджигает жертву на длительность; уровень умножает урон огня.",
   "cnpcgeckoaddon.boss.effect_off": "не задан",
   "cnpcgeckoaddon.boss.effect_short_level": "ур. ",
   "cnpcgeckoaddon.boss.effects_hint": "До 3 эффектов на атаку.",

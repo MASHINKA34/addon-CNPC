@@ -37,13 +37,16 @@ public final class SubGuiBossEffectList extends SubGuiFieldScreen {
         addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
-    /** "1. minecraft:poison  II  5s" or "1. -" when the slot is switched off. */
+    /** "1. minecraft:poison  II  5s", "1. Fire  lvl 3  5s", or "1. -" when the slot is switched off. */
     private String slotLabel(int index) {
         BossEffectData effect = effects.get(index);
         if (!effect.isEnabled()) {
             return (index + 1) + ". " + I18n.get("cnpcgeckoaddon.boss.effect_off");
         }
-        return (index + 1) + ". " + effect.getEffectId()
+        // The fire's id is the addon's own rather than a registry name, so it is shown as a word.
+        String name = BossEffectData.isFire(effect.getEffectId())
+                ? I18n.get("cnpcgeckoaddon.boss.effect_fire") : effect.getEffectId();
+        return (index + 1) + ". " + name
                 + "  " + I18n.get("cnpcgeckoaddon.boss.effect_short_level") + effect.getLevel()
                 + "  " + (effect.getDurationTicks() / 20) + "s";
     }
