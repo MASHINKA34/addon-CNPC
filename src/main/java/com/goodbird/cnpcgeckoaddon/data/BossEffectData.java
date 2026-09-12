@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
+import com.goodbird.cnpcgeckoaddon.ai.BossFireTracker;
 import com.goodbird.cnpcgeckoaddon.ai.BossMinionUtil;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -81,7 +82,7 @@ public final class BossEffectData {
     }
 
     /**
-     * Sets the victim alight the way lava does.
+     * Sets the victim alight the way lava does, the level multiplying the burn.
      *
      * <p>{@code igniteForTicks} only ever lengthens a fire and scales by the victim's burning
      * time, and fire immunity, fire resistance and water keep their vanilla say over the burn.
@@ -93,7 +94,7 @@ public final class BossEffectData {
         if (victim == source || source != null && BossMinionUtil.isMinionOf(victim, source)) {
             return;
         }
-        victim.igniteForTicks(durationTicks);
+        BossFireTracker.ignite(victim, durationTicks, getLevel());
     }
 
     /** Whether this id names the fire rather than a potion. */

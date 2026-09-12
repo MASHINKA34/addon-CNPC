@@ -50,6 +50,8 @@ public final class BossLifecycleEvents {
         BossCaptureManager.releaseVictim(event.getEntity());
         BossTetherManager.releaseVictim(event.getEntity());
         BossCocoonManager.releaseVictim(event.getEntity());
+        // A burn is remembered by UUID, and a respawned player comes back under the same one.
+        BossFireTracker.forget(event.getEntity());
         // And a cocoon that died some other way than a hit lets its victim out.
         BossCocoonManager.onShellDeath(event.getEntity());
         if (event.getEntity() instanceof ServerPlayer player) {

@@ -40,11 +40,21 @@ public final class BossDamageEvents {
     }
 
     /**
-     * Makes an enraged boss' own swing hit as hard as the enrage says.
+     * The multipliers, settled before any other stage reads the number.
      *
-     * <p>Registered HIGHEST so the number every stage below works from is already the
-     * enraged one - a resistance is a percentage of what the boss actually swung for, not of
-     * what it would have swung for calm.</p>
+     * <p>Registered HIGHEST so every stage below works from what really came in - a resistance
+     * is a percentage of what the boss actually swung for, or of how hard its fire actually
+     * bit, not of the calm swing or the vanilla burn. Both stages only multiply, so the order
+     * between them changes nothing.</p>
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onScaleIncomingDamage(final LivingIncomingDamageEvent event) {
+        scaleEnragedBossAttack(event);
+        scaleBossFire(event);
+    }
+
+    /**
+     * Makes an enraged boss' own swing hit as hard as the enrage says.
      *
      * <p>Here rather than on an attribute because CustomNPCs deals melee damage straight out
      * of {@code stats.melee.getStrength()} and never reads {@code ATTACK_DAMAGE}, so the
@@ -52,11 +62,27 @@ public final class BossDamageEvents {
      * abilities hit for goes through the rage multiplier where their settings are read, and
      * this deliberately leaves those alone.</p>
      */
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
-    public static void onEnragedBossAttack(final LivingIncomingDamageEvent event) {
+    private static void scaleEnragedBossAttack(LivingIncomingDamageEvent event) {
         float scaled = BossRageRuntime.scaleOwnAttack(event.getSource(), event.getAmount());
         if (scaled != event.getAmount()) {
             event.setAmount(scaled);
+        }
+    }
+
+    /**
+     * Makes a fire a boss lit bite as many times over as its slot's level, while it burns.
+     *
+     * <p>Every fire hit counts, not only the burn ticks: lava or flames the victim runs into
+     * keep feeding the fire the boss started. Once that fire is over or put out the tracker
+     * has let go, and the same lava hurts the vanilla way again.</p>
+     */
+    private static void scaleBossFire(LivingIncomingDamageEvent event) {
+        if (!BossFireTracker.hasPending() || !event.getSource().is(DamageTypeTags.IS_FIRE)) {
+            return;
+        }
+        int multiplier = BossFireTracker.multiplier(event.getEntity());
+        if (multiplier > 1) {
+            event.setAmount(event.getAmount() * multiplier);
         }
     }
 

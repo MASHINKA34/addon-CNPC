@@ -48,6 +48,7 @@ public final class BossPlayerEvents {
         BossCaptureManager.releaseVictim(player);
         BossTetherManager.releaseVictim(player);
         BossCocoonManager.releaseVictim(player);
+        BossFireTracker.forget(player);
         TeleportPathController.removePlayerFromEncounters(player);
     }
 }

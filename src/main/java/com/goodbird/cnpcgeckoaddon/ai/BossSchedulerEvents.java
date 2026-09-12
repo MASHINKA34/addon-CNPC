@@ -63,6 +63,9 @@ public final class BossSchedulerEvents {
         if (BossCocoonManager.hasPending()) {
             BossCocoonManager.tick(level);
         }
+        if (BossFireTracker.hasPending()) {
+            BossFireTracker.tick(level);
+        }
     }
 
     @SubscribeEvent
@@ -81,6 +84,7 @@ public final class BossSchedulerEvents {
             BossCaptureManager.clearLevel(level);
             BossTetherManager.clearLevel(level);
             BossCocoonManager.clearLevel(level);
+            BossFireTracker.clearLevel(level);
             BossOwnedEntityIndex.invalidate();
             TeleportPathController.shutdownLevel(level);
         }
