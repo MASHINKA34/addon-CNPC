@@ -148,7 +148,7 @@ public final class TeleportPathData {
             BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
-            BossAbilityKind.DASH, BossAbilityKind.CONE
+            BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -206,6 +206,11 @@ public final class TeleportPathData {
     /** And before the cone strike: everything through the dash, minus the same three. */
     private static final int TELEGRAPH_ABILITIES_BEFORE_CONE =
             ((1 << (BossAbilityKind.DASH + 1)) - 1)
+                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1 << BossAbilityKind.HAZARD);
+    /** And before the platforms: everything through the cone strike, minus the same three. */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_PLATFORM =
+            ((1 << (BossAbilityKind.CONE + 1)) - 1)
                     & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
                     & ~(1 << BossAbilityKind.HAZARD);
 
@@ -1282,6 +1287,7 @@ public final class TeleportPathData {
                 || saved == TELEGRAPH_ABILITIES_BEFORE_COCOON
                 || saved == TELEGRAPH_ABILITIES_BEFORE_DASH
                 || saved == TELEGRAPH_ABILITIES_BEFORE_CONE
+                || saved == TELEGRAPH_ABILITIES_BEFORE_PLATFORM
                 ? TELEGRAPH_ALL_ABILITIES : saved;
     }
 

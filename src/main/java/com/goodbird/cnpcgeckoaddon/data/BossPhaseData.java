@@ -330,6 +330,25 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.cone_order.random"
     };
 
+    /** One platform goes, drawn by the platforms' weights. */
+    public static final int PLATFORM_PICK_RANDOM = 0;
+
+    /** The platform the boss' target stands on goes, or a random one when it stands on none. */
+    public static final int PLATFORM_PICK_TARGET = 1;
+
+    /** The platforms go one after another, in list order. */
+    public static final int PLATFORM_PICK_CYCLE = 2;
+
+    /** Every platform goes but one, and that one is the only safe place to be. */
+    public static final int PLATFORM_PICK_ALL_BUT_ONE = 3;
+
+    public static final String[] PLATFORM_PICK_LABELS = {
+            "cnpcgeckoaddon.boss.platform_pick.random",
+            "cnpcgeckoaddon.boss.platform_pick.target",
+            "cnpcgeckoaddon.boss.platform_pick.cycle",
+            "cnpcgeckoaddon.boss.platform_pick.all_but_one"
+    };
+
     /**
      * The abilities whose wind-up can pin a walking boss to the spot it started on, in
      * {@link BossAbilityKind} order. One mask rather than a boolean per ability: there are
@@ -341,7 +360,8 @@ public final class BossPhaseData {
      * ability - and the death blast goes off with nobody left standing to hold. The dash is
      * the one mover listed: its bit only holds the wind-up, and the run lets go of the pin
      * on its own the moment it starts, the way the leap's push does. The cone strike's bit
-     * likewise only holds the wind-up: a series over its points stands still whatever it says.</p>
+     * likewise only holds the wind-up: a series over its points stands still whatever it says.
+     * So does the platforms' bit: their fuses burn on wherever the boss walks off to.</p>
      */
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -350,7 +370,7 @@ public final class BossPhaseData {
             BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
-            BossAbilityKind.DASH, BossAbilityKind.CONE
+            BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM
     };
 
     /**
@@ -407,6 +427,7 @@ public final class BossPhaseData {
     private final BossLineAttackSettings lineAttack = new BossLineAttackSettings();
     private final BossMarkSettings mark = new BossMarkSettings();
     private final BossMeleeAttackSettings meleeAttack = new BossMeleeAttackSettings();
+    private final BossPlatformSettings platform = new BossPlatformSettings();
     private final BossRangedAttackSettings rangedAttack = new BossRangedAttackSettings();
     private final BossSummonSettings summon = new BossSummonSettings();
     private final BossTeleportSettings teleport = new BossTeleportSettings();
@@ -515,6 +536,11 @@ public final class BossPhaseData {
     /** The swing the boss makes at whoever is in reach. */
     public BossMeleeAttackSettings meleeAttack() {
         return meleeAttack;
+    }
+
+    /** The builder's platforms, and the one the boss sets alight under whoever did not jump off. */
+    public BossPlatformSettings platform() {
+        return platform;
     }
 
     /** The projectile the boss throws. */
@@ -700,6 +726,7 @@ public final class BossPhaseData {
         lineAttack.writeToNBT(tag);
         mark.writeToNBT(tag);
         meleeAttack.writeToNBT(tag);
+        platform.writeToNBT(tag);
         rangedAttack.writeToNBT(tag);
         summon.writeToNBT(tag);
         teleport.writeToNBT(tag);
@@ -761,6 +788,10 @@ public final class BossPhaseData {
         if (!tag.contains("ConeEnabled")) {
             castRootMask |= 1 << BossAbilityKind.CONE;
         }
+        // And for the platforms, whose bit only pins the wind-up too: the fuse burns on its own.
+        if (!tag.contains("PlatformEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.PLATFORM;
+        }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight.
         finishMask = tag.getInt("FinishMask") & BossAbilityKind.LASTING_ALL;
@@ -797,6 +828,7 @@ public final class BossPhaseData {
         lineAttack.readFromNBT(tag);
         mark.readFromNBT(tag);
         meleeAttack.readFromNBT(tag);
+        platform.readFromNBT(tag);
         rangedAttack.readFromNBT(tag);
         summon.readFromNBT(tag);
         teleport.readFromNBT(tag);

@@ -52,7 +52,8 @@ public final class BossTelegraphUtil {
             0xE6F2FF, // sweeping beam - cold white, a searing line read against the melee's warm cream
             0xD9A6E0, // cocoon - cobweb mauve, the capture's pink with the life bled out of it
             0x1E90FF, // dash - azure streak, a deeper blue than the shot's cyan and brighter than the geyser's
-            0xFF9A3C  // cone strike - tangerine, between the slam's red-orange and the leap's amber, where only the unpainted blast sat
+            0xFF9A3C, // cone strike - tangerine, between the slam's red-orange and the leap's amber, where only the unpainted blast sat
+            0x00FF00  // platforms - signal green, pure where take cover's lime leans yellow and the spit's mint pales, and never the hazard box's red
     };
 
     /** How much of an ability's colour its faded half keeps. */

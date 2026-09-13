@@ -82,6 +82,7 @@ class BossFieldPersistenceTest {
                         Map.entry(BossLineAttackSettings.class, BossPhaseData::lineAttack),
                         Map.entry(BossMarkSettings.class, BossPhaseData::mark),
                         Map.entry(BossMeleeAttackSettings.class, BossPhaseData::meleeAttack),
+                        Map.entry(BossPlatformSettings.class, BossPhaseData::platform),
                         Map.entry(BossRangedAttackSettings.class, BossPhaseData::rangedAttack),
                         Map.entry(BossSummonSettings.class, BossPhaseData::summon),
                         Map.entry(BossTeleportSettings.class, BossPhaseData::teleport),
@@ -123,6 +124,7 @@ class BossFieldPersistenceTest {
                         Map.entry("Cocoon", phase -> phase.cocoon().castSpot()),
                         Map.entry("Dash", phase -> phase.dash().castSpot()),
                         Map.entry("Cone", phase -> phase.cone().castSpot()),
+                        Map.entry("Platform", phase -> phase.platform().castSpot()),
                         Map.entry("Summon", phase -> phase.summon().castSpot()))
                 .map(entry -> DynamicTest.dynamicTest(entry.getKey() + " cast spot",
                         () -> assertPersisted(BossCastSpot.class, BossFieldPersistenceTest::configuredHost,
@@ -143,6 +145,17 @@ class BossFieldPersistenceTest {
                 data -> data.getPhase(1).cone().getPoints().get(0));
     }
 
+    /**
+     * The same sweep over one of the platforms' zones, which lives in a list inside the
+     * platforms' settings and writes a compound of its own, the way a cone aim point does.
+     */
+    @Test
+    @DisplayName("every platform zone field reaches the save tag")
+    void everyPlatformZoneFieldIsPersisted() {
+        assertPersisted(BossPlatformZone.class, BossFieldPersistenceTest::hostWithPlatformZone,
+                data -> data.getPhase(1).platform().getZones().get(0));
+    }
+
     @Test
     @DisplayName("every boss-wide field reaches the save tag")
     void everyBossFieldIsPersisted() {
@@ -160,6 +173,12 @@ class BossFieldPersistenceTest {
     private static TeleportPathData hostWithConePoint() {
         TeleportPathData data = configuredHost();
         data.getPhase(1).cone().getPoints().add();
+        return data;
+    }
+
+    private static TeleportPathData hostWithPlatformZone() {
+        TeleportPathData data = configuredHost();
+        data.getPhase(1).platform().getZones().add();
         return data;
     }
 

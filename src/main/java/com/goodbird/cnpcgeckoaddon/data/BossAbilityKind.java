@@ -64,7 +64,12 @@ public final class BossAbilityKind {
      * stands in the sector.
      */
     public static final int CONE = 22;
-    public static final int COUNT = 23;
+    /**
+     * One of the builder's platforms set alight: its outline flashes for a fuse, and whoever is
+     * still standing on it when the fuse runs out is hit, shoved off and thrown up.
+     */
+    public static final int PLATFORM = 23;
+    public static final int COUNT = 24;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -89,7 +94,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.beam",
             "cnpcgeckoaddon.boss.ability.cocoon",
             "cnpcgeckoaddon.boss.ability.dash",
-            "cnpcgeckoaddon.boss.ability.cone"
+            "cnpcgeckoaddon.boss.ability.cone",
+            "cnpcgeckoaddon.boss.ability.platform"
     };
 
     static {
@@ -109,7 +115,8 @@ public final class BossAbilityKind {
      */
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON, DASH, CONE
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON, DASH, CONE,
+            PLATFORM
     };
 
     /**
