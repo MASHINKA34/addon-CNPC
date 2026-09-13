@@ -282,8 +282,10 @@ public final class BossTelegraphRenderer {
         if (!frame.fill.isEmpty()) {
             float reach = (float) TelegraphLineGeometry.reach(
                     frame.motion == TeleportPathData.TELEGRAPH_MOTION_FILL ? progress : -1.0F);
-            float fillAlpha = frame.fillPercent > 0
-                    ? frame.fillPercent / 100.0F : DEFAULT_FILL_ALPHA;
+            // Dimmed along with the outline: a flood left at full strength while the band
+            // around it fades reads as two warnings rather than one.
+            float fillAlpha = motionAlpha * (frame.fillPercent > 0
+                    ? frame.fillPercent / 100.0F : DEFAULT_FILL_ALPHA);
             for (FillQuad quad : frame.fill) {
                 if (quad.reach() > reach) {
                     continue;
