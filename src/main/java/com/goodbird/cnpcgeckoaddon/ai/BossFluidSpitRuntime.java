@@ -6,9 +6,9 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
+import com.goodbird.cnpcgeckoaddon.utils.BossProjectileTuning;
 import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -27,10 +27,6 @@ import org.slf4j.LoggerFactory;
 final class BossFluidSpitRuntime {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
-
-    /** How long a cast that found nobody, or no such fluid, waits before looking again. */
-    /** How much of the flat distance is added as lift, so the ball arcs onto the feet. */
-    private static final double ARC_LIFT = 0.2D;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -91,6 +87,16 @@ final class BossFluidSpitRuntime {
         EntityFluidSpit spit = new EntityFluidSpit(EntityRegistry.entityFluidSpit, npc, level);
         spit.configure(fluid, phase.fluidSpit().getLifetimeTicks(), phase.fluidSpit().getRadius(),
                 boss.rageUp(phase.fluidSpit().getDamage()));
+        // The glob outlives the phase that spat it, so what it is to do in the air goes with
+        // it rather than being looked up again when it lands.
+        BossProjectileTuning.put(spit, BossProjectileTuning.GRAVITY,
+                phase.fluidSpit().getGravityThousandths());
+        BossProjectileTuning.put(spit, BossProjectileTuning.LIFE_TICKS,
+                phase.fluidSpit().getProjectileLifeTicks());
+        BossProjectileTuning.put(spit, BossProjectileTuning.SPLASH_BASE,
+                phase.fluidSpit().getSplashBase());
+        BossProjectileTuning.put(spit, BossProjectileTuning.SPLASH_PER_RADIUS,
+                phase.fluidSpit().getSplashPerRadius());
         spit.setPos(npc.getX(), npc.getEyeY() - 0.1D, npc.getZ());
 
         // Aim at the feet with a slight arc so the puddle lands on the ground the target
@@ -99,12 +105,13 @@ final class BossFluidSpitRuntime {
         double dy = target.getY() - spit.getY();
         double dz = target.getZ() - spit.getZ();
         double horizontal = Math.sqrt(dx * dx + dz * dz);
-        spit.shoot(dx, dy + horizontal * ARC_LIFT, dz, 1.2F, 4.0F);
+        spit.shoot(dx, dy + horizontal * phase.fluidSpit().getArcLift(), dz,
+                phase.fluidSpit().getVelocity(), phase.fluidSpit().getInaccuracy());
 
         if (!level.addFreshEntity(spit)) {
             return;
         }
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.LLAMA_SPIT,
-                SoundSource.HOSTILE, 1.0F, 0.8F);
+        phase.fluidSpit().getSpitSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
+                SoundSource.HOSTILE);
     }
 }

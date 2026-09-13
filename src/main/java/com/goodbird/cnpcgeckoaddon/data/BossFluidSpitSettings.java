@@ -19,6 +19,17 @@ public final class BossFluidSpitSettings {
     public static final int MIN_AIM_TURN = 1;
     public static final int MAX_AIM_TURN = 180;
 
+    // The throw itself, each in the unit its label names.
+    public static final int MAX_ARC_LIFT = 100;
+    public static final int MIN_VELOCITY = 2;
+    public static final int MAX_VELOCITY = 60;
+    public static final int MAX_INACCURACY = 200;
+    public static final int MAX_GRAVITY = 300;
+    public static final int MIN_PROJECTILE_LIFE = 20;
+    public static final int MAX_PROJECTILE_LIFE = 1200;
+    public static final int MAX_SPLASH_BASE = 100;
+    public static final int MAX_SPLASH_PER_RADIUS = 50;
+
     private boolean fluidSpitEnabled;
     private String fluidSpitAnimation = "";
     private int fluidSpitActionDelayTicks = 12;
@@ -33,6 +44,21 @@ public final class BossFluidSpitSettings {
     private final BossEffectSet fluidSpitEffects = new BossEffectSet();
     /** How fast the head swings onto the victim as the glob leaves, in degrees a tick. */
     private int fluidAimTurnDegrees = 30;
+    /** Hundredths of the flat distance added as lift, so the ball arcs onto the feet. */
+    private int fluidArcLift = 20;
+    /** Tenths of a block a tick the glob leaves at. */
+    private int fluidVelocity = 12;
+    /** Tenths of vanilla's spread unit: how far off the aim one throw may land. */
+    private int fluidInaccuracy = 40;
+    /** Thousandths of a block a tick the glob loses in flight. */
+    private int fluidGravity = 50;
+    /** Ticks a glob that never hits anything keeps flying before it gives up. */
+    private int fluidProjectileLifeTicks = 200;
+    /** Splash particles at radius zero, and how many each block of radius adds. */
+    private int fluidSplashBase = 12;
+    private int fluidSplashPerRadius = 8;
+    private final BossSoundCue fluidSpitSound =
+            new BossSoundCue("minecraft:entity.llama.spit", 1.0F, 0.8F);
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot fluidSpitCastSpot = new BossCastSpot();
 
@@ -105,6 +131,57 @@ public final class BossFluidSpitSettings {
         fluidAimTurnDegrees = Mth.clamp(value, MIN_AIM_TURN, MAX_AIM_TURN);
     }
 
+    /** Hundredths: 20 is the fifth of the flat distance the arc was always lifted by. */
+    public int getArcLiftHundredths() { return fluidArcLift; }
+
+    public void setArcLiftHundredths(int value) { fluidArcLift = Mth.clamp(value, 0, MAX_ARC_LIFT); }
+
+    public double getArcLift() { return fluidArcLift / 100.0D; }
+
+    /** Tenths of a block a tick. */
+    public int getVelocityTenths() { return fluidVelocity; }
+
+    public void setVelocityTenths(int value) {
+        fluidVelocity = Mth.clamp(value, MIN_VELOCITY, MAX_VELOCITY);
+    }
+
+    public float getVelocity() { return fluidVelocity / 10.0F; }
+
+    /** Tenths of vanilla's spread unit; zero throws dead on the aim. */
+    public int getInaccuracyTenths() { return fluidInaccuracy; }
+
+    public void setInaccuracyTenths(int value) {
+        fluidInaccuracy = Mth.clamp(value, 0, MAX_INACCURACY);
+    }
+
+    public float getInaccuracy() { return fluidInaccuracy / 10.0F; }
+
+    /** Thousandths of a block a tick. */
+    public int getGravityThousandths() { return fluidGravity; }
+
+    public void setGravityThousandths(int value) { fluidGravity = Mth.clamp(value, 0, MAX_GRAVITY); }
+
+    public double getGravity() { return fluidGravity / 1000.0D; }
+
+    /** How long a glob that hits nothing lives before it gives up on its own. */
+    public int getProjectileLifeTicks() { return fluidProjectileLifeTicks; }
+
+    public void setProjectileLifeTicks(int value) {
+        fluidProjectileLifeTicks = Mth.clamp(value, MIN_PROJECTILE_LIFE, MAX_PROJECTILE_LIFE);
+    }
+
+    public int getSplashBase() { return fluidSplashBase; }
+
+    public void setSplashBase(int value) { fluidSplashBase = Mth.clamp(value, 0, MAX_SPLASH_BASE); }
+
+    public int getSplashPerRadius() { return fluidSplashPerRadius; }
+
+    public void setSplashPerRadius(int value) {
+        fluidSplashPerRadius = Mth.clamp(value, 0, MAX_SPLASH_PER_RADIUS);
+    }
+
+    public BossSoundCue getSpitSound() { return fluidSpitSound; }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return fluidSpitCastSpot; }
 
@@ -122,6 +199,14 @@ public final class BossFluidSpitSettings {
         tag.putInt("FluidSpitTargetMode", fluidSpitTargetMode);
         tag.put("FluidSpitEffects", fluidSpitEffects.writeToNBT());
         tag.putInt("FluidAimTurn", fluidAimTurnDegrees);
+        tag.putInt("FluidArcLift", fluidArcLift);
+        tag.putInt("FluidVelocity", fluidVelocity);
+        tag.putInt("FluidInaccuracy", fluidInaccuracy);
+        tag.putInt("FluidGravity", fluidGravity);
+        tag.putInt("FluidProjectileLife", fluidProjectileLifeTicks);
+        tag.putInt("FluidSplashBase", fluidSplashBase);
+        tag.putInt("FluidSplashPerRadius", fluidSplashPerRadius);
+        fluidSpitSound.writeToNBT(tag, "FluidSpitSound");
         fluidSpitCastSpot.writeToNBT(tag, "FluidSpit");
     }
 
@@ -142,6 +227,17 @@ public final class BossFluidSpitSettings {
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         fluidSpitEffects.readFromNBT(tag, "FluidSpitEffects");
         fluidAimTurnDegrees = value(tag, "FluidAimTurn", 30, MIN_AIM_TURN, MAX_AIM_TURN);
+        // A boss saved before these were settings carries none of them and spits on the
+        // numbers that used to be literals in the throw and in the glob itself.
+        fluidArcLift = value(tag, "FluidArcLift", 20, 0, MAX_ARC_LIFT);
+        fluidVelocity = value(tag, "FluidVelocity", 12, MIN_VELOCITY, MAX_VELOCITY);
+        fluidInaccuracy = value(tag, "FluidInaccuracy", 40, 0, MAX_INACCURACY);
+        fluidGravity = value(tag, "FluidGravity", 50, 0, MAX_GRAVITY);
+        fluidProjectileLifeTicks = value(tag, "FluidProjectileLife", 200,
+                MIN_PROJECTILE_LIFE, MAX_PROJECTILE_LIFE);
+        fluidSplashBase = value(tag, "FluidSplashBase", 12, 0, MAX_SPLASH_BASE);
+        fluidSplashPerRadius = value(tag, "FluidSplashPerRadius", 8, 0, MAX_SPLASH_PER_RADIUS);
+        fluidSpitSound.readFromNBT(tag, "FluidSpitSound");
         fluidSpitCastSpot.readFromNBT(tag, "FluidSpit");
     }
 }

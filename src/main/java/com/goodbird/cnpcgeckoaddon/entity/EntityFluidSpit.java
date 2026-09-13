@@ -1,5 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.entity;
 
+import com.goodbird.cnpcgeckoaddon.data.BossFluidSpitSettings;
+import com.goodbird.cnpcgeckoaddon.utils.BossProjectileTuning;
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.world.TemporaryFluidStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -28,17 +31,38 @@ import net.minecraft.world.phys.HitResult;
 public class EntityFluidSpit extends ThrowableProjectile {
     private static final EntityDataAccessor<Integer> FLUID_STATE =
             SynchedEntityData.defineId(EntityFluidSpit.class, EntityDataSerializers.INT);
+    /**
+     * Thousandths of a block a tick the glob falls by.
+     *
+     * <p>Synced rather than kept to the server, unlike the three below it: a thrown projectile
+     * runs its own physics on the client between position updates, and a client still pulling
+     * the glob down by the old fifth of a block would draw an arc the server is forever
+     * correcting.</p>
+     */
+    private static final EntityDataAccessor<Integer> GRAVITY =
+            SynchedEntityData.defineId(EntityFluidSpit.class, EntityDataSerializers.INT);
 
     private static final String FLUID_KEY = "GeckoFluidState";
     private static final String LIFETIME_KEY = "GeckoFluidLifetime";
     private static final String RADIUS_KEY = "GeckoFluidRadius";
     private static final String DAMAGE_KEY = "GeckoFluidDamage";
 
+    /** What a glob carrying none of the boss' numbers does, which is what it always did. */
+    private static final int DEFAULT_GRAVITY_THOUSANDTHS = 50;
+    private static final int DEFAULT_LIFE_TICKS = 200;
+    private static final int DEFAULT_SPLASH_BASE = 12;
+    private static final int DEFAULT_SPLASH_PER_RADIUS = 8;
+
     private int fluidLifetimeTicks = 60;
     private int puddleRadius = 1;
     private float impactDamage;
     /** Guards against the projectile living forever when it never hits anything. */
     private int age;
+    private int projectileLifeTicks = DEFAULT_LIFE_TICKS;
+    private int splashBase = DEFAULT_SPLASH_BASE;
+    private int splashPerRadius = DEFAULT_SPLASH_PER_RADIUS;
+    /** Whether the numbers the boss wrote on this glob have been read off it yet. */
+    private boolean tuned;
 
     public EntityFluidSpit(EntityType<? extends EntityFluidSpit> type, Level level) {
         super(type, level);
@@ -63,22 +87,52 @@ public class EntityFluidSpit extends ThrowableProjectile {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(FLUID_STATE, Block.getId(TemporaryFluidStore.defaultFluid()));
+        builder.define(GRAVITY, DEFAULT_GRAVITY_THOUSANDTHS);
+    }
+
+    /**
+     * Reads the numbers the boss wrote on this glob when it spat it, once.
+     *
+     * <p>They ride along as persistent data rather than as save keys of this class, so the
+     * boss can set them at the spawn without the glob having to be told twice - and NeoForge
+     * carries them through a reload with the entity for free. The gravity is copied into the
+     * synced slot on the way past, which is the only one of the four the client needs.</p>
+     */
+    private void readTuning() {
+        if (tuned) {
+            return;
+        }
+        tuned = true;
+        CompoundTag data = PersistentDataUtil.read(this);
+        projectileLifeTicks = BossProjectileTuning.read(data, BossProjectileTuning.LIFE_TICKS,
+                DEFAULT_LIFE_TICKS, BossFluidSpitSettings.MIN_PROJECTILE_LIFE,
+                BossFluidSpitSettings.MAX_PROJECTILE_LIFE);
+        splashBase = BossProjectileTuning.read(data, BossProjectileTuning.SPLASH_BASE,
+                DEFAULT_SPLASH_BASE, 0, BossFluidSpitSettings.MAX_SPLASH_BASE);
+        splashPerRadius = BossProjectileTuning.read(data, BossProjectileTuning.SPLASH_PER_RADIUS,
+                DEFAULT_SPLASH_PER_RADIUS, 0, BossFluidSpitSettings.MAX_SPLASH_PER_RADIUS);
+        if (!level().isClientSide) {
+            this.entityData.set(GRAVITY, BossProjectileTuning.read(data, BossProjectileTuning.GRAVITY,
+                    DEFAULT_GRAVITY_THOUSANDTHS, 0, BossFluidSpitSettings.MAX_GRAVITY));
+        }
     }
 
     @Override
     protected double getDefaultGravity() {
-        return 0.05D;
+        readTuning();
+        return this.entityData.get(GRAVITY) / 1000.0D;
     }
 
     @Override
     public void tick() {
+        readTuning();
         super.tick();
         if (level().isClientSide) {
             spawnTrailParticles();
             return;
         }
         // A spit that flies off into unloaded terrain must not linger as a ticking entity.
-        if (++age > 200) {
+        if (++age > projectileLifeTicks) {
             discard();
         }
     }
@@ -153,7 +207,8 @@ public class EntityFluidSpit extends ThrowableProjectile {
         }
         serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, fluid),
                 center.getX() + 0.5D, center.getY() + 0.5D, center.getZ() + 0.5D,
-                12 + radius * 8, 0.3D + radius * 0.2D, 0.2D, 0.3D + radius * 0.2D, 0.05D);
+                splashBase + radius * splashPerRadius,
+                0.3D + radius * 0.2D, 0.2D, 0.3D + radius * 0.2D, 0.05D);
     }
 
     @Override

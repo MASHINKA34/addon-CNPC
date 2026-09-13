@@ -24,6 +24,8 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
     private static final int COOLDOWN_FIELD = 10;
     private static final int TARGET_MODE_BUTTON = 11;
     private static final int AIM_TURN_FIELD = 12;
+    private static final int TUNING_BUTTON = 13;
+    private static final int EFFECTS_BUTTON = 67;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -34,9 +36,9 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // One row taller than the panel it used to be: the aim's own number sits under the
-        // rows a builder already knows.
-        imageHeight = 277;
+        // Two rows taller than the panel it used to be: the aim's own number and the way
+        // into the throw's fine-tuning sit under the rows a builder already knows.
+        imageHeight = 301;
         closeOnEsc = true;
     }
 
@@ -83,9 +85,11 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
                 phase.fluidSpit().getAimTurnDegrees(), BossFluidSpitSettings.MIN_AIM_TURN,
                 BossFluidSpitSettings.MAX_AIM_TURN, 30);
 
-        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 253, 120, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 253, 236, 20,
+                "cnpcgeckoaddon.boss.fluid_tuning"));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 277, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 253, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 277, 60, 20);
     }
 
     private void addSelectRow(int id, String label, int y, String value) {
@@ -125,9 +129,14 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
-        if (button.id == 67) {
+        if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.fluidSpit().getEffects(), "cnpcgeckoaddon.boss.effects_fluid"));
+            return;
+        }
+        if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossFluidSpitTuning(phase.fluidSpit()));
             return;
         }
         if (button.id == TARGET_MODE_BUTTON) {
