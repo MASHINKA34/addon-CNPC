@@ -15,6 +15,10 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossHookSettings {
 
+    /** Both in hundredths of a block: the lift is far too small a number for tenths. */
+    public static final int MAX_LIFT = 200;
+    public static final int MAX_LIFT_PER_BLOCK = 50;
+
     private boolean hookEnabled;
     private String hookAnimation = "";
     private int hookActionDelayTicks = 10;
@@ -30,6 +34,12 @@ public final class BossHookSettings {
     private int hookMaxRange = 24;
     private int hookMode = BossPhaseData.HOOK_MODE_PULL;
     private String hookCordStyle = HookCordStyles.PARTICLES;
+    /** Hundredths of a block a tick of lift: the cap, and what one block of distance adds. */
+    private int hookLiftMax = 35;
+    private int hookLiftPerBlock = 3;
+    /** Empty id: the cord is heard as the style it is drawn in, at that style's own pitch. */
+    private final BossSoundCue hookCordSound = new BossSoundCue("", 2.0F, 0.6F);
+    private final BossParticleCue hookCordParticles = new BossParticleCue("minecraft:crit", 1);
     private final BossEffectSet hookEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot hookCastSpot = new BossCastSpot();
@@ -96,6 +106,28 @@ public final class BossHookSettings {
 
     public void setCordStyle(String value) { hookCordStyle = HookCordStyles.normalize(value); }
 
+    /** Hundredths of a block a tick: the most lift a yank ever adds, however far the victim is. */
+    public int getLiftMaxHundredths() { return hookLiftMax; }
+
+    public void setLiftMaxHundredths(int value) { hookLiftMax = Mth.clamp(value, 0, MAX_LIFT); }
+
+    public double getLiftMax() { return hookLiftMax / 100.0D; }
+
+    /** Hundredths of a block a tick of lift each block of distance is worth. */
+    public int getLiftPerBlockHundredths() { return hookLiftPerBlock; }
+
+    public void setLiftPerBlockHundredths(int value) {
+        hookLiftPerBlock = Mth.clamp(value, 0, MAX_LIFT_PER_BLOCK);
+    }
+
+    public double getLiftPerBlock() { return hookLiftPerBlock / 100.0D; }
+
+    /** With no id of its own, the voice the cord style was always given. */
+    public BossSoundCue getCordSound() { return hookCordSound; }
+
+    /** The particle a drawn cord is made of, one per point along it. */
+    public BossParticleCue getCordParticles() { return hookCordParticles; }
+
     public BossEffectSet getEffects() { return hookEffects; }
 
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
@@ -116,6 +148,10 @@ public final class BossHookSettings {
         tag.putInt("HookMaxRange", hookMaxRange);
         tag.putInt("HookMode", hookMode);
         tag.putString("HookCordStyle", hookCordStyle);
+        tag.putInt("HookLiftMax", hookLiftMax);
+        tag.putInt("HookLiftPerBlock", hookLiftPerBlock);
+        hookCordSound.writeToNBT(tag, "HookCordSound");
+        hookCordParticles.writeToNBT(tag, "HookCordParticles");
         tag.put("HookEffects", hookEffects.writeToNBT());
         hookCastSpot.writeToNBT(tag, "Hook");
     }
@@ -138,6 +174,12 @@ public final class BossHookSettings {
         hookMode = value(tag, "HookMode", BossPhaseData.HOOK_MODE_PULL, BossPhaseData.HOOK_MODE_PULL, BossPhaseData.HOOK_MODE_CINCH);
         // An absent key reads as an empty string, which normalizes back to the plain sparks.
         hookCordStyle = HookCordStyles.normalize(tag.getString("HookCordStyle"));
+        // A boss saved before these were settings carries none of them and yanks on the
+        // numbers that used to be literals in the drag.
+        hookLiftMax = value(tag, "HookLiftMax", 35, 0, MAX_LIFT);
+        hookLiftPerBlock = value(tag, "HookLiftPerBlock", 3, 0, MAX_LIFT_PER_BLOCK);
+        hookCordSound.readFromNBT(tag, "HookCordSound");
+        hookCordParticles.readFromNBT(tag, "HookCordParticles");
         hookEffects.readFromNBT(tag, "HookEffects");
         hookCastSpot.readFromNBT(tag, "Hook");
     }

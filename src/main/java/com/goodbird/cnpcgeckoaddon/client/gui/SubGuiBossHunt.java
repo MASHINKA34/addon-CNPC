@@ -24,6 +24,7 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
     private static final int GLOW_BUTTON = 10;
     private static final int ACTION_DELAY_FIELD = 11;
     private static final int COOLDOWN_FIELD = 12;
+    private static final int TUNING_BUTTON = 13;
     private static final int EFFECTS_BUTTON = 67;
     /** Row labels take ids from here up, two per row, so a wrapped one keeps both its lines. */
     private static final int FIRST_ROW_LABEL = 100;
@@ -45,7 +46,9 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 262;
+        // One row taller than the panel it used to be: the way into the chase's own
+        // numbers sits under the hint, above the buttons.
+        imageHeight = 286;
         closeOnEsc = true;
     }
 
@@ -91,6 +94,9 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.hunt_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 236);
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+                "cnpcgeckoaddon.boss.hunt_tuning"));
+        buttonsY += 24;
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY, 60, 20);
@@ -182,7 +188,10 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
-        if (button.id == EFFECTS_BUTTON) {
+        if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossHuntTuning(phase.hunt()));
+        } else if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.hunt().getEffects(), "cnpcgeckoaddon.boss.effects_hunt"));
         } else if (button.id == ENABLED_BUTTON) {

@@ -19,6 +19,7 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
     private static final int MAX_RANGE_FIELD = 7;
     private static final int MODE_BUTTON = 8;
     private static final int DURATION_FIELD = 9;
+    private static final int TUNING_BUTTON = 10;
     private static final int DETAILS_BUTTON = 67;
 
     private static final String[] MODE_LABELS = {
@@ -35,7 +36,9 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 256;
+        // One row taller than the panel it used to be: the grab's own noise and puff sit
+        // under the rows a builder already knows.
+        imageHeight = 280;
         closeOnEsc = true;
     }
 
@@ -84,9 +87,11 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
         addNumberField(DURATION_FIELD, "cnpcgeckoaddon.boss.capture_duration", y,
                 phase.capture().getDurationTicks(), 1, 1200, 60);
 
-        addButton(new GuiButtonNop(this, DETAILS_BUTTON, guiLeft + 6, guiTop + 232, 150, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 232, 236, 20,
+                "cnpcgeckoaddon.boss.capture_tuning"));
+        addButton(new GuiButtonNop(this, DETAILS_BUTTON, guiLeft + 6, guiTop + 256, 150, 20,
                 "cnpcgeckoaddon.boss.capture_effects_beam"));
-        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 256, 60, 20);
     }
 
     @Override
@@ -97,7 +102,10 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
-        if (button.id == DETAILS_BUTTON) {
+        if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossCaptureTuning(phase.capture()));
+        } else if (button.id == DETAILS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossCaptureEffects(phase));
         } else if (button.id == ENABLED_BUTTON) {

@@ -15,6 +15,10 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossHuntSettings {
 
+    public static final int MIN_CATCH_INTERVAL = 1;
+    public static final int MAX_CATCH_INTERVAL = 200;
+    public static final int MAX_MARK_AMPLIFIER = 10;
+
     /**
      * The hunt: the boss picks one victim and goes after nobody else. Only the wind-up is a
      * cast; the chase itself is the boss walking, which is why it has a speed and a length
@@ -38,6 +42,14 @@ public final class BossHuntSettings {
     private boolean huntSilence;
     /** On, the prey glows for the length of the chase, so the whole party can see who was picked. */
     private boolean huntGlow = true;
+    /** Ticks between one catch and the next when catching does not end the hunt. */
+    private int huntCatchIntervalTicks = 20;
+    /** What the mark on the prey really is; the glow is only its default. */
+    private String huntMarkEffect = "minecraft:glowing";
+    /** Stored the vanilla way: 0 is level I. */
+    private int huntMarkAmplifier;
+    /** On, the catch reach grows with both models, the way a melee swing's does. */
+    private boolean huntReachAddsModels = true;
     /** Landed on the prey each time the hunt catches it. */
     private final BossEffectSet huntEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
@@ -100,6 +112,35 @@ public final class BossHuntSettings {
 
     public void setGlow(boolean value) { huntGlow = value; }
 
+    /** Ticks between one catch and the next; a prey the boss stands on is hit on this beat. */
+    public int getCatchIntervalTicks() { return huntCatchIntervalTicks; }
+
+    public void setCatchIntervalTicks(int value) {
+        huntCatchIntervalTicks = Mth.clamp(value, MIN_CATCH_INTERVAL, MAX_CATCH_INTERVAL);
+    }
+
+    /** The effect the prey is marked with while {@link #isGlow()} is on. */
+    public String getMarkEffect() { return huntMarkEffect; }
+
+    public void setMarkEffect(String value) { huntMarkEffect = clean(value); }
+
+    /** 0-based, as vanilla stores it. */
+    public int getMarkAmplifier() { return huntMarkAmplifier; }
+
+    public void setMarkAmplifier(int value) {
+        huntMarkAmplifier = Mth.clamp(value, 0, MAX_MARK_AMPLIFIER);
+    }
+
+    /** 1-based, as the GUI and the tooltip show it. */
+    public int getMarkLevel() { return huntMarkAmplifier + 1; }
+
+    public void setMarkLevel(int level) { setMarkAmplifier(level - 1); }
+
+    /** Whether the catch reach adds half of each model's width, the way a melee swing does. */
+    public boolean isReachAddsModels() { return huntReachAddsModels; }
+
+    public void setReachAddsModels(boolean value) { huntReachAddsModels = value; }
+
     public BossEffectSet getEffects() { return huntEffects; }
 
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
@@ -118,6 +159,10 @@ public final class BossHuntSettings {
         tag.putBoolean("HuntCatchEnds", huntCatchEnds);
         tag.putBoolean("HuntSilence", huntSilence);
         tag.putBoolean("HuntGlow", huntGlow);
+        tag.putInt("HuntCatchInterval", huntCatchIntervalTicks);
+        tag.putString("HuntMarkEffect", huntMarkEffect);
+        tag.putInt("HuntMarkAmplifier", huntMarkAmplifier);
+        tag.putBoolean("HuntReachModels", huntReachAddsModels);
         tag.put("HuntEffects", huntEffects.writeToNBT());
         huntCastSpot.writeToNBT(tag, "Hunt");
     }
@@ -138,6 +183,14 @@ public final class BossHuntSettings {
         huntCatchEnds = !tag.contains("HuntCatchEnds") || tag.getBoolean("HuntCatchEnds");
         huntSilence = tag.getBoolean("HuntSilence");
         huntGlow = !tag.contains("HuntGlow") || tag.getBoolean("HuntGlow");
+        // A boss saved before these were settings carries none of them and chases on the
+        // numbers that used to be literals in the chase.
+        huntCatchIntervalTicks = value(tag, "HuntCatchInterval", 20,
+                MIN_CATCH_INTERVAL, MAX_CATCH_INTERVAL);
+        huntMarkEffect = tag.contains("HuntMarkEffect")
+                ? clean(tag.getString("HuntMarkEffect")) : "minecraft:glowing";
+        huntMarkAmplifier = value(tag, "HuntMarkAmplifier", 0, 0, MAX_MARK_AMPLIFIER);
+        huntReachAddsModels = !tag.contains("HuntReachModels") || tag.getBoolean("HuntReachModels");
         huntEffects.readFromNBT(tag, "HuntEffects");
         huntCastSpot.readFromNBT(tag, "Hunt");
     }

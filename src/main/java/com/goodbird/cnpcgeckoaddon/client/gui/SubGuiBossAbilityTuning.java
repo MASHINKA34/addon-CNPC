@@ -1,7 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import net.minecraft.network.chat.Component;
+import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
+import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /**
  * The scaffolding the per-ability fine-tuning pages share: a title, a stack of rows, the one
@@ -52,6 +54,22 @@ abstract class SubGuiBossAbilityTuning extends SubGuiFieldScreen {
         addRows();
         addWrappedText(FIRST_HINT_LABEL, hintText(), guiTop + hintY());
         addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, BUTTON_HEIGHT);
+    }
+
+    /**
+     * A row holding an id typed in with a picker beside it, for the handful of tuning
+     * settings whose value is a registry name rather than a number.
+     *
+     * <p>The same three widgets the effect editor uses, at this panel's own column: a label, a
+     * field and a Select. The page that adds one reads it back in {@code applyFields} and opens
+     * the picker from {@code buttonEvent}, because what may be typed there is the page's to
+     * judge - a potion id is not a sound id.</p>
+     */
+    protected void addPickerRow(int id, String labelKey, int y, String value) {
+        addLabel(new GuiLabel(id, labelKey, guiLeft + 8, y + 6));
+        addTextField(new GuiTextFieldNop(id, this, guiLeft + 108, y, 86, BUTTON_HEIGHT, value));
+        addButton(new GuiButtonNop(this, id, guiLeft + 198, y, 44, BUTTON_HEIGHT,
+                "mco.template.button.select"));
     }
 
     /** The top of the next row down, and moves the stack on by one. */

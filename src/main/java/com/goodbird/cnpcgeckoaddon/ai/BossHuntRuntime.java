@@ -2,15 +2,17 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossEffectData;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -34,11 +36,6 @@ final class BossHuntRuntime {
     /** The hunt's stride, hung on the boss the way the enrage bonus is and taken off the same way. */
     private static final ResourceLocation MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_hunt");
-    /**
-     * Ticks between one catch and the next when catching does not end the hunt. A prey the
-     * boss is standing on is hit once a second, not twenty times.
-     */
-    private static final int CATCH_INTERVAL_TICKS = 20;
 
     /**
      * The hunt being run right now, frozen on the tick the boss set off.
@@ -59,8 +56,14 @@ final class BossHuntRuntime {
         private final boolean catchEnds;
         /** Whether the rest of the rotation waits for this chase to end. */
         private final boolean silence;
-        /** Whether the glow on the prey is this hunt's to take off again. */
+        /** Whether the mark on the prey is this hunt's to take off again. */
         private final boolean glowing;
+        /** Which mark that is, and how strong; read off the phase on the tick of the cast. */
+        private final String markEffect;
+        private final int markAmplifier;
+        /** How often the prey may be counted as caught again, and what the reach is judged by. */
+        private final int catchIntervalTicks;
+        private final boolean reachAddsModels;
         /** Game time the boss may next count the prey as caught. */
         private long nextCatchAt;
 
@@ -73,6 +76,10 @@ final class BossHuntRuntime {
             catchEnds = phase.hunt().isCatchEnds();
             silence = phase.hunt().isSilence();
             glowing = phase.hunt().isGlow();
+            markEffect = phase.hunt().getMarkEffect();
+            markAmplifier = phase.hunt().getMarkAmplifier();
+            catchIntervalTicks = phase.hunt().getCatchIntervalTicks();
+            reachAddsModels = phase.hunt().isReachAddsModels();
             nextCatchAt = gameTime;
         }
     }
@@ -130,12 +137,13 @@ final class BossHuntRuntime {
             return;
         }
         hunt = new Hunt(prey, phase, gameTime);
-        if (hunt.glowing) {
+        Holder<MobEffect> mark = hunt.glowing ? BossEffectData.resolve(hunt.markEffect) : null;
+        if (mark != null) {
             // Not ambient and no particles: the outline is the mark, and a cloud of swirls
-            // round the prey would only hide who it is on. As long as the chase, so the glow
+            // round the prey would only hide who it is on. As long as the chase, so the mark
             // goes out with the hunt even if nothing gets to take it off.
-            prey.addEffect(new MobEffectInstance(MobEffects.GLOWING, phase.hunt().getDurationTicks(),
-                    0, false, false, true), npc);
+            prey.addEffect(new MobEffectInstance(mark, phase.hunt().getDurationTicks(),
+                    hunt.markAmplifier, false, false, true), npc);
         }
         applySpeed(phase.hunt().getSpeedPercent() / 100.0D);
         boss.setTargetIfChanged(prey);
@@ -163,7 +171,7 @@ final class BossHuntRuntime {
             return;
         }
         boss.setTargetIfChanged(prey);
-        if (gameTime >= current.nextCatchAt && isWithinCatch(prey, current.catchRadius)) {
+        if (gameTime >= current.nextCatchAt && isWithinCatch(prey, current)) {
             catchPrey(level, current, prey, gameTime);
         }
     }
@@ -173,8 +181,9 @@ final class BossHuntRuntime {
      * edge rather than centre to centre, because a boss three blocks wide could never bring
      * its centre within two of anyone.
      */
-    private boolean isWithinCatch(LivingEntity prey, double catchRadius) {
-        double reach = catchRadius + (npc.getBbWidth() + prey.getBbWidth()) * 0.5D;
+    private boolean isWithinCatch(LivingEntity prey, Hunt current) {
+        double reach = current.catchRadius
+                + (current.reachAddsModels ? (npc.getBbWidth() + prey.getBbWidth()) * 0.5D : 0.0D);
         return npc.distanceToSqr(prey) <= reach * reach;
     }
 
@@ -196,7 +205,7 @@ final class BossHuntRuntime {
             end();
             return;
         }
-        current.nextCatchAt = gameTime + CATCH_INTERVAL_TICKS;
+        current.nextCatchAt = gameTime + current.catchIntervalTicks;
     }
 
     /**
@@ -218,11 +227,12 @@ final class BossHuntRuntime {
             return;
         }
         hunt = null;
-        // Only the glow this hunt put on; a builder who switched it off may be using the
+        // Only the mark this hunt put on; a builder who switched it off may be using the
         // effect for something of their own.
-        if (ended.glowing && npc.level() instanceof ServerLevel level
+        Holder<MobEffect> mark = ended.glowing ? BossEffectData.resolve(ended.markEffect) : null;
+        if (mark != null && npc.level() instanceof ServerLevel level
                 && level.getEntity(ended.preyId) instanceof LivingEntity prey) {
-            prey.removeEffect(MobEffects.GLOWING);
+            prey.removeEffect(mark);
         }
     }
 

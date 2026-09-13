@@ -31,6 +31,9 @@ public final class BossCaptureSettings {
     private int captureBeamWidthPercent = 100;
     private int captureBeamSagPercent;
     private boolean captureAllowLook = true;
+    private final BossSoundCue captureSound =
+            new BossSoundCue("minecraft:block.beacon.activate", 0.8F, 1.4F);
+    private final BossParticleCue captureParticles = new BossParticleCue("minecraft:end_rod", 12);
     private final BossEffectSet captureEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot captureCastSpot = new BossCastSpot();
@@ -104,6 +107,10 @@ public final class BossCaptureSettings {
 
     public void setAllowLook(boolean value) { captureAllowLook = value; }
 
+    public BossSoundCue getCaptureSound() { return captureSound; }
+
+    public BossParticleCue getCaptureParticles() { return captureParticles; }
+
     public BossEffectSet getEffects() { return captureEffects; }
 
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
@@ -126,6 +133,8 @@ public final class BossCaptureSettings {
         tag.putInt("CaptureBeamWidthPercent", captureBeamWidthPercent);
         tag.putInt("CaptureBeamSagPercent", captureBeamSagPercent);
         tag.putBoolean("CaptureAllowLook", captureAllowLook);
+        captureSound.writeToNBT(tag, "CaptureSound");
+        captureParticles.writeToNBT(tag, "CaptureParticles");
         tag.put("CaptureEffects", captureEffects.writeToNBT());
         captureCastSpot.writeToNBT(tag, "Capture");
     }
@@ -151,6 +160,10 @@ public final class BossCaptureSettings {
         captureBeamWidthPercent = value(tag, "CaptureBeamWidthPercent", 100, 25, 400);
         captureBeamSagPercent = value(tag, "CaptureBeamSagPercent", 0, 0, 200);
         captureAllowLook = !tag.contains("CaptureAllowLook") || tag.getBoolean("CaptureAllowLook");
+        // A boss saved before these were settings carries neither, and grabs with the
+        // noise and the puff that used to be literals in the grab.
+        captureSound.readFromNBT(tag, "CaptureSound");
+        captureParticles.readFromNBT(tag, "CaptureParticles");
         captureEffects.readFromNBT(tag, "CaptureEffects");
         captureCastSpot.readFromNBT(tag, "Capture");
     }

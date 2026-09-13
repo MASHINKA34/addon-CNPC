@@ -4,10 +4,8 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -122,9 +120,10 @@ final class BossCaptureRuntime {
         if (victim instanceof ServerPlayer player) {
             boss.trackParticipant(player);
         }
-        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(),
-                SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 0.8F, 1.4F);
-        level.sendParticles(ParticleTypes.END_ROD, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
-                victim.getZ(), 12, 0.25D, 0.5D, 0.25D, 0.02D);
+        phase.capture().getCaptureSound().play(level, victim.getX(), victim.getY(), victim.getZ(),
+                SoundSource.HOSTILE);
+        phase.capture().getCaptureParticles().emitDust(level, victim.getX(),
+                victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(),
+                0.25D, 0.5D, 0.25D, 0.02D, BossAbilityKind.CAPTURE);
     }
 }

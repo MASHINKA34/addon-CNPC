@@ -25,6 +25,7 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 12;
     private static final int COOLDOWN_FIELD = 13;
     private static final int CORD_STYLE_BUTTON = 14;
+    private static final int TUNING_BUTTON = 15;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] CORD_STYLE_LABELS = HookCordStyles.values().stream()
@@ -40,7 +41,9 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 256;
+        // One row taller than the panel it used to be: the way into the drag's own numbers
+        // sits under the rows a builder already knows.
+        imageHeight = 280;
         closeOnEsc = true;
     }
 
@@ -97,9 +100,11 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
                 phase.hook().getActionDelayTicks(), 0, 1200, 10,
                 phase.hook().getCooldownTicks(), 1, 12000, 160);
 
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 232, 120, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 232, 236, 20,
+                "cnpcgeckoaddon.boss.hook_tuning"));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 256, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 256, 60, 20);
     }
 
     private int cordStyleIndex() {
@@ -145,7 +150,10 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
-        if (button.id == EFFECTS_BUTTON) {
+        if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossHookTuning(phase.hook()));
+        } else if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.hook().getEffects(), "cnpcgeckoaddon.boss.effects_hook"));
         } else if (button.id == ENABLED_BUTTON) {

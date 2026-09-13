@@ -1,13 +1,15 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncHookCord;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
@@ -38,7 +40,8 @@ final class BossHookRuntime {
      * wherever it is"; a cinch freezes one spot instead so everyone lands in the same pile.
      */
     private record HookPull(int targetId, long endsAt, double strength, double stopDistance,
-                            Vec3 gatherPoint, String cordStyle) {
+                            Vec3 gatherPoint, String cordStyle, double liftMax, double liftPerBlock,
+                            BossParticleCue cordParticles) {
     }
 
     private final TeleportPathController boss;
@@ -113,12 +116,17 @@ final class BossHookRuntime {
         Vec3 gatherPoint = cinch ? npc.position() : null;
         double stopDistance = cinch ? 0.0D : phase.hook().getStopDistance();
         String cordStyle = phase.hook().getCordStyle();
+        double liftMax = phase.hook().getLiftMax();
+        double liftPerBlock = phase.hook().getLiftPerBlock();
+        // Copied on the cast, the way the volley's mark is: a pull runs for seconds, and the
+        // phase under it may change while the cord is still drawn.
+        BossParticleCue cordParticles = phase.hook().getCordParticles().copy();
         boolean textured = HookCordStyles.isTextured(cordStyle);
         for (LivingEntity victim : victims) {
             if (textured) {
                 sendCord(victim.getId(), cordStyle, phase.hook().getPullDurationTicks());
             } else {
-                drawChain(level, victim);
+                drawChain(level, victim, cordParticles);
             }
             // No knockback here: what the hook shoves with is the pull below, which runs for
             // as long as the cord holds rather than for one tick.
@@ -127,10 +135,10 @@ final class BossHookRuntime {
             // Re-hooking someone already being dragged just refreshes their pull.
             activePulls.removeIf(pull -> pull.targetId() == victim.getId());
             activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint,
-                    cordStyle));
-            applyPull(victim, strength, gatherPoint);
+                    cordStyle, liftMax, liftPerBlock, cordParticles));
+            applyPull(victim, strength, gatherPoint, liftMax, liftPerBlock);
         }
-        playSound(level, cordStyle);
+        playSound(level, cordStyle, phase.hook().getCordSound());
     }
 
     /**
@@ -165,10 +173,10 @@ final class BossHookRuntime {
                 iterator.remove();
                 continue;
             }
-            applyPull(victim, pull.strength(), pull.gatherPoint());
+            applyPull(victim, pull.strength(), pull.gatherPoint(), pull.liftMax(), pull.liftPerBlock());
             // A textured cord is drawn by the client and needs no top-up.
             if ((gameTime & 1L) == 0L && !HookCordStyles.isTextured(pull.cordStyle())) {
-                drawChain(level, victim);
+                drawChain(level, victim, pull.cordParticles());
             }
         }
     }
@@ -181,7 +189,8 @@ final class BossHookRuntime {
         activePulls.clear();
     }
 
-    private void applyPull(LivingEntity victim, double strength, Vec3 gatherPoint) {
+    private void applyPull(LivingEntity victim, double strength, Vec3 gatherPoint,
+                           double liftMax, double liftPerBlock) {
         // The drag is the hook rather than a side effect of it, so it asks for itself: a pull
         // already in flight when the mask - or a totem's ability list - changes must not keep
         // tugging.
@@ -197,7 +206,7 @@ final class BossHookRuntime {
         Vec3 velocity = delta.scale(strength / distance);
         // A flat yank grinds the victim into whatever is between them and the boss; a little
         // lift lets them clear a step or a fence instead of sticking to it.
-        double lift = Math.min(0.35D, distance * 0.03D);
+        double lift = Math.min(liftMax, distance * liftPerBlock);
         victim.setDeltaMovement(velocity.x, velocity.y + lift, velocity.z);
         victim.fallDistance = 0.0F;
         // Players simulate their own movement, so the server has to push the new velocity
@@ -205,20 +214,36 @@ final class BossHookRuntime {
         victim.hurtMarked = true;
     }
 
-    /** Each cord gets the voice its artwork implies; the plain sparks keep the old clang. */
-    private void playSound(ServerLevel level, String cordStyle) {
-        switch (cordStyle) {
-            case HookCordStyles.VINE -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.WEEPING_VINES_BREAK, SoundSource.HOSTILE, 2.0F, 0.7F);
-            case HookCordStyles.CHAIN_INFERNAL -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE, 2.0F, 0.4F);
-            case HookCordStyles.TENTACLE -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.SLIME_ATTACK, SoundSource.HOSTILE, 2.0F, 0.6F);
-            case HookCordStyles.GHOST -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.SOUL_ESCAPE, SoundSource.HOSTILE, 2.0F, 0.8F);
-            default -> level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE, 2.0F, 0.6F);
-        }
+    /**
+     * Each cord gets the voice its artwork implies; the plain sparks keep the old clang.
+     *
+     * <p>The cue is what plays, and while it names no sound of its own the style's own event
+     * and pitch are what it plays - so picking a style still picks a voice, and picking a
+     * sound overrules it for every style at once.</p>
+     */
+    private void playSound(ServerLevel level, String cordStyle, BossSoundCue cue) {
+        cue.play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE,
+                styleSound(cordStyle), stylePitch(cordStyle));
+    }
+
+    private static SoundEvent styleSound(String cordStyle) {
+        return switch (cordStyle) {
+            case HookCordStyles.VINE -> SoundEvents.WEEPING_VINES_BREAK;
+            case HookCordStyles.TENTACLE -> SoundEvents.SLIME_ATTACK;
+            // A holder rather than the event itself, unlike the three around it.
+            case HookCordStyles.GHOST -> SoundEvents.SOUL_ESCAPE.value();
+            default -> SoundEvents.CHAIN_PLACE;
+        };
+    }
+
+    private static float stylePitch(String cordStyle) {
+        return switch (cordStyle) {
+            case HookCordStyles.VINE -> 0.7F;
+            case HookCordStyles.CHAIN_INFERNAL -> 0.4F;
+            case HookCordStyles.TENTACLE -> 0.6F;
+            case HookCordStyles.GHOST -> 0.8F;
+            default -> 0.6F;
+        };
     }
 
     /**
@@ -242,14 +267,15 @@ final class BossHookRuntime {
         }
     }
 
-    private void drawChain(ServerLevel level, LivingEntity victim) {
+    private void drawChain(ServerLevel level, LivingEntity victim, BossParticleCue cordParticles) {
         Vec3 from = new Vec3(npc.getX(), npc.getEyeY() - 0.2D, npc.getZ());
         Vec3 to = victim.position().add(0.0D, victim.getBbHeight() * 0.5D, 0.0D);
         Vec3 step = to.subtract(from);
         int points = Mth.clamp((int) (step.length() * 2.0D), 1, 64);
         for (int i = 0; i <= points; i++) {
             Vec3 point = from.add(step.scale((double) i / points));
-            level.sendParticles(ParticleTypes.CRIT, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            cordParticles.emitDust(level, point.x, point.y, point.z, 0.0D, 0.0D, 0.0D, 0.0D,
+                    BossAbilityKind.HOOK);
         }
     }
 }
