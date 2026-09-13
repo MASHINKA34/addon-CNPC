@@ -29,6 +29,14 @@ public final class BossPlatformSettings {
     public static final int MAX_LINGER_TICKS = 12000;
     public static final int MIN_LINGER_INTERVAL_TICKS = 1;
     public static final int MAX_LINGER_INTERVAL_TICKS = 200;
+    /** The look of the fuse and of the bang, in the units their labels name. */
+    public static final int MIN_BLINK_TICKS = 1;
+    public static final int MAX_BLINK_TICKS = 40;
+    public static final int MIN_COUNTDOWN_INTERVAL_TICKS = 5;
+    public static final int MAX_COUNTDOWN_INTERVAL_TICKS = 200;
+    public static final int MAX_FLARE = 200;
+    public static final int MIN_FLARE_AREA = 5;
+    public static final int MAX_FLARE_AREA = 400;
 
     private boolean platformEnabled;
     private String platformAnimation = "";
@@ -46,6 +54,18 @@ public final class BossPlatformSettings {
     private int platformLingerTicks;
     private int platformLingerIntervalTicks = 20;
     private String platformVfx = AreaVfxStyles.NONE;
+    /** Half a flash of the outline: painted for this many ticks, then not for as many. */
+    private int platformBlinkTicks = 4;
+    /** How often the countdown names a new number; once a second is what it always did. */
+    private int platformCountdownIntervalTicks = 20;
+    /** The most pops the bang throws up, and how much floor each one stands for. */
+    private int platformFlareMax = 24;
+    /** Tenths of a square block per pop, so 40 is the 4.0 the code used to divide by. */
+    private int platformFlareArea = 40;
+    private final BossSoundCue platformLitSound = new BossSoundCue("minecraft:entity.tnt.primed", 1.5F, 0.8F);
+    private final BossParticleCue platformOutlineParticles = new BossParticleCue("minecraft:flame", 1);
+    private final BossParticleCue platformBlastParticles = new BossParticleCue("minecraft:lava", 1);
+    private final BossSoundCue platformBlastSound = new BossSoundCue("minecraft:entity.generic.explode", 2.0F, 0.9F);
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot platformCastSpot = new BossCastSpot();
 
@@ -126,6 +146,47 @@ public final class BossPlatformSettings {
 
     public void setVfx(String value) { platformVfx = AreaVfxStyles.normalize(value); }
 
+    /** Half a flash of the outline, in ticks: bigger is a slower, calmer blink. */
+    public int getBlinkTicks() { return platformBlinkTicks; }
+
+    public void setBlinkTicks(int value) {
+        platformBlinkTicks = Mth.clamp(value, MIN_BLINK_TICKS, MAX_BLINK_TICKS);
+    }
+
+    /** Ticks between two numbers of the countdown in the party's action bar. */
+    public int getCountdownIntervalTicks() { return platformCountdownIntervalTicks; }
+
+    public void setCountdownIntervalTicks(int value) {
+        platformCountdownIntervalTicks = Mth.clamp(value, MIN_COUNTDOWN_INTERVAL_TICKS,
+                MAX_COUNTDOWN_INTERVAL_TICKS);
+    }
+
+    /** The ceiling on the pops one bang throws up; zero throws none at all. */
+    public int getFlareMax() { return platformFlareMax; }
+
+    public void setFlareMax(int value) { platformFlareMax = Mth.clamp(value, 0, MAX_FLARE); }
+
+    /** Tenths of a square block of platform per pop, so a small one still reads as going off. */
+    public int getFlareArea() { return platformFlareArea; }
+
+    public void setFlareArea(int value) {
+        platformFlareArea = Mth.clamp(value, MIN_FLARE_AREA, MAX_FLARE_AREA);
+    }
+
+    /** Square blocks per pop, the number the count is worked out with. */
+    public double flareAreaPerPop() { return platformFlareArea / 10.0D; }
+
+    /** The hiss as the fuse catches. */
+    public BossSoundCue getLitSound() { return platformLitSound; }
+
+    /** The flame inside a platform that is already burning. */
+    public BossParticleCue getOutlineParticles() { return platformOutlineParticles; }
+
+    /** The pops thrown up as the platform goes off, one puff per pop. */
+    public BossParticleCue getBlastParticles() { return platformBlastParticles; }
+
+    public BossSoundCue getBlastSound() { return platformBlastSound; }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return platformCastSpot; }
 
@@ -144,6 +205,14 @@ public final class BossPlatformSettings {
         tag.putInt("PlatformLingerTicks", platformLingerTicks);
         tag.putInt("PlatformLingerIntervalTicks", platformLingerIntervalTicks);
         tag.putString("PlatformVfx", platformVfx);
+        tag.putInt("PlatformBlink", platformBlinkTicks);
+        tag.putInt("PlatformCountdownInterval", platformCountdownIntervalTicks);
+        tag.putInt("PlatformFlareMax", platformFlareMax);
+        tag.putInt("PlatformFlareArea", platformFlareArea);
+        platformLitSound.writeToNBT(tag, "PlatformLit");
+        platformOutlineParticles.writeToNBT(tag, "PlatformOutline");
+        platformBlastParticles.writeToNBT(tag, "PlatformBlastParticles");
+        platformBlastSound.writeToNBT(tag, "PlatformBlast");
         platformCastSpot.writeToNBT(tag, "Platform");
     }
 
@@ -164,6 +233,15 @@ public final class BossPlatformSettings {
         platformLingerIntervalTicks = value(tag, "PlatformLingerIntervalTicks", 20,
                 MIN_LINGER_INTERVAL_TICKS, MAX_LINGER_INTERVAL_TICKS);
         platformVfx = AreaVfxStyles.normalize(tag.getString("PlatformVfx"));
+        platformBlinkTicks = value(tag, "PlatformBlink", 4, MIN_BLINK_TICKS, MAX_BLINK_TICKS);
+        platformCountdownIntervalTicks = value(tag, "PlatformCountdownInterval", 20,
+                MIN_COUNTDOWN_INTERVAL_TICKS, MAX_COUNTDOWN_INTERVAL_TICKS);
+        platformFlareMax = value(tag, "PlatformFlareMax", 24, 0, MAX_FLARE);
+        platformFlareArea = value(tag, "PlatformFlareArea", 40, MIN_FLARE_AREA, MAX_FLARE_AREA);
+        platformLitSound.readFromNBT(tag, "PlatformLit");
+        platformOutlineParticles.readFromNBT(tag, "PlatformOutline");
+        platformBlastParticles.readFromNBT(tag, "PlatformBlastParticles");
+        platformBlastSound.readFromNBT(tag, "PlatformBlast");
         platformCastSpot.readFromNBT(tag, "Platform");
     }
 }

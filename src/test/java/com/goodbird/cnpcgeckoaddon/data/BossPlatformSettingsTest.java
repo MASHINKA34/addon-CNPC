@@ -41,7 +41,18 @@ class BossPlatformSettingsTest {
             Map.entry("PlatformKnockback", new Bound(0, 10)),
             Map.entry("PlatformLaunch", new Bound(0, 40)),
             Map.entry("PlatformLingerTicks", new Bound(0, 12000)),
-            Map.entry("PlatformLingerIntervalTicks", new Bound(1, 200)));
+            Map.entry("PlatformLingerIntervalTicks", new Bound(1, 200)),
+            Map.entry("PlatformBlink", new Bound(1, 40)),
+            Map.entry("PlatformCountdownInterval", new Bound(5, 200)),
+            Map.entry("PlatformFlareMax", new Bound(0, 200)),
+            Map.entry("PlatformFlareArea", new Bound(5, 400)));
+
+    /**
+     * The cues' own prefixes. Their numbers are a volume, a pitch and a count, whose ranges
+     * belong to the cue rather than to the platform, and are pinned by the cue's own test.
+     */
+    private static final List<String> CUE_PREFIXES = List.of(
+            "PlatformLit", "PlatformOutline", "PlatformBlast");
 
     /** A zone's own numbers, the same way: the list writes one compound per zone. */
     private static final Map<String, Bound> ZONE_BOUNDS = Map.ofEntries(
@@ -124,6 +135,7 @@ class BossPlatformSettingsTest {
         // The spot's numbers belong to the cast spot, which has bounds and tests of its own.
         Set<String> numbers = tag.getAllKeys().stream()
                 .filter(key -> key.startsWith("Platform") && !key.startsWith("PlatformSpot"))
+                .filter(key -> CUE_PREFIXES.stream().noneMatch(key::startsWith))
                 .filter(key -> tag.get(key) instanceof IntTag)
                 .collect(Collectors.toCollection(TreeSet::new));
         assertEquals(new TreeSet<>(BOUNDS.keySet()), numbers,

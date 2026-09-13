@@ -30,16 +30,6 @@ import java.util.UUID;
 final class BossHazardRuntime {
 
     /**
-     * How far past the safe circle's first edge an arena hazard still burns: the arena's
-     * surroundings, not the world. Somebody who died and came back at a bed across the map
-     * is out of the fight, not standing in the fire, and must not be bled there until the
-     * boss gets round to resetting.
-     */
-    private static final double RING_REACH = 32.0D;
-    /** Half a flash: the warning edge is painted for this many ticks, then not for as many. */
-    private static final int BLINK_TICKS = 4;
-
-    /**
      * The arena hazard of the phase being fought, frozen on the tick the phase began.
      *
      * <p>Read back from here rather than off the phase again, the way a take cover strike
@@ -66,6 +56,14 @@ final class BossHazardRuntime {
         private final int damage;
         private final int intervalTicks;
         private final BossEffectSet effects;
+        /**
+         * How far past the safe circle's first edge the fire reaches: the arena's surroundings,
+         * not the world. Somebody who died and came back at a bed across the map is out of the
+         * fight, not standing in the fire, and must not be bled there until the boss resets.
+         */
+        private final double ringReach;
+        /** Half a flash: the warning edge is painted for this many ticks, then not for as many. */
+        private final int blinkTicks;
         /** Game time the next dose goes out at; the first is owed the moment the hazard opens. */
         private long nextHitAt;
 
@@ -82,6 +80,8 @@ final class BossHazardRuntime {
             damage = phase.hazard().getDamage();
             intervalTicks = phase.hazard().getIntervalTicks();
             effects = phase.hazard().getEffects();
+            ringReach = phase.hazard().getRingReach();
+            blinkTicks = phase.hazard().getBlinkTicks();
             nextHitAt = opensAt;
         }
 
@@ -116,7 +116,7 @@ final class BossHazardRuntime {
             double dz = position.z - centre.z;
             double distanceSquared = dx * dx + dz * dz;
             double radius = ringRadius(gameTime);
-            double reach = startRadius + RING_REACH;
+            double reach = startRadius + ringReach;
             return distanceSquared > radius * radius && distanceSquared <= reach * reach;
         }
     }
@@ -230,7 +230,7 @@ final class BossHazardRuntime {
                        long gameTime, boolean open) {
         BossTelegraphPaint paint = BossTelegraphPaint.of(data, npc, BossTelegraphPaint.CHANNEL_HAZARD,
                 BossAbilityKind.HAZARD, open ? BossTelegraphPaint.NO_END : hazard.fuseProgress(gameTime));
-        boolean dark = !open && (gameTime / BLINK_TICKS) % 2L != 0L;
+        boolean dark = !open && (gameTime / hazard.blinkTicks) % 2L != 0L;
         if (hazard.mode == BossPhaseData.HAZARD_MODE_BOX) {
             AABB box = hazard.box;
             if (box == null || !hasAudience(level, box.getCenter(),
@@ -313,7 +313,7 @@ final class BossHazardRuntime {
     private List<LivingEntity> victims(ServerLevel level, ArenaHazard hazard, long gameTime) {
         AABB sweep = hazard.mode == BossPhaseData.HAZARD_MODE_BOX
                 ? hazard.box
-                : new AABB(hazard.centre, hazard.centre).inflate(hazard.startRadius + RING_REACH);
+                : new AABB(hazard.centre, hazard.centre).inflate(hazard.startRadius + hazard.ringReach);
         if (sweep == null) {
             return List.of();
         }

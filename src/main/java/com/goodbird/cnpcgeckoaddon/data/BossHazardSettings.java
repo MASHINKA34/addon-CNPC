@@ -15,6 +15,12 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossHazardSettings {
 
+    /** How far past the safe circle the fire reaches, and how fast the warning edge flashes. */
+    public static final int MIN_RING_REACH = 8;
+    public static final int MAX_RING_REACH = 128;
+    public static final int MIN_BLINK_TICKS = 1;
+    public static final int MAX_BLINK_TICKS = 40;
+
     /**
      * The arena hazard: not a cast but the ground itself, armed when the phase is entered
      * and gone when the phase is. Ten seconds of grace by default, so a party does not walk
@@ -46,6 +52,10 @@ public final class BossHazardSettings {
     private int hazardIntervalTicks = 20;
     /** Dosed with every hit of the hazard, on everyone standing in the fire. */
     private final BossEffectSet hazardEffects = new BossEffectSet();
+    /** How far outside the circle's first edge the arena still burns and is still drawn. */
+    private int hazardRingReach = 32;
+    /** Half a flash of the warning edge: painted for this many ticks, then not for as many. */
+    private int hazardBlinkTicks = 4;
 
     /** Whether the arena turns dangerous in this phase at all. */
     public boolean isEnabled() { return hazardEnabled; }
@@ -140,6 +150,25 @@ public final class BossHazardSettings {
 
     public void setIntervalTicks(int value) { hazardIntervalTicks = Mth.clamp(value, 1, 200); }
 
+    /**
+     * Blocks past the safe circle's first edge the fire still reaches.
+     *
+     * <p>The arena's surroundings rather than the world: somebody who died and came back at a
+     * bed across the map is out of the fight, not standing in the fire.</p>
+     */
+    public int getRingReach() { return hazardRingReach; }
+
+    public void setRingReach(int value) {
+        hazardRingReach = Mth.clamp(value, MIN_RING_REACH, MAX_RING_REACH);
+    }
+
+    /** Half a flash of the warning edge, in ticks: bigger is a slower, calmer blink. */
+    public int getBlinkTicks() { return hazardBlinkTicks; }
+
+    public void setBlinkTicks(int value) {
+        hazardBlinkTicks = Mth.clamp(value, MIN_BLINK_TICKS, MAX_BLINK_TICKS);
+    }
+
     private static int hazardCoordinate(int value) {
         return Mth.clamp(value, -BossPhaseData.MAX_HAZARD_COORDINATE, BossPhaseData.MAX_HAZARD_COORDINATE);
     }
@@ -166,6 +195,8 @@ public final class BossHazardSettings {
         tag.putInt("HazardDamage", hazardDamage);
         tag.putInt("HazardIntervalTicks", hazardIntervalTicks);
         tag.put("HazardEffects", hazardEffects.writeToNBT());
+        tag.putInt("HazardRingReach", hazardRingReach);
+        tag.putInt("HazardBlink", hazardBlinkTicks);
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -193,5 +224,7 @@ public final class BossHazardSettings {
         hazardDamage = value(tag, "HazardDamage", 4, 0, 1000);
         hazardIntervalTicks = value(tag, "HazardIntervalTicks", 20, 1, 200);
         hazardEffects.readFromNBT(tag, "HazardEffects");
+        hazardRingReach = value(tag, "HazardRingReach", 32, MIN_RING_REACH, MAX_RING_REACH);
+        hazardBlinkTicks = value(tag, "HazardBlink", 4, MIN_BLINK_TICKS, MAX_BLINK_TICKS);
     }
 }

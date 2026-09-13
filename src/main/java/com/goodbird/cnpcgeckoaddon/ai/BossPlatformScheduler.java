@@ -2,18 +2,17 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformSettings;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -54,14 +53,71 @@ public final class BossPlatformScheduler {
      * couple of ticks; the rest keeps its place and is picked up next tick.
      */
     private static final int MAX_PER_TICK = 64;
-    /** Half a flash: the outline is painted for this many ticks, then not for as many, the hazard's pace. */
-    private static final int BLINK_TICKS = 4;
-    /** Once a second: the number in the countdown only changes that often. */
-    private static final int COUNTDOWN_INTERVAL_TICKS = 20;
-    /** The most lava pops a platform throws up as it goes off, however big it is. */
-    private static final int MAX_FLARE_PARTICLES = 24;
-    /** One pop per this many square blocks of platform, so a small one still reads as going off. */
-    private static final double FLARE_AREA_PER_PARTICLE = 4.0D;
+
+    /**
+     * How a platform flashes, bangs and sounds, taken off the settings on the tick the fuse was
+     * lit.
+     *
+     * <p>Frozen with the rest of the cast for the reason the damage is: a builder editing the
+     * ability while a fuse is burning must not change what the party already saw start. Split
+     * out of {@link Pending} so it can be taken without a world to light one in.</p>
+     */
+    static final class Look {
+        private final int blinkTicks;
+        private final int countdownIntervalTicks;
+        private final int flareMax;
+        private final double flareArea;
+        private final BossParticleCue outlineParticles;
+        private final BossParticleCue blastParticles;
+        private final BossSoundCue blastSound;
+
+        private Look(BossPlatformSettings platform) {
+            blinkTicks = platform.getBlinkTicks();
+            countdownIntervalTicks = platform.getCountdownIntervalTicks();
+            flareMax = platform.getFlareMax();
+            flareArea = platform.flareAreaPerPop();
+            outlineParticles = platform.getOutlineParticles().copy();
+            blastParticles = platform.getBlastParticles().copy();
+            blastSound = platform.getBlastSound().copy();
+        }
+
+        int blinkTicks() {
+            return blinkTicks;
+        }
+
+        int countdownIntervalTicks() {
+            return countdownIntervalTicks;
+        }
+
+        /**
+         * How many pops a platform of this much floor throws up as it goes off.
+         *
+         * <p>A cap of nothing is a bang with no pops at all, the way a particle cue set to no
+         * particles is; anywhere above that the count is held at one, so the smallest platform
+         * still reads as going off.</p>
+         */
+        int pops(double area) {
+            return flareMax <= 0 ? 0
+                    : Mth.clamp((int) Math.round(area / flareArea), 1, flareMax);
+        }
+
+        BossParticleCue outlineParticles() {
+            return outlineParticles;
+        }
+
+        BossParticleCue blastParticles() {
+            return blastParticles;
+        }
+
+        BossSoundCue blastSound() {
+            return blastSound;
+        }
+    }
+
+    /** What this platform will look and sound like, whatever the builder does next. */
+    static Look look(BossPlatformSettings platform) {
+        return new Look(platform);
+    }
 
     /**
      * One platform's clock, kept apart from the world so the fuse, the blast and the doses of its
@@ -139,6 +195,8 @@ public final class BossPlatformScheduler {
         private final String vfx;
         /** How the boss had its waves tuned when this was lit; see BossWaveTuning. */
         private final BossWaveTuning wave;
+        /** How it flashes, bangs and sounds, taken off the settings on the same tick. */
+        private final Look look;
         private final long litAt;
         private final Burn burn;
 
@@ -156,6 +214,7 @@ public final class BossPlatformScheduler {
             this.effects = platform.getEffects();
             this.vfx = platform.getVfx();
             this.wave = BossWaveTuning.of(boss, this.vfx);
+            this.look = look(platform);
             this.litAt = litAt;
             this.burn = new Burn(litAt, platform.getFuseTicks(), platform.getLingerTicks(),
                     platform.getLingerIntervalTicks());
@@ -183,7 +242,7 @@ public final class BossPlatformScheduler {
                 launch, gameTime));
         // One hiss as the fuse catches, for the player who is not looking down.
         Vec3 centre = box.getCenter();
-        level.playSound(null, centre.x, floorY, centre.z, SoundEvents.TNT_PRIMED, SoundSource.HOSTILE, 1.5F, 0.8F);
+        platform.getLitSound().play(level, centre.x, floorY, centre.z, SoundSource.HOSTILE);
     }
 
     public static boolean hasPending() {
@@ -231,13 +290,14 @@ public final class BossPlatformScheduler {
         }
         Burn burn = pending.burn;
         if (burn.isFusing(gameTime)) {
-            if (pending.announces && (gameTime - pending.litAt) % COUNTDOWN_INTERVAL_TICKS == 0L) {
+            if (pending.announces
+                    && (gameTime - pending.litAt) % pending.look.countdownIntervalTicks() == 0L) {
                 announceCountdown(level, controller, pending, gameTime);
             }
             if (gameTime % controller.telegraphIntervalTicks() == 0L
                     && hasAudience(level, pending)) {
                 outline(level, controller, pending, fuseProgress(pending, gameTime),
-                        (gameTime / BLINK_TICKS) % 2L == 0L);
+                        (gameTime / pending.look.blinkTicks()) % 2L == 0L);
             }
             return true;
         }
@@ -252,7 +312,7 @@ public final class BossPlatformScheduler {
         if (gameTime % controller.telegraphIntervalTicks() == 0L && hasAudience(level, pending)) {
             // Steady from here on, and a flame now and then inside it: the platform is still burning.
             outline(level, controller, pending, BossTelegraphPaint.NO_END, true);
-            scatter(level, pending, ParticleTypes.FLAME, 1);
+            scatter(level, pending, pending.look.outlineParticles(), 1);
         }
         return true;
     }
@@ -276,11 +336,10 @@ public final class BossPlatformScheduler {
             // does not blink out of existence for the tick of the bang. The flare itself is
             // not a shape on the floor and stays the dust it always was.
             outline(level, controller, pending, BossTelegraphPaint.NO_END, true);
-            scatter(level, pending, ParticleTypes.LAVA,
-                    (int) Math.round(box.getXsize() * box.getZsize() / FLARE_AREA_PER_PARTICLE));
+            scatter(level, pending, pending.look.blastParticles(),
+                    pending.look.pops(box.getXsize() * box.getZsize()));
         }
-        level.playSound(null, ground.x, ground.y, ground.z, SoundEvents.GENERIC_EXPLODE.value(),
-                SoundSource.HOSTILE, 2.0F, 0.9F);
+        pending.look.blastSound().play(level, ground.x, ground.y, ground.z, SoundSource.HOSTILE);
 
         for (LivingEntity victim : controller.platformVictims(level, box)) {
             // The shove and the throw are this platform's own half rather than something on top of
@@ -360,16 +419,16 @@ public final class BossPlatformScheduler {
      * A few particles at random spots on the platform's floor, found the way its outline finds
      * it, so they come up out of the platform rather than hanging in the air over a gap in it.
      */
-    private static void scatter(ServerLevel level, Pending pending, ParticleOptions particle, int count) {
+    private static void scatter(ServerLevel level, Pending pending, BossParticleCue cue, int points) {
         AABB box = pending.box;
         RandomSource random = level.getRandom();
-        int particles = Mth.clamp(count, 1, MAX_FLARE_PARTICLES);
-        for (int i = 0; i < particles; i++) {
+        for (int i = 0; i < points; i++) {
             double x = box.minX + random.nextDouble() * box.getXsize();
             double z = box.minZ + random.nextDouble() * box.getZsize();
             BlockPos floor = BossFloorUtil.findFloor(level, x, pending.floorY, z);
             if (floor != null) {
-                level.sendParticles(particle, x, floor.getY() + 1.05D, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                cue.emitDust(level, x, floor.getY() + 1.05D, z, 0.0D, 0.0D, 0.0D, 0.0D,
+                        BossAbilityKind.PLATFORM);
             }
         }
     }
