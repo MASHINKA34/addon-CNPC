@@ -551,7 +551,8 @@ final class BossDashRuntime {
         if (!data.isHomeLeashEnabled()) {
             return length;
         }
-        double limit = Math.max(0.0D, data.getHomeLeashRadius() - BossLeapRuntime.LEASH_MARGIN);
+        // The leap's own margin: the two stop inside the same edge, so one number answers for both.
+        double limit = Math.max(0.0D, data.getHomeLeashRadius() - phase.leap().getLeashMargin());
         if (data.isHomeLeashVertical()) {
             double dy = start.y - boss.homeY();
             limit = limit * limit > dy * dy ? Math.sqrt(limit * limit - dy * dy) : 0.0D;

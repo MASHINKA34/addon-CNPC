@@ -30,6 +30,7 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
     private static final int Z_FIELD = 12;
     private static final int HERE_BUTTON = 13;
     private static final int IMPACT_BUTTON = 14;
+    private static final int TUNING_BUTTON = 15;
     private static final int EFFECTS_BUTTON = 67;
 
     private final EntityNPCInterface npc;
@@ -41,7 +42,9 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 256;
+        // A row taller than the panel it used to be: the fine-tuning button sits under the
+        // rest, so every row above it stays exactly where a builder is used to finding it.
+        imageHeight = 282;
         closeOnEsc = true;
     }
 
@@ -101,6 +104,8 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.chest_here"));
         addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 256, 236, 20,
+                "cnpcgeckoaddon.boss.leap_tuning"));
 
         refresh();
     }
@@ -166,6 +171,9 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         } else if (button.id == IMPACT_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossLeapImpact(phase, phaseIndex));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossLeapTuning(phase.leap()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.leap().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {

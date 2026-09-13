@@ -7,7 +7,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -33,16 +32,8 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULE
  */
 final class BossLeapRuntime {
 
-    /** Fudge on the horizontal reach, so drag does not leave the boss just short of the ring. */
-    private static final double REACH_CORRECTION = 1.03D;
-    private static final double MAX_HORIZONTAL_SPEED = 4.0D;
-    /** Ticks after the push before a boss still on the floor counts as a leap that never left. */
-    private static final int LAUNCH_GRACE_TICKS = 5;
     private static final double MARKER_SPACING = 0.7D;
     private static final int MARKER_INTERVAL_TICKS = 4;
-    private static final int VFX_DURATION_TICKS = 20;
-    /** Kept inside the leash by this much, so the landing does not trigger a reset. The dash's stop uses it too. */
-    static final double LEASH_MARGIN = 1.5D;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -60,6 +51,11 @@ final class BossLeapRuntime {
     /** Horizontal speed the flight holds, re-applied every tick it stays in the air. */
     private double driveX;
     private double driveZ;
+    /**
+     * The grace the push was given, frozen with it: a flight belongs to the settings that
+     * launched it, and its phase can be deleted from under it while it is still in the air.
+     */
+    private int launchGraceTicks;
 
     BossLeapRuntime(TeleportPathController boss, EntityNPCInterface npc) {
         this.boss = boss;
@@ -144,19 +140,19 @@ final class BossLeapRuntime {
             // Straight up: the boss comes back down onto the spot it left.
             default -> npc.position();
         };
-        return aimed == null ? null : clampToHomeLeash(data, aimed);
+        return aimed == null ? null : clampToHomeLeash(data, phase, aimed);
     }
 
     /**
      * A landing outside the leash would end the encounter on the boss' own terms, so the
      * destination is pulled back to just inside the edge before anything is pushed off.
      */
-    Vec3 clampToHomeLeash(TeleportPathData data, Vec3 spot) {
+    Vec3 clampToHomeLeash(TeleportPathData data, BossPhaseData phase, Vec3 spot) {
         if (!data.isHomeLeashEnabled()) {
             return spot;
         }
         boolean vertical = data.isHomeLeashVertical();
-        double limit = Math.max(0.0D, data.getHomeLeashRadius() - LEASH_MARGIN);
+        double limit = Math.max(0.0D, data.getHomeLeashRadius() - phase.leap().getLeashMargin());
         double dx = spot.x - boss.homeX();
         double dz = spot.z - boss.homeZ();
         double dy = vertical ? spot.y - boss.homeY() : 0.0D;
@@ -209,8 +205,8 @@ final class BossLeapRuntime {
         double dx = landing.x - npc.getX();
         double dz = landing.z - npc.getZ();
         double reach = Math.sqrt(dx * dx + dz * dz);
-        double speed = reach < 1.0E-4D ? 0.0D : Math.min(MAX_HORIZONTAL_SPEED,
-                reach * REACH_CORRECTION / flightTicks);
+        double speed = reach < 1.0E-4D ? 0.0D : Math.min(phase.leap().getMaxSpeed(),
+                reach * phase.leap().getReachCorrection() / flightTicks);
         driveX = reach < 1.0E-4D ? 0.0D : dx / reach * speed;
         driveZ = reach < 1.0E-4D ? 0.0D : dz / reach * speed;
 
@@ -225,13 +221,13 @@ final class BossLeapRuntime {
         airborne = true;
         leftGround = false;
         launchedAt = gameTime;
+        launchGraceTicks = phase.leap().getLaunchGraceTicks();
         airTimeoutAt = gameTime + phase.leap().getMaxAirTicks();
         boss.holdBusyUntil(gameTime + 1);
 
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.RAVAGER_ROAR,
-                SoundSource.HOSTILE, 1.5F, 1.2F);
-        level.sendParticles(ParticleTypes.CLOUD, npc.getX(), npc.getY() + 0.1D, npc.getZ(), 20,
-                npc.getBbWidth() * 0.5D, 0.05D, npc.getBbWidth() * 0.5D, 0.05D);
+        phase.leap().getTakeoffSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+        phase.leap().getTakeoffParticles().emitDust(level, npc.getX(), npc.getY() + 0.1D, npc.getZ(),
+                npc.getBbWidth() * 0.5D, 0.05D, npc.getBbWidth() * 0.5D, 0.05D, BossAbilityKind.LEAP);
     }
 
     /**
@@ -272,7 +268,7 @@ final class BossLeapRuntime {
             } else if (leftGround) {
                 land(level, data, gameTime);
                 return;
-            } else if (gameTime - launchedAt >= LAUNCH_GRACE_TICKS) {
+            } else if (gameTime - launchedAt >= launchGraceTicks) {
                 // Never got off the ground - held down, or shoulder-deep in a slab.
                 clear();
                 return;
@@ -322,7 +318,7 @@ final class BossLeapRuntime {
     void performImpact(ServerLevel level, BossPhaseData phase, Vec3 impact) {
         // Started before the hits so the wave leaves at the same moment the damage lands.
         BossAreaVfxScheduler.schedule(level, impact, phase.leap().getVfx(), phase.leap().getImpactRadius(),
-                VFX_DURATION_TICKS, phase.leap().isBlockWave(),
+                phase.leap().getVfxTicks(), phase.leap().isBlockWave(),
                 BossWaveTuning.of(npc, phase.leap().getVfx()));
         int damage = boss.rageUp(phase.leap().getImpactDamage());
         for (LivingEntity target : boss.getTargetsAround(level, impact, phase.leap().getImpactRadius(),
@@ -331,20 +327,23 @@ final class BossLeapRuntime {
                     phase.leap().getEffects(), boss.rageUp(phase.leap().getImpactKnockback()),
                     impact.x - target.getX(), impact.z - target.getZ());
         }
-        playImpactFeedback(level, impact);
+        playImpactFeedback(level, phase, impact);
     }
 
-    void playImpactFeedback(ServerLevel level, Vec3 impact) {
-        level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.ANVIL_LAND,
-                SoundSource.HOSTILE, 2.0F, 0.5F);
-        level.sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y + 0.2D, impact.z,
-                1, 0.0D, 0.0D, 0.0D, 0.0D);
+    void playImpactFeedback(ServerLevel level, BossPhaseData phase, Vec3 impact) {
+        phase.leap().getLandingSound().play(level, impact.x, impact.y, impact.z, SoundSource.HOSTILE);
+        phase.leap().getLandingParticles().emitDust(level, impact.x, impact.y + 0.2D, impact.z,
+                0.0D, 0.0D, 0.0D, 0.0D, BossAbilityKind.LEAP);
+        int debris = phase.leap().getDebrisCount();
+        if (debris <= 0) {
+            return;
+        }
         BlockPos below = BlockPos.containing(impact.x, impact.y - 0.2D, impact.z);
         BlockState floor = level.getBlockState(below);
         if (!floor.isAir()) {
             // The floor it landed on, kicked up around its feet.
             level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, floor),
-                    impact.x, impact.y + 0.1D, impact.z, 30, 0.6D, 0.1D, 0.6D, 0.15D);
+                    impact.x, impact.y + 0.1D, impact.z, debris, 0.6D, 0.1D, 0.6D, 0.15D);
         }
     }
 
@@ -397,11 +396,11 @@ final class BossLeapRuntime {
         int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / MARKER_SPACING), 8, 48);
         for (int i = 0; i < points; i++) {
             double angle = i * Mth.TWO_PI / points;
-            level.sendParticles(ParticleTypes.SMALL_FLAME,
+            phase.leap().getTrailParticles().emitDust(level,
                     destination.x + Math.cos(angle) * radius,
                     destination.y + 0.15D,
                     destination.z + Math.sin(angle) * radius,
-                    1, 0.0D, 0.0D, 0.0D, 0.0D);
+                    0.0D, 0.0D, 0.0D, 0.0D, BossAbilityKind.LEAP);
         }
     }
 
@@ -423,6 +422,7 @@ final class BossLeapRuntime {
         leftGround = false;
         driveX = 0.0D;
         driveZ = 0.0D;
+        launchGraceTicks = 0;
         destination = null;
         phaseIndex = -1;
         launchedAt = NOT_SCHEDULED;
