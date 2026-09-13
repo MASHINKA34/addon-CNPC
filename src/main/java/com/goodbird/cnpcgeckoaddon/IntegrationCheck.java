@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryState;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
+import com.goodbird.cnpcgeckoaddon.mixin.INpcLaunchPadData;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.mixin.ISoundReactionData;
 import com.goodbird.cnpcgeckoaddon.mixin.ISoundReactiveNpc;
@@ -36,7 +37,7 @@ import java.util.List;
  *
  * <p>One cast per integration point turns that into one line naming exactly which one went.
  * The casts are the same ones the runtime does on every tick, so this cannot pass while the
- * game fails, and it costs one pass over nine classes at startup.</p>
+ * game fails, and it costs one pass over ten classes at startup.</p>
  */
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
 public final class IntegrationCheck {
@@ -52,6 +53,7 @@ public final class IntegrationCheck {
             new Hook(ISoundReactionData.class, DataAI.class, "sound reaction settings"),
             new Hook(INpcCarryData.class, DataAI.class, "carryable npc settings"),
             new Hook(INpcImmunityData.class, DataAI.class, "npc ability immunity"),
+            new Hook(INpcLaunchPadData.class, DataAI.class, "launch pad npc settings"),
             new Hook(IDataDisplay.class, DataDisplay.class, "geckolib models on npcs"),
             new Hook(IRangedData.class, DataRanged.class, "the extra ranged options"),
             new Hook(IBossController.class, EntityNPCInterface.class, "the boss controller"),

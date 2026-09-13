@@ -2,10 +2,12 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.data.NpcCarryData;
 import com.goodbird.cnpcgeckoaddon.data.NpcImmunityData;
+import com.goodbird.cnpcgeckoaddon.data.NpcLaunchPadData;
 import com.goodbird.cnpcgeckoaddon.data.SoundReactionData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
+import com.goodbird.cnpcgeckoaddon.mixin.INpcLaunchPadData;
 import com.goodbird.cnpcgeckoaddon.mixin.ISoundReactionData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import net.minecraft.nbt.CompoundTag;
@@ -19,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(DataAI.class)
 public class MixinDataAI implements ISoundReactionData, ITeleportPathData, INpcCarryData,
-        INpcImmunityData {
+        INpcImmunityData, INpcLaunchPadData {
 
     @Unique
     private final SoundReactionData cnpcgeckoaddon$soundReactionData = new SoundReactionData();
@@ -33,12 +35,16 @@ public class MixinDataAI implements ISoundReactionData, ITeleportPathData, INpcC
     @Unique
     private final NpcImmunityData cnpcgeckoaddon$npcImmunityData = new NpcImmunityData();
 
+    @Unique
+    private final NpcLaunchPadData cnpcgeckoaddon$npcLaunchPadData = new NpcLaunchPadData();
+
     @Inject(method = "save", at = @At("HEAD"), remap = false)
     private void cnpcgeckoaddon$saveSoundReaction(CompoundTag tag, CallbackInfoReturnable<CompoundTag> cir) {
         cnpcgeckoaddon$soundReactionData.writeToNBT(tag);
         cnpcgeckoaddon$teleportPathData.writeToNBT(tag);
         cnpcgeckoaddon$npcCarryData.writeToNBT(tag);
         cnpcgeckoaddon$npcImmunityData.writeToNBT(tag);
+        cnpcgeckoaddon$npcLaunchPadData.writeToNBT(tag);
     }
 
     @Inject(method = "readToNBT", at = @At("HEAD"), remap = false)
@@ -47,6 +53,7 @@ public class MixinDataAI implements ISoundReactionData, ITeleportPathData, INpcC
         cnpcgeckoaddon$teleportPathData.readFromNBT(tag);
         cnpcgeckoaddon$npcCarryData.readFromNBT(tag);
         cnpcgeckoaddon$npcImmunityData.readFromNBT(tag);
+        cnpcgeckoaddon$npcLaunchPadData.readFromNBT(tag);
     }
 
     @Override
@@ -71,5 +78,11 @@ public class MixinDataAI implements ISoundReactionData, ITeleportPathData, INpcC
     @Unique
     public NpcImmunityData cnpcgeckoaddon$getNpcImmunityData() {
         return cnpcgeckoaddon$npcImmunityData;
+    }
+
+    @Override
+    @Unique
+    public NpcLaunchPadData cnpcgeckoaddon$getNpcLaunchPadData() {
+        return cnpcgeckoaddon$npcLaunchPadData;
     }
 }

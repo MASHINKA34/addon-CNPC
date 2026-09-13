@@ -51,6 +51,9 @@ class NpcDataFieldRangeTest {
             new Host("NpcCarryData", NpcCarryData::new,
                     host -> ((NpcCarryData) host).writeToNBT(new CompoundTag()),
                     (host, tag) -> ((NpcCarryData) host).readFromNBT(tag)),
+            new Host("NpcLaunchPadData", NpcLaunchPadData::new,
+                    host -> ((NpcLaunchPadData) host).writeToNBT(new CompoundTag()),
+                    (host, tag) -> ((NpcLaunchPadData) host).readFromNBT(tag)),
             new Host("SoundReactionData", SoundReactionData::new,
                     host -> ((SoundReactionData) host).writeToNBT(new CompoundTag()),
                     (host, tag) -> ((SoundReactionData) host).readFromNBT(tag)),
@@ -75,6 +78,14 @@ class NpcDataFieldRangeTest {
         bounds.put("GeckoNpcCarryThrowKnockback", new Bound(0.0D, NpcCarryData.MAX_THROW_KNOCKBACK));
         bounds.put("GeckoNpcCarryThrowSelfDamage", new Bound(0.0D, NpcCarryData.MAX_THROW_DAMAGE));
         bounds.put("GeckoNpcCarryThrowCooldown", new Bound(0.0D, NpcCarryData.MAX_THROW_COOLDOWN_TICKS));
+        bounds.put("GeckoNpcLaunchCoordMode", new Bound(NpcLaunchPadData.COORDINATE_NPC_OFFSET,
+                NpcLaunchPadData.COORDINATE_ABSOLUTE));
+        bounds.put("GeckoNpcLaunchX", new Bound(-NpcLaunchPadData.MAX_COORDINATE, NpcLaunchPadData.MAX_COORDINATE));
+        bounds.put("GeckoNpcLaunchY", new Bound(-NpcLaunchPadData.MAX_COORDINATE, NpcLaunchPadData.MAX_COORDINATE));
+        bounds.put("GeckoNpcLaunchZ", new Bound(-NpcLaunchPadData.MAX_COORDINATE, NpcLaunchPadData.MAX_COORDINATE));
+        bounds.put("GeckoNpcLaunchHeight", new Bound(NpcLaunchPadData.MIN_ARC_HEIGHT, NpcLaunchPadData.MAX_ARC_HEIGHT));
+        bounds.put("GeckoNpcLaunchCooldown", new Bound(0.0D, NpcLaunchPadData.MAX_COOLDOWN_TICKS));
+        bounds.put("GeckoNpcLaunchLifetime", new Bound(0.0D, NpcLaunchPadData.MAX_LIFETIME_TICKS));
         bounds.put("GeckoSoundReactionRadius", new Bound(1.0D, 16.0D));
         bounds.put("GeckoSoundReactionMemory", new Bound(20.0D, 1200.0D));
         bounds.put("GeckoSoundReactionCooldown", new Bound(0.0D, 200.0D));
