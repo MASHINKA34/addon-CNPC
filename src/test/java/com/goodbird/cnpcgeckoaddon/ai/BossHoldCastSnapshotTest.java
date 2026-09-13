@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossCocoonSettings;
+import com.goodbird.cnpcgeckoaddon.data.BossTetherSettings;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -57,5 +58,46 @@ class BossHoldCastSnapshotTest {
         assertEquals(12.0D, look.announceRange(), EPSILON);
         assertTrue(look.wrapSound().isEnabled());
         assertEquals(12, look.freedParticles().getCount());
+    }
+
+    @Test
+    @DisplayName("a leash is tied with the look the settings had on that tick")
+    void theTetherTakesItsLookOnTheCast() {
+        BossTetherSettings tether = new BossTetherSettings();
+        tether.setEffectIntervalTicks(5);
+        tether.setPullSlackTenths(0);
+        tether.setBeamSagPercent(0);
+        tether.setPullPerLevelThousandths(100);
+        tether.getBreakSound().setEnabled(false);
+        tether.getFailParticles().setCount(2);
+
+        BossTetherManager.Look look = BossTetherManager.look(tether);
+        assertEquals(5, look.effectIntervalTicks());
+        assertEquals(0.0D, look.pullSlack(), EPSILON);
+        assertEquals(0, look.beamSagPercent());
+        assertEquals(1.0D, look.pullSpeed(10), EPSILON, "ten levels at a tenth each outpulls a sprint");
+        assertFalse(look.breakSound().isEnabled());
+        assertEquals(2, look.failParticles().getCount());
+    }
+
+    @Test
+    @DisplayName("editing the leash after it was tied leaves the held one alone")
+    void theTetherLookDoesNotFollowLaterEdits() {
+        BossTetherSettings tether = new BossTetherSettings();
+        BossTetherManager.Look look = BossTetherManager.look(tether);
+
+        tether.setEffectIntervalTicks(1);
+        tether.setPullSlackTenths(50);
+        tether.setBeamSagPercent(200);
+        tether.setPullPerLevelThousandths(200);
+        tether.getPlaceSound().setEnabled(false);
+        tether.getBreakParticles().setCount(0);
+
+        assertEquals(20, look.effectIntervalTicks());
+        assertEquals(1.0D, look.pullSlack(), EPSILON);
+        assertEquals(100, look.beamSagPercent());
+        assertEquals(0.1D, look.pullSpeed(5), EPSILON, "level five at 0.02 is the tug of war it was tied at");
+        assertTrue(look.placeSound().isEnabled());
+        assertEquals(12, look.breakParticles().getCount());
     }
 }

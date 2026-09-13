@@ -2,17 +2,17 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
+import com.goodbird.cnpcgeckoaddon.data.BossTetherSettings;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossTetherAnchor;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossLink;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -46,17 +46,6 @@ import java.util.UUID;
  * back with the arena exactly as it was.</p>
  */
 public final class BossTetherManager {
-    /** Ticks between one dose of the held effects and the next. */
-    private static final int EFFECT_INTERVAL_TICKS = 20;
-    /**
-     * Blocks per tick of drag for each level of pull, applied as a steady force.
-     *
-     * <p>Pitched against what a player can put in per tick on plain ground - 0.098 walking,
-     * 0.127 sprinting. Level 5 pulls at 0.10, which holds a walker where they are and still
-     * lets a sprinter gain about a block every sixteen ticks: the way out is to run, not to
-     * stroll. Level 10 outpulls a sprint outright.</p>
-     */
-    private static final double PULL_PER_LEVEL = 0.02D;
     /**
      * What an entity keeps of its last tick's movement on plain ground: block friction times
      * the air drag every entity gets.
@@ -69,15 +58,93 @@ public final class BossTetherManager {
      * the next by exactly what it holds now.</p>
      */
     private static final double CLIENT_GROUND_DRAG = 0.6D * 0.91D;
-    /** Inside this the pull lets go, or a victim standing on the spot would twitch about it. */
-    private static final double PULL_SLACK = 1.0D;
-    /** The beam hangs by its style's own sag; the tether has no setting of its own for it. */
-    private static final int BEAM_SAG_PERCENT = 100;
-
     private static final List<Tether> TETHERS = new ArrayList<>();
     private static final Map<UUID, Tether> BY_VICTIM = new HashMap<>();
 
     private BossTetherManager() {
+    }
+
+    /**
+     * The clock, the drag and the noises a leash was tied with, taken off the settings on that
+     * tick.
+     *
+     * <p>Frozen with the rest of the leash for the reason the break distance is: a tether is a
+     * dare made the moment it lands, and a builder editing the ability while somebody is
+     * running must not change what they are running from. Split out of {@link Tether} so a
+     * test can take one without a boss to tie it to.</p>
+     */
+    static final class Look {
+        private final int effectIntervalTicks;
+        private final double pullSlack;
+        private final int beamSagPercent;
+        /** Blocks a tick of drag per level of pull, the two settings already multiplied out. */
+        private final double pullPerLevel;
+        private final BossSoundCue placeSound;
+        private final BossParticleCue placeParticles;
+        private final BossSoundCue breakSound;
+        private final BossParticleCue breakParticles;
+        private final BossSoundCue failSound;
+        private final BossParticleCue failParticles;
+
+        private Look(BossTetherSettings tether) {
+            effectIntervalTicks = tether.getEffectIntervalTicks();
+            pullSlack = tether.getPullSlackTenths() / 10.0D;
+            beamSagPercent = tether.getBeamSagPercent();
+            pullPerLevel = tether.getPullPerLevelThousandths() / 1000.0D;
+            placeSound = tether.getPlaceSound().copy();
+            placeParticles = tether.getPlaceParticles().copy();
+            breakSound = tether.getBreakSound().copy();
+            breakParticles = tether.getBreakParticles().copy();
+            failSound = tether.getFailSound().copy();
+            failParticles = tether.getFailParticles().copy();
+        }
+
+        int effectIntervalTicks() {
+            return effectIntervalTicks;
+        }
+
+        /** Inside this the drag lets go, or a victim on the spot would twitch about it. */
+        double pullSlack() {
+            return pullSlack;
+        }
+
+        int beamSagPercent() {
+            return beamSagPercent;
+        }
+
+        /** How hard this leash drags at the pull it was tied with. */
+        double pullSpeed(int pull) {
+            return pull * pullPerLevel;
+        }
+
+        BossSoundCue placeSound() {
+            return placeSound;
+        }
+
+        BossParticleCue placeParticles() {
+            return placeParticles;
+        }
+
+        BossSoundCue breakSound() {
+            return breakSound;
+        }
+
+        BossParticleCue breakParticles() {
+            return breakParticles;
+        }
+
+        BossSoundCue failSound() {
+            return failSound;
+        }
+
+        BossParticleCue failParticles() {
+            return failParticles;
+        }
+    }
+
+    /** What this leash will run and sound like, whatever the builder does next. */
+    static Look look(BossTetherSettings tether) {
+        return new Look(tether);
     }
 
     /** One end of a leash, remembered both ways: the id for lookups, the number for packets. */
@@ -108,6 +175,8 @@ public final class BossTetherManager {
         private final BossEffectSet failEffects;
         private final String style;
         private final int widthPercent;
+        /** The clock, the drag and the noises this leash was tied with. */
+        private final Look look;
 
         private Tether(EntityNPCInterface boss, BossPhaseData phase, int phaseIndex, int anchor,
                        List<End> victims, Vec3 spot, End stake, int failDamage, long gameTime) {
@@ -122,7 +191,8 @@ public final class BossTetherManager {
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.tether().getDurationTicks();
             this.breakDistance = phase.tether().getBreakDistance();
-            this.pullSpeed = phase.tether().getPull() * PULL_PER_LEVEL;
+            this.look = look(phase.tether());
+            this.pullSpeed = this.look.pullSpeed(phase.tether().getPull());
             this.failDamage = failDamage;
             this.effects = phase.tether().getEffects();
             this.failEffects = phase.tether().getFailEffects();
@@ -205,10 +275,11 @@ public final class BossTetherManager {
         broadcast(level, tether, linkPacket(tether, (int) (tether.endsAt - gameTime)));
         for (LivingEntity victim : victims) {
             // The clink of the chain closing, on the victim rather than the boss: it is theirs now.
-            level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.CHAIN_PLACE,
-                    SoundSource.HOSTILE, 1.2F, 0.7F);
-            level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.TETHER), victim.getX(),
-                    victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(), 10, 0.3D, 0.4D, 0.3D, 0.0D);
+            tether.look.placeSound().play(level, victim.getX(), victim.getY(), victim.getZ(),
+                    SoundSource.HOSTILE);
+            tether.look.placeParticles().emitDust(level, victim.getX(),
+                    victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.0D,
+                    BossAbilityKind.TETHER);
         }
     }
 
@@ -330,7 +401,8 @@ public final class BossTetherManager {
             if (tether.pullSpeed > 0.0D) {
                 pull(boss, tether, victims);
             }
-            if ((gameTime - tether.startedAt) % EFFECT_INTERVAL_TICKS == 0L && tether.effects.isAnyEnabled()) {
+            if ((gameTime - tether.startedAt) % tether.look.effectIntervalTicks() == 0L
+                    && tether.effects.isAnyEnabled()) {
                 for (LivingEntity victim : victims) {
                     BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.TETHER, boss, tether.effects);
                 }
@@ -383,8 +455,8 @@ public final class BossTetherManager {
      * the server last sent and puts its own input on top. So what is sent is the movement
      * the client itself reported plus the pull, set so that it survives the drag the server
      * still owes it: with no pull that reproduces plain walking, and with one it reads as a
-     * steady force the victim has to out-run - which is the tug of war
-     * {@link #PULL_PER_LEVEL} is pitched for. Only while they stand on the ground, and only
+     * steady force the victim has to out-run - which is the tug of war the leash's force per
+     * level is pitched for. Only while they stand on the ground, and only
      * sideways, so the height they are already moving at is left alone: the server's idea of
      * a player's fall runs a tick or two behind, and sending it back would cut every jump
      * short.</p>
@@ -400,7 +472,7 @@ public final class BossTetherManager {
             Vec3 delta = anchorOf(boss, tether, victims, i).subtract(victim.position());
             Vec3 flat = new Vec3(delta.x, 0.0D, delta.z);
             double distance = flat.length();
-            if (distance <= PULL_SLACK) {
+            if (distance <= tether.look.pullSlack()) {
                 continue;
             }
             Vec3 pullVector = flat.scale(tether.pullSpeed / distance);
@@ -426,9 +498,9 @@ public final class BossTetherManager {
     /** The leash gives: a noise and some sparks on each victim, and nothing else at all. */
     private static void snap(ServerLevel level, Tether tether, List<LivingEntity> victims) {
         for (LivingEntity victim : victims) {
-            level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.CHAIN_BREAK,
-                    SoundSource.HOSTILE, 1.5F, 1.2F);
-            burst(level, victim, ParticleTypes.CRIT);
+            tether.look.breakSound().play(level, victim.getX(), victim.getY(), victim.getZ(),
+                    SoundSource.HOSTILE);
+            burst(level, victim, tether.look.breakParticles());
         }
         release(level, tether);
     }
@@ -443,16 +515,17 @@ public final class BossTetherManager {
             // No knockback: what a leash does to somebody who stayed is hold them, not throw them.
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.TETHER, boss, tether.failDamage,
                     tether.failEffects, 0, 0.0D, 0.0D);
-            level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.CHAIN_HIT,
-                    SoundSource.HOSTILE, 2.0F, 0.5F);
-            burst(level, victim, ParticleTypes.SMOKE);
+            tether.look.failSound().play(level, victim.getX(), victim.getY(), victim.getZ(),
+                    SoundSource.HOSTILE);
+            burst(level, victim, tether.look.failParticles());
         }
         release(level, tether);
     }
 
-    private static void burst(ServerLevel level, LivingEntity victim, ParticleOptions particle) {
+    /** The puff of a leash ending, over the tether's own colour. */
+    private static void burst(ServerLevel level, LivingEntity victim, BossParticleCue cue) {
         double y = victim.getY() + victim.getBbHeight() * 0.5D;
-        level.sendParticles(particle, victim.getX(), y, victim.getZ(), 12, 0.3D, 0.4D, 0.3D, 0.1D);
+        cue.emitDust(level, victim.getX(), y, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.1D, BossAbilityKind.TETHER);
         level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.TETHER), victim.getX(), y, victim.getZ(),
                 10, 0.4D, 0.5D, 0.4D, 0.0D);
     }
@@ -551,6 +624,7 @@ public final class BossTetherManager {
             default -> tether.bossEntityId;
         };
         return new PacketSyncBossLink(PacketSyncBossLink.KIND_TETHER, source, tether.victims.getFirst().entityId,
-                tether.bossEntityId, tether.style, durationTicks, tether.widthPercent, BEAM_SAG_PERCENT, false);
+                tether.bossEntityId, tether.style, durationTicks, tether.widthPercent,
+                tether.look.beamSagPercent(), false);
     }
 }

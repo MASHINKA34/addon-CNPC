@@ -15,6 +15,18 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossTetherSettings {
 
+    /** The ends the leash's own clock, slack, sag and force per level are held between. */
+    public static final int MIN_EFFECT_INTERVAL_TICKS = 1;
+    public static final int MAX_EFFECT_INTERVAL_TICKS = 200;
+    public static final int MAX_PULL_SLACK = 50;
+    /**
+     * As far as the beam packet carries a sag: past this it is cut down on the wire, so
+     * offering more on the screen would be offering a number that never arrives.
+     */
+    public static final int MAX_BEAM_SAG_PERCENT = 200;
+    public static final int MIN_PULL_PER_LEVEL = 1;
+    public static final int MAX_PULL_PER_LEVEL = 200;
+
     private boolean tetherEnabled;
     private String tetherAnimation = "";
     private int tetherActionDelayTicks = 16;
@@ -31,6 +43,31 @@ public final class BossTetherSettings {
     private int tetherFailDamage = 12;
     private String tetherStyle = HookCordStyles.PARTICLES;
     private int tetherWidthPercent = 100;
+    /** Ticks between one dose of the held effects and the next. */
+    private int tetherEffectIntervalTicks = 20;
+    /** Tenths of a block: inside this the drag lets go, or a victim on the spot would twitch. */
+    private int tetherPullSlack = 10;
+    /** How far the beam hangs between its ends, the way the capture's says it. */
+    private int tetherBeamSagPercent = 100;
+    /**
+     * Thousandths of a block per tick of drag for each level of pull.
+     *
+     * <p>The default is pitched against what a player can put in per tick on plain ground -
+     * 0.098 walking, 0.127 sprinting. At twenty thousandths level 5 pulls at 0.10, which holds
+     * a walker where they are and still lets a sprinter gain about a block every sixteen
+     * ticks: the way out is to run, not to stroll. Level 10 outpulls a sprint outright.</p>
+     */
+    private int tetherPullPerLevel = 20;
+    private final BossSoundCue tetherPlaceSound =
+            new BossSoundCue("minecraft:block.chain.place", 1.2F, 0.7F);
+    private final BossParticleCue tetherPlaceParticles =
+            new BossParticleCue(BossParticleCue.DUST_ID, 10);
+    private final BossSoundCue tetherBreakSound =
+            new BossSoundCue("minecraft:block.chain.break", 1.5F, 1.2F);
+    private final BossParticleCue tetherBreakParticles = new BossParticleCue("minecraft:crit", 12);
+    private final BossSoundCue tetherFailSound =
+            new BossSoundCue("minecraft:block.chain.hit", 2.0F, 0.5F);
+    private final BossParticleCue tetherFailParticles = new BossParticleCue("minecraft:smoke", 12);
     /** Dosed every second for as long as the leash holds. */
     private final BossEffectSet tetherEffects = new BossEffectSet();
     /** Landed once, on whoever was still leashed when the time ran out. */
@@ -95,6 +132,49 @@ public final class BossTetherSettings {
 
     public void setWidthPercent(int value) { tetherWidthPercent = Mth.clamp(value, 25, 400); }
 
+    /** Ticks between one dose of the held effects and the next. */
+    public int getEffectIntervalTicks() { return tetherEffectIntervalTicks; }
+
+    public void setEffectIntervalTicks(int value) {
+        tetherEffectIntervalTicks = Mth.clamp(value, MIN_EFFECT_INTERVAL_TICKS, MAX_EFFECT_INTERVAL_TICKS);
+    }
+
+    /** Tenths of a block inside which the drag lets go; nought tugs all the way in. */
+    public int getPullSlackTenths() { return tetherPullSlack; }
+
+    public void setPullSlackTenths(int value) {
+        tetherPullSlack = Mth.clamp(value, 0, MAX_PULL_SLACK);
+    }
+
+    /** How far the beam hangs between its ends; nought draws it straight. */
+    public int getBeamSagPercent() { return tetherBeamSagPercent; }
+
+    public void setBeamSagPercent(int value) {
+        tetherBeamSagPercent = Mth.clamp(value, 0, MAX_BEAM_SAG_PERCENT);
+    }
+
+    /** Thousandths of a block a tick of drag per level of pull. */
+    public int getPullPerLevelThousandths() { return tetherPullPerLevel; }
+
+    public void setPullPerLevelThousandths(int value) {
+        tetherPullPerLevel = Mth.clamp(value, MIN_PULL_PER_LEVEL, MAX_PULL_PER_LEVEL);
+    }
+
+    /** The chain closing on a victim. */
+    public BossSoundCue getPlaceSound() { return tetherPlaceSound; }
+
+    public BossParticleCue getPlaceParticles() { return tetherPlaceParticles; }
+
+    /** The chain giving, for a victim who ran far enough. */
+    public BossSoundCue getBreakSound() { return tetherBreakSound; }
+
+    public BossParticleCue getBreakParticles() { return tetherBreakParticles; }
+
+    /** And holding to the end, on one who did not. */
+    public BossSoundCue getFailSound() { return tetherFailSound; }
+
+    public BossParticleCue getFailParticles() { return tetherFailParticles; }
+
     public BossEffectSet getEffects() { return tetherEffects; }
 
     public BossEffectSet getFailEffects() { return tetherFailEffects; }
@@ -116,6 +196,16 @@ public final class BossTetherSettings {
         tag.putInt("TetherFailDamage", tetherFailDamage);
         tag.putString("TetherStyle", tetherStyle);
         tag.putInt("TetherWidthPercent", tetherWidthPercent);
+        tag.putInt("TetherEffectInterval", tetherEffectIntervalTicks);
+        tag.putInt("TetherPullSlack", tetherPullSlack);
+        tag.putInt("TetherBeamSag", tetherBeamSagPercent);
+        tag.putInt("TetherPullPerLevel", tetherPullPerLevel);
+        tetherPlaceSound.writeToNBT(tag, "TetherPlaceSound");
+        tetherPlaceParticles.writeToNBT(tag, "TetherPlaceParticles");
+        tetherBreakSound.writeToNBT(tag, "TetherBreakSound");
+        tetherBreakParticles.writeToNBT(tag, "TetherBreakParticles");
+        tetherFailSound.writeToNBT(tag, "TetherFailSound");
+        tetherFailParticles.writeToNBT(tag, "TetherFailParticles");
         tag.put("TetherEffects", tetherEffects.writeToNBT());
         tag.put("TetherFailEffects", tetherFailEffects.writeToNBT());
         tetherCastSpot.writeToNBT(tag, "Tether");
@@ -137,6 +227,17 @@ public final class BossTetherSettings {
         // An absent key reads as an empty string, which normalizes back to the plain sparks.
         tetherStyle = HookCordStyles.normalize(tag.getString("TetherStyle"));
         tetherWidthPercent = value(tag, "TetherWidthPercent", 100, 25, 400);
+        tetherEffectIntervalTicks = value(tag, "TetherEffectInterval", 20,
+                MIN_EFFECT_INTERVAL_TICKS, MAX_EFFECT_INTERVAL_TICKS);
+        tetherPullSlack = value(tag, "TetherPullSlack", 10, 0, MAX_PULL_SLACK);
+        tetherBeamSagPercent = value(tag, "TetherBeamSag", 100, 0, MAX_BEAM_SAG_PERCENT);
+        tetherPullPerLevel = value(tag, "TetherPullPerLevel", 20, MIN_PULL_PER_LEVEL, MAX_PULL_PER_LEVEL);
+        tetherPlaceSound.readFromNBT(tag, "TetherPlaceSound");
+        tetherPlaceParticles.readFromNBT(tag, "TetherPlaceParticles");
+        tetherBreakSound.readFromNBT(tag, "TetherBreakSound");
+        tetherBreakParticles.readFromNBT(tag, "TetherBreakParticles");
+        tetherFailSound.readFromNBT(tag, "TetherFailSound");
+        tetherFailParticles.readFromNBT(tag, "TetherFailParticles");
         tetherEffects.readFromNBT(tag, "TetherEffects");
         tetherFailEffects.readFromNBT(tag, "TetherFailEffects");
         tetherCastSpot.readFromNBT(tag, "Tether");
