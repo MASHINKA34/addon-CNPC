@@ -1,20 +1,20 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossCocoonSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossCaptureState;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -51,24 +51,92 @@ import java.util.UUID;
  * discards it on its first tick the way it discards a totem it no longer knows.</p>
  */
 public final class BossCocoonManager {
-    /** Ticks between one dose of the held effects and the next. */
-    private static final int EFFECT_INTERVAL_TICKS = 20;
-    /** How often the rescuers beside a cocoon are told how long it has left. */
-    private static final int ANNOUNCE_INTERVAL_TICKS = 10;
     /**
      * How often the victim's client is told about the lock again. Once would do on its
      * own; the repeat is what puts the lock back should anything else on the client's
      * side have let it go in the meantime.
      */
     private static final int LOCK_SYNC_INTERVAL_TICKS = 40;
-    /** How far from a cocoon somebody may stand and still be told about it. */
-    private static final double ANNOUNCE_RANGE = 12.0D;
     private static final double POSITION_EPSILON_SQUARED = 1.0E-8D;
 
     private static final List<Cocoon> COCOONS = new ArrayList<>();
     private static final Map<UUID, Cocoon> BY_VICTIM = new HashMap<>();
 
     private BossCocoonManager() {
+    }
+
+    /**
+     * The clocks and the noises a cocoon was closed with, taken off the settings on that tick.
+     *
+     * <p>A shell outlives the cast that closed it by a good few seconds, so what it runs on is
+     * frozen the way the rescue rule and the fail damage already are: a builder retuning the
+     * ability while somebody is inside must not change the answer the party is already giving.
+     * Split out of {@link Cocoon} so a test can take one without a world to close it in.</p>
+     */
+    static final class Look {
+        private final int effectIntervalTicks;
+        private final int announceIntervalTicks;
+        private final double announceRange;
+        private final BossSoundCue wrapSound;
+        private final BossParticleCue wrapParticles;
+        private final BossSoundCue freedSound;
+        private final BossParticleCue freedParticles;
+        private final BossSoundCue timeoutSound;
+        private final BossParticleCue timeoutParticles;
+
+        private Look(BossCocoonSettings cocoon) {
+            effectIntervalTicks = cocoon.getEffectIntervalTicks();
+            announceIntervalTicks = cocoon.getAnnounceIntervalTicks();
+            announceRange = cocoon.getAnnounceRange();
+            wrapSound = cocoon.getWrapSound().copy();
+            wrapParticles = cocoon.getWrapParticles().copy();
+            freedSound = cocoon.getFreedSound().copy();
+            freedParticles = cocoon.getFreedParticles().copy();
+            timeoutSound = cocoon.getTimeoutSound().copy();
+            timeoutParticles = cocoon.getTimeoutParticles().copy();
+        }
+
+        int effectIntervalTicks() {
+            return effectIntervalTicks;
+        }
+
+        int announceIntervalTicks() {
+            return announceIntervalTicks;
+        }
+
+        /** How far the countdown line carries; nought tells nobody at all. */
+        double announceRange() {
+            return announceRange;
+        }
+
+        BossSoundCue wrapSound() {
+            return wrapSound;
+        }
+
+        BossParticleCue wrapParticles() {
+            return wrapParticles;
+        }
+
+        BossSoundCue freedSound() {
+            return freedSound;
+        }
+
+        BossParticleCue freedParticles() {
+            return freedParticles;
+        }
+
+        BossSoundCue timeoutSound() {
+            return timeoutSound;
+        }
+
+        BossParticleCue timeoutParticles() {
+            return timeoutParticles;
+        }
+    }
+
+    /** What this cocoon will run and sound like, whatever the builder does next. */
+    static Look look(BossCocoonSettings cocoon) {
+        return new Look(cocoon);
     }
 
     private static final class Cocoon {
@@ -92,6 +160,8 @@ public final class BossCocoonManager {
         private final BossEffectSet victimEffects;
         private final BossEffectSet failEffects;
         private final BossEffectSet freeEffects;
+        /** The clocks and the noises this shell was closed with. */
+        private final Look look;
         /** Stand rule: the ticks the rescuers have put in so far, every one of them counting. */
         private int rescueProgress;
         /** Set by a hit that would have killed the shell; the next tick opens it instead. */
@@ -116,6 +186,7 @@ public final class BossCocoonManager {
             victimEffects = phase.cocoon().getVictimEffects();
             failEffects = phase.cocoon().getFailEffects();
             freeEffects = phase.cocoon().getFreeEffects();
+            look = look(phase.cocoon());
         }
     }
 
@@ -147,9 +218,8 @@ public final class BossCocoonManager {
             syncLock(player, held, true);
         }
         // The cocoon closing, on the victim rather than the boss: it is theirs now.
-        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.SPIDER_AMBIENT,
-                SoundSource.HOSTILE, 1.2F, 0.6F);
-        burst(level, victim, ParticleTypes.CLOUD);
+        held.look.wrapSound().play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
+        burst(level, victim, held.look.wrapParticles());
         return true;
     }
 
@@ -261,13 +331,13 @@ public final class BossCocoonManager {
                 continue;
             }
             long held = gameTime - cocoon.startedAt;
-            if (held % EFFECT_INTERVAL_TICKS == 0L && cocoon.victimEffects.isAnyEnabled()) {
+            if (held % cocoon.look.effectIntervalTicks() == 0L && cocoon.victimEffects.isAnyEnabled()) {
                 BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.COCOON, boss, cocoon.victimEffects);
             }
             if (held % LOCK_SYNC_INTERVAL_TICKS == 0L && victim instanceof ServerPlayer player) {
                 syncLock(player, cocoon, true);
             }
-            if (held % ANNOUNCE_INTERVAL_TICKS == 0L) {
+            if (held % cocoon.look.announceIntervalTicks() == 0L) {
                 announce(level, cocoon, victim, gameTime);
             }
         }
@@ -371,9 +441,8 @@ public final class BossCocoonManager {
         if (cocoon.freeEffects.isAnyEnabled()) {
             BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.COCOON, boss, cocoon.freeEffects);
         }
-        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.ITEM_BREAK,
-                SoundSource.HOSTILE, 1.2F, 0.8F);
-        burst(level, victim, ParticleTypes.CRIT);
+        cocoon.look.freedSound().play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
+        burst(level, victim, cocoon.look.freedParticles());
     }
 
     /**
@@ -387,14 +456,14 @@ public final class BossCocoonManager {
         // No knockback: what a cocoon does to somebody nobody came for is crush them, not throw them.
         BossAbilityDamageUtil.hit(victim, BossAbilityKind.COCOON, boss, cocoon.failDamage,
                 cocoon.failEffects, 0, 0.0D, 0.0D);
-        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.GENERIC_EXPLODE.value(),
-                SoundSource.HOSTILE, 0.8F, 1.6F);
-        burst(level, victim, ParticleTypes.SMOKE);
+        cocoon.look.timeoutSound().play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
+        burst(level, victim, cocoon.look.timeoutParticles());
     }
 
-    private static void burst(ServerLevel level, LivingEntity victim, ParticleOptions particle) {
+    /** The puff of one of the three moments, over the cocoon's own colour. */
+    private static void burst(ServerLevel level, LivingEntity victim, BossParticleCue cue) {
         double y = victim.getY() + victim.getBbHeight() * 0.5D;
-        level.sendParticles(particle, victim.getX(), y, victim.getZ(), 12, 0.3D, 0.4D, 0.3D, 0.1D);
+        cue.emitDust(level, victim.getX(), y, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.1D, BossAbilityKind.COCOON);
         level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.COCOON), victim.getX(), y, victim.getZ(),
                 10, 0.4D, 0.5D, 0.4D, 0.0D);
     }
@@ -419,7 +488,7 @@ public final class BossCocoonManager {
             line.append("  " + percent + "%");
         }
         line.withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.COCOON)));
-        double rangeSquared = ANNOUNCE_RANGE * ANNOUNCE_RANGE;
+        double rangeSquared = cocoon.look.announceRange() * cocoon.look.announceRange();
         for (ServerPlayer player : level.players()) {
             if (player != victim && !player.isSpectator()
                     && player.position().distanceToSqr(cocoon.anchor) <= rangeSquared) {

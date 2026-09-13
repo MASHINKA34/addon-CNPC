@@ -37,13 +37,7 @@ final class BossCocoonRuntime {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
-    /**
-     * How far a cocoon is handed out: the arena, not the world. A cocoon has no reach of
-     * its own - it closes wherever its victim is standing - so it borrows the mark's.
-     */
-    private static final double REACH = 32.0D;
-    /** How far from a cocoon its guard is posted, and how many spots round it are tried. */
-    private static final double GUARD_DISTANCE = 2.0D;
+    /** How many spots round a cocoon are tried before its guard is given up on. */
     private static final int GUARD_ATTEMPTS = 8;
 
     private final TeleportPathController boss;
@@ -81,7 +75,8 @@ final class BossCocoonRuntime {
         }
         if (!boss.mayStart(BossAbility.COCOON, phase) || gameTime < boss.abilityScheduleAt(BossAbility.COCOON)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.cocoon().getTargetMode(),
-                REACH, this::isValidTarget, phase.cocoon().getTargetCount());
+                phase.cocoon().getReach(), candidate -> isValidTarget(candidate, phase),
+                phase.cocoon().getTargetCount());
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.COCOON, gameTime + boss.retryTicks());
             return false;
@@ -96,7 +91,7 @@ final class BossCocoonRuntime {
         return true;
     }
 
-    boolean isValidTarget(LivingEntity target) {
+    boolean isValidTarget(LivingEntity target, BossPhaseData phase) {
         // Somebody already held, by a cocoon or a capture, is left alone: two holds on one
         // victim would fight over their spot and their client's lock.
         if (target == null || target.level() != npc.level() || !target.isAlive()
@@ -105,7 +100,8 @@ final class BossCocoonRuntime {
                 || BossCaptureManager.isCaptured(target.getUUID())) {
             return false;
         }
-        return npc.distanceToSqr(target) <= REACH * REACH;
+        double reach = phase.cocoon().getReach();
+        return npc.distanceToSqr(target) <= reach * reach;
     }
 
     /**
@@ -119,12 +115,12 @@ final class BossCocoonRuntime {
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
         List<LivingEntity> victims = new ArrayList<>();
         LivingEntity primary = boss.pendingTarget(level);
-        if (primary != null && isValidTarget(primary)) {
+        if (primary != null && isValidTarget(primary, phase)) {
             victims.add(primary);
         }
         for (int id : boss.pendingExtraTargets()) {
             if (level.getEntity(id) instanceof LivingEntity extra
-                    && isValidTarget(extra) && !victims.contains(extra)) {
+                    && isValidTarget(extra, phase) && !victims.contains(extra)) {
                 victims.add(extra);
             }
         }
@@ -164,7 +160,7 @@ final class BossCocoonRuntime {
             return;
         }
         String cloneKey = phase.cocoon().getGuardTab() + ":" + phase.cocoon().getGuardName();
-        Vec3 spot = findGuardSpot(level, cocoon);
+        Vec3 spot = findGuardSpot(level, cocoon, phase.cocoon().getGuardDistanceTenths() / 10.0D);
         if (spot == null) {
             warnBrokenClone(cloneKey, "no room beside the cocoon for the guard");
             return;
@@ -181,13 +177,13 @@ final class BossCocoonRuntime {
         }
     }
 
-    /** A free spot a couple of blocks off the cocoon, tried the way round from a random start. */
-    private Vec3 findGuardSpot(ServerLevel level, Vec3 cocoon) {
+    /** A free spot the set distance off the cocoon, tried the way round from a random start. */
+    private Vec3 findGuardSpot(ServerLevel level, Vec3 cocoon, double distance) {
         double start = npc.getRandom().nextDouble() * Math.PI * 2.0D;
         for (int attempt = 0; attempt < GUARD_ATTEMPTS; attempt++) {
             double angle = start + attempt * Math.PI * 2.0D / GUARD_ATTEMPTS;
-            Vec3 candidate = new Vec3(cocoon.x + Math.cos(angle) * GUARD_DISTANCE, cocoon.y,
-                    cocoon.z + Math.sin(angle) * GUARD_DISTANCE);
+            Vec3 candidate = new Vec3(cocoon.x + Math.cos(angle) * distance, cocoon.y,
+                    cocoon.z + Math.sin(angle) * distance);
             BlockPos pos = BlockPos.containing(candidate);
             if (level.hasChunkAt(pos) && level.getWorldBorder().isWithinBounds(pos)
                     && level.noCollision(BossMinionSpawnRuntime.spawnBox(candidate))) {

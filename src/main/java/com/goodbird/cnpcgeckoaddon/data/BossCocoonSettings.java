@@ -15,6 +15,14 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossCocoonSettings {
 
+    /** The ends the hold's own clocks, reaches and stands are held between. */
+    public static final int MIN_INTERVAL_TICKS = 1;
+    public static final int MAX_INTERVAL_TICKS = 200;
+    public static final int MAX_ANNOUNCE_RANGE = 64;
+    public static final int MIN_REACH = 8;
+    public static final int MAX_REACH = 128;
+    public static final int MAX_GUARD_DISTANCE = 100;
+
     /**
      * The cocoon: each victim is locked inside a clone spawned on the spot they stood on,
      * and only the rest of the party can let them out. Only the wind-up is a cast; the
@@ -40,6 +48,24 @@ public final class BossCocoonSettings {
     /** The clone posted beside each cocoon. An empty name posts nobody. */
     private int cocoonGuardTab = 1;
     private String cocoonGuardName = "";
+    /** Ticks between one dose of the held effects and the next. */
+    private int cocoonEffectIntervalTicks = 20;
+    /** How often the rescuers beside a cocoon are told how long it has left, and how far that reaches. */
+    private int cocoonAnnounceIntervalTicks = 10;
+    private int cocoonAnnounceRange = 12;
+    /** How far a cocoon is handed out; it has no reach of its own, so it borrows the mark's. */
+    private int cocoonReach = 32;
+    /** Tenths of a block off the cocoon the guard is posted. */
+    private int cocoonGuardDistance = 20;
+    private final BossSoundCue cocoonWrapSound =
+            new BossSoundCue("minecraft:entity.spider.ambient", 1.2F, 0.6F);
+    private final BossParticleCue cocoonWrapParticles = new BossParticleCue("minecraft:cloud", 12);
+    private final BossSoundCue cocoonFreedSound =
+            new BossSoundCue("minecraft:entity.item.break", 1.2F, 0.8F);
+    private final BossParticleCue cocoonFreedParticles = new BossParticleCue("minecraft:crit", 12);
+    private final BossSoundCue cocoonTimeoutSound =
+            new BossSoundCue("minecraft:entity.generic.explode", 0.8F, 1.6F);
+    private final BossParticleCue cocoonTimeoutParticles = new BossParticleCue("minecraft:smoke", 12);
     /** Dosed every second to a cocooned victim for as long as they are inside. */
     private final BossEffectSet cocoonVictimEffects = new BossEffectSet();
     /** Landed once, on a victim nobody came for in time. */
@@ -119,6 +145,54 @@ public final class BossCocoonSettings {
 
     public void setGuardName(String value) { cocoonGuardName = clean(value); }
 
+    /** Ticks between one dose of the held effects and the next. */
+    public int getEffectIntervalTicks() { return cocoonEffectIntervalTicks; }
+
+    public void setEffectIntervalTicks(int value) {
+        cocoonEffectIntervalTicks = Mth.clamp(value, MIN_INTERVAL_TICKS, MAX_INTERVAL_TICKS);
+    }
+
+    /** How often whoever is near a cocoon is told how long it has left. */
+    public int getAnnounceIntervalTicks() { return cocoonAnnounceIntervalTicks; }
+
+    public void setAnnounceIntervalTicks(int value) {
+        cocoonAnnounceIntervalTicks = Mth.clamp(value, MIN_INTERVAL_TICKS, MAX_INTERVAL_TICKS);
+    }
+
+    /** How far that line carries; nought tells nobody at all. */
+    public int getAnnounceRange() { return cocoonAnnounceRange; }
+
+    public void setAnnounceRange(int value) {
+        cocoonAnnounceRange = Mth.clamp(value, 0, MAX_ANNOUNCE_RANGE);
+    }
+
+    /** How far from the boss a victim may stand and still be wrapped. */
+    public int getReach() { return cocoonReach; }
+
+    public void setReach(int value) { cocoonReach = Mth.clamp(value, MIN_REACH, MAX_REACH); }
+
+    /** Tenths of a block off the cocoon the guard stands; nought stands it on the shell. */
+    public int getGuardDistanceTenths() { return cocoonGuardDistance; }
+
+    public void setGuardDistanceTenths(int value) {
+        cocoonGuardDistance = Mth.clamp(value, 0, MAX_GUARD_DISTANCE);
+    }
+
+    /** The shell closing, on the victim it closed round. */
+    public BossSoundCue getWrapSound() { return cocoonWrapSound; }
+
+    public BossParticleCue getWrapParticles() { return cocoonWrapParticles; }
+
+    /** The shell opening, for a victim the party came for. */
+    public BossSoundCue getFreedSound() { return cocoonFreedSound; }
+
+    public BossParticleCue getFreedParticles() { return cocoonFreedParticles; }
+
+    /** And bursting, on one nobody came for. */
+    public BossSoundCue getTimeoutSound() { return cocoonTimeoutSound; }
+
+    public BossParticleCue getTimeoutParticles() { return cocoonTimeoutParticles; }
+
     /** Whether the cocoon can fire at all: switched on, and with a clone to close round somebody. */
     public boolean canCocoon() { return cocoonEnabled && isConfigured(); }
 
@@ -150,6 +224,17 @@ public final class BossCocoonSettings {
         tag.putInt("CocoonFailDamage", cocoonFailDamage);
         tag.putInt("CocoonGuardTab", cocoonGuardTab);
         tag.putString("CocoonGuardName", cocoonGuardName);
+        tag.putInt("CocoonEffectInterval", cocoonEffectIntervalTicks);
+        tag.putInt("CocoonAnnounceInterval", cocoonAnnounceIntervalTicks);
+        tag.putInt("CocoonAnnounceRange", cocoonAnnounceRange);
+        tag.putInt("CocoonReach", cocoonReach);
+        tag.putInt("CocoonGuardDistance", cocoonGuardDistance);
+        cocoonWrapSound.writeToNBT(tag, "CocoonWrapSound");
+        cocoonWrapParticles.writeToNBT(tag, "CocoonWrapParticles");
+        cocoonFreedSound.writeToNBT(tag, "CocoonFreedSound");
+        cocoonFreedParticles.writeToNBT(tag, "CocoonFreedParticles");
+        cocoonTimeoutSound.writeToNBT(tag, "CocoonTimeoutSound");
+        cocoonTimeoutParticles.writeToNBT(tag, "CocoonTimeoutParticles");
         tag.put("CocoonVictimEffects", cocoonVictimEffects.writeToNBT());
         tag.put("CocoonFailEffects", cocoonFailEffects.writeToNBT());
         tag.put("CocoonFreeEffects", cocoonFreeEffects.writeToNBT());
@@ -175,6 +260,17 @@ public final class BossCocoonSettings {
         cocoonFailDamage = value(tag, "CocoonFailDamage", 40, 0, 1000);
         cocoonGuardTab = value(tag, "CocoonGuardTab", 1, 1, 9);
         cocoonGuardName = clean(tag.getString("CocoonGuardName"));
+        cocoonEffectIntervalTicks = value(tag, "CocoonEffectInterval", 20, MIN_INTERVAL_TICKS, MAX_INTERVAL_TICKS);
+        cocoonAnnounceIntervalTicks = value(tag, "CocoonAnnounceInterval", 10, MIN_INTERVAL_TICKS, MAX_INTERVAL_TICKS);
+        cocoonAnnounceRange = value(tag, "CocoonAnnounceRange", 12, 0, MAX_ANNOUNCE_RANGE);
+        cocoonReach = value(tag, "CocoonReach", 32, MIN_REACH, MAX_REACH);
+        cocoonGuardDistance = value(tag, "CocoonGuardDistance", 20, 0, MAX_GUARD_DISTANCE);
+        cocoonWrapSound.readFromNBT(tag, "CocoonWrapSound");
+        cocoonWrapParticles.readFromNBT(tag, "CocoonWrapParticles");
+        cocoonFreedSound.readFromNBT(tag, "CocoonFreedSound");
+        cocoonFreedParticles.readFromNBT(tag, "CocoonFreedParticles");
+        cocoonTimeoutSound.readFromNBT(tag, "CocoonTimeoutSound");
+        cocoonTimeoutParticles.readFromNBT(tag, "CocoonTimeoutParticles");
         cocoonVictimEffects.readFromNBT(tag, "CocoonVictimEffects");
         cocoonFailEffects.readFromNBT(tag, "CocoonFailEffects");
         cocoonFreeEffects.readFromNBT(tag, "CocoonFreeEffects");
