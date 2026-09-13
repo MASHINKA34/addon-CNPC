@@ -15,6 +15,15 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossBeamSettings {
 
+    // Where the lines sit and what they are drawn with, each in the unit its label names.
+    public static final int MIN_HEIGHT = 1;
+    public static final int MAX_HEIGHT = 50;
+    public static final int MAX_VICTIM_SLACK = 100;
+    public static final int MAX_WALL_SPARKS = 20;
+    public static final int MIN_ACCENT = 1;
+    public static final int MAX_ACCENT = 60;
+    public static final int MAX_RARE_ACCENT = 120;
+
     /**
      * The sweeping beam: lines that keep turning round the boss after the cast. Only the
      * wind-up is a cast; the sweep itself runs on the level tick, which is why it has a
@@ -44,6 +53,18 @@ public final class BossBeamSettings {
     private int beamKnockback = 1;
     /** What the beams are drawn out of. Default keeps the ability's dust the beam started life with. */
     private String beamLook = BeamLooks.KIND;
+    /** Tenths of a block above the boss' feet the lines leave; its waist, capped at this. */
+    private int beamMaxHeight = 10;
+    /** Tenths of a block of vertical slack on the search for whoever a line is over. */
+    private int beamVictimSlack = 20;
+    /** Sparks where a beam meets a wall, so the cut reads as the wall's doing. */
+    private int beamWallSparks = 2;
+    /** One point in this many carries a look's second particle instead of its first. */
+    private int beamAccentOneIn = 6;
+    /** Rarer still for the void: its swirl is the odd fleck in a line of rods. */
+    private int beamRareAccentOneIn = 12;
+    private final BossSoundCue beamStartSound =
+            new BossSoundCue("minecraft:entity.guardian.attack", 2.0F, 0.6F);
     /** Landed with every hit of a beam, on whoever it caught up with. */
     private final BossEffectSet beamEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
@@ -128,6 +149,43 @@ public final class BossBeamSettings {
 
     public void setLook(String value) { beamLook = BeamLooks.normalize(value); }
 
+    /** Tenths of a block: 10 is the single block the lines were never raised above. */
+    public int getMaxHeightTenths() { return beamMaxHeight; }
+
+    public void setMaxHeightTenths(int value) {
+        beamMaxHeight = Mth.clamp(value, MIN_HEIGHT, MAX_HEIGHT);
+    }
+
+    public double getMaxHeight() { return beamMaxHeight / 10.0D; }
+
+    /** Tenths of a block: how far below a line's own height somebody still counts as in it. */
+    public int getVictimSlackTenths() { return beamVictimSlack; }
+
+    public void setVictimSlackTenths(int value) {
+        beamVictimSlack = Mth.clamp(value, 0, MAX_VICTIM_SLACK);
+    }
+
+    public double getVictimSlack() { return beamVictimSlack / 10.0D; }
+
+    public int getWallSparks() { return beamWallSparks; }
+
+    public void setWallSparks(int value) { beamWallSparks = Mth.clamp(value, 0, MAX_WALL_SPARKS); }
+
+    /** One point in this many is the look's second particle; 1 makes every point one. */
+    public int getAccentOneIn() { return beamAccentOneIn; }
+
+    public void setAccentOneIn(int value) {
+        beamAccentOneIn = Mth.clamp(value, MIN_ACCENT, MAX_ACCENT);
+    }
+
+    public int getRareAccentOneIn() { return beamRareAccentOneIn; }
+
+    public void setRareAccentOneIn(int value) {
+        beamRareAccentOneIn = Mth.clamp(value, MIN_ACCENT, MAX_RARE_ACCENT);
+    }
+
+    public BossSoundCue getStartSound() { return beamStartSound; }
+
     public BossEffectSet getEffects() { return beamEffects; }
 
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
@@ -150,6 +208,12 @@ public final class BossBeamSettings {
         tag.putInt("BeamHitIntervalTicks", beamHitIntervalTicks);
         tag.putInt("BeamKnockback", beamKnockback);
         tag.putString("BeamLook", beamLook);
+        tag.putInt("BeamMaxHeight", beamMaxHeight);
+        tag.putInt("BeamVictimSlack", beamVictimSlack);
+        tag.putInt("BeamWallSparks", beamWallSparks);
+        tag.putInt("BeamAccent", beamAccentOneIn);
+        tag.putInt("BeamRareAccent", beamRareAccentOneIn);
+        beamStartSound.writeToNBT(tag, "BeamStartSound");
         tag.put("BeamEffects", beamEffects.writeToNBT());
         beamCastSpot.writeToNBT(tag, "Beam");
     }
@@ -174,6 +238,14 @@ public final class BossBeamSettings {
         beamKnockback = value(tag, "BeamKnockback", 1, 0, 10);
         // A boss saved before the looks existed carries no key, and reads as the dust it always had.
         beamLook = BeamLooks.normalize(tag.getString("BeamLook"));
+        // A boss saved before these were settings carries none of them and sweeps on the
+        // numbers that used to be literals in the scheduler.
+        beamMaxHeight = value(tag, "BeamMaxHeight", 10, MIN_HEIGHT, MAX_HEIGHT);
+        beamVictimSlack = value(tag, "BeamVictimSlack", 20, 0, MAX_VICTIM_SLACK);
+        beamWallSparks = value(tag, "BeamWallSparks", 2, 0, MAX_WALL_SPARKS);
+        beamAccentOneIn = value(tag, "BeamAccent", 6, MIN_ACCENT, MAX_ACCENT);
+        beamRareAccentOneIn = value(tag, "BeamRareAccent", 12, MIN_ACCENT, MAX_RARE_ACCENT);
+        beamStartSound.readFromNBT(tag, "BeamStartSound");
         beamEffects.readFromNBT(tag, "BeamEffects");
         beamCastSpot.readFromNBT(tag, "Beam");
     }

@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BeamLooks;
+import com.goodbird.cnpcgeckoaddon.data.BossBeamSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -12,7 +13,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -52,33 +52,26 @@ public final class BossBeamScheduler {
     /** Sweeps one level tick works on. One per boss is all a fight has, so this is a runaway stop. */
     private static final int MAX_PER_TICK = 16;
     /** Beyond this nobody can see a beam, so it turns without costing anything. */
-    /**
-     * How high above the boss' feet the beams leave. Its waist, for a boss of about a
-     * player's size; a giant's waist would pass clean over everyone's head, so the beams
-     * are never raised above a block.
-     */
-    private static final double MAX_HEIGHT = 1.0D;
     private static final double TICKS_PER_SECOND = 20.0D;
-    /**
-     * How far past a beam's length the sweep looks for victims. The reach is measured from
-     * the centre to their feet, and a beam still covers somebody standing on its tip whose
-     * feet are a little below it.
-     */
-    private static final double VICTIM_SEARCH_SLACK = 2.0D;
-    /** Sparks where a beam meets a wall, so the cut reads as the wall's doing. */
-    private static final int WALL_SPARKS = 2;
-    /**
-     * One point in this many carries a look's second particle instead of its first - the
-     * smoke in a fire beam, the wisp in a soul one. Enough to be noticed, too few to thin
-     * the line they sit in.
-     */
-    private static final int ACCENT_ONE_IN = 6;
-    /** Rarer still for the void: its swirl is the odd fleck in a line of rods, not a second colour. */
-    private static final int RARE_ACCENT_ONE_IN = 12;
     /** The dust under the lightning's sparks, the frost's snow and the toxic beam's slime. */
     private static final DustParticleOptions LIGHTNING_DUST = BossTelegraphUtil.dustOf(0xFFFFFF);
     private static final DustParticleOptions FROST_DUST = BossTelegraphUtil.dustOf(0xBFE8FF);
     private static final DustParticleOptions TOXIC_DUST = BossTelegraphUtil.dustOf(0xAAFF33);
+
+    /**
+     * What a run of beams is drawn with: the look, and the three counts a look reads.
+     *
+     * <p>Carried as one thing because the drawing is done from two places - the turning sweep
+     * and the wind-up's mark - and a mark drawn with different accents from the beams it is
+     * promising would be a warning about a different ability.</p>
+     */
+    private record Draw(String look, int wallSparks, int accentOneIn, int rareAccentOneIn) {
+
+        private static Draw of(BossBeamSettings beam, String look) {
+            return new Draw(look, beam.getWallSparks(), beam.getAccentOneIn(),
+                    beam.getRareAccentOneIn());
+        }
+    }
 
     /** One sweep, mid turn. */
     private static final class Sweep {
@@ -99,8 +92,11 @@ public final class BossBeamScheduler {
         private final int knockback;
         private final int hitIntervalTicks;
         private final BossEffectSet effects;
-        /** What the beams are drawn out of, by {@link BeamLooks} id. */
-        private final String look;
+        /** What the beams are drawn out of, by {@link BeamLooks} id, and with how many of it. */
+        private final Draw draw;
+        /** Blocks above the boss' feet the lines leave, and the slack on the victim search. */
+        private final double height;
+        private final double victimSlack;
         private final long startedAt;
         private final long endsAt;
         /** Where the beams turn round: the boss, tick by tick, or the spot it cast them from. */
@@ -123,10 +119,12 @@ public final class BossBeamScheduler {
             this.knockback = knockback;
             this.hitIntervalTicks = phase.beam().getHitIntervalTicks();
             this.effects = phase.beam().getEffects();
-            this.look = phase.beam().getLook();
+            this.draw = Draw.of(phase.beam(), phase.beam().getLook());
+            this.height = phase.beam().getMaxHeight();
+            this.victimSlack = phase.beam().getVictimSlack();
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.beam().getDurationTicks();
-            this.centre = centreOf(boss);
+            this.centre = centreOf(boss, this.height);
         }
     }
 
@@ -145,10 +143,9 @@ public final class BossBeamScheduler {
     public static void start(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, float startYaw,
                              int damage, int knockback, long gameTime) {
         SWEEPS.add(new Sweep(level.dimension(), boss, phase, startYaw, damage, knockback, gameTime));
-        Vec3 centre = centreOf(boss);
+        Vec3 centre = centreOf(boss, phase.beam().getMaxHeight());
         // The guardian's own zap, deeper: the one sound in the game that already means a beam.
-        level.playSound(null, centre.x, centre.y, centre.z, SoundEvents.GUARDIAN_ATTACK,
-                SoundSource.HOSTILE, 2.0F, 0.6F);
+        phase.beam().getStartSound().play(level, centre.x, centre.y, centre.z, SoundSource.HOSTILE);
     }
 
     public static boolean hasPending() {
@@ -199,7 +196,7 @@ public final class BossBeamScheduler {
         }
         if (sweep.followsBoss) {
             // Read fresh every tick: the beams turn round wherever the boss is now.
-            sweep.centre = centreOf(boss);
+            sweep.centre = centreOf(boss, sweep.height);
         }
         Vec3[] ends = new Vec3[sweep.count];
         for (int i = 0; i < sweep.count; i++) {
@@ -207,7 +204,7 @@ public final class BossBeamScheduler {
                     sweep.length, sweep.stopsAtWalls);
         }
         burn(level, sweep, ends, gameTime);
-        paint(level, boss, sweep.centre, ends, sweep.length, sweep.look);
+        paint(level, boss, sweep.centre, ends, sweep.length, sweep.draw);
         return true;
     }
 
@@ -222,7 +219,7 @@ public final class BossBeamScheduler {
      */
     private static void burn(ServerLevel level, Sweep sweep, Vec3[] ends, long gameTime) {
         EntityNPCInterface boss = sweep.boss;
-        for (LivingEntity victim : victims(level, boss, sweep.centre, sweep.length + VICTIM_SEARCH_SLACK)) {
+        for (LivingEntity victim : victims(level, boss, sweep.centre, sweep.length + sweep.victimSlack)) {
             // The beam is what hits, so it asks for itself: somebody whose totem list or
             // immunity changed under it must not keep being burned.
             if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.BEAM)) {
@@ -323,8 +320,8 @@ public final class BossBeamScheduler {
      * Where the beams leave the boss: on its centre, at its waist or a block up, whichever
      * is lower.
      */
-    public static Vec3 centreOf(EntityNPCInterface boss) {
-        return boss.position().add(0.0D, Math.min(boss.getBbHeight() * 0.5D, MAX_HEIGHT), 0.0D);
+    public static Vec3 centreOf(EntityNPCInterface boss, double maxHeight) {
+        return boss.position().add(0.0D, Math.min(boss.getBbHeight() * 0.5D, maxHeight), 0.0D);
     }
 
     /**
@@ -355,15 +352,17 @@ public final class BossBeamScheduler {
      * beam the pillar is going to stop. Always in the ability's colour, whatever look the
      * beams themselves have: it is a warning, and has to read the same under every boss.</p>
      */
-    public static void paintStart(ServerLevel level, EntityNPCInterface boss, float startYaw, int count,
-                                  double length, boolean stopsAtWalls) {
-        Vec3 centre = centreOf(boss);
+    public static void paintStart(ServerLevel level, EntityNPCInterface boss, float startYaw,
+                                  BossBeamSettings beam) {
+        int count = beam.getCount();
+        double length = beam.getLength();
+        Vec3 centre = centreOf(boss, beam.getMaxHeight());
         Vec3[] ends = new Vec3[count];
         for (int i = 0; i < count; i++) {
             float yaw = (float) (startYaw + i * 360.0D / count);
-            ends[i] = reach(level, boss, centre, direction(yaw), length, stopsAtWalls);
+            ends[i] = reach(level, boss, centre, direction(yaw), length, beam.isStopsAtWalls());
         }
-        paint(level, boss, centre, ends, length, BeamLooks.KIND);
+        paint(level, boss, centre, ends, length, Draw.of(beam, BeamLooks.KIND));
     }
 
     /**
@@ -376,7 +375,7 @@ public final class BossBeamScheduler {
      * point or a wall gets, never how many, so a fire beam costs exactly what a plain one does.</p>
      */
     private static void paint(ServerLevel level, EntityNPCInterface boss, Vec3 centre, Vec3[] ends,
-                              double length, String look) {
+                              double length, Draw draw) {
         if (level.getNearestPlayer(centre.x, centre.y, centre.z,
                 BossTelegraphUtil.audienceRange(boss), false) == null) {
             return;
@@ -384,11 +383,11 @@ public final class BossBeamScheduler {
         RandomSource random = level.getRandom();
         double fullSquared = length * length - 1.0E-3D;
         for (Vec3 end : ends) {
-            BossTelegraphUtil.line(level, centre, end, () -> pointParticle(look, random));
+            BossTelegraphUtil.line(level, centre, end, () -> pointParticle(draw, random));
             // A beam cut short is burning into whatever cut it.
-            if (end.distanceToSqr(centre) < fullSquared) {
-                level.sendParticles(wallParticle(look), end.x, end.y, end.z, WALL_SPARKS,
-                        0.1D, 0.1D, 0.1D, 0.05D);
+            if (draw.wallSparks() > 0 && end.distanceToSqr(centre) < fullSquared) {
+                level.sendParticles(wallParticle(draw.look()), end.x, end.y, end.z,
+                        draw.wallSparks(), 0.1D, 0.1D, 0.1D, 0.05D);
             }
         }
     }
@@ -400,22 +399,23 @@ public final class BossBeamScheduler {
      * one and a dust of its colour half and half: a spark or a snowflake is gone in a few
      * ticks, and it is the dust between them that keeps the line readable from twenty blocks.</p>
      */
-    private static ParticleOptions pointParticle(String look, RandomSource random) {
-        return switch (look) {
-            case BeamLooks.FIRE -> accent(random) ? ParticleTypes.SMOKE : ParticleTypes.FLAME;
-            case BeamLooks.SOUL -> accent(random) ? ParticleTypes.SOUL : ParticleTypes.SOUL_FIRE_FLAME;
-            case BeamLooks.VOID -> random.nextInt(RARE_ACCENT_ONE_IN) == 0 ? ParticleTypes.PORTAL : ParticleTypes.END_ROD;
+    private static ParticleOptions pointParticle(Draw draw, RandomSource random) {
+        return switch (draw.look()) {
+            case BeamLooks.FIRE -> accent(draw, random) ? ParticleTypes.SMOKE : ParticleTypes.FLAME;
+            case BeamLooks.SOUL -> accent(draw, random) ? ParticleTypes.SOUL : ParticleTypes.SOUL_FIRE_FLAME;
+            case BeamLooks.VOID -> random.nextInt(draw.rareAccentOneIn()) == 0
+                    ? ParticleTypes.PORTAL : ParticleTypes.END_ROD;
             case BeamLooks.LIGHTNING -> random.nextBoolean() ? ParticleTypes.ELECTRIC_SPARK : LIGHTNING_DUST;
             case BeamLooks.FROST -> random.nextBoolean() ? ParticleTypes.SNOWFLAKE : FROST_DUST;
-            case BeamLooks.SCULK -> accent(random) ? ParticleTypes.SCULK_CHARGE_POP : ParticleTypes.SCULK_SOUL;
-            case BeamLooks.TOXIC -> accent(random) ? ParticleTypes.ITEM_SLIME : TOXIC_DUST;
+            case BeamLooks.SCULK -> accent(draw, random) ? ParticleTypes.SCULK_CHARGE_POP : ParticleTypes.SCULK_SOUL;
+            case BeamLooks.TOXIC -> accent(draw, random) ? ParticleTypes.ITEM_SLIME : TOXIC_DUST;
             // BeamLooks.KIND: the ability's own dust, the way the beam has always been drawn.
             default -> BossTelegraphUtil.dust(BossAbilityKind.BEAM);
         };
     }
 
-    private static boolean accent(RandomSource random) {
-        return random.nextInt(ACCENT_ONE_IN) == 0;
+    private static boolean accent(Draw draw, RandomSource random) {
+        return random.nextInt(draw.accentOneIn()) == 0;
     }
 
     /** What a beam of this look throws where a wall cuts it. */

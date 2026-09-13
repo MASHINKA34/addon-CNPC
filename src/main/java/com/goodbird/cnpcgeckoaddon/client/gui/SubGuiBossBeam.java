@@ -28,6 +28,7 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 14;
     private static final int COOLDOWN_FIELD = 15;
     private static final int LOOK_BUTTON = 16;
+    private static final int TUNING_BUTTON = 17;
     private static final int EFFECTS_BUTTON = 67;
     /** Row labels take ids from here up, two per row, so a wrapped one keeps both its lines. */
     private static final int FIRST_ROW_LABEL = 100;
@@ -70,7 +71,7 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
     public void init() {
         // The panel is centred from imageHeight, so it is settled before super.init() reads
         // it: the hints under the rows wrap to three lines in English and four in Russian.
-        imageHeight = buttonsY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
+        imageHeight = buttonsY() + BUTTON_HEIGHT * 2 + 4 + BOTTOM_MARGIN;
         super.init();
         nextRowLabel = FIRST_ROW_LABEL;
         addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.beam_phase", phaseIndex),
@@ -130,6 +131,9 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.beam_hint", guiTop + HINTS_Y);
         addWrappedHint(40, "cnpcgeckoaddon.boss.beam_look_hint", hintY);
         int buttonsY = guiTop + buttonsY();
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, BUTTON_HEIGHT,
+                "cnpcgeckoaddon.boss.beam_tuning"));
+        buttonsY += BUTTON_HEIGHT + 4;
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY, 60, BUTTON_HEIGHT);
@@ -221,7 +225,10 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
-        if (button.id == EFFECTS_BUTTON) {
+        if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossBeamTuning(phase.beam()));
+        } else if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.beam().getEffects(), "cnpcgeckoaddon.boss.effects_beam"));
         } else if (button.id == ENABLED_BUTTON) {

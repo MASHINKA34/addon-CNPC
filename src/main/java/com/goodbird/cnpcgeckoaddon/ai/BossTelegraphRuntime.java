@@ -192,8 +192,7 @@ final class BossTelegraphRuntime {
             case BEAM -> {
                 BossTelegraphUtil.ring(level, npc.position(), phase.beam().getLength(), paint);
                 // The beams themselves are not shapes on the floor, so they stay dust.
-                BossBeamScheduler.paintStart(level, npc, cast.yaw(), phase.beam().getCount(),
-                        phase.beam().getLength(), phase.beam().isStopsAtWalls());
+                BossBeamScheduler.paintStart(level, npc, cast.yaw(), phase.beam());
             }
             case COVER -> coverRuntime.drawShelters(level, paint);
             case TETHER -> {

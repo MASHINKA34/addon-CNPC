@@ -54,7 +54,8 @@ final class BossBeamCastRuntime {
     }
 
     boolean hasTargets(ServerLevel level, BossPhaseData phase) {
-        return !boss.beamVictims(level, BossBeamScheduler.centreOf(npc), phase.beam().getLength()).isEmpty();
+        return !boss.beamVictims(level, BossBeamScheduler.centreOf(npc, phase.beam().getMaxHeight()),
+                phase.beam().getLength()).isEmpty();
     }
 
     /**
