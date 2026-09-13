@@ -274,6 +274,8 @@ public final class TeleportPathController {
     private final BossHuntRuntime huntRuntime;
     /** The boss' health scaled to how many players turned up. */
     private final BossHealthScalingRuntime healthScalingRuntime;
+    /** The other bosses this one shares its health with, or has to die together with. */
+    private final BossHealthLinkRuntime healthLink;
     /** The protection totems standing round this boss and the beams that tie them to it. */
     private final BossTotemRuntime totems;
     /** The channel that hits the whole arena and spares only whoever hid from it. */
@@ -393,6 +395,7 @@ public final class TeleportPathController {
         this.barrierRuntime = new BossBarrierRuntime(this, npc);
         this.huntRuntime = new BossHuntRuntime(this, npc);
         this.healthScalingRuntime = new BossHealthScalingRuntime(this, npc);
+        this.healthLink = new BossHealthLinkRuntime(this, npc);
         this.totems = new BossTotemRuntime(this, npc);
         this.coverRuntime = new BossCoverRuntime(this, npc);
         this.hook = new BossHookRuntime(this, npc);
@@ -481,6 +484,11 @@ public final class TeleportPathController {
         long gameTime = level.getGameTime();
         if (!active) {
             activate(level, gameTime, data);
+        }
+        // First, because the link can kill the boss outright, and nothing below has to run on a
+        // boss that is dying on this tick.
+        if (healthLink.tick(level, data, gameTime)) {
+            return;
         }
         targeting.updateAggroZone(level, data, gameTime);
         targeting.updateNearest(level, data, gameTime);
@@ -1123,6 +1131,9 @@ public final class TeleportPathController {
 
         currentPhase = 0;
         highestPhaseReached = 0;
+        // A reset that heals this boss refills the health it shares, partners and all; the
+        // encounters themselves stay apart, so a partner's own fight goes on.
+        healthLink.onEncounterReset(data, data.isResetHeal());
         // Restore the base maximum before reset healing decides whether to fill it.
         clearCombatRuntime(data, data.isResetHeal());
         minionSpawns.clearCursor();
@@ -1419,6 +1430,7 @@ public final class TeleportPathController {
         hook.clear();
         hazardRuntime.clear();
         barrierRuntime.clear();
+        healthLink.clear();
         leap.clear();
         BossCaptureManager.releaseByBoss(npc);
         BossTetherManager.releaseByBoss(npc);
@@ -1457,6 +1469,21 @@ public final class TeleportPathController {
         for (TeleportPathController controller : List.copyOf(INSTANCES)) {
             controller.removeParticipant(player);
         }
+    }
+
+    /** Every controller ticking right now, as a copy: what the health link looks for partners in. */
+    static List<TeleportPathController> liveControllers() {
+        return List.copyOf(INSTANCES);
+    }
+
+    /** The boss this controller runs. */
+    EntityNPCInterface npc() {
+        return npc;
+    }
+
+    /** What the health link holds for this boss, for the partners and the damage handler to reach. */
+    BossHealthLinkRuntime healthLink() {
+        return healthLink;
     }
 
     public static void shutdownLevel(ServerLevel level) {

@@ -102,6 +102,9 @@ public final class BossLifecycleEvents {
             // floor rather than waiting out the staging timeout and disappearing.
             BossChestScheduler.releaseStagedDrops(level, npc);
         }
+        // Last, once this boss' own death has run its course: a partner the link kills from here
+        // dies its own ordinary death, chest and all, nested inside this one.
+        BossHealthLinkRuntime.onBossDeath(npc, data);
     }
 
     /**

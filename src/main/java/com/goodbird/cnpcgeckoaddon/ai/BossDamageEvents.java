@@ -17,12 +17,14 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
+import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerFlyableFallEvent;
 import noppes.npcs.entity.EntityNPCInterface;
 
 /**
- * Every way a boss, its totems and its victims take or turn away a hit.
+ * Every way a boss, its totems and its victims take or turn away a hit - and, for bosses whose
+ * health is linked, the share of it that goes round the partners.
  *
  * <p>The order the stages run in is the whole mechanic - a shield that drops a hit whole
  * must run before a resistance that would only take a percentage of it - so it is written
@@ -391,6 +393,45 @@ public final class BossDamageEvents {
         } else if (event.getEntity() instanceof ServerPlayer player
                 && event.getSource().getEntity() instanceof EntityNPCInterface npc) {
             trackParticipant(npc, player);
+        }
+        shareHealthLoss(event);
+    }
+
+    /**
+     * Takes what a linked boss really lost off the partners it shares its health with.
+     *
+     * <p>Here, after the fact, rather than on the way in: every protection, resistance and absorb
+     * has had its say by now, and a hit one of them cancelled never gets this far - what the boss
+     * turned away, its partners do not pay for either.</p>
+     */
+    private static void shareHealthLoss(LivingDamageEvent.Post event) {
+        if (event.getNewDamage() <= 0.0F || !(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller != null) {
+            controller.healthLink().shareLoss(controller.settings(), event.getNewDamage());
+        }
+    }
+
+    /**
+     * Hands the share of a heal a linked boss is about to get to the partners it shares its health
+     * with.
+     *
+     * <p>LOWEST so the amount is whatever every other listener left it at, and a heal one of them
+     * cancelled never arrives. Read before the heal lands, which is the only moment the event
+     * offers: the share is worked out from the health the boss still has.</p>
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onLivingHeal(final LivingHealEvent event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc) || !(npc instanceof IBossController holder)
+                || npc.level().isClientSide) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller != null) {
+            controller.healthLink().shareGain(controller.settings(), event.getAmount());
         }
     }
 
