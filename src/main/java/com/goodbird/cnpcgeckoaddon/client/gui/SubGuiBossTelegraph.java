@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.data.TelegraphLineStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
@@ -15,18 +16,39 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
     private static final int LEAD_FIELD = 6;
     private static final int ZONE_RADIUS_FIELD = 7;
     private static final int ABILITIES_BUTTON = 8;
+    private static final int LINE_STYLE_BUTTON = 9;
+    private static final int LINE_WIDTH_FIELD = 10;
+    private static final int LINE_MOTION_BUTTON = 11;
+    private static final int LINE_FILL_FIELD = 12;
+    private static final int LINE_LASTING_BUTTON = 13;
+
+    /** Where the abilities button sits, under the last row of settings. */
+    private static final int ABILITIES_Y = 284;
+    /** And where the hints start, under it. */
+    private static final int HINTS_Y = 310;
+    /** One line of hint plus the pixel that keeps two of them apart. */
+    private static final int HINT_LINE = 10;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int BOTTOM_MARGIN = 6;
+    private static final String LINE_HINT = "cnpcgeckoaddon.boss.telegraph_line_hint";
+
+    private static final String[] LINE_STYLE_LABELS = TelegraphLineStyles.values().stream()
+            .map(TelegraphLineStyles.Style::translationKey)
+            .toArray(String[]::new);
 
     private final TeleportPathData data;
 
     public SubGuiBossTelegraph(TeleportPathData data) {
         this.data = data;
         imageWidth = 256;
-        imageHeight = 256;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Settled before super.init() centres the panel on it: how many lines the last hint
+        // wraps to is up to the locale.
+        imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
         addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.telegraph_title", guiLeft + 6, guiTop + 6, 0xFFFFFF));
 
@@ -51,13 +73,44 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
         y += 22;
         addYesNo(DODGE_BUTTON, "cnpcgeckoaddon.boss.telegraph_dodge", y, data.isTelegraphDodge());
 
-        addButton(new GuiButtonNop(this, ABILITIES_BUTTON, guiLeft + 6, guiTop + 174, 236, 20,
+        // How the zone is drawn rather than what is drawn. The width, the depth of the flood
+        // and the switch below are shown whatever the style is: they say nothing while the
+        // zone is dust, and hiding them would only make them hard to find afterwards.
+        y += 22;
+        addCycle(LINE_STYLE_BUTTON, "cnpcgeckoaddon.boss.telegraph_line_style", y,
+                LINE_STYLE_LABELS, TelegraphLineStyles.indexOf(data.getTelegraphLineStyle()));
+        y += 22;
+        addNumberField(LINE_WIDTH_FIELD, "cnpcgeckoaddon.boss.telegraph_line_width", y,
+                data.getTelegraphLineWidth(), TeleportPathData.MIN_TELEGRAPH_LINE_WIDTH,
+                TeleportPathData.MAX_TELEGRAPH_LINE_WIDTH, TeleportPathData.DEFAULT_TELEGRAPH_LINE_WIDTH);
+        y += 22;
+        addCycle(LINE_MOTION_BUTTON, "cnpcgeckoaddon.boss.telegraph_motion", y,
+                TeleportPathData.TELEGRAPH_MOTION_LABELS, data.getTelegraphLineMotion());
+        y += 22;
+        addNumberField(LINE_FILL_FIELD, "cnpcgeckoaddon.boss.telegraph_line_fill", y,
+                data.getTelegraphLineFill(), TeleportPathData.MIN_TELEGRAPH_LINE_FILL,
+                TeleportPathData.MAX_TELEGRAPH_LINE_FILL, TeleportPathData.MIN_TELEGRAPH_LINE_FILL);
+        y += 22;
+        addYesNo(LINE_LASTING_BUTTON, "cnpcgeckoaddon.boss.telegraph_line_lasting", y,
+                data.isTelegraphLineLasting());
+
+        addButton(new GuiButtonNop(this, ABILITIES_BUTTON, guiLeft + 6, guiTop + ABILITIES_Y, 236, 20,
                 "cnpcgeckoaddon.boss.telegraph_abilities"));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.telegraph_hint", guiLeft + 6, guiTop + 200, 0xA0A0A0));
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.telegraph_lead_hint", guiLeft + 6, guiTop + 210, 0xA0A0A0));
-        addLabel(new GuiLabel(33, "cnpcgeckoaddon.boss.telegraph_dodge_hint", guiLeft + 6, guiTop + 220, 0xA0A0A0));
-        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
+        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.telegraph_hint", guiLeft + 6, guiTop + HINTS_Y, 0xA0A0A0));
+        addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.telegraph_lead_hint",
+                guiLeft + 6, guiTop + HINTS_Y + HINT_LINE, 0xA0A0A0));
+        addLabel(new GuiLabel(33, "cnpcgeckoaddon.boss.telegraph_dodge_hint",
+                guiLeft + 6, guiTop + HINTS_Y + 2 * HINT_LINE, 0xA0A0A0));
+        // Wrapped rather than one label: this one is wider than the panel, and a label never
+        // wraps and never clips.
+        addWrappedHint(34, LINE_HINT, guiTop + HINTS_Y + 3 * HINT_LINE);
+        addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, BUTTON_HEIGHT);
+    }
+
+    /** Where the done button goes, from the panel's top: just under the last hint. */
+    private int doneButtonY() {
+        return HINTS_Y + 3 * HINT_LINE + wrappedHintHeight(LINE_HINT) + 4;
     }
 
     /**
@@ -83,6 +136,12 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
             data.setTelegraphSound(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == DODGE_BUTTON) {
             data.setTelegraphDodge(((GuiButtonYesNo) button).getBoolean());
+        } else if (button.id == LINE_STYLE_BUTTON) {
+            data.setTelegraphLineStyle(TelegraphLineStyles.byIndex(button.getValue()));
+        } else if (button.id == LINE_MOTION_BUTTON) {
+            data.setTelegraphLineMotion(button.getValue());
+        } else if (button.id == LINE_LASTING_BUTTON) {
+            data.setTelegraphLineLasting(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ABILITIES_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossTelegraphAbilities(data));
@@ -93,7 +152,10 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
     protected void applyFields() {
         applyNumberField(LEAD_FIELD, data::setTelegraphLeadTicks);
         applyNumberField(ZONE_RADIUS_FIELD, data::setTelegraphZoneRadius);
+        applyNumberField(LINE_WIDTH_FIELD, data::setTelegraphLineWidth);
+        applyNumberField(LINE_FILL_FIELD, data::setTelegraphLineFill);
     }
+
     @Override
     protected int toggleLabelX() {
         return 6;
@@ -107,6 +169,17 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
     @Override
     protected int toggleButtonWidth() {
         return 46;
+    }
+
+    /** The cycling rows carry whole sentences, so they take the room the toggles do not. */
+    @Override
+    protected int cycleButtonX() {
+        return 96;
+    }
+
+    @Override
+    protected int cycleButtonWidth() {
+        return 146;
     }
 
 }
