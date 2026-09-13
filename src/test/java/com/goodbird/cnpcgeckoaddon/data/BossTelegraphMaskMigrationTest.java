@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -52,7 +53,8 @@ class BossTelegraphMaskMigrationTest {
             new Era("before the cocoon", BossAbilityKind.COCOON, 912895),
             new Era("before the dash", BossAbilityKind.DASH, 1961471),
             new Era("before the cone strike", BossAbilityKind.CONE, 4058623),
-            new Era("before the platforms", BossAbilityKind.PLATFORM, 8252927));
+            new Era("before the platforms", BossAbilityKind.PLATFORM, 8252927),
+            new Era("before the rain of stones", BossAbilityKind.BOULDER_RAIN, 16641535));
 
     /**
      * What the mask held on the day before {@code ability} joined it.
@@ -115,9 +117,11 @@ class BossTelegraphMaskMigrationTest {
             CompoundTag tag = stampless(everything);
             assertEquals(era.mask(), tag.getInt(MASK_KEY),
                     "the mask " + era.name() + " is part of the save format and cannot change");
-            assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES,
-                    reread(tag).getTelegraphAbilities(),
+            TeleportPathData reloaded = reread(tag);
+            assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES, reloaded.getTelegraphAbilities(),
                     "a boss warning for every ability it had was warning for everything");
+            assertTrue(reloaded.isTelegraphAbility(BossAbilityKind.BOULDER_RAIN),
+                    "including the kinds that only started warning later");
         }));
     }
 
@@ -130,6 +134,8 @@ class BossTelegraphMaskMigrationTest {
         TeleportPathData reloaded = reread(stampless(chose));
         assertEquals(chosen, reloaded.getTelegraphAbilities(),
                 "a mask that is nothing the mod ever offered whole is a builder's own choice");
+        assertFalse(reloaded.isTelegraphAbility(BossAbilityKind.BOULDER_RAIN),
+                "and a kind that started warning later stays off rather than overriding it");
     }
 
     @Test
@@ -145,6 +151,19 @@ class BossTelegraphMaskMigrationTest {
         assertEquals(chosen, reloaded.getTelegraphAbilities(), "a choice is kept bit for bit");
         assertFalse(reloaded.isTelegraphAbility(BossAbilityKind.PLATFORM),
                 "and an ability the save never knew about stays off");
+    }
+
+    @Test
+    @DisplayName("the rain of stones warns like everything else the boss winds up")
+    void theRainIsOnTheWarningList() {
+        assertTrue(Arrays.stream(TeleportPathData.TELEGRAPH_ABILITIES)
+                        .anyMatch(ability -> ability == BossAbilityKind.BOULDER_RAIN),
+                "the rain has a row on the warning screen");
+        assertEquals(BossAbilityKind.BOULDER_RAIN,
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 1],
+                "appended, so no existing row moved");
+        assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.BOULDER_RAIN),
+                "and a new boss warns for it until its builder says otherwise");
     }
 
     @Test

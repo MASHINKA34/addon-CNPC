@@ -171,6 +171,14 @@ final class BossTelegraphRuntime {
             }
             case SUMMON -> drawTelegraphSpawnRings(level, phase, dust);
             case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.gravity().getRadius(), dust);
+            // The ring the volley will fall in, and the dead zone at the boss' feet where it
+            // cannot: nothing is aimed at anybody, so the shape is the whole warning.
+            case BOULDER_RAIN -> {
+                BossTelegraphUtil.ring(level, npc.position(), phase.boulderRain().getRadius(), dust);
+                if (phase.boulderRain().getMinRadius() > 0) {
+                    BossTelegraphUtil.ring(level, npc.position(), phase.boulderRain().getMinRadius(), dust);
+                }
+            }
             case BEAM -> {
                 BossTelegraphUtil.ring(level, npc.position(), phase.beam().getLength(), dust);
                 BossBeamScheduler.paintStart(level, npc, cast.yaw(), phase.beam().getCount(),

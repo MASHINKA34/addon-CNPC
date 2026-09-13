@@ -155,10 +155,11 @@ public final class TeleportPathData {
      * The abilities that warn before they land, in the order they are offered. A quick jab
      * can be left silent while the heavy swing that kills still warns.
      *
-     * <p>Everything the boss winds up and aims. The death blast is deliberately absent - it
-     * goes off after the fight is already lost, so there is nothing to warn about - and its
-     * bit is simply skipped rather than reused, because the bits of a saved boss have to keep
-     * meaning what they meant when it was built.</p>
+     * <p>Everything the boss winds up, aimed or not: the rain of stones warns for the ring it
+     * falls in, which is as much as a player needs to leave it. The death blast is deliberately
+     * absent - it goes off after the fight is already lost, so there is nothing to warn about -
+     * and its bit is simply skipped rather than reused, because the bits of a saved boss have to
+     * keep meaning what they meant when it was built.</p>
      */
     public static final int[] TELEGRAPH_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -167,7 +168,8 @@ public final class TeleportPathData {
             BossAbilityKind.GEYSER, BossAbilityKind.BOULDER, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
-            BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM
+            BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
+            BossAbilityKind.BOULDER_RAIN
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -179,8 +181,8 @@ public final class TeleportPathData {
     private static final int TELEGRAPH_ABILITIES_BEFORE_BOULDER =
             ((1 << (BossAbilityKind.GEYSER + 1)) - 1) & ~(1 << BossAbilityKind.BLAST);
     /**
-     * And before the tether: everything through the boulder, minus the blast. The boulder
-     * rain never joined the mask - it is aimed at nobody - so its bit is not in here either.
+     * And before the tether: everything through the boulder, minus the blast. The boulder rain
+     * had not joined the mask when these saves were written, so its bit is not in here either.
      */
     private static final int TELEGRAPH_ABILITIES_BEFORE_TETHER =
             ((1 << (BossAbilityKind.BOULDER + 1)) - 1) & ~(1 << BossAbilityKind.BLAST);
@@ -230,6 +232,14 @@ public final class TeleportPathData {
     /** And before the platforms: everything through the cone strike, minus the same three. */
     private static final int TELEGRAPH_ABILITIES_BEFORE_PLATFORM =
             ((1 << (BossAbilityKind.CONE + 1)) - 1)
+                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1 << BossAbilityKind.HAZARD);
+    /**
+     * And before the rain of stones, which joined last of all: everything through the platforms,
+     * minus the blast, the arena hazard and the rain's own bit, which was not in the mask yet.
+     */
+    private static final int TELEGRAPH_ABILITIES_BEFORE_BOULDER_RAIN =
+            ((1 << (BossAbilityKind.PLATFORM + 1)) - 1)
                     & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
                     & ~(1 << BossAbilityKind.HAZARD);
 
@@ -1397,7 +1407,8 @@ public final class TeleportPathData {
                 || saved == TELEGRAPH_ABILITIES_BEFORE_COCOON
                 || saved == TELEGRAPH_ABILITIES_BEFORE_DASH
                 || saved == TELEGRAPH_ABILITIES_BEFORE_CONE
-                || saved == TELEGRAPH_ABILITIES_BEFORE_PLATFORM;
+                || saved == TELEGRAPH_ABILITIES_BEFORE_PLATFORM
+                || saved == TELEGRAPH_ABILITIES_BEFORE_BOULDER_RAIN;
     }
 
     public boolean isTelegraphAbility(int ability) {
