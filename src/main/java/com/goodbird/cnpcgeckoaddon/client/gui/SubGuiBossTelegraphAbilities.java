@@ -17,11 +17,11 @@ public final class SubGuiBossTelegraphAbilities extends SubGuiFieldScreen {
     private static final int FIRST_ABILITY_BUTTON = 100;
 
     /**
-     * Two columns, the way the npc immunity screen lists the same abilities. Ten rows since
-     * the dash made it nineteen; the cone strike filled the second column's tenth slot, where
-     * Done used to sit, so Done has a line of its own under the grid.
+     * Two columns, the way the npc immunity screen lists the same abilities. Eleven rows since
+     * the platforms made it twenty-one, one more than two columns of ten; Done keeps a line of
+     * its own under the grid.
      */
-    private static final int ROWS_PER_COLUMN = 10;
+    private static final int ROWS_PER_COLUMN = 11;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
     private static final int DONE_Y = 24 + ROWS_PER_COLUMN * ROW_HEIGHT + 4;

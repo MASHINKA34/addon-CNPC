@@ -17,7 +17,10 @@ public final class SubGuiBossFinish extends SubGuiFieldScreen {
     private static final int FIRST_HINT_LABEL = 50;
     private static final int FIRST_ABILITY_BUTTON = 100;
 
-    /** Two short columns keep the screen inside one panel's height; nine rows in one would not. */
+    /**
+     * Two short columns keep the screen inside one panel's height; ten rows in one would not.
+     * The platforms fill the second column's fifth slot, so the next one needs a sixth row.
+     */
     private static final int ROWS_PER_COLUMN = 5;
     private static final int COLUMN_WIDTH = 117;
     private static final int FIRST_ROW_Y = 24;

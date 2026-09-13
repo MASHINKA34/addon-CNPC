@@ -16,21 +16,21 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
 
     /**
      * Two columns, because a dozen rows and two hints do not share one panel comfortably;
-     * eleven rows each since the dash made it twenty-one.
+     * twelve rows each since the platforms made it twenty-three.
      */
-    private static final int ROWS_PER_COLUMN = 11;
+    private static final int ROWS_PER_COLUMN = 12;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
-    /** Where the hints start: under the eleventh row. */
-    private static final int HINTS_Y = 270;
-    private static final int BUTTONS_Y = 320;
+    /** Where the hints start: under the twelfth row. */
+    private static final int HINTS_Y = 292;
+    private static final int BUTTONS_Y = 342;
 
     private final NpcImmunityData data;
 
     public SubGuiNpcImmunity(DataAI ai) {
         data = ((INpcImmunityData) ai).cnpcgeckoaddon$getNpcImmunityData();
         imageWidth = 256;
-        imageHeight = 346;
+        imageHeight = BUTTONS_Y + 26;
         closeOnEsc = true;
     }
 
