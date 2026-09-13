@@ -1956,11 +1956,12 @@ public final class TeleportPathController {
      * The stagger a broken barrier's window brings: whatever the boss was winding up is
      * dropped where it stands, and comes back round as soon as the window shuts rather than
      * after its whole cooldown. A leap already in the air is physics and keeps flying, the
-     * way every cancel leaves it.
+     * way every cancel leaves it; a dash is the boss' own legs, and stops where it is.
      */
     void interruptForBarrierStun(long windowEndsAt) {
         // A boss that cannot walk is not on its way anywhere; the hold, if any, stays with the pin.
         castSpots.abortTravel();
+        dash.clear();
         // The follow-up waiting to start goes the way the wind-up does, walk to its spot and all:
         // the stagger breaks the chain it lands in. An effect still running keeps its claim, and
         // a follow-up it hands on during the stagger waits the stagger out.
@@ -1973,6 +1974,30 @@ public final class TeleportPathController {
         endCastRoot();
         clearPendingAction();
         bringAbilityScheduleForward(interrupted, windowEndsAt);
+    }
+
+    /**
+     * Staggers the boss the way a broken barrier does, for something other than the barrier:
+     * the same window - pinned, silent, taking {@code percent} of every hit until {@code until}
+     * - with the same interrupt, and a stun of its own to look at.
+     *
+     * <p>One window rather than a second stun beside it, so everything that already reads
+     * the barrier's - the pin, the silence, the multiplier on incoming hits, the status line -
+     * holds for this one too, and a phase change, a reset or a death shut it the same way.</p>
+     */
+    void stagger(long until, int percent, String animation) {
+        if (!(npc.level() instanceof ServerLevel level)) {
+            return;
+        }
+        barrierRuntime.expose(until, percent);
+        interruptForBarrierStun(until);
+        playAnimation(animation);
+        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ZOMBIE_ATTACK_IRON_DOOR,
+                SoundSource.HOSTILE, 1.2F, 0.6F);
+        // Stars round the head: the stun is on the boss, so it is drawn on the boss.
+        level.sendParticles(ParticleTypes.CRIT, npc.getX(), npc.getY() + npc.getBbHeight() + 0.2D, npc.getZ(),
+                20, npc.getBbWidth() * 0.4D, 0.15D, npc.getBbWidth() * 0.4D, 0.1D);
+        barrierRuntime.announceExposed(level);
     }
 
     /** Holds the boss off its own rotation until this game time; never brings it forward. */

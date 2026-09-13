@@ -117,6 +117,52 @@ class BossDashGeometryTest {
     }
 
     @Test
+    @DisplayName("a run straight through a chain crosses it where it passes")
+    void aRunThroughAChainCrossesIt() {
+        // Running east from 0 to 2, through a chain strung north to south at x = 1.
+        assertEquals(0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D), EPSILON);
+        assertEquals(0.25D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, -0.5D, 1.0D, 1.5D), EPSILON,
+                "the fraction is measured along the chain, from its first end");
+        // Diagonal both ways, crossing at (1, 1).
+        assertEquals(0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 2.0D, 0.0D, 2.0D, 2.0D, 0.0D), EPSILON);
+    }
+
+    @Test
+    @DisplayName("which way the run or the chain is walked does not change whether they cross")
+    void crossingDoesNotDependOnDirection() {
+        assertEquals(0.5D, BossDashRuntime.crossing(2.0D, 0.0D, 0.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D), EPSILON,
+                "running west through the same chain");
+        assertEquals(0.75D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, 1.5D, 1.0D, -0.5D), EPSILON,
+                "the chain walked from its other end");
+    }
+
+    @Test
+    @DisplayName("a run that stops short of a chain, or passes its end, does not cross it")
+    void shortOrPastTheEndDoesNotCross() {
+        assertTrue(Double.isNaN(BossDashRuntime.crossing(0.0D, 0.0D, 0.9D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D)),
+                "stopped a tenth of a block before the chain");
+        assertTrue(Double.isNaN(BossDashRuntime.crossing(1.1D, 0.0D, 3.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D)),
+                "the stretch started past it: that was the last tick");
+        assertTrue(Double.isNaN(BossDashRuntime.crossing(0.0D, 2.0D, 2.0D, 2.0D, 1.0D, -1.0D, 1.0D, 1.0D)),
+                "running by beyond the end of the chain, past the victim holding it");
+    }
+
+    @Test
+    @DisplayName("touching the chain counts; running along it or standing still does not")
+    void endsCountParallelDoesNot() {
+        assertEquals(0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 1.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D), EPSILON,
+                "a run that stops exactly on the chain has met it");
+        assertEquals(1.0D, BossDashRuntime.crossing(0.0D, 1.0D, 2.0D, 1.0D, 1.0D, -1.0D, 1.0D, 1.0D), EPSILON,
+                "clipping the very end of it counts too");
+        assertTrue(Double.isNaN(BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 0.0D, 0.5D, 2.0D, 0.5D)),
+                "a run beside a chain and parallel to it never crosses it");
+        assertTrue(Double.isNaN(BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, -1.0D, 0.0D, 3.0D, 0.0D)),
+                "nor does one running right along it");
+        assertTrue(Double.isNaN(BossDashRuntime.crossing(1.0D, 0.0D, 1.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D)),
+                "a tick without movement crosses nothing, even standing on the chain");
+    }
+
+    @Test
     @DisplayName("a wall is being against something without getting anywhere")
     void aWallIsNoProgressAgainstSomething() {
         assertTrue(BossDashRuntime.stoppedByWall(true, 0.0D, 0.8D), "pressed against it and not moving");

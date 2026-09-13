@@ -262,6 +262,38 @@ public final class BossTetherManager {
         return !TETHERS.isEmpty();
     }
 
+    /** The chain strung between the two victims of a pair leash, from one to the other. */
+    public record Chain(Vec3 from, Vec3 to) {
+    }
+
+    /**
+     * Every pair leash held in this level whichever boss threw it, as the two points its chain
+     * runs between: the middle of each victim, where the beam is drawn.
+     *
+     * <p>Only pairs with both ends loaded - a chain with a missing end is not strung across
+     * anything - and nothing about the leash changes for being asked: a run that breaks
+     * against it leaves it holding exactly as it was.</p>
+     */
+    public static List<Chain> pairChains(ServerLevel level) {
+        if (TETHERS.isEmpty()) {
+            return List.of();
+        }
+        List<Chain> chains = new ArrayList<>();
+        for (Tether tether : TETHERS) {
+            if (tether.anchor != BossPhaseData.TETHER_ANCHOR_PAIR || !tether.levelKey.equals(level.dimension())) {
+                continue;
+            }
+            Entity first = level.getEntity(tether.victims.get(0).id);
+            Entity second = level.getEntity(tether.victims.get(1).id);
+            if (first == null || second == null) {
+                continue;
+            }
+            chains.add(new Chain(first.position().add(0.0D, first.getBbHeight() * 0.5D, 0.0D),
+                    second.position().add(0.0D, second.getBbHeight() * 0.5D, 0.0D)));
+        }
+        return chains;
+    }
+
     public static void tick(ServerLevel level) {
         if (TETHERS.isEmpty()) {
             return;

@@ -29,7 +29,8 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The dash: a wind-up on the spot with its corridor marked, then a run straight down it that
- * ends on the first victim it meets, against a wall, or at the end of the lane.
+ * ends on the first victim it meets, against a wall, on the chain of a pair tether, or at the
+ * end of the lane.
  *
  * <p>Owned by {@link TeleportPathController}. Which way the boss runs is settled as it
  * commits, the way the line strike's corridor is: the warning on the floor promises one lane,
@@ -67,6 +68,9 @@ final class BossDashRuntime {
     private static final double SWEEP_SLACK = 1.0D;
     /** A move this much longer than a step in one tick was a carry or a teleport, not the run. */
     private static final double TELEPORT_SLACK = 2.0D;
+    /** How far above the boss' head or below its feet a chain still counts as across its path. */
+    private static final double CHAIN_HEIGHT_SLACK = 0.5D;
+    private static final int SLAM_VFX_TICKS = 20;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -221,8 +225,9 @@ final class BossDashRuntime {
      *
      * <p>Runs every tick, above everything that could return early: the boss is moving under
      * its own speed until the run is over, and what stops it has to be caught wherever that
-     * is. The order is what a charging body meets first - whoever is standing in the stretch
-     * it just covered, then the wall it is pressed against, then the end of its lane.</p>
+     * is. The order is what a charging body meets first - a chain strung across the stretch it
+     * just covered, whoever is standing in that stretch, the wall it is pressed against, and
+     * last the end of its lane.</p>
      */
     void tick(ServerLevel level, TeleportPathData data, long gameTime) {
         if (!running) {
@@ -248,12 +253,18 @@ final class BossDashRuntime {
         }
         double fromAlong = lane.along(last.x, last.z);
         double toAlong = lane.along(now.x, now.z);
+        // Before anyone the stretch ran into: the chain is strung across the lane, and a boss
+        // that broke on it never reached whoever stood beyond it.
+        if (phase.dash().isChainStun() && crossesChain(level, now)) {
+            breakOnChain(level, phase, now, gameTime);
+            return;
+        }
         if (runOver(level, phase, now, fromAlong, toAlong) && phase.dash().isStopOnHit()) {
             finish(gameTime);
             return;
         }
         if (stoppedByWall(npc.horizontalCollision, toAlong - fromAlong, sent)) {
-            hitWall(gameTime);
+            hitWall(level, data, phase, gameTime);
             return;
         }
         if (toAlong >= reach - ARRIVAL_SLACK || gameTime >= endsAt) {
@@ -330,9 +341,104 @@ final class BossDashRuntime {
         return true;
     }
 
-    /** Met a wall with nobody in the way. */
-    private void hitWall(long gameTime) {
+    /**
+     * Met a wall with nobody in the way: the run is over, and the wall's rule says what that
+     * costs the boss - a stun, a slam round itself, or its own enrage.
+     *
+     * <p>The enrage rule sets the boss' enrage off early and never a second one, the barrier's
+     * rule for the same choice; a boss with no enrage to set off is stunned instead, so the
+     * wall always does something.</p>
+     */
+    private void hitWall(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
+        Vec3 impact = npc.position();
+        Vec3 ahead = axis;
         finish(gameTime);
+        playWallFeedback(level, impact, ahead);
+        int mode = phase.dash().getWallMode();
+        if (mode == BossPhaseData.DASH_WALL_RAGE) {
+            if (data.isRageEnabled() && !boss.isRageActive()) {
+                boss.beginRage(level, gameTime, data);
+                return;
+            }
+            mode = BossPhaseData.DASH_WALL_STUN;
+        }
+        if (mode == BossPhaseData.DASH_WALL_SLAM) {
+            slam(level, phase, impact);
+            return;
+        }
+        stun(gameTime, phase.dash().getStunTicks(), phase.dash().getStunDamagePercent(),
+                phase.dash().getStunAnimation());
+    }
+
+    /** The wall's slam: everyone round the boss is hit and thrown off it, with a wave to see it by. */
+    private void slam(ServerLevel level, BossPhaseData phase, Vec3 impact) {
+        double radius = phase.dash().getSlamRadius();
+        // Started before the hits so the wave leaves at the same moment the damage lands.
+        BossAreaVfxScheduler.schedule(level, impact, phase.dash().getSlamVfx(), radius, SLAM_VFX_TICKS, false);
+        int damage = boss.rageUp(phase.dash().getSlamDamage());
+        int knockback = boss.rageUp(phase.dash().getSlamKnockback());
+        for (LivingEntity target : boss.getTargetsAround(level, impact, radius, BossAbilityKind.DASH)) {
+            BossAbilityDamageUtil.hit(target, BossAbilityKind.DASH, npc, damage, phase.dash().getEffects(),
+                    knockback, impact.x - target.getX(), impact.z - target.getZ());
+        }
+        level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 2.0F, 0.5F);
+        level.sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y + 0.2D, impact.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+    }
+
+    /**
+     * Whether the stretch just run crossed the chain of any pair leash in the level.
+     *
+     * <p>Worked out on the floor plan, and then held to height: a chain strung between two
+     * people on a balcony is not across a lane on the floor below it.</p>
+     */
+    private boolean crossesChain(ServerLevel level, Vec3 now) {
+        for (BossTetherManager.Chain chain : BossTetherManager.pairChains(level)) {
+            double at = crossing(last.x, last.z, now.x, now.z,
+                    chain.from().x, chain.from().z, chain.to().x, chain.to().z);
+            if (Double.isNaN(at)) {
+                continue;
+            }
+            double chainY = chain.from().y + (chain.to().y - chain.from().y) * at;
+            if (chainY >= Math.min(last.y, now.y) - CHAIN_HEIGHT_SLACK
+                    && chainY <= Math.max(last.y, now.y) + npc.getBbHeight() + CHAIN_HEIGHT_SLACK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Ran into a tether's chain: the run is over and the boss is stunned, the leash untouched. */
+    private void breakOnChain(ServerLevel level, BossPhaseData phase, Vec3 now, long gameTime) {
+        finish(gameTime);
+        level.playSound(null, now.x, now.y, now.z, SoundEvents.CHAIN_HIT, SoundSource.HOSTILE, 2.0F, 0.6F);
+        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.TETHER), now.x, now.y + npc.getBbHeight() * 0.5D,
+                now.z, 20, npc.getBbWidth() * 0.5D, npc.getBbHeight() * 0.3D, npc.getBbWidth() * 0.5D, 0.0D);
+        stun(gameTime, phase.dash().getChainStunTicks(), phase.dash().getChainDamagePercent(),
+                phase.dash().getStunAnimation());
+    }
+
+    /** The stagger's window, for as long as the rule gives; a stun of no ticks is no stun. */
+    private void stun(long gameTime, int ticks, int percent, String animation) {
+        if (ticks > 0) {
+            boss.stagger(gameTime + ticks, percent, animation);
+        }
+    }
+
+    /** The crunch of the boss meeting the wall, and a spray of whatever the wall is made of. */
+    private void playWallFeedback(ServerLevel level, Vec3 impact, Vec3 ahead) {
+        level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.ZOMBIE_BREAK_WOODEN_DOOR,
+                SoundSource.HOSTILE, 1.0F, 0.7F);
+        if (ahead == null) {
+            return;
+        }
+        double reach = npc.getBbWidth() * 0.5D + 0.5D;
+        BlockPos wall = BlockPos.containing(impact.x + ahead.x * reach, impact.y + 0.5D, impact.z + ahead.z * reach);
+        BlockState state = level.getBlockState(wall);
+        if (!state.isAir()) {
+            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, state),
+                    impact.x + ahead.x * reach, impact.y + npc.getBbHeight() * 0.5D, impact.z + ahead.z * reach,
+                    30, 0.2D, npc.getBbHeight() * 0.3D, 0.2D, 0.15D);
+        }
     }
 
     /** The end every run but an interrupted one comes to: stopped, and the usual pause after a cast. */
@@ -459,6 +565,33 @@ final class BossDashRuntime {
     /** Whether a tick that got this far of what it was sent, with the boss against something, was a wall. */
     static boolean stoppedByWall(boolean collided, double progress, double sent) {
         return collided && progress < sent * WALL_PROGRESS_SHARE;
+    }
+
+    /**
+     * Where the flat segment p-q crosses the flat segment a-b, as the fraction of the way from
+     * a to b; NaN when the two do not cross.
+     *
+     * <p>The ends count: a run that stops exactly on the chain has met it, and so has one that
+     * clips the very end of it at somebody's chest. Segments running parallel never cross - a
+     * run along a chain rather than through it has nothing to break on - and neither does a
+     * tick in which the boss did not move.</p>
+     */
+    static double crossing(double px, double pz, double qx, double qz,
+                           double ax, double az, double bx, double bz) {
+        double rx = qx - px;
+        double rz = qz - pz;
+        double sx = bx - ax;
+        double sz = bz - az;
+        double denominator = rx * sz - rz * sx;
+        if (Math.abs(denominator) < 1.0E-9D) {
+            return Double.NaN;
+        }
+        double wx = ax - px;
+        double wz = az - pz;
+        double alongRun = (wx * sz - wz * sx) / denominator;
+        double alongChain = (wx * rz - wz * rx) / denominator;
+        return alongRun >= 0.0D && alongRun <= 1.0D && alongChain >= 0.0D && alongChain <= 1.0D
+                ? alongChain : Double.NaN;
     }
 
     /**

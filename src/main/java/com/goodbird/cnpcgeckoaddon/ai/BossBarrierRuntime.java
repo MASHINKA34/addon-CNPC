@@ -98,6 +98,12 @@ final class BossBarrierRuntime {
     private long exposedUntil = NOT_SCHEDULED;
     /** What the boss takes inside that window, as a percentage of the hit. */
     private int exposedPercent = 100;
+    /**
+     * Whether the window open right now is the one a broken shield opened, rather than a
+     * stagger something else put the boss in: only the barrier's own window goes when the
+     * barrier is switched off.
+     */
+    private boolean exposedByBarrier;
     /** Game time a timer rule's next barrier goes up at, or NOT_SCHEDULED while none is owed. */
     private long nextBarrierAt = NOT_SCHEDULED;
 
@@ -143,11 +149,23 @@ final class BossBarrierRuntime {
             return;
         }
         BossPhaseData phase = data.getPhase(boss.currentPhaseIndex());
-        // Switched off mid-fight, everything goes at once rather than running on until the
-        // phase ends; a window is taken back with it, multiplier and stun included.
-        if (!boss.isEncounterRunning() || !phase.barrier().isEnabled()) {
+        if (!boss.isEncounterRunning()) {
             clear();
             return;
+        }
+        // Switched off mid-fight, everything the barrier owns goes at once rather than running
+        // on until the phase ends; the window it opened is taken back with it, multiplier and
+        // stun included. A stagger something else opened is not the barrier's to take back,
+        // and runs its own clock out below - most bosses that stagger have no barrier at all.
+        if (!phase.barrier().isEnabled()) {
+            barrier = null;
+            nextBarrierAt = NOT_SCHEDULED;
+            if (exposedByBarrier) {
+                endExposure();
+            }
+            if (exposedUntil == NOT_SCHEDULED) {
+                return;
+            }
         }
         Barrier standing = barrier;
         if (standing != null) {
@@ -158,6 +176,11 @@ final class BossBarrierRuntime {
             if (gameTime % PAINT_INTERVAL_TICKS == 0L) {
                 paint(level);
                 announce(level, gameTime);
+            }
+            // A stagger can open a window under a standing shield; it still shuts on its own
+            // clock, rather than for as long as the shield happens to hold.
+            if (exposedUntil != NOT_SCHEDULED && gameTime >= exposedUntil) {
+                endExposure();
             }
             return;
         }
@@ -241,10 +264,26 @@ final class BossBarrierRuntime {
         if (broken.breakWindowTicks <= 0) {
             return;
         }
-        exposedUntil = gameTime + broken.breakWindowTicks;
-        exposedPercent = broken.breakDamagePercent;
+        expose(gameTime + broken.breakWindowTicks, broken.breakDamagePercent);
+        exposedByBarrier = true;
         boss.interruptForBarrierStun(exposedUntil);
         announceExposed(level);
+    }
+
+    /**
+     * Opens the window: until this game time the boss stands pinned, starts nothing and takes
+     * {@code percent} of every hit.
+     *
+     * <p>The one way in, for the break and for anything else that staggers the boss, so there
+     * is one window and one set of rules for it - the pin, the silence and the multiplier all
+     * read it without knowing who opened it. A window already open is never cut short, and
+     * of the two percentages the harsher one holds.</p>
+     */
+    void expose(long until, int percent) {
+        boolean open = exposedUntil != NOT_SCHEDULED;
+        exposedUntil = open ? Math.max(exposedUntil, until) : until;
+        exposedPercent = open ? Math.max(exposedPercent, percent) : percent;
+        exposedByBarrier = false;
     }
 
     /**
@@ -301,6 +340,7 @@ final class BossBarrierRuntime {
     private void endExposure() {
         exposedUntil = NOT_SCHEDULED;
         exposedPercent = 100;
+        exposedByBarrier = false;
     }
 
     /**
@@ -336,8 +376,8 @@ final class BossBarrierRuntime {
                     + TeleportPathController.formatHealth(standing.total) + " absorb left, " + clock;
         }
         if (isExposed()) {
-            return "Barrier: broken, exposed " + Math.max(0L, exposedUntil - gameTime)
-                    + " ticks left, damage taken " + exposedPercent + "%";
+            return "Barrier: " + (exposedByBarrier ? "broken" : "staggered") + ", exposed "
+                    + Math.max(0L, exposedUntil - gameTime) + " ticks left, damage taken " + exposedPercent + "%";
         }
         BossPhaseData phase = boss.activePhase();
         if (phase == null || !phase.barrier().isEnabled()) {
@@ -422,7 +462,7 @@ final class BossBarrierRuntime {
     }
 
     /** The window's one word, loud: this is the moment the whole check was for. */
-    private void announceExposed(ServerLevel level) {
+    void announceExposed(ServerLevel level) {
         Component line = Component.translatable("cnpcgeckoaddon.boss.barrier_exposed")
                 .withStyle(style -> style.withColor(0xFFD23A).withBold(true));
         for (ServerPlayer player : audience(level)) {
