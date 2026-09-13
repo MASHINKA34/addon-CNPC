@@ -1,15 +1,16 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossBarrierSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -30,19 +31,6 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULE
  * handler, which calls {@link #absorb} from inside the hit it has already cancelled.</p>
  */
 final class BossBarrierRuntime {
-
-    /** How often a standing barrier's aura is painted and its count told to the party. */
-    private static final int PAINT_INTERVAL_TICKS = 5;
-    /**
-     * Vanilla's hurt cooldown, kept by the barrier for itself.
-     *
-     * <p>A hit the barrier pays for is cancelled before vanilla sees it, so vanilla never
-     * arms the ten ticks after a hit in which only the excess over the last one lands. The
-     * barrier is meant to be the boss' health standing still, not a softer target than it,
-     * so it keeps that rule: a barrier that took every spam click in full would fall to a
-     * held button faster than the health behind it ever could.</p>
-     */
-    private static final int HURT_COOLDOWN_TICKS = 10;
 
     /**
      * The barrier standing right now, frozen on the tick it went up.
@@ -67,10 +55,44 @@ final class BossBarrierRuntime {
         private final String breakAnimation;
         /** Ticks after either outcome until the next barrier, or 0 for a barrier that goes up once. */
         private final int repeatTicks;
+        /** How often the aura is painted and the count told, taken with the rest of the shield. */
+        private final int paintIntervalTicks;
+        /**
+         * Vanilla's hurt cooldown, kept by the barrier for itself.
+         *
+         * <p>A hit the barrier pays for is cancelled before vanilla sees it, so vanilla never
+         * arms the ten ticks after a hit in which only the excess over the last one lands. The
+         * barrier is meant to be the boss' health standing still, not a softer target than it,
+         * so it keeps that rule by default: a barrier that took every spam click in full would
+         * fall to a held button faster than the health behind it ever could.</p>
+         */
+        private final int hurtCooldownTicks;
+        /** How wide the aura ring stands, as a share of the boss' width plus a few tenths. */
+        private final int auraPercent;
+        private final int auraExtraTenths;
+        /** What the shield says when it breaks, expires, fails or is merely hit. */
+        private final BossSoundCue brokenSound;
+        private final BossParticleCue brokenParticles;
+        private final BossSoundCue expiredSound;
+        private final BossSoundCue failHealSound;
+        private final BossParticleCue failHealParticles;
+        private final BossSoundCue failCurseSound;
+        private final BossSoundCue hitSound;
+        private final BossParticleCue hitParticles;
         /** Game time vanilla's hurt cooldown, kept by the barrier itself, runs out at. */
         private long cooldownUntil = NOT_SCHEDULED;
         /** The last hit inside that cooldown, which a later one only lands its excess over. */
         private float lastHurt;
+
+        /**
+         * How wide the aura ring stands round a boss of this width.
+         *
+         * <p>Off the width as it stands now rather than as it stood when the shield went up: a
+         * boss that grows mid-check keeps its ring round it.</p>
+         */
+        private double auraRadius(double bossWidth) {
+            return bossWidth * auraPercent / 100.0D + auraExtraTenths / 10.0D;
+        }
 
         private Barrier(BossPhaseData phase, float absorb, long gameTime) {
             total = absorb;
@@ -86,6 +108,19 @@ final class BossBarrierRuntime {
             breakAnimation = phase.barrier().getBreakAnimation();
             repeatTicks = phase.barrier().getTrigger() == BossPhaseData.BARRIER_TRIGGER_TIMER
                     ? phase.barrier().getIntervalTicks() : 0;
+            BossBarrierSettings barrier = phase.barrier();
+            paintIntervalTicks = barrier.getPaintIntervalTicks();
+            hurtCooldownTicks = barrier.getHurtCooldownTicks();
+            auraPercent = barrier.getAuraPercent();
+            auraExtraTenths = barrier.getAuraExtraTenths();
+            brokenSound = barrier.getBrokenSound().copy();
+            brokenParticles = barrier.getBrokenParticles().copy();
+            expiredSound = barrier.getExpiredSound().copy();
+            failHealSound = barrier.getFailHealSound().copy();
+            failHealParticles = barrier.getFailHealParticles().copy();
+            failCurseSound = barrier.getFailCurseSound().copy();
+            hitSound = barrier.getHitSound().copy();
+            hitParticles = barrier.getHitParticles().copy();
         }
     }
 
@@ -131,10 +166,9 @@ final class BossBarrierRuntime {
         nextBarrierAt = NOT_SCHEDULED;
         barrier = new Barrier(phase, phase.barrier().barrierAbsorb(npc.getMaxHealth()), gameTime);
         boss.playAnimation(phase.barrier().getAnimation());
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.BEACON_ACTIVATE,
-                SoundSource.HOSTILE, 1.0F, 1.3F);
-        level.sendParticles(dust(), npc.getX(), npc.getY(0.5D), npc.getZ(), 40,
-                npc.getBbWidth() * 0.8D, npc.getBbHeight() * 0.5D, npc.getBbWidth() * 0.8D, 0.0D);
+        phase.barrier().getUpSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+        phase.barrier().getUpParticles().emitDust(level, npc.getX(), npc.getY(0.5D), npc.getZ(),
+                npc.getBbWidth() * 0.8D, npc.getBbHeight() * 0.5D, npc.getBbWidth() * 0.8D, 0.0D, dust());
         announce(level, gameTime);
     }
 
@@ -173,8 +207,8 @@ final class BossBarrierRuntime {
                 fail(level, data, standing, gameTime);
                 return;
             }
-            if (gameTime % PAINT_INTERVAL_TICKS == 0L) {
-                paint(level);
+            if (gameTime % standing.paintIntervalTicks == 0L) {
+                paint(level, standing);
                 announce(level, gameTime);
             }
             // A stagger can open a window under a standing shield; it still shuts on its own
@@ -186,7 +220,8 @@ final class BossBarrierRuntime {
         }
         if (exposedUntil != NOT_SCHEDULED) {
             if (gameTime < exposedUntil) {
-                if (gameTime % PAINT_INTERVAL_TICKS == 0L) {
+                // The shield it belonged to is gone, so the pace of the line is the phase's own.
+                if (gameTime % phase.barrier().getPaintIntervalTicks() == 0L) {
                     announceExposed(level);
                 }
                 return;
@@ -237,14 +272,14 @@ final class BossBarrierRuntime {
             standing.lastHurt = amount;
         } else {
             standing.lastHurt = amount;
-            standing.cooldownUntil = gameTime + HURT_COOLDOWN_TICKS;
+            standing.cooldownUntil = gameTime + standing.hurtCooldownTicks;
         }
         float absorbed = Math.min(landing, standing.left);
         standing.left -= absorbed;
         if (standing.left <= 0.0F) {
             breakDown(level, standing, gameTime);
         } else {
-            playHitFeedback(level, gameTime);
+            playHitFeedback(level, standing, gameTime);
         }
         return absorbed;
     }
@@ -256,10 +291,9 @@ final class BossBarrierRuntime {
     private void breakDown(ServerLevel level, Barrier broken, long gameTime) {
         barrier = null;
         boss.playAnimation(broken.breakAnimation);
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.SHIELD_BREAK,
-                SoundSource.HOSTILE, 1.5F, 0.6F);
-        level.sendParticles(ParticleTypes.END_ROD, npc.getX(), npc.getY(0.6D), npc.getZ(), 40,
-                npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.15D);
+        broken.brokenSound.play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+        broken.brokenParticles.emitDust(level, npc.getX(), npc.getY(0.6D), npc.getZ(),
+                npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.15D, dust());
         scheduleNext(broken, gameTime);
         if (broken.breakWindowTicks <= 0) {
             return;
@@ -295,8 +329,7 @@ final class BossBarrierRuntime {
      */
     private void fail(ServerLevel level, TeleportPathData data, Barrier failed, long gameTime) {
         barrier = null;
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.BEACON_DEACTIVATE,
-                SoundSource.HOSTILE, 1.5F, 0.6F);
+        failed.expiredSound.play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         int mode = failed.failMode;
         if (mode == BossPhaseData.BARRIER_FAIL_RAGE && !data.isRageEnabled()) {
             mode = BossPhaseData.BARRIER_FAIL_DAMAGE;
@@ -308,13 +341,11 @@ final class BossBarrierRuntime {
             }
         } else if (mode == BossPhaseData.BARRIER_FAIL_HEAL) {
             npc.heal(npc.getMaxHealth() * failed.failHealPercent / 100.0F);
-            level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.TOTEM_USE,
-                    SoundSource.HOSTILE, 1.0F, 1.0F);
-            level.sendParticles(ParticleTypes.HEART, npc.getX(), npc.getY(0.7D), npc.getZ(), 20,
-                    npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.0D);
+            failed.failHealSound.play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+            failed.failHealParticles.emitDust(level, npc.getX(), npc.getY(0.7D), npc.getZ(),
+                    npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.0D, dust());
         } else {
-            level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ELDER_GUARDIAN_CURSE,
-                    SoundSource.HOSTILE, 1.0F, 0.8F);
+            failed.failCurseSound.play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         }
         int damage = mode == BossPhaseData.BARRIER_FAIL_DAMAGE ? boss.rageUp(failed.failDamage) : 0;
         for (ServerPlayer player : audience(level)) {
@@ -396,14 +427,14 @@ final class BossBarrierRuntime {
      * the body rather than laid on the floor, because the shield is on the boss and not on
      * the arena.</p>
      */
-    private void paint(ServerLevel level) {
+    private void paint(ServerLevel level, Barrier standing) {
         if (level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
                 BossTelegraphUtil.audienceRange(npc), false) == null) {
             return;
         }
         DustParticleOptions dust = dust();
         RandomSource random = npc.getRandom();
-        double radius = npc.getBbWidth() * 0.75D + 0.3D;
+        double radius = standing.auraRadius(npc.getBbWidth());
         double turn = random.nextDouble() * Mth.TWO_PI;
         for (int i = 0; i < 8; i++) {
             double angle = turn + i * Mth.TWO_PI / 8;
@@ -423,14 +454,14 @@ final class BossBarrierRuntime {
     }
 
     /** A chime and a few sparks for a hit the barrier took, throttled the way the immune clang is. */
-    private void playHitFeedback(ServerLevel level, long gameTime) {
+    private void playHitFeedback(ServerLevel level, Barrier standing, long gameTime) {
         if (!boss.claimBlockFeedback(gameTime)) {
             return;
         }
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME,
-                SoundSource.HOSTILE, 1.0F, 1.0F + npc.getRandom().nextFloat() * 0.3F);
-        level.sendParticles(dust(), npc.getX(), npc.getY(0.6D), npc.getZ(), 8,
-                npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.0D);
+        // Three tenths of pitch thrown on at random, the way the literal always did.
+        standing.hitSound.play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE, 0.3F);
+        standing.hitParticles.emitDust(level, npc.getX(), npc.getY(0.6D), npc.getZ(),
+                npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.0D, dust());
     }
 
     /**

@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.data;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.ai.BossTelegraphUtil;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.particles.SimpleParticleType;
@@ -128,6 +129,29 @@ public final class BossParticleCue {
             return;
         }
         ParticleOptions options = resolve(ability);
+        if (options == null) {
+            return;
+        }
+        level.sendParticles(options, x, y, z, count, dx, dy, dz, speed);
+    }
+
+    /**
+     * The same again, from a caller whose dust is not an ability's colour.
+     *
+     * <p>The barrier is drawn in the boss bar's accent rather than in any ability's colour, so
+     * {@link #DUST_ID} there means "whatever the shield is being painted in" - which only the
+     * caller knows. Handing the dust in is how it stays one cue with one switch and one count
+     * rather than a second kind of cue for the one ability that has no colour of its own.</p>
+     *
+     * @param dust what {@link #DUST_ID} stands for here, or null for no dust at all
+     */
+    public void emitDust(ServerLevel level, double x, double y, double z,
+                         double dx, double dy, double dz, double speed, DustParticleOptions dust) {
+        if (!enabled || level == null || count <= 0) {
+            return;
+        }
+        String id = resolvedId();
+        ParticleOptions options = isDust(id) ? dust : optionsFor(id, -1);
         if (options == null) {
             return;
         }

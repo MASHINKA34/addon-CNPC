@@ -15,6 +15,14 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossBarrierSettings {
 
+    /** The shield's own pace and the ring it is drawn as, each in the unit its label names. */
+    public static final int MIN_PAINT_INTERVAL_TICKS = 1;
+    public static final int MAX_PAINT_INTERVAL_TICKS = 40;
+    public static final int MAX_HURT_COOLDOWN_TICKS = 100;
+    public static final int MIN_AURA_PERCENT = 10;
+    public static final int MAX_AURA_PERCENT = 300;
+    public static final int MAX_AURA_EXTRA = 50;
+
     /**
      * The barrier: a damage check rather than a cast. While it stands the boss' health does
      * not move - every hit is paid out of the barrier instead - and what happens next depends
@@ -42,6 +50,35 @@ public final class BossBarrierSettings {
     private String barrierBreakAnimation = "";
     /** Landed on everyone in the fight when a barrier is not broken in time, whatever the rule. */
     private final BossEffectSet barrierFailEffects = new BossEffectSet();
+    /** How often a standing barrier's aura is painted and its count told to the party. */
+    private int barrierPaintIntervalTicks = 5;
+    /**
+     * Vanilla's hurt cooldown, kept by the barrier for itself.
+     *
+     * <p>A hit the barrier pays for is cancelled before vanilla sees it, so vanilla never arms
+     * the ten ticks in which only the excess over the last hit lands. Nought here is a shield
+     * that takes every click of a held button in full.</p>
+     */
+    private int barrierHurtCooldownTicks = 10;
+    /** The aura ring's radius: this share of the boss' width, plus the tenths below. */
+    private int barrierAuraPercent = 75;
+    private int barrierAuraExtra = 3;
+    private final BossSoundCue barrierUpSound =
+            new BossSoundCue("minecraft:block.beacon.activate", 1.0F, 1.3F);
+    private final BossParticleCue barrierUpParticles = new BossParticleCue(BossParticleCue.DUST_ID, 40);
+    private final BossSoundCue barrierBrokenSound =
+            new BossSoundCue("minecraft:item.shield.break", 1.5F, 0.6F);
+    private final BossParticleCue barrierBrokenParticles = new BossParticleCue("minecraft:end_rod", 40);
+    private final BossSoundCue barrierExpiredSound =
+            new BossSoundCue("minecraft:block.beacon.deactivate", 1.5F, 0.6F);
+    private final BossSoundCue barrierFailHealSound =
+            new BossSoundCue("minecraft:item.totem.use", 1.0F, 1.0F);
+    private final BossParticleCue barrierFailHealParticles = new BossParticleCue("minecraft:heart", 20);
+    private final BossSoundCue barrierFailCurseSound =
+            new BossSoundCue("minecraft:entity.elder_guardian.curse", 1.0F, 0.8F);
+    private final BossSoundCue barrierHitSound =
+            new BossSoundCue("minecraft:block.amethyst_block.chime", 1.0F, 1.0F);
+    private final BossParticleCue barrierHitParticles = new BossParticleCue(BossParticleCue.DUST_ID, 8);
 
     /** While a barrier stands the boss' health does not move; breaking it in time is the check. */
     public boolean isEnabled() { return barrierEnabled; }
@@ -114,6 +151,55 @@ public final class BossBarrierSettings {
         return barrierAmount;
     }
 
+    /** Ticks between two paintings of the aura, which is also how often the count is told. */
+    public int getPaintIntervalTicks() { return barrierPaintIntervalTicks; }
+
+    public void setPaintIntervalTicks(int value) {
+        barrierPaintIntervalTicks = Mth.clamp(value, MIN_PAINT_INTERVAL_TICKS, MAX_PAINT_INTERVAL_TICKS);
+    }
+
+    /** Ticks the shield keeps between two hits it pays in full; nought lets a spam click through. */
+    public int getHurtCooldownTicks() { return barrierHurtCooldownTicks; }
+
+    public void setHurtCooldownTicks(int value) {
+        barrierHurtCooldownTicks = Mth.clamp(value, 0, MAX_HURT_COOLDOWN_TICKS);
+    }
+
+    /** The aura ring's radius as a percentage of the boss' width. */
+    public int getAuraPercent() { return barrierAuraPercent; }
+
+    public void setAuraPercent(int value) {
+        barrierAuraPercent = Mth.clamp(value, MIN_AURA_PERCENT, MAX_AURA_PERCENT);
+    }
+
+    /** Tenths of a block added on top of that, so the ring clears a narrow boss' shoulders. */
+    public int getAuraExtraTenths() { return barrierAuraExtra; }
+
+    public void setAuraExtraTenths(int value) {
+        barrierAuraExtra = Mth.clamp(value, 0, MAX_AURA_EXTRA);
+    }
+
+    public BossSoundCue getUpSound() { return barrierUpSound; }
+
+    public BossParticleCue getUpParticles() { return barrierUpParticles; }
+
+    public BossSoundCue getBrokenSound() { return barrierBrokenSound; }
+
+    public BossParticleCue getBrokenParticles() { return barrierBrokenParticles; }
+
+    public BossSoundCue getExpiredSound() { return barrierExpiredSound; }
+
+    public BossSoundCue getFailHealSound() { return barrierFailHealSound; }
+
+    public BossParticleCue getFailHealParticles() { return barrierFailHealParticles; }
+
+    public BossSoundCue getFailCurseSound() { return barrierFailCurseSound; }
+
+    /** The chime and the sparks of a hit the shield took, throttled the way the immune clang is. */
+    public BossSoundCue getHitSound() { return barrierHitSound; }
+
+    public BossParticleCue getHitParticles() { return barrierHitParticles; }
+
     public BossEffectSet getFailEffects() { return barrierFailEffects; }
 
     void writeToNBT(CompoundTag tag) {
@@ -131,6 +217,20 @@ public final class BossBarrierSettings {
         tag.putString("BarrierAnimation", barrierAnimation);
         tag.putString("BarrierBreakAnimation", barrierBreakAnimation);
         tag.put("BarrierFailEffects", barrierFailEffects.writeToNBT());
+        tag.putInt("BarrierPaintInterval", barrierPaintIntervalTicks);
+        tag.putInt("BarrierHurtCooldown", barrierHurtCooldownTicks);
+        tag.putInt("BarrierAuraPercent", barrierAuraPercent);
+        tag.putInt("BarrierAuraExtra", barrierAuraExtra);
+        barrierUpSound.writeToNBT(tag, "BarrierUpSound");
+        barrierUpParticles.writeToNBT(tag, "BarrierUpParticles");
+        barrierBrokenSound.writeToNBT(tag, "BarrierBrokenSound");
+        barrierBrokenParticles.writeToNBT(tag, "BarrierBrokenParticles");
+        barrierExpiredSound.writeToNBT(tag, "BarrierExpiredSound");
+        barrierFailHealSound.writeToNBT(tag, "BarrierFailHealSound");
+        barrierFailHealParticles.writeToNBT(tag, "BarrierFailHealParticles");
+        barrierFailCurseSound.writeToNBT(tag, "BarrierFailCurseSound");
+        barrierHitSound.writeToNBT(tag, "BarrierHitSound");
+        barrierHitParticles.writeToNBT(tag, "BarrierHitParticles");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -151,5 +251,20 @@ public final class BossBarrierSettings {
         barrierAnimation = clean(tag.getString("BarrierAnimation"));
         barrierBreakAnimation = clean(tag.getString("BarrierBreakAnimation"));
         barrierFailEffects.readFromNBT(tag, "BarrierFailEffects");
+        barrierPaintIntervalTicks = value(tag, "BarrierPaintInterval", 5,
+                MIN_PAINT_INTERVAL_TICKS, MAX_PAINT_INTERVAL_TICKS);
+        barrierHurtCooldownTicks = value(tag, "BarrierHurtCooldown", 10, 0, MAX_HURT_COOLDOWN_TICKS);
+        barrierAuraPercent = value(tag, "BarrierAuraPercent", 75, MIN_AURA_PERCENT, MAX_AURA_PERCENT);
+        barrierAuraExtra = value(tag, "BarrierAuraExtra", 3, 0, MAX_AURA_EXTRA);
+        barrierUpSound.readFromNBT(tag, "BarrierUpSound");
+        barrierUpParticles.readFromNBT(tag, "BarrierUpParticles");
+        barrierBrokenSound.readFromNBT(tag, "BarrierBrokenSound");
+        barrierBrokenParticles.readFromNBT(tag, "BarrierBrokenParticles");
+        barrierExpiredSound.readFromNBT(tag, "BarrierExpiredSound");
+        barrierFailHealSound.readFromNBT(tag, "BarrierFailHealSound");
+        barrierFailHealParticles.readFromNBT(tag, "BarrierFailHealParticles");
+        barrierFailCurseSound.readFromNBT(tag, "BarrierFailCurseSound");
+        barrierHitSound.readFromNBT(tag, "BarrierHitSound");
+        barrierHitParticles.readFromNBT(tag, "BarrierHitParticles");
     }
 }
