@@ -13,14 +13,16 @@ public final class SubGuiBossCastMovement extends SubGuiFieldScreen {
     private static final int FIRST_HINT_LABEL = 40;
 
     /**
-     * Two columns, the way the warning and immunity screens list the same abilities. Ten
-     * rows since the cocoon: eighteen choices and the leap's placeholder no longer fit in nine.
-     * The dash's choice and the placeholder now fill all twenty slots, so the next one needs
-     * an eleventh row and the hints moved down under it.
+     * Two columns, the way the warning and immunity screens list the same abilities. Eleven
+     * rows since the cone strike: its choice and the leap's placeholder make twenty-one, one
+     * more than two columns of ten, so the hints moved down under the eleventh row.
      */
-    private static final int ROWS_PER_COLUMN = 10;
+    private static final int ROWS_PER_COLUMN = 11;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
+    /** Where the hints start: under the eleventh row. */
+    private static final int HINTS_Y = 270;
+    private static final int DONE_Y = 322;
     private static final int HINT_COLOR = 0xA0A0A0;
     private static final int HINT_LINE_HEIGHT = 9;
 
@@ -31,7 +33,7 @@ public final class SubGuiBossCastMovement extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 326;
+        imageHeight = DONE_Y + 26;
         closeOnEsc = true;
     }
 
@@ -56,12 +58,12 @@ public final class SubGuiBossCastMovement extends SubGuiFieldScreen {
 
         int y = addWrappedText(FIRST_HINT_LABEL,
                 "+ " + I18n.get("cnpcgeckoaddon.boss.cast_move_rooted")
-                        + "   - " + I18n.get("cnpcgeckoaddon.boss.cast_move_free"), guiTop + 248);
+                        + "   - " + I18n.get("cnpcgeckoaddon.boss.cast_move_free"), guiTop + HINTS_Y);
         y = addWrappedText(FIRST_HINT_LABEL + 10,
                 I18n.get(BossAbilityKind.LABELS[BossAbilityKind.LEAP]) + ": "
                         + I18n.get("cnpcgeckoaddon.boss.cast_move_locked"), y + 2);
         addWrappedText(FIRST_HINT_LABEL + 20, I18n.get("cnpcgeckoaddon.boss.cast_move_hint"), y + 2);
-        addDoneButton(guiLeft + 182, guiTop + 300, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + DONE_Y, 60, 20);
     }
 
     private int gridX(int index) {

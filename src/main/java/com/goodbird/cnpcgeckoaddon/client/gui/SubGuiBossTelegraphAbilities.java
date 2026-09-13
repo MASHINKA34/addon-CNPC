@@ -18,18 +18,20 @@ public final class SubGuiBossTelegraphAbilities extends SubGuiFieldScreen {
 
     /**
      * Two columns, the way the npc immunity screen lists the same abilities. Ten rows since
-     * the dash made it nineteen; the second column's tenth slot, where Done sits, is still empty.
+     * the dash made it nineteen; the cone strike filled the second column's tenth slot, where
+     * Done used to sit, so Done has a line of its own under the grid.
      */
     private static final int ROWS_PER_COLUMN = 10;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
+    private static final int DONE_Y = 24 + ROWS_PER_COLUMN * ROW_HEIGHT + 4;
 
     private final TeleportPathData data;
 
     public SubGuiBossTelegraphAbilities(TeleportPathData data) {
         this.data = data;
         imageWidth = 256;
-        imageHeight = 252;
+        imageHeight = DONE_Y + 26;
         closeOnEsc = true;
     }
 
@@ -44,7 +46,7 @@ public final class SubGuiBossTelegraphAbilities extends SubGuiFieldScreen {
             addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
                     abilityLabel(i)));
         }
-        addDoneButton(guiLeft + 182, guiTop + 226, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + DONE_Y, 60, 20);
     }
 
     /** "+ Ground attack" while it warns, "- Ground attack" once it goes quiet. */
