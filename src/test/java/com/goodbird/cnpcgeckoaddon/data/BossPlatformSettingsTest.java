@@ -377,11 +377,11 @@ class BossPlatformSettingsTest {
     @Test
     @DisplayName("a boss that warned for everything warns for the platforms; one that chose keeps its choice")
     void theWarningBitIsMigrated() {
-        int beforePlatform = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ((1 << BossAbilityKind.PLATFORM) - 1);
+        int beforePlatform = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.PLATFORM);
         TeleportPathData everything = configuredBoss();
         everything.setTelegraphAbilities(beforePlatform);
         TeleportPathData reread = new TeleportPathData();
-        reread.readFromNBT(everything.writeToNBT(new CompoundTag()));
+        reread.readFromNBT(BossTelegraphMaskMigrationTest.stampless(everything));
         assertTrue(reread.isTelegraphAbility(BossAbilityKind.PLATFORM),
                 "a boss warning for every ability it had was warning for everything");
 
@@ -390,7 +390,7 @@ class BossPlatformSettingsTest {
         TeleportPathData chose = configuredBoss();
         chose.setTelegraphAbilities(beforePlatform & ~(1 << BossAbilityKind.MELEE));
         TeleportPathData rereadChoice = new TeleportPathData();
-        rereadChoice.readFromNBT(chose.writeToNBT(new CompoundTag()));
+        rereadChoice.readFromNBT(BossTelegraphMaskMigrationTest.stampless(chose));
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.PLATFORM),
                 "a boss that silenced something made a choice, and the new bit stays off");
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.MELEE));

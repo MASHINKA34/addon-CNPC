@@ -274,18 +274,18 @@ class BossConeSettingsTest {
     @Test
     @DisplayName("a boss that warned for everything warns for the cone; one that chose keeps its choice")
     void theWarningBitIsMigrated() {
-        int beforeCone = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ((1 << BossAbilityKind.CONE) - 1);
+        int beforeCone = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.CONE);
         TeleportPathData everything = configuredBoss();
         everything.setTelegraphAbilities(beforeCone);
         TeleportPathData reread = new TeleportPathData();
-        reread.readFromNBT(everything.writeToNBT(new CompoundTag()));
+        reread.readFromNBT(BossTelegraphMaskMigrationTest.stampless(everything));
         assertTrue(reread.isTelegraphAbility(BossAbilityKind.CONE),
                 "a boss warning for every ability it had was warning for everything");
 
         TeleportPathData chose = configuredBoss();
         chose.setTelegraphAbilities(beforeCone & ~(1 << BossAbilityKind.MELEE));
         TeleportPathData rereadChoice = new TeleportPathData();
-        rereadChoice.readFromNBT(chose.writeToNBT(new CompoundTag()));
+        rereadChoice.readFromNBT(BossTelegraphMaskMigrationTest.stampless(chose));
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.CONE),
                 "a boss that silenced something made a choice, and the new bit stays off");
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.MELEE));

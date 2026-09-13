@@ -366,6 +366,8 @@ public final class TeleportPathData {
     private static final String TELEGRAPH_ENABLED_KEY = "GeckoBossTelegraphEnabled";
     private static final String TELEGRAPH_STYLE_KEY = "GeckoBossTelegraphStyle";
     private static final String TELEGRAPH_ABILITIES_KEY = "GeckoBossTelegraphAbilities";
+    /** What the mask beside it could hold when it was written; see {@link #restoreTelegraphAbilities}. */
+    private static final String TELEGRAPH_ABILITIES_KNOWN_KEY = "GeckoBossTelegraphAbilitiesKnown";
     private static final String TELEGRAPH_ANNOUNCE_KEY = "GeckoBossTelegraphAnnounce";
     private static final String TELEGRAPH_SOUND_KEY = "GeckoBossTelegraphSound";
     private static final String TELEGRAPH_ZONE_RADIUS_KEY = "GeckoBossTelegraphZoneRadius";
@@ -676,6 +678,9 @@ public final class TeleportPathData {
         tag.putBoolean(TELEGRAPH_ENABLED_KEY, telegraphEnabled);
         tag.putInt(TELEGRAPH_STYLE_KEY, telegraphStyle);
         tag.putInt(TELEGRAPH_ABILITIES_KEY, telegraphAbilities);
+        // Not a setting: a stamp of which abilities warned at all when this was saved, so the
+        // next load can tell "everything was on" from "everything except the newest one".
+        tag.putInt(TELEGRAPH_ABILITIES_KNOWN_KEY, TELEGRAPH_ALL_ABILITIES);
         tag.putInt(TELEGRAPH_ZONE_RADIUS_KEY, telegraphZoneRadius);
         tag.putInt(TELEGRAPH_LEAD_KEY, telegraphLeadTicks);
         tag.putBoolean(TELEGRAPH_DODGE_KEY, telegraphDodge);
@@ -844,7 +849,8 @@ public final class TeleportPathData {
         setTelegraphStyle(tag.contains(TELEGRAPH_STYLE_KEY)
                 ? tag.getInt(TELEGRAPH_STYLE_KEY) : TELEGRAPH_STYLE_BOTH);
         setTelegraphAbilities(tag.contains(TELEGRAPH_ABILITIES_KEY)
-                ? restoreTelegraphAbilities(tag.getInt(TELEGRAPH_ABILITIES_KEY))
+                ? restoreTelegraphAbilities(tag.getInt(TELEGRAPH_ABILITIES_KEY),
+                        tag.getInt(TELEGRAPH_ABILITIES_KNOWN_KEY))
                 : TELEGRAPH_ALL_ABILITIES);
         setTelegraphZoneRadius(tag.contains(TELEGRAPH_ZONE_RADIUS_KEY)
                 ? tag.getInt(TELEGRAPH_ZONE_RADIUS_KEY) : DEFAULT_TELEGRAPH_ZONE_RADIUS);
@@ -1354,13 +1360,32 @@ public final class TeleportPathData {
     /**
      * A saved mask, with the bits of later abilities filled in where the save predates them.
      *
-     * <p>A boss that had every ability warning on was saying "warn for everything", not
-     * "warn for these eight", so it keeps warning for everything. One that had abilities
-     * switched off was making a choice, and the new bit stays off rather than overriding
-     * it - a newly added ability is off by default anyway, so nothing changes until a
-     * builder turns it on and goes looking for its warning.</p>
+     * <p>A boss that had every ability warning on was saying "warn for everything", not "warn
+     * for these eight", so it keeps warning for everything. One that had abilities switched
+     * off was making a choice, and the new bit stays off rather than overriding it.</p>
+     *
+     * <p>Which of the two it was is read off {@code known}: the mask of everything that could
+     * warn at all when the save was written, stamped beside the mask itself. Saying it out
+     * loud is the only way to tell the two apart - "everything on" and "everything except the
+     * newest ability" are the same number otherwise, so a builder who silenced the last kind
+     * added would find it warning again after a reload, and every kind appended makes one more
+     * such choice unreadable.</p>
+     *
+     * <p>Saves written before the stamp existed have no {@code known} and are read the way
+     * they always were: the mask is compared against what the full mask was at each point in
+     * the past, and one that matches is taken as "everything on". That guess is why the stamp
+     * exists, but it is the best that can be done for a tag that never recorded the answer.</p>
      */
-    private static int restoreTelegraphAbilities(int saved) {
+    private static int restoreTelegraphAbilities(int saved, int known) {
+        if (known == 0) {
+            return warnedForEverythingBeforeTheStamp(saved) ? TELEGRAPH_ALL_ABILITIES : saved;
+        }
+        // Nothing was appended since this save, so the answer is the mask itself either way.
+        return saved == known ? TELEGRAPH_ALL_ABILITIES : saved;
+    }
+
+    /** Whether a stampless mask is every bit the mod offered at some point in its past. */
+    private static boolean warnedForEverythingBeforeTheStamp(int saved) {
         return saved == TELEGRAPH_ABILITIES_BEFORE_LINE || saved == TELEGRAPH_ABILITIES_BEFORE_GEYSER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_BOULDER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_TETHER
@@ -1372,8 +1397,7 @@ public final class TeleportPathData {
                 || saved == TELEGRAPH_ABILITIES_BEFORE_COCOON
                 || saved == TELEGRAPH_ABILITIES_BEFORE_DASH
                 || saved == TELEGRAPH_ABILITIES_BEFORE_CONE
-                || saved == TELEGRAPH_ABILITIES_BEFORE_PLATFORM
-                ? TELEGRAPH_ALL_ABILITIES : saved;
+                || saved == TELEGRAPH_ABILITIES_BEFORE_PLATFORM;
     }
 
     public boolean isTelegraphAbility(int ability) {

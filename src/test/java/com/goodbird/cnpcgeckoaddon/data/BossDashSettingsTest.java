@@ -221,18 +221,18 @@ class BossDashSettingsTest {
     void theWarningBitIsMigrated() {
         // Everything the mask held just before the dash joined it, so the kinds appended after
         // the dash are not in it either.
-        int beforeDash = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ((1 << BossAbilityKind.DASH) - 1);
+        int beforeDash = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.DASH);
         TeleportPathData everything = configuredBoss();
         everything.setTelegraphAbilities(beforeDash);
         TeleportPathData reread = new TeleportPathData();
-        reread.readFromNBT(everything.writeToNBT(new CompoundTag()));
+        reread.readFromNBT(BossTelegraphMaskMigrationTest.stampless(everything));
         assertTrue(reread.isTelegraphAbility(BossAbilityKind.DASH),
                 "a boss warning for every ability it had was warning for everything");
 
         TeleportPathData chose = configuredBoss();
         chose.setTelegraphAbilities(beforeDash & ~(1 << BossAbilityKind.MELEE));
         TeleportPathData rereadChoice = new TeleportPathData();
-        rereadChoice.readFromNBT(chose.writeToNBT(new CompoundTag()));
+        rereadChoice.readFromNBT(BossTelegraphMaskMigrationTest.stampless(chose));
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.DASH),
                 "a boss that silenced something made a choice, and the new bit stays off");
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.MELEE));
