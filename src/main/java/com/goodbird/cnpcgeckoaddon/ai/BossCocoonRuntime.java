@@ -160,7 +160,8 @@ final class BossCocoonRuntime {
             return;
         }
         String cloneKey = phase.cocoon().getGuardTab() + ":" + phase.cocoon().getGuardName();
-        Vec3 spot = findGuardSpot(level, cocoon, phase.cocoon().getGuardDistanceTenths() / 10.0D);
+        Vec3 spot = findGuardSpot(level, phase, cocoon,
+                phase.cocoon().getGuardDistanceTenths() / 10.0D);
         if (spot == null) {
             warnBrokenClone(cloneKey, "no room beside the cocoon for the guard");
             return;
@@ -178,7 +179,7 @@ final class BossCocoonRuntime {
     }
 
     /** A free spot the set distance off the cocoon, tried the way round from a random start. */
-    private Vec3 findGuardSpot(ServerLevel level, Vec3 cocoon, double distance) {
+    private Vec3 findGuardSpot(ServerLevel level, BossPhaseData phase, Vec3 cocoon, double distance) {
         double start = npc.getRandom().nextDouble() * Math.PI * 2.0D;
         for (int attempt = 0; attempt < GUARD_ATTEMPTS; attempt++) {
             double angle = start + attempt * Math.PI * 2.0D / GUARD_ATTEMPTS;
@@ -186,7 +187,7 @@ final class BossCocoonRuntime {
                     cocoon.z + Math.sin(angle) * distance);
             BlockPos pos = BlockPos.containing(candidate);
             if (level.hasChunkAt(pos) && level.getWorldBorder().isWithinBounds(pos)
-                    && level.noCollision(BossMinionSpawnRuntime.spawnBox(candidate))) {
+                    && level.noCollision(BossMinionSpawnRuntime.spawnBox(candidate, phase.summon()))) {
                 return candidate;
             }
         }

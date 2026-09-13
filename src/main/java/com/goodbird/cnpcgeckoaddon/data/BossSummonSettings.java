@@ -15,6 +15,13 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossSummonSettings {
 
+    /** The ends the box a minion has to fit in and the ring's own hole are held between. */
+    public static final int MIN_FIT_HALF_WIDTH = 5;
+    public static final int MAX_FIT_HALF_WIDTH = 200;
+    public static final int MIN_FIT_HEIGHT = 5;
+    public static final int MAX_FIT_HEIGHT = 80;
+    public static final int MAX_RING_INNER_RADIUS = 160;
+
     private boolean summonEnabled;
     private String summonAnimation = "";
     private int summonActionDelayTicks = 20;
@@ -28,6 +35,18 @@ public final class BossSummonSettings {
     private int minionSpawnOrder = BossPhaseData.MINION_ORDER_LIST;
     private int minionPointSearchRadius;
     private boolean minionReuseOccupiedPoints;
+    /**
+     * The room one clone is asked to fit in before it is placed: hundredths of a block either
+     * side, and tenths of a block up.
+     *
+     * <p>Everything was measured against a plain humanoid - 0.7 wide and 1.8 tall - so a clone
+     * built larger than that was turned away from spots it would in fact have stood in, and a
+     * builder had nowhere to say how big their minion really is.</p>
+     */
+    private int summonFitHalfWidth = 35;
+    private int summonFitHeight = 18;
+    /** Tenths of a block: how much of the ring nearest the boss the fallback leaves empty. */
+    private int summonRingInnerRadius = 10;
     private final BossMinionSpawnList minionSpawnPoints = new BossMinionSpawnList();
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot summonCastSpot = new BossCastSpot();
@@ -88,6 +107,27 @@ public final class BossSummonSettings {
 
     public void setReuseOccupiedPoints(boolean value) { minionReuseOccupiedPoints = value; }
 
+    /** Hundredths of a block either side of a minion that have to be clear for it to stand. */
+    public int getFitHalfWidthHundredths() { return summonFitHalfWidth; }
+
+    public void setFitHalfWidthHundredths(int value) {
+        summonFitHalfWidth = Mth.clamp(value, MIN_FIT_HALF_WIDTH, MAX_FIT_HALF_WIDTH);
+    }
+
+    /** Tenths of a block above it that have to be clear as well. */
+    public int getFitHeightTenths() { return summonFitHeight; }
+
+    public void setFitHeightTenths(int value) {
+        summonFitHeight = Mth.clamp(value, MIN_FIT_HEIGHT, MAX_FIT_HEIGHT);
+    }
+
+    /** Tenths of a block of ring the fallback keeps clear around the boss itself. */
+    public int getRingInnerRadiusTenths() { return summonRingInnerRadius; }
+
+    public void setRingInnerRadiusTenths(int value) {
+        summonRingInnerRadius = Mth.clamp(value, 0, MAX_RING_INNER_RADIUS);
+    }
+
     public BossMinionSpawnList getSpawnPoints() { return minionSpawnPoints; }
 
     public boolean canSummon() {
@@ -123,6 +163,9 @@ public final class BossSummonSettings {
         tag.putInt("MinionSpawnOrder", minionSpawnOrder);
         tag.putInt("MinionPointSearchRadius", minionPointSearchRadius);
         tag.putBoolean("MinionReuseOccupiedPoints", minionReuseOccupiedPoints);
+        tag.putInt("SummonFitHalfWidth", summonFitHalfWidth);
+        tag.putInt("SummonFitHeight", summonFitHeight);
+        tag.putInt("SummonRingInner", summonRingInnerRadius);
         tag.put("MinionSpawnPoints", minionSpawnPoints.writeToNBT());
         summonCastSpot.writeToNBT(tag, "Summon");
     }
@@ -143,6 +186,9 @@ public final class BossSummonSettings {
                 BossPhaseData.MINION_ORDER_LIST, BossPhaseData.MINION_ORDER_RANDOM);
         minionPointSearchRadius = value(tag, "MinionPointSearchRadius", 0, 0, 4);
         minionReuseOccupiedPoints = tag.getBoolean("MinionReuseOccupiedPoints");
+        summonFitHalfWidth = value(tag, "SummonFitHalfWidth", 35, MIN_FIT_HALF_WIDTH, MAX_FIT_HALF_WIDTH);
+        summonFitHeight = value(tag, "SummonFitHeight", 18, MIN_FIT_HEIGHT, MAX_FIT_HEIGHT);
+        summonRingInnerRadius = value(tag, "SummonRingInner", 10, 0, MAX_RING_INNER_RADIUS);
         minionSpawnPoints.readFromNBT(tag, "MinionSpawnPoints");
         summonCastSpot.readFromNBT(tag, "Summon");
     }

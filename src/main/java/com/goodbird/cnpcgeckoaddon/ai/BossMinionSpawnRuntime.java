@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSummonSettings;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -39,9 +40,6 @@ final class BossMinionSpawnRuntime {
 
     /** Tries at finding open ground in the fallback ring before the summon gives up on one. */
     private static final int RANDOM_PLACEMENT_ATTEMPTS = 12;
-    /** Half the width and the height of the box a minion has to fit in to be placed. */
-    private static final double SPAWN_HALF_WIDTH = 0.35D;
-    private static final double SPAWN_HEIGHT = 1.8D;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -88,7 +86,7 @@ final class BossMinionSpawnRuntime {
             return;
         }
         for (int i = spawned; i < amount; i++) {
-            Vec3 position = findRingPosition(level, phase.summon().getRadius());
+            Vec3 position = findRingPosition(level, phase.summon());
             if (position == null) continue;
             spawnClone(level, phase.summon().getCloneName(), phase.summon().getCloneTab(),
                     position, Float.NaN, boss.currentPhaseIndex(), -1);
@@ -105,7 +103,8 @@ final class BossMinionSpawnRuntime {
             }
             Vec3 anchor = pointAnchor(point);
             Vec3 position = findConfiguredPosition(level, anchor,
-                    phase.summon().getPointSearchRadius(), phaseIndex, point.getPointId());
+                    phase.summon().getPointSearchRadius(), phaseIndex, point.getPointId(),
+                    phase.summon());
             if (position == null) {
                 continue;
             }
@@ -223,7 +222,7 @@ final class BossMinionSpawnRuntime {
     }
 
     private Vec3 findConfiguredPosition(ServerLevel level, Vec3 anchor, int radius,
-                                        int phaseIndex, int pointId) {
+                                        int phaseIndex, int pointId, BossSummonSettings summon) {
         BlockPos anchorBlock = BlockPos.containing(anchor);
         if (!level.hasChunkAt(anchorBlock)) {
             warnBlockedPoint(phaseIndex, pointId, "anchor chunk is not loaded");
@@ -253,11 +252,11 @@ final class BossMinionSpawnRuntime {
             foundLoaded = true;
             if (!level.getWorldBorder().isWithinBounds(feet)
                     || candidate.y < level.getMinBuildHeight()
-                    || candidate.y + SPAWN_HEIGHT >= level.getMaxBuildHeight()) {
+                    || candidate.y + fitHeight(summon) >= level.getMaxBuildHeight()) {
                 continue;
             }
             foundInsideWorld = true;
-            AABB box = spawnBox(candidate);
+            AABB box = spawnBox(candidate, summon);
             if (!level.noCollision(box)
                     || !level.getEntities((Entity) null, box,
                     entity -> entity.isAlive() && !entity.isSpectator()).isEmpty()) {
@@ -278,10 +277,19 @@ final class BossMinionSpawnRuntime {
         return null;
     }
 
-    /** The room one clone needs to stand in. Shared with the cocoon guard, which needs the same. */
-    static AABB spawnBox(Vec3 position) {
-        return new AABB(position.x - SPAWN_HALF_WIDTH, position.y, position.z - SPAWN_HALF_WIDTH,
-                position.x + SPAWN_HALF_WIDTH, position.y + SPAWN_HEIGHT, position.z + SPAWN_HALF_WIDTH);
+    /**
+     * The room one clone needs to stand in, as its own summon says it. Shared with the cocoon
+     * guard, which is a minion in everything but its caps and is asked to fit the same box.
+     */
+    static AABB spawnBox(Vec3 position, BossSummonSettings summon) {
+        double halfWidth = summon.getFitHalfWidthHundredths() / 100.0D;
+        double height = fitHeight(summon);
+        return new AABB(position.x - halfWidth, position.y, position.z - halfWidth,
+                position.x + halfWidth, position.y + height, position.z + halfWidth);
+    }
+
+    private static double fitHeight(BossSummonSettings summon) {
+        return summon.getFitHeightTenths() / 10.0D;
     }
 
     private Entity spawnClone(ServerLevel level, String cloneName, int cloneTab, Vec3 position,
@@ -333,17 +341,19 @@ final class BossMinionSpawnRuntime {
     }
 
     /** A spot on open ground round the boss, for the summon that was given no points. */
-    private Vec3 findRingPosition(ServerLevel level, int radius) {
+    private Vec3 findRingPosition(ServerLevel level, BossSummonSettings summon) {
+        double radius = summon.getRadius();
+        double inner = summon.getRingInnerRadiusTenths() / 10.0D;
         for (int attempt = 0; attempt < RANDOM_PLACEMENT_ATTEMPTS; attempt++) {
             double angle = npc.getRandom().nextDouble() * Math.PI * 2.0D;
-            double distance = 1.0D + npc.getRandom().nextDouble() * Math.max(radius - 1.0D, 0.0D);
+            double distance = inner + npc.getRandom().nextDouble() * Math.max(radius - inner, 0.0D);
             double x = npc.getX() + Math.cos(angle) * distance;
             double y = npc.getY();
             double z = npc.getZ() + Math.sin(angle) * distance;
             BlockPos pos = BlockPos.containing(x, y, z);
             Vec3 candidate = new Vec3(x, y, z);
             if (level.hasChunkAt(pos) && level.getWorldBorder().isWithinBounds(pos)
-                    && level.noCollision(spawnBox(candidate))) {
+                    && level.noCollision(spawnBox(candidate, summon))) {
                 return candidate;
             }
         }
