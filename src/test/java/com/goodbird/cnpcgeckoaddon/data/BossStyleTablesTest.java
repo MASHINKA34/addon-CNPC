@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The six artwork tables, held to the one contract they all promise.
+ * The style tables, held to the one contract they all promise.
  *
  * <p>Every style id in a boss save is a plain string that came off a button, out of a tag
  * written by an older build, or out of a pack that has since lost the artwork. Each table
@@ -42,7 +42,10 @@ class BossStyleTablesTest {
             new Table("HookCordStyles", () -> idsOf(HookCordStyles.values(), HookCordStyles.Style::id),
                     HookCordStyles::normalize),
             new Table("BossChestStyles", () -> idsOf(BossChestStyles.values(), BossChestStyles.Style::id),
-                    BossChestStyles::normalize));
+                    BossChestStyles::normalize),
+            new Table("TelegraphLineStyles",
+                    () -> idsOf(TelegraphLineStyles.values(), TelegraphLineStyles.Style::id),
+                    TelegraphLineStyles::normalize));
 
     private static <T> List<String> idsOf(List<T> styles, Function<T, String> id) {
         List<String> ids = new ArrayList<>();
@@ -121,6 +124,28 @@ class BossStyleTablesTest {
             if (!HookCordStyles.PARTICLES.equals(id)) {
                 assertTrue(HookCordStyles.isTextured(id), id + " should be drawn from its texture");
             }
+        }
+        // And the same again for the warning zone: particles is the one nobody draws.
+        assertFalse(TelegraphLineStyles.isLines(TelegraphLineStyles.PARTICLES));
+        assertFalse(TelegraphLineStyles.isLines("no_such_style"),
+                "an unknown line id falls back to particles, so nothing should be sent for it");
+        for (String id : idsOf(TelegraphLineStyles.values(), TelegraphLineStyles.Style::id)) {
+            if (!TelegraphLineStyles.PARTICLES.equals(id)) {
+                assertTrue(TelegraphLineStyles.isLines(id), id + " should be drawn as a band");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("a line style survives the byte it is sent as")
+    void lineStylesSurviveTheirIndex() {
+        for (String id : idsOf(TelegraphLineStyles.values(), TelegraphLineStyles.Style::id)) {
+            assertEquals(id, TelegraphLineStyles.byIndex(TelegraphLineStyles.indexOf(id)),
+                    id + " does not come back from the index it is sent as");
+        }
+        for (int index : new int[]{-1, Integer.MIN_VALUE, TelegraphLineStyles.values().size(), 4096}) {
+            assertEquals(TelegraphLineStyles.PARTICLES, TelegraphLineStyles.byIndex(index),
+                    "an index off the end of the table has to read as the default, not throw");
         }
     }
 }

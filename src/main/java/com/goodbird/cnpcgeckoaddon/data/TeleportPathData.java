@@ -151,6 +151,37 @@ public final class TeleportPathData {
             "cnpcgeckoaddon.boss.telegraph_style_both"
     };
 
+    /** The band is drawn and left alone for the whole wind-up. */
+    public static final int TELEGRAPH_MOTION_STATIC = 0;
+    /** It dims as the hit comes nearer, which is the wind-up read without a clock. */
+    public static final int TELEGRAPH_MOTION_FADE = 1;
+    public static final int TELEGRAPH_MOTION_PULSE = 2;
+    /** The inside floods out to the edge and gets there exactly as the ability lands. */
+    public static final int TELEGRAPH_MOTION_FILL = 3;
+    /** The outline draws itself round and closes exactly as the ability lands. */
+    public static final int TELEGRAPH_MOTION_TRACE = 4;
+
+    public static final String[] TELEGRAPH_MOTION_LABELS = {
+            "cnpcgeckoaddon.boss.telegraph_motion.static",
+            "cnpcgeckoaddon.boss.telegraph_motion.fade",
+            "cnpcgeckoaddon.boss.telegraph_motion.pulse",
+            "cnpcgeckoaddon.boss.telegraph_motion.fill",
+            "cnpcgeckoaddon.boss.telegraph_motion.trace"
+    };
+
+    /**
+     * How wide a drawn band is, in tenths of a block. Tenths rather than blocks because the
+     * useful range is all under one: three tenths reads as a line on the floor, a whole block
+     * reads as paint.
+     */
+    public static final int MIN_TELEGRAPH_LINE_WIDTH = 1;
+    public static final int MAX_TELEGRAPH_LINE_WIDTH = 20;
+    public static final int DEFAULT_TELEGRAPH_LINE_WIDTH = 3;
+
+    /** How opaque the inside of a drawn shape is, in per cent; zero is an outline only. */
+    public static final int MIN_TELEGRAPH_LINE_FILL = 0;
+    public static final int MAX_TELEGRAPH_LINE_FILL = 100;
+
     /**
      * The abilities that warn before they land, in the order they are offered. A quick jab
      * can be left silent while the heavy swing that kills still warns.
@@ -383,6 +414,11 @@ public final class TeleportPathData {
     private static final String TELEGRAPH_ZONE_RADIUS_KEY = "GeckoBossTelegraphZoneRadius";
     private static final String TELEGRAPH_LEAD_KEY = "GeckoBossTelegraphLead";
     private static final String TELEGRAPH_DODGE_KEY = "GeckoBossTelegraphDodge";
+    private static final String TELEGRAPH_LINE_STYLE_KEY = "GeckoBossTelegraphLineStyle";
+    private static final String TELEGRAPH_LINE_WIDTH_KEY = "GeckoBossTelegraphLineWidth";
+    private static final String TELEGRAPH_LINE_MOTION_KEY = "GeckoBossTelegraphLineMotion";
+    private static final String TELEGRAPH_LINE_FILL_KEY = "GeckoBossTelegraphLineFill";
+    private static final String TELEGRAPH_LINE_LASTING_KEY = "GeckoBossTelegraphLineLasting";
     private static final String CHEST_ENABLED_KEY = "GeckoBossChestEnabled";
     private static final String CHEST_BLOCK_KEY = "GeckoBossChestBlock";
     private static final String CHEST_DELAY_KEY = "GeckoBossChestDelay";
@@ -547,6 +583,15 @@ public final class TeleportPathData {
     private boolean telegraphDodge = true;
     private boolean telegraphAnnounce = true;
     private boolean telegraphSound = true;
+    /**
+     * Particles by default, so a boss that knew nothing of bands warns the way it always did
+     * and nothing at all goes over the wire for it.
+     */
+    private String telegraphLineStyle = TelegraphLineStyles.PARTICLES;
+    private int telegraphLineWidth = DEFAULT_TELEGRAPH_LINE_WIDTH;
+    private int telegraphLineMotion = TELEGRAPH_MOTION_STATIC;
+    private int telegraphLineFill;
+    private boolean telegraphLineLasting = true;
 
     private boolean chestEnabled;
     private String chestBlock = ContainerBlockUtil.DEFAULT_ID;
@@ -696,6 +741,11 @@ public final class TeleportPathData {
         tag.putBoolean(TELEGRAPH_DODGE_KEY, telegraphDodge);
         tag.putBoolean(TELEGRAPH_ANNOUNCE_KEY, telegraphAnnounce);
         tag.putBoolean(TELEGRAPH_SOUND_KEY, telegraphSound);
+        tag.putString(TELEGRAPH_LINE_STYLE_KEY, telegraphLineStyle);
+        tag.putInt(TELEGRAPH_LINE_WIDTH_KEY, telegraphLineWidth);
+        tag.putInt(TELEGRAPH_LINE_MOTION_KEY, telegraphLineMotion);
+        tag.putInt(TELEGRAPH_LINE_FILL_KEY, telegraphLineFill);
+        tag.putBoolean(TELEGRAPH_LINE_LASTING_KEY, telegraphLineLasting);
         tag.putBoolean(CHEST_ENABLED_KEY, chestEnabled);
         tag.putString(CHEST_BLOCK_KEY, chestBlock);
         tag.putInt(CHEST_DELAY_KEY, chestDelayTicks);
@@ -869,6 +919,14 @@ public final class TeleportPathData {
         telegraphDodge = !tag.contains(TELEGRAPH_DODGE_KEY) || tag.getBoolean(TELEGRAPH_DODGE_KEY);
         telegraphAnnounce = !tag.contains(TELEGRAPH_ANNOUNCE_KEY) || tag.getBoolean(TELEGRAPH_ANNOUNCE_KEY);
         telegraphSound = !tag.contains(TELEGRAPH_SOUND_KEY) || tag.getBoolean(TELEGRAPH_SOUND_KEY);
+        setTelegraphLineStyle(tag.contains(TELEGRAPH_LINE_STYLE_KEY)
+                ? tag.getString(TELEGRAPH_LINE_STYLE_KEY) : TelegraphLineStyles.PARTICLES);
+        setTelegraphLineWidth(tag.contains(TELEGRAPH_LINE_WIDTH_KEY)
+                ? tag.getInt(TELEGRAPH_LINE_WIDTH_KEY) : DEFAULT_TELEGRAPH_LINE_WIDTH);
+        setTelegraphLineMotion(tag.getInt(TELEGRAPH_LINE_MOTION_KEY));
+        setTelegraphLineFill(tag.getInt(TELEGRAPH_LINE_FILL_KEY));
+        telegraphLineLasting = !tag.contains(TELEGRAPH_LINE_LASTING_KEY)
+                || tag.getBoolean(TELEGRAPH_LINE_LASTING_KEY);
 
         chestEnabled = tag.getBoolean(CHEST_ENABLED_KEY);
         chestBlock = tag.contains(CHEST_BLOCK_KEY)
@@ -1442,6 +1500,33 @@ public final class TeleportPathData {
      */
     public boolean isTelegraphDodge() { return telegraphDodge; }
     public void setTelegraphDodge(boolean value) { telegraphDodge = value; }
+
+    /** Which of {@link TelegraphLineStyles} the zone is drawn with; particles is no drawing. */
+    public String getTelegraphLineStyle() { return telegraphLineStyle; }
+    public void setTelegraphLineStyle(String value) {
+        telegraphLineStyle = TelegraphLineStyles.normalize(value);
+    }
+    /** Width of a drawn band, in tenths of a block. */
+    public int getTelegraphLineWidth() { return telegraphLineWidth; }
+    public void setTelegraphLineWidth(int value) {
+        telegraphLineWidth = Mth.clamp(value, MIN_TELEGRAPH_LINE_WIDTH, MAX_TELEGRAPH_LINE_WIDTH);
+    }
+    /** What the band does over the wind-up: one of the {@code TELEGRAPH_MOTION_*} above. */
+    public int getTelegraphLineMotion() { return telegraphLineMotion; }
+    public void setTelegraphLineMotion(int value) {
+        telegraphLineMotion = Mth.clamp(value, TELEGRAPH_MOTION_STATIC, TELEGRAPH_MOTION_TRACE);
+    }
+    /** How opaque the inside of a drawn shape is, in per cent; zero leaves it an outline. */
+    public int getTelegraphLineFill() { return telegraphLineFill; }
+    public void setTelegraphLineFill(int value) {
+        telegraphLineFill = Mth.clamp(value, MIN_TELEGRAPH_LINE_FILL, MAX_TELEGRAPH_LINE_FILL);
+    }
+    /**
+     * Whether the fuses and edges that stay up for a whole phase are drawn as bands too, or
+     * left as the dust they were while the wind-up alone gets the band.
+     */
+    public boolean isTelegraphLineLasting() { return telegraphLineLasting; }
+    public void setTelegraphLineLasting(boolean value) { telegraphLineLasting = value; }
 
     /** Whether a loot chest is left behind where the boss died. */
     public boolean isChestEnabled() { return chestEnabled; }
