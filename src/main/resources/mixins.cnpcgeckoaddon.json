@@ -15,6 +15,7 @@
     "MixinEntityAIRangedAttack",
     "MixinEntityCustomNpc",
     "MixinEntityNPCInterfaceCarry",
+    "MixinEntityNPCInterfaceLaunchPad",
     "MixinEntityNPCInterfaceRanged",
     "MixinEntityNPCInterfaceSoundReaction",
     "MixinEntityNPCInterfaceTeleportPath",
