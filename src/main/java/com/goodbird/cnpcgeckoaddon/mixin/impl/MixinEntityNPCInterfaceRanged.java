@@ -76,15 +76,22 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
             return;
         }
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
+        RangedExtraData extra = cnpcgeckoaddon$rangedExtra();
         DataRanged ranged = stats.ranged;
+        // Speed is kept in tenths of a block per tick, the way the CustomNPCs editor shows it.
         double velocity = Math.max(ranged.getSpeed(), 1) / 10.0D;
         float inaccuracy = (100 - Mth.clamp(ranged.getAccuracy(), 0, 100)) / 10.0F;
-        int explodeSize = Mth.clamp(ranged.getExplodeSize(), 1, 4);
+        // Held to what the CustomNPCs editor itself offers rather than to a figure of ours:
+        // a projectile it shows as "none" must not go off, and a count it accepts must fire.
+        int explodeSize = Mth.clamp(ranged.getExplodeSize(),
+                RangedExtraData.MIN_EXPLODE_SIZE, RangedExtraData.MAX_EXPLODE_SIZE);
         boolean spawned = false;
-        int shotCount = Mth.clamp(ranged.getShotCount(), 1, 32);
+        int shotCount = Mth.clamp(ranged.getShotCount(),
+                RangedExtraData.MIN_SHOT_COUNT, RangedExtraData.MAX_SHOT_COUNT);
+        double muzzle = extra.getMuzzleHeightTenths() / 10.0D;
         for (int i = 0; i < shotCount; i++) {
             double x = npc.getX();
-            double y = npc.getEyeY() - 0.2D;
+            double y = npc.getEyeY() + muzzle;
             double z = npc.getZ();
             double dx = target.getX() - x;
             double dy = target.getY(0.5D) - y;
@@ -131,7 +138,8 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
         }
         SoundEvent sound = ranged.getSoundEvent(0);
         if (sound != null) {
-            npc.playSound(sound, 2.0F, 1.0F);
+            npc.playSound(sound, extra.getShotSoundVolumeTenths() / 10.0F,
+                    extra.getShotSoundPitchTenths() / 10.0F);
         }
         ci.cancel();
     }

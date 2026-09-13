@@ -71,6 +71,11 @@ class NpcDataFieldRangeTest {
         bounds.put("HitboxScale", new Bound(0.05D, 16.0D));
         bounds.put("TransitionLengthTicks", new Bound(0.0D, CustomModelData.MAX_TRANSITION_LENGTH_TICKS));
         bounds.put("GeckoKeepDistance", new Bound(0.0D, RangedExtraData.MAX_KEEP_DISTANCE));
+        bounds.put("GeckoNpcRangedMuzzle",
+                new Bound(RangedExtraData.MIN_MUZZLE_HEIGHT, RangedExtraData.MAX_MUZZLE_HEIGHT));
+        bounds.put("GeckoNpcRangedShotVolume", new Bound(0.0D, RangedExtraData.MAX_SHOT_VOLUME));
+        bounds.put("GeckoNpcRangedShotPitch",
+                new Bound(RangedExtraData.MIN_SHOT_PITCH, RangedExtraData.MAX_SHOT_PITCH));
         bounds.put("GeckoNpcCarrySlow", new Bound(0.0D, NpcCarryData.MAX_SLOWNESS_PERCENT));
         bounds.put("GeckoNpcCarryLeash", new Bound(0.0D, NpcCarryData.MAX_LEASH_RADIUS));
         bounds.put("GeckoNpcCarryThrowSpeed", new Bound(NpcCarryData.MIN_THROW_SPEED, NpcCarryData.MAX_THROW_SPEED));

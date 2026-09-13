@@ -54,6 +54,29 @@ class NpcTuningDefaultsTest {
         assertEquals(100, carry.getThrowMaxFlightTicks(), "MAX_FLIGHT_TICKS was 100");
     }
 
+    @Test
+    @DisplayName("a fresh ranged npc is yesterday's constants")
+    void rangedDefaultsAreTheOldConstants() {
+        RangedExtraData ranged = new RangedExtraData();
+
+        assertEquals(-2, ranged.getMuzzleHeightTenths(), "the muzzle was eyeY - 0.2");
+        assertEquals(20, ranged.getShotSoundVolumeTenths(), "the shot was played at 2.0F");
+        assertEquals(10, ranged.getShotSoundPitchTenths(), "and at 1.0F");
+    }
+
+    /**
+     * The two numbers the addon reads back out of CustomNPCs' own ranged data, held to what
+     * its own editor offers: an explosion of none through large, one through ten shots.
+     */
+    @Test
+    @DisplayName("the ranged clamps are CustomNPCs' own limits")
+    void rangedClampsAreTheHostsOwn() {
+        assertEquals(0, RangedExtraData.MIN_EXPLODE_SIZE, "\"none\" in the CustomNPCs editor is 0");
+        assertEquals(3, RangedExtraData.MAX_EXPLODE_SIZE, "\"large\" is the last of its four choices");
+        assertEquals(1, RangedExtraData.MIN_SHOT_COUNT);
+        assertEquals(10, RangedExtraData.MAX_SHOT_COUNT, "what DataRanged clamps a loaded count to");
+    }
+
     private static void assertSound(BossSoundCue cue, String id, int volume, int pitch) {
         assertNotNull(cue);
         assertTrue(cue.isEnabled());
