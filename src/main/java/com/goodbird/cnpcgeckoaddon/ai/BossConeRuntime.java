@@ -6,8 +6,11 @@ import com.goodbird.cnpcgeckoaddon.data.BossConeSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
@@ -33,6 +36,8 @@ final class BossConeRuntime {
     private static final float SNAP_DEGREES = 360.0F;
     /** Closer than this (squared, flat) somebody stands inside the boss and has no direction of their own. */
     private static final double CENTRE_EPSILON = 1.0E-6D;
+    /** Slack on the sector's edges, its length and its height, so standing exactly on one is standing in the cone. */
+    static final double EDGE_EPSILON = 1.0E-7D;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -65,8 +70,10 @@ final class BossConeRuntime {
         } else {
             axis = boss.facingAxis();
         }
-        if (axis == null) {
-            // Nobody to aim at, or no point switched on: looked at again shortly.
+        // Nobody to aim at, no point switched on, or nobody in any of the cones: no reason to
+        // swing, the strike would land on bare floor and spend a whole cooldown doing it.
+        if (axis == null || victimsIn(level, data, cone, npc.position(), axesFor(axis)).isEmpty()) {
+            planned.clear();
             boss.setAbilityScheduleAt(BossAbility.CONE, gameTime + RETRY_TICKS);
             return false;
         }
@@ -112,13 +119,127 @@ final class BossConeRuntime {
         return planned.isEmpty() ? committed : axisToward(planned.getFirst());
     }
 
-    void perform(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        Vec3 axis = firstAxis(boss.committedAxis());
-        planned.clear();
-        if (axis != null && phase.cone().isFaceAxis()) {
-            // Whatever the eased turn had left is finished on the tick the cone lands.
-            boss.turnTowardAxis(axis, phase.cone().getLength(), SNAP_DEGREES);
+    /**
+     * Every cone the cast being wound up lands, from where the boss stands now: one toward each
+     * of its points, or the one it committed to.
+     */
+    List<Vec3> axesFor(Vec3 committed) {
+        if (planned.isEmpty()) {
+            return committed == null ? List.of() : List.of(committed);
         }
+        List<Vec3> axes = new ArrayList<>(planned.size());
+        for (Vec3 point : planned) {
+            axes.add(axisToward(point));
+        }
+        return axes;
+    }
+
+    void perform(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
+        List<Vec3> axes = axesFor(boss.committedAxis());
+        planned.clear();
+        if (!axes.isEmpty()) {
+            strike(level, data, phase, axes);
+        }
+    }
+
+    /**
+     * Lands the cones laid along {@code axes} at once. Whoever stands in any of them takes the
+     * hit once, however many of the cones cover them.
+     */
+    private void strike(ServerLevel level, TeleportPathData data, BossPhaseData phase, List<Vec3> axes) {
+        BossConeSettings cone = phase.cone();
+        if (cone.isFaceAxis()) {
+            // Whatever the eased turn had left is finished on the tick the cone lands, so the
+            // model points exactly down the middle of the fan it hits.
+            boss.turnTowardAxis(axes.getFirst(), cone.getLength(), SNAP_DEGREES);
+        }
+        Vec3 origin = npc.position();
+        level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.PLAYER_ATTACK_SWEEP,
+                SoundSource.HOSTILE, 1.5F, 0.6F);
+        int damage = boss.rageUp(cone.getDamage());
+        int strength = boss.rageUp(cone.getImpulseStrength());
+        for (LivingEntity victim : victimsIn(level, data, cone, origin, axes)) {
+            if (cone.getImpulseMode() == BossPhaseData.CONE_IMPULSE_LIFT) {
+                // The throw is this strike's knockback rather than something on top of it, the
+                // geyser's rule: a totem this cone may not break is left standing, not thrown.
+                if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.CONE)) {
+                    continue;
+                }
+                BossAbilityDamageUtil.hit(victim, BossAbilityKind.CONE, npc, damage, cone.getEffects(),
+                        0, 0.0D, 0.0D);
+                BossGeyserScheduler.launch(victim, strength);
+                continue;
+            }
+            // Vanilla shoves against the vector it is handed: the way to the boss throws the
+            // victim off it, and the way from the boss draws them in.
+            double towardX = origin.x - victim.getX();
+            double towardZ = origin.z - victim.getZ();
+            boolean pull = cone.getImpulseMode() == BossPhaseData.CONE_IMPULSE_PULL;
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.CONE, npc, damage, cone.getEffects(), strength,
+                    pull ? -towardX : towardX, pull ? -towardZ : towardZ);
+        }
+    }
+
+    /**
+     * Everyone the cones laid from {@code origin} along {@code axes} currently cover.
+     *
+     * <p>The box round the whole reach is only a pre-filter, the line strike's way, and the shape
+     * itself is decided per candidate. Who may be hit at all is the rule every area hit shares -
+     * an immune npc, an ally, a boss hidden by its totems and a kind this boss does not aim its
+     * abilities at are all left alone - so a cone and a gravity field cannot disagree about it.</p>
+     */
+    private List<LivingEntity> victimsIn(ServerLevel level, TeleportPathData data, BossConeSettings cone,
+                                         Vec3 origin, List<Vec3> axes) {
+        if (axes.isEmpty()) {
+            return List.of();
+        }
+        double reach = cone.getLength() + 1.0D;
+        AABB box = new AABB(origin, origin).inflate(reach, cone.getHeight() + 1.0D, reach);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target -> target != npc && target.isAlive()
+                && boss.isAbilityTarget(target, BossAbilityKind.CONE)
+                && boss.matchesAbilityTargetKind(target, data)
+                && !BossMechanicUtil.hiddenByTotems(target)
+                && inAnySector(origin, axes, cone, target));
+    }
+
+    private static boolean inAnySector(Vec3 origin, List<Vec3> axes, BossConeSettings cone, LivingEntity target) {
+        for (Vec3 axis : axes) {
+            if (inSector(origin, axis, cone.getAngle(), cone.getLength(), cone.getHeight(),
+                    target.getX(), target.getY(), target.getZ())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a spot is inside a cone laid from {@code origin} along the flat unit {@code axis}:
+     * no further off the axis, seen from the boss, than half of {@code angle} degrees; no further
+     * out than {@code length}, measured flat; and no more than {@code height} above or below the
+     * boss' feet. Every edge counts as inside.
+     *
+     * <p>Somebody standing inside the boss has no direction to be judged by, and counts as in
+     * the cone: nobody gets clear of a swing by hugging whoever swings it.</p>
+     */
+    static boolean inSector(Vec3 origin, Vec3 axis, double angle, double length, double height,
+                            double x, double y, double z) {
+        if (Math.abs(y - origin.y) > height + EDGE_EPSILON) {
+            return false;
+        }
+        double dx = x - origin.x;
+        double dz = z - origin.z;
+        double distanceSqr = dx * dx + dz * dz;
+        double reach = length + EDGE_EPSILON;
+        if (distanceSqr > reach * reach) {
+            return false;
+        }
+        if (distanceSqr < CENTRE_EPSILON) {
+            return true;
+        }
+        // Compared as cosines rather than as angles: how far along the axis the spot is, over how
+        // far away it is, is the cosine of how far off the axis it stands.
+        double along = dx * axis.x + dz * axis.z;
+        return along >= Math.sqrt(distanceSqr) * Math.cos(Math.toRadians(angle * 0.5D)) - EDGE_EPSILON;
     }
 
     /** Forgets the points a wind-up was aimed at: a phase change, a reset or a death called it off. */

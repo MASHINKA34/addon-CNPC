@@ -283,8 +283,11 @@ public final class BossGeyserScheduler {
                 : controller.geyserVictims(level, pending.pos, pending.radius);
     }
 
-    /** Straight up, which is the one push {@code knockback} cannot be asked for. */
-    private static void launch(LivingEntity victim, int strength) {
+    /**
+     * Straight up, which is the one push {@code knockback} cannot be asked for. Shared with the
+     * cone strike's throw, so the two go up the same way for the same number.
+     */
+    static void launch(LivingEntity victim, int strength) {
         if (strength <= 0) {
             return;
         }
