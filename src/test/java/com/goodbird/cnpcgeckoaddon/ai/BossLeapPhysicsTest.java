@@ -7,7 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The closed-form arc the leap is aimed with, checked against the motion it stands for.
+ * The closed-form arc the leap is aimed with, in {@link ArcPhysics}, checked against the motion it
+ * stands for.
  *
  * <p>The runtime does not simulate the jump before making it. It solves for the launch speed
  * that reaches the configured height, and for how long the boss will be in the air, and then
@@ -28,7 +29,7 @@ class BossLeapPhysicsTest {
     @Test
     @DisplayName("terminal speed is the fall speed vanilla's constants settle at")
     void terminalSpeedMatchesTheSteadyState() {
-        double terminal = BossLeapRuntime.terminalSpeed();
+        double terminal = ArcPhysics.terminalSpeed();
         // Stepping the fall from rest for long enough has to converge on exactly that.
         double speed = 0.0D;
         for (int tick = 0; tick < 2000; tick++) {
@@ -50,12 +51,12 @@ class BossLeapPhysicsTest {
                 speed = (speed - GRAVITY) * DRAG;
                 ticks++;
             }
-            double solved = BossLeapRuntime.peakHeight(launch);
+            double solved = ArcPhysics.peakHeight(launch);
             // The stepped rise lands on a whole tick and the closed form does not, so they
             // differ by less than the last step taken - never by more.
             assertTrue(Math.abs(solved - stepped) <= launch,
                     "launch " + launch + ": solved " + solved + " vs stepped " + stepped);
-            assertEquals(ticks, BossLeapRuntime.riseTicks(launch), 1.0D,
+            assertEquals(ticks, ArcPhysics.riseTicks(launch), 1.0D,
                     "launch " + launch + ": the rise is solved to the wrong number of ticks");
         }
     }
@@ -64,8 +65,8 @@ class BossLeapPhysicsTest {
     @DisplayName("the launch speed solved for a height actually reaches that height")
     void speedForHeightInvertsPeakHeight() {
         for (double height = 1.0D; height <= 20.0D; height += 0.5D) {
-            double speed = BossLeapRuntime.speedForHeight(height);
-            double reached = BossLeapRuntime.peakHeight(speed);
+            double speed = ArcPhysics.speedForHeight(height);
+            double reached = ArcPhysics.peakHeight(speed);
             assertEquals(height, reached, 0.05D,
                     "asking for " + height + " blocks gave a push that reaches " + reached);
         }
@@ -74,7 +75,7 @@ class BossLeapPhysicsTest {
     @Test
     @DisplayName("a height past what a push can reach is answered with the fastest push there is")
     void impossibleHeightIsAnsweredWithTheCeiling() {
-        double speed = BossLeapRuntime.speedForHeight(10_000.0D);
+        double speed = ArcPhysics.speedForHeight(10_000.0D);
         assertTrue(speed > 4.9D && speed <= 5.0D,
                 "an unreachable height has to come back at the speed ceiling, not past it: " + speed);
     }
@@ -83,7 +84,7 @@ class BossLeapPhysicsTest {
     @DisplayName("the fall time matches the drop it is solved for")
     void fallTicksMatchesTheSteppedFall() {
         for (double drop : new double[]{1.0D, 4.0D, 10.0D, 30.0D, 100.0D}) {
-            double solved = BossLeapRuntime.fallTicks(drop);
+            double solved = ArcPhysics.fallTicks(drop);
             double fallen = 0.0D;
             double speed = 0.0D;
             int ticks = 0;
@@ -102,14 +103,14 @@ class BossLeapPhysicsTest {
     void theSolversAreMonotonic() {
         double previousSpeed = 0.0D;
         for (double height = 0.5D; height <= 20.0D; height += 0.5D) {
-            double speed = BossLeapRuntime.speedForHeight(height);
+            double speed = ArcPhysics.speedForHeight(height);
             assertTrue(speed >= previousSpeed,
                     "asking for more height gave a softer push at " + height);
             previousSpeed = speed;
         }
         double previousFall = 0.0D;
         for (double drop = 1.0D; drop <= 60.0D; drop += 1.0D) {
-            double ticks = BossLeapRuntime.fallTicks(drop);
+            double ticks = ArcPhysics.fallTicks(drop);
             assertTrue(ticks >= previousFall, "a longer drop took less time at " + drop);
             previousFall = ticks;
         }
@@ -118,8 +119,8 @@ class BossLeapPhysicsTest {
     @Test
     @DisplayName("a push of nothing rises for no time and reaches nowhere")
     void aZeroPushDoesNothing() {
-        assertEquals(0.0D, BossLeapRuntime.riseTicks(0.0D), 1.0E-9D);
-        assertEquals(0.0D, BossLeapRuntime.peakHeight(0.0D), 1.0E-9D);
+        assertEquals(0.0D, ArcPhysics.riseTicks(0.0D), 1.0E-9D);
+        assertEquals(0.0D, ArcPhysics.peakHeight(0.0D), 1.0E-9D);
     }
 
     @Test
@@ -129,7 +130,7 @@ class BossLeapPhysicsTest {
         // crosses zero a shade under one tick rather than at it. Worth pinning down: the
         // flight time it feeds is what the horizontal speed is divided by, so a value that
         // came back negative or zero would send the boss off at the speed ceiling.
-        double ticks = BossLeapRuntime.fallTicks(0.0D);
+        double ticks = ArcPhysics.fallTicks(0.0D);
         assertTrue(ticks >= 0.0D, "a drop of nothing came back as a negative flight time: " + ticks);
         assertTrue(ticks <= 1.0001D, "a drop of nothing was solved as " + ticks + " ticks");
     }

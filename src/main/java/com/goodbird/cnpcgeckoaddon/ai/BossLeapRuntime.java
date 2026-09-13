@@ -28,18 +28,15 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
  * even if its target is gone, the fight ended, or the boss was told to stand still halfway.
  * That is also why a cancelled wind-up only drops a leap that has not left the ground.</p>
  *
- * <p>The arc is worked out from the same numbers vanilla falls with, so the boss reaches
- * where the warning ring was drawn rather than somewhere near it. Nothing here is saved: a
- * server that goes down mid flight puts the boss back on the floor it was standing on.</p>
+ * <p>The arc is worked out from the same numbers vanilla falls with, in {@link ArcPhysics}, so
+ * the boss reaches where the warning ring was drawn rather than somewhere near it. Nothing here
+ * is saved: a server that goes down mid flight puts the boss back on the floor it was standing
+ * on.</p>
  */
 final class BossLeapRuntime {
 
-    private static final double GRAVITY = 0.08D;
-    private static final double VERTICAL_DRAG = 0.98D;
     /** Fudge on the horizontal reach, so drag does not leave the boss just short of the ring. */
     private static final double REACH_CORRECTION = 1.03D;
-    /** Ceiling on the launch speed, past which the boss would leave the loaded chunks. */
-    private static final double MAX_RISE_SPEED = 5.0D;
     private static final double MAX_HORIZONTAL_SPEED = 4.0D;
     /** Ticks after the push before a boss still on the floor counts as a leap that never left. */
     private static final int LAUNCH_GRACE_TICKS = 5;
@@ -207,9 +204,10 @@ final class BossLeapRuntime {
             return;
         }
 
-        double rise = speedForHeight(height);
+        double rise = ArcPhysics.speedForHeight(height);
         double drop = Math.max(0.0D, npc.getY() + height - landing.y);
-        int flightTicks = Math.max(1, (int) Math.ceil(riseTicks(rise)) + (int) Math.ceil(fallTicks(drop)));
+        int flightTicks = Math.max(1, (int) Math.ceil(ArcPhysics.riseTicks(rise))
+                + (int) Math.ceil(ArcPhysics.fallTicks(drop)));
         double dx = landing.x - npc.getX();
         double dz = landing.z - npc.getZ();
         double reach = Math.sqrt(dx * dx + dz * dz);
@@ -254,59 +252,6 @@ final class BossLeapRuntime {
             clear = height;
         }
         return clear;
-    }
-
-    /** Ticks the climb from an upward push of {@code speed} takes to reach its peak. */
-    static double riseTicks(double speed) {
-        double terminal = terminalSpeed();
-        return Math.log(terminal / (speed + terminal)) / Math.log(VERTICAL_DRAG);
-    }
-
-    /** How high that climb gets. */
-    static double peakHeight(double speed) {
-        return speed / (1.0D - VERTICAL_DRAG) - terminalSpeed() * riseTicks(speed);
-    }
-
-    /** Ticks a fall from a standstill takes to cover {@code drop} blocks. */
-    static double fallTicks(double drop) {
-        double terminal = terminalSpeed();
-        double low = 0.0D;
-        double high = 400.0D;
-        for (int step = 0; step < 24; step++) {
-            double mid = (low + high) * 0.5D;
-            double fallen = terminal * (mid - (1.0D - Math.pow(VERTICAL_DRAG, mid)) / (1.0D - VERTICAL_DRAG));
-            if (fallen < drop) {
-                low = mid;
-            } else {
-                high = mid;
-            }
-        }
-        return (low + high) * 0.5D;
-    }
-
-    /**
-     * The push that gets the boss {@code height} blocks up.
-     *
-     * <p>Searched rather than solved: with the drag in it {@link #peakHeight} has no
-     * neat inverse, and a couple of dozen halvings once per leap costs nothing.</p>
-     */
-    static double speedForHeight(double height) {
-        double low = 0.0D;
-        double high = MAX_RISE_SPEED;
-        for (int step = 0; step < 24; step++) {
-            double mid = (low + high) * 0.5D;
-            if (peakHeight(mid) < height) {
-                low = mid;
-            } else {
-                high = mid;
-            }
-        }
-        return (low + high) * 0.5D;
-    }
-
-    /** The speed a falling entity settles at, which is what the drag is measured against. */
-    static double terminalSpeed() {
-        return GRAVITY * VERTICAL_DRAG / (1.0D - VERTICAL_DRAG);
     }
 
     /**
