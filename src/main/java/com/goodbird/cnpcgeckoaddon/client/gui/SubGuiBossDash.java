@@ -4,7 +4,6 @@ import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossDashSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
-import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.client.CustomNpcResourceListener;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -251,7 +250,9 @@ public final class SubGuiBossDash extends SubGuiFieldScreen {
      */
     private void rowLabel(int id, String key, int y, int controlX) {
         int width = controlX - LABEL_X - 4;
-        List<String> lines = wrapLines(I18n.get(key), width);
+        // Not I18n.get: it runs the text through String.format, which turns the bare % of the
+        // stun labels into "Format error: ..."; a translatable component hands it back as is.
+        List<String> lines = wrapLines(Component.translatable(key).getString(), width);
         if (lines.size() == 1) {
             addLabel(new GuiLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
             return;
