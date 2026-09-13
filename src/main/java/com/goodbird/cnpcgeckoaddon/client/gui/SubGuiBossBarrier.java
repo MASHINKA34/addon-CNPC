@@ -26,6 +26,7 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
     private static final int FAIL_MODE_BUTTON = 11;
     private static final int FAIL_DAMAGE_FIELD = 12;
     private static final int FAIL_HEAL_FIELD = 13;
+    private static final int TUNING_BUTTON = 14;
     private static final int EFFECTS_BUTTON = 67;
     /** Row labels take ids from here up, two per row, so a wrapped one keeps both its lines. */
     private static final int FIRST_ROW_LABEL = 100;
@@ -52,7 +53,7 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 248;
+        imageHeight = 272;
         closeOnEsc = true;
     }
 
@@ -104,6 +105,9 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.barrier_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 212);
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+                "cnpcgeckoaddon.boss.barrier_tuning"));
+        buttonsY += 24;
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY, 60, 20);
@@ -221,6 +225,9 @@ public final class SubGuiBossBarrier extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.barrier().getFailEffects(), "cnpcgeckoaddon.boss.effects_barrier"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossBarrierTuning(phase.barrier()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.barrier().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TRIGGER_BUTTON) {

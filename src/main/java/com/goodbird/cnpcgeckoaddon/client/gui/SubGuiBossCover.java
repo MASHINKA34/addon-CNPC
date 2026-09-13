@@ -23,6 +23,7 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 11;
     private static final int COOLDOWN_FIELD = 12;
     private static final int VFX_STYLE_BUTTON = 13;
+    private static final int TUNING_BUTTON = 14;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
@@ -38,7 +39,7 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 262;
+        imageHeight = 286;
         closeOnEsc = true;
     }
 
@@ -100,6 +101,9 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.cover_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 234);
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+                "cnpcgeckoaddon.boss.cover_tuning"));
+        buttonsY += 24;
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY, 60, 20);
@@ -185,6 +189,9 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.cover().getEffects(), "cnpcgeckoaddon.boss.effects_cover"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossCoverTuning(phase.cover()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.cover().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {

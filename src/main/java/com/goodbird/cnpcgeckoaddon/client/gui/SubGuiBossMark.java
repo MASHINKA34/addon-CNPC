@@ -27,6 +27,7 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 13;
     private static final int COOLDOWN_FIELD = 14;
     private static final int VFX_STYLE_BUTTON = 15;
+    private static final int TUNING_BUTTON = 16;
     private static final int EFFECTS_BUTTON = 67;
     private static final int FAIL_EFFECTS_BUTTON = 68;
 
@@ -43,7 +44,7 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 302;
+        imageHeight = 326;
         closeOnEsc = true;
     }
 
@@ -117,6 +118,9 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         // Two effect lists, because the gather does two different things to the people
         // inside it: it shares the hit out when they came, and punishes them when they did not.
         int buttonsY = Math.max(hintY + 4, guiTop + 253);
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+                "cnpcgeckoaddon.boss.mark_tuning"));
+        buttonsY += 24;
         addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.mark_effects"));
         addButton(new GuiButtonNop(this, FAIL_EFFECTS_BUTTON, guiLeft + 126, buttonsY, 116, 20,
@@ -219,6 +223,9 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.mark().getFailEffects(),
                     "cnpcgeckoaddon.boss.effects_mark_fail"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossMarkTuning(phase.mark()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.mark().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == FOLLOW_BUTTON) {

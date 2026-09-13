@@ -29,6 +29,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
     private static final int FLUID_LIFE_FIELD = 15;
     private static final int VFX_STYLE_BUTTON = 16;
     private static final int BLOCK_WAVE_BUTTON = 17;
+    private static final int TUNING_BUTTON = 18;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
@@ -47,7 +48,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         // The tallest ability screen in the mod, and deliberately so: the cast, the fuse, the
         // eruption and what it leaves behind are four sets of numbers, and a builder tuning
         // the fuse against the radius needs to see both of them at once.
-        imageHeight = 326;
+        imageHeight = 350;
         closeOnEsc = true;
     }
 
@@ -114,9 +115,11 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
                 phase.geyser().isBlockWave()));
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.geyser_hint", guiLeft + 6, guiTop + 292, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 302, 120, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 302, 236, 20,
+                "cnpcgeckoaddon.boss.geyser_tuning"));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 326, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 302, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 326, 60, 20);
     }
 
     private int vfxStyleIndex() {
@@ -173,6 +176,9 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.geyser().getEffects(), "cnpcgeckoaddon.boss.effects_geyser"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossGeyserTuning(phase.geyser()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.geyser().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == FOLLOW_BUTTON) {

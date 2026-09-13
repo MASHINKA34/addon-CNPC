@@ -28,6 +28,7 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
     private static final int LINGER_INTERVAL_FIELD = 11;
     private static final int VFX_BUTTON = 12;
     private static final int ZONES_BUTTON = 13;
+    private static final int TUNING_BUTTON = 14;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final int TITLE_LABEL = 30;
@@ -133,6 +134,11 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
         }
         y += wrappedHintHeight(HINT) + BUTTONS_GAP;
         if (place) {
+            addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y,
+                    RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.platform_tuning"));
+        }
+        y += ROW;
+        if (place) {
             addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + LABEL_X, guiTop + y, 120, CONTROL_HEIGHT,
                     "cnpcgeckoaddon.boss.effects_settings"));
             addDoneButton(guiLeft + 182, guiTop + y, 60, CONTROL_HEIGHT);
@@ -237,6 +243,9 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
         } else if (button.id == ZONES_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossPlatformZoneList(npc, phase, phaseIndex));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossPlatformTuning(platform));
         } else if (button.id == ENABLED_BUTTON) {
             platform.setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == PICK_BUTTON) {

@@ -34,6 +34,7 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
     private static final int Y2_FIELD = 21;
     private static final int Z2_FIELD = 22;
     private static final int CORNER2_HERE_BUTTON = 23;
+    private static final int TUNING_BUTTON = 24;
     private static final int EFFECTS_BUTTON = 67;
 
     private final BossPhaseData phase;
@@ -43,7 +44,7 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 248;
+        imageHeight = 272;
         closeOnEsc = true;
     }
 
@@ -109,9 +110,11 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.hazard_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 212);
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+                "cnpcgeckoaddon.boss.hazard_tuning"));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, buttonsY, 60, 20);
+        addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
         applyModeRows();
     }
 
@@ -224,6 +227,9 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.hazard().getEffects(), "cnpcgeckoaddon.boss.effects_hazard"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossHazardTuning(phase.hazard()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.hazard().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {
