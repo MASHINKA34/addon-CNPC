@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -10,6 +11,11 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 /** Compact phase menu. Every ability opens its own fully configurable screen. */
 public final class SubGuiBossPhase extends SubGuiFieldScreen {
     private static final int THRESHOLD_FIELD = 1;
+    private static final int THRESHOLD_HINT_LABEL = 40;
+
+    /** Where the threshold hint starts, from the panel's top: under the threshold row. */
+    private static final int HINT_Y = 42;
+    private static final String THRESHOLD_HINT = "cnpcgeckoaddon.boss.phase_threshold_hint";
 
     private final EntityNPCInterface npc;
     private final TeleportPathData data;
@@ -22,12 +28,14 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
         this.phaseIndex = phaseIndex;
         this.phase = data.getPhase(phaseIndex);
         imageWidth = 256;
-        imageHeight = 478;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Settled before super.init() centres the panel on it: how many lines the window hint
+        // wraps to is up to the locale.
+        imageHeight = doneButtonY() + 20 + 6;
         super.init();
         addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.phase", phaseIndex),
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
@@ -45,6 +53,10 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
             field.setNumbersOnly();
             field.setMinMaxDefault(1, 100, 50);
             addTextField(field);
+            // The field takes 1..100, the ladder takes what fits between the phases either
+            // side of this one: the line says which window, and the value the field shows
+            // after Done is the one that was really kept.
+            addWrappedText(THRESHOLD_HINT_LABEL, hintText(), guiTop + HINT_Y);
         }
 
         // Two columns: a single 234-wide stack ran out of rows at the seventh ability.
@@ -80,12 +92,28 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
         addAbilityButton(38, 0, 14, "cnpcgeckoaddon.boss.cone_settings");
         addAbilityButton(39, 1, 14, "cnpcgeckoaddon.boss.platform_settings");
         // The grid runs to fifteen rows now, so Done keeps a line of its own below it.
-        addDoneButton(guiLeft + 182, guiTop + 452, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, 20);
     }
 
     private void addAbilityButton(int id, int column, int row, String label) {
-        addButton(new GuiButtonNop(this, id, guiLeft + 8 + column * 120, guiTop + 46 + row * 27,
+        addButton(new GuiButtonNop(this, id, guiLeft + 8 + column * 120, guiTop + gridY() + row * 27,
                 114, 24, label));
+    }
+
+    /** The window this phase's threshold really lands in, as the line under the field reads. */
+    private String hintText() {
+        return Component.translatable(THRESHOLD_HINT, data.getPhaseThresholdMin(phaseIndex),
+                data.getPhaseThresholdMax(phaseIndex)).getString();
+    }
+
+    /** Where the ability grid starts, from the panel's top: under the hint, however it wraps. */
+    private int gridY() {
+        return HINT_Y + wrapLines(hintText(), imageWidth - 16).size() * LINE_HEIGHT + 4;
+    }
+
+    private int doneButtonY() {
+        // Fifteen rows of buttons, and Done on a line of its own below them.
+        return gridY() + 15 * 27 + 6;
     }
 
     @Override
@@ -156,5 +184,9 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
     @Override
     protected void applyFields() {
         applyNumberField(THRESHOLD_FIELD, percent -> data.setPhaseThreshold(phaseIndex, percent));
+        GuiTextFieldNop threshold = getTextField(THRESHOLD_FIELD);
+        if (threshold != null) {
+            threshold.setValue(Integer.toString(phase.getStartHealthPercent()));
+        }
     }
 }

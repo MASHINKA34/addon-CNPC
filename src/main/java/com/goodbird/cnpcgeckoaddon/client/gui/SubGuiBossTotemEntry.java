@@ -28,6 +28,11 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
     private static final int DELETE_BUTTON = 12;
     private static final int VULNERABILITY_BUTTON = 13;
     private static final int VULNERABILITY_PICK_BUTTON = 14;
+    private static final int BEAM_WIDTH_HINT_LABEL = 40;
+
+    /** Where the beam-width hint starts, from the panel's top: under the last row. */
+    private static final int HINT_Y = 209;
+    private static final String BEAM_WIDTH_HINT = "cnpcgeckoaddon.boss.totem_beam_width_hint";
 
     private static final String[] COORDINATE_LABELS = {
             "cnpcgeckoaddon.boss.totem_arena_offset",
@@ -58,12 +63,14 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
         this.index = index;
         this.entry = data.getTotems().get(index);
         imageWidth = 256;
-        imageHeight = 239;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Settled before super.init() centres the panel on it: how many lines the hint wraps
+        // to is up to the locale.
+        imageHeight = buttonsY() + 20 + 6;
         super.init();
         addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.totem_entry_title",
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
@@ -120,11 +127,20 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
                 button -> setSubGui(new SubGuiBossTotemVulnerability(entry))));
         showVulnerabilityPicker();
 
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 213, 92, 20,
+        // The override takes 0 or 25..400, and the field takes everything in between: the
+        // line says so, and the value the field shows after Done is what was really kept.
+        addWrappedHint(BEAM_WIDTH_HINT_LABEL, BEAM_WIDTH_HINT, guiTop + HINT_Y);
+
+        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + buttonsY(), 92, 20,
                 "cnpcgeckoaddon.boss.totem_here"));
-        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + 213, 72, 20,
+        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + buttonsY(), 72, 20,
                 "cnpcgeckoaddon.boss.totem_delete"));
-        addDoneButton(guiLeft + 182, guiTop + 213, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + buttonsY(), 60, 20);
+    }
+
+    /** Where the bottom row goes, from the panel's top: under the hint, however it wraps. */
+    private int buttonsY() {
+        return HINT_Y + wrappedHintHeight(BEAM_WIDTH_HINT) + 4;
     }
 
     /** The ability list is only ever read in the listed mode, so it only shows up there. */
@@ -209,6 +225,12 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
         GuiTextFieldNop yaw = getTextField(YAW_FIELD);
         if (yaw != null) entry.setYaw(yaw.getFloat());
         applyNumberField(BEAM_WIDTH_FIELD, entry::setBeamWidthPercentOverride);
+        // 1..24 is not a width the data can hold, so the field is put back to what was really
+        // kept rather than left showing a number nothing will ever use.
+        GuiTextFieldNop beamWidth = getTextField(BEAM_WIDTH_FIELD);
+        if (beamWidth != null) {
+            beamWidth.setValue(Integer.toString(entry.getBeamWidthPercentOverride()));
+        }
     }
 
 }

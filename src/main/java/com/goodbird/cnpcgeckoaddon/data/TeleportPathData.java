@@ -1095,6 +1095,20 @@ public final class TeleportPathData {
     }
 
     /**
+     * The lowest threshold this phase may be given, which is what
+     * {@link #setPhaseThreshold} will clamp a smaller number up to.
+     */
+    public int getPhaseThresholdMin(int index) {
+        return index <= 0 || index >= phases.size() ? 100 : lowestThresholdFor(index);
+    }
+
+    /** The highest, which is one below the phase above it. */
+    public int getPhaseThresholdMax(int index) {
+        return index <= 0 || index >= phases.size()
+                ? 100 : phases.get(index - 1).getStartHealthPercent() - 1;
+    }
+
+    /**
      * @return the index of the phase that owns this health percentage - the last one whose
      *         threshold the boss has already dropped to
      */
