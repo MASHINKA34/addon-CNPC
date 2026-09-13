@@ -275,15 +275,18 @@ public final class BossPlatformScheduler {
                 SoundSource.HOSTILE, 2.0F, 0.9F);
 
         for (LivingEntity victim : controller.platformVictims(level, box)) {
-            // The throw is this platform's own half rather than something on top of the hit, the
-            // geyser's rule: a totem this platform may not break is left standing, not thrown.
+            // The shove and the throw are this platform's own half rather than something on top of
+            // the hit, the geyser's rule: a totem this platform may not break is left standing, not moved.
             if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.PLATFORM)) {
                 continue;
             }
-            // Vanilla shoves against the vector it is handed, so the way to the middle throws the
-            // victim off the platform's nearest edge.
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.PLATFORM, pending.boss, pending.damage,
-                    pending.effects, pending.knockback, ground.x - victim.getX(), ground.z - victim.getZ());
+                    pending.effects, 0, 0.0D, 0.0D);
+            // Given whether the damage landed or not, the cone strike's way: a platform set to no
+            // damage still throws everyone off it, and a victim still in their hurt cooldown is not
+            // left standing in the smoulder. Vanilla shoves against the vector it is handed, so the
+            // way to the middle throws the victim straight out from it.
+            BossConeRuntime.shove(victim, pending.knockback, ground.x - victim.getX(), ground.z - victim.getZ());
             BossGeyserScheduler.launch(victim, pending.launch);
         }
     }

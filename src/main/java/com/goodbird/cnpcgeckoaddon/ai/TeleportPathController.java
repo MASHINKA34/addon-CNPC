@@ -912,6 +912,10 @@ public final class TeleportPathController {
         }
         currentPhase = highestPhaseReached;
         cancelPendingAndSchedules();
+        // A phase that is over takes its platforms with it. Not in cancelPendingAndSchedules: that
+        // also runs on every tick a combat-only boss has no target, and a fuse or a smoulder must
+        // not go out because the victim it was aimed at just died on it.
+        BossPlatformScheduler.clearBoss(npc);
         // After the schedules are wiped, so an immediate summon is not cleared again.
         enterPhase(level, gameTime, data, data.getPhase(currentPhase));
         playAnimation(data.getPhaseTransitionAnimation());
@@ -1423,6 +1427,7 @@ public final class TeleportPathController {
         BossMarkScheduler.clearBoss(npc);
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
+        BossPlatformScheduler.clearBoss(npc);
         busyUntil = 0L;
     }
 
@@ -2464,11 +2469,9 @@ public final class TeleportPathController {
         // A chase does not outlive the phase, the fight or the boss that started it, and
         // every one of those ends up here. Nor does a sweep, nor a run: unlike a leap's flight
         // a dash is the boss' own legs, and it stops where it is. A series of cones is the boss'
-        // own swings, and the ones still to come are never swung. Nor do the platforms it set
-        // alight, which the end of a fight and a death put out through here as well.
+        // own swings, and the ones still to come are never swung.
         huntRuntime.end();
         BossBeamScheduler.clearBoss(npc);
-        BossPlatformScheduler.clearBoss(npc);
         dash.clear();
         cone.clear();
     }

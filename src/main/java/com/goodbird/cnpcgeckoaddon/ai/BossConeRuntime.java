@@ -257,8 +257,11 @@ final class BossConeRuntime {
         }
     }
 
-    /** Knockback away from {@code x, z}, sent to a player even when no hurt went through to send it. */
-    private static void shove(LivingEntity victim, int strength, double x, double z) {
+    /**
+     * Knockback away from {@code x, z}, sent to a player even when no hurt went through to send it.
+     * Shared with the platforms, which shove whoever stays on one whether its damage lands or not.
+     */
+    static void shove(LivingEntity victim, int strength, double x, double z) {
         if (strength <= 0) {
             return;
         }
