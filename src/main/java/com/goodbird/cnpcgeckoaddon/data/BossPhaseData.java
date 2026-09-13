@@ -263,6 +263,32 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.cocoon_rescue.stand"
     };
 
+    /** The dash runs at whoever it picked. */
+    public static final int DASH_DIRECTION_TARGET = 0;
+
+    /** The dash runs the way the boss is facing, whoever happens to be in the way. */
+    public static final int DASH_DIRECTION_FACING = 1;
+
+    public static final String[] DASH_DIRECTION_LABELS = {
+            "cnpcgeckoaddon.boss.dash_direction.target",
+            "cnpcgeckoaddon.boss.dash_direction.facing"
+    };
+
+    /** A dash that meets a wall instead of a victim leaves the boss stunned and taking more. */
+    public static final int DASH_WALL_STUN = 0;
+
+    /** ...has the boss slam the ground round itself. */
+    public static final int DASH_WALL_SLAM = 1;
+
+    /** ...sets the boss' own enrage off, or stuns it when there is no enrage left to set off. */
+    public static final int DASH_WALL_RAGE = 2;
+
+    public static final String[] DASH_WALL_LABELS = {
+            "cnpcgeckoaddon.boss.dash_wall.stun",
+            "cnpcgeckoaddon.boss.dash_wall.slam",
+            "cnpcgeckoaddon.boss.dash_wall.rage"
+    };
+
     /**
      * The abilities whose wind-up can pin a walking boss to the spot it started on, in
      * {@link BossAbilityKind} order. One mask rather than a boolean per ability: there are
@@ -271,7 +297,9 @@ public final class BossPhaseData {
      *
      * <p>The movers are deliberately absent. A leap roots its crouch unconditionally and
      * flies free from the push, a teleport is never held - moving away is the whole
-     * ability - and the death blast goes off with nobody left standing to hold.</p>
+     * ability - and the death blast goes off with nobody left standing to hold. The dash is
+     * the one mover listed: its bit only holds the wind-up, and the run lets go of the pin
+     * on its own the moment it starts, the way the leap's push does.</p>
      */
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -279,7 +307,8 @@ public final class BossPhaseData {
             BossAbilityKind.SUMMON, BossAbilityKind.LINE, BossAbilityKind.GEYSER,
             BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
-            BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON
+            BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
+            BossAbilityKind.DASH
     };
 
     /**
@@ -323,6 +352,7 @@ public final class BossPhaseData {
     private final BossCaptureSettings capture = new BossCaptureSettings();
     private final BossCocoonSettings cocoon = new BossCocoonSettings();
     private final BossCoverSettings cover = new BossCoverSettings();
+    private final BossDashSettings dash = new BossDashSettings();
     private final BossFluidSpitSettings fluidSpit = new BossFluidSpitSettings();
     private final BossGeyserSettings geyser = new BossGeyserSettings();
     private final BossGravitySettings gravity = new BossGravitySettings();
@@ -377,6 +407,11 @@ public final class BossPhaseData {
     /** The hit on the whole arena that spares only whoever got out of sight. */
     public BossCoverSettings cover() {
         return cover;
+    }
+
+    /** The charge down a committed line, and what a wall at the end of it does to the boss. */
+    public BossDashSettings dash() {
+        return dash;
     }
 
     /** The lobbed ball of fluid and the puddle it leaves. */
@@ -604,6 +639,7 @@ public final class BossPhaseData {
         capture.writeToNBT(tag);
         cocoon.writeToNBT(tag);
         cover.writeToNBT(tag);
+        dash.writeToNBT(tag);
         fluidSpit.writeToNBT(tag);
         geyser.writeToNBT(tag);
         gravity.writeToNBT(tag);
@@ -668,6 +704,10 @@ public final class BossPhaseData {
         if (!tag.contains("CocoonEnabled")) {
             castRootMask |= 1 << BossAbilityKind.COCOON;
         }
+        // And for the dash, whose bit only pins the wind-up: the run lets go of the pin itself.
+        if (!tag.contains("DashEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.DASH;
+        }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight.
         finishMask = tag.getInt("FinishMask") & BossAbilityKind.LASTING_ALL;
@@ -691,6 +731,7 @@ public final class BossPhaseData {
         capture.readFromNBT(tag);
         cocoon.readFromNBT(tag);
         cover.readFromNBT(tag);
+        dash.readFromNBT(tag);
         fluidSpit.readFromNBT(tag);
         geyser.readFromNBT(tag);
         gravity.readFromNBT(tag);

@@ -46,8 +46,8 @@ final class BossLeapRuntime {
     private static final double MARKER_SPACING = 0.7D;
     private static final int MARKER_INTERVAL_TICKS = 4;
     private static final int VFX_DURATION_TICKS = 20;
-    /** Kept inside the leash by this much, so the landing does not trigger a reset. */
-    private static final double LEASH_MARGIN = 1.5D;
+    /** Kept inside the leash by this much, so the landing does not trigger a reset. The dash's stop uses it too. */
+    static final double LEASH_MARGIN = 1.5D;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;

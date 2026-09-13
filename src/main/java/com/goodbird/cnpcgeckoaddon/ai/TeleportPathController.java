@@ -105,6 +105,8 @@ public final class TeleportPathController {
                     controller.beam.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.COCOON, (controller, level, data, phase, gameTime) ->
                     controller.cocoon.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.DASH, (controller, level, data, phase, gameTime) ->
+                    controller.dash.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.tryStart(level, data, phase, gameTime))));
 
@@ -164,6 +166,8 @@ public final class TeleportPathController {
                     controller.beam.perform(level, phase, gameTime)),
             Map.entry(BossAbility.COCOON, (controller, level, data, phase, gameTime) ->
                     controller.cocoon.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.DASH, (controller, level, data, phase, gameTime) ->
+                    controller.dash.perform(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.perform(level, phase)),
             Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
@@ -268,6 +272,8 @@ public final class TeleportPathController {
     private final BossHookRuntime hook;
     /** The jump, its flight and the slam it lands with. */
     private final BossLeapRuntime leap;
+    /** The charge down a committed lane, and whatever it runs into at the end of it. */
+    private final BossDashRuntime dash;
     /** Where a summon puts its clones, and the order it takes its points in. */
     private final BossMinionSpawnRuntime minionSpawns;
     /** The walk over the teleport path: which point is next, and when. */
@@ -377,6 +383,7 @@ public final class TeleportPathController {
         this.coverRuntime = new BossCoverRuntime(this, npc);
         this.hook = new BossHookRuntime(this, npc);
         this.leap = new BossLeapRuntime(this, npc);
+        this.dash = new BossDashRuntime(this, npc);
         this.minionSpawns = new BossMinionSpawnRuntime(this, npc);
         this.path = new BossPathRuntime(this, npc);
         this.cocoon = new BossCocoonRuntime(this, npc);
@@ -393,7 +400,7 @@ public final class TeleportPathController {
         this.rangedAttack = new BossRangedAttackRuntime(this, npc);
         this.meleeAttack = new BossMeleeAttackRuntime(this, npc);
         this.summonRuntime = new BossSummonRuntime(this, npc);
-        this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, minionSpawns);
+        this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, dash, minionSpawns);
         this.castSpots = new BossCastSpotRuntime(this, npc);
         INSTANCES.add(this);
     }
@@ -1560,8 +1567,8 @@ public final class TeleportPathController {
     }
 
     /**
-     * Turns a boss winding up a line strike or a boulder onto the corridor it committed to,
-     * instead of after the target.
+     * Turns a boss winding up a line strike, a boulder or a dash onto the corridor it committed
+     * to, instead of after the target.
      *
      * <p>The axis was fixed the moment the warning went down, but the tracking above kept
      * swinging the model after the runner, so the swing read as aimed one way while the hit
@@ -1571,7 +1578,8 @@ public final class TeleportPathController {
      * @return true when the wind-up owns the rotation this tick
      */
     private boolean faceCommittedAxis(TeleportPathData data) {
-        if (pendingAction != BossAbility.LINE_ATTACK && pendingAction != BossAbility.BOULDER) {
+        if (pendingAction != BossAbility.LINE_ATTACK && pendingAction != BossAbility.BOULDER
+                && pendingAction != BossAbility.DASH) {
             return false;
         }
         BossPhaseData phase = data.getPhase(currentPhase);
@@ -1583,11 +1591,13 @@ public final class TeleportPathController {
             return true;
         }
         // The boulder has no opt-out: its corridor is exactly as wide as the stone, so one
-        // launched off the boss' shoulder reads as broken rather than as a style choice.
+        // launched off the boss' shoulder reads as broken rather than as a style choice. Nor
+        // has the dash: the boss is about to run down that lane, and it runs facing forward.
         if (committedAxis == null) {
             return false;
         }
-        turnTowardAxis(committedAxis, phase.boulder().getRange(), LINE_FACE_TURN_DEGREES_PER_TICK);
+        double reach = pendingAction == BossAbility.DASH ? phase.dash().getLength() : phase.boulder().getRange();
+        turnTowardAxis(committedAxis, reach, LINE_FACE_TURN_DEGREES_PER_TICK);
         return true;
     }
 
@@ -2080,8 +2090,9 @@ public final class TeleportPathController {
                     || leap.isValidTarget(target, phase);
             // The corridor was committed to when the warning went up, so there is nothing
             // left to call off: walking out of it already is the dodge, and cancelling
-            // would only bring the same strike back round in two seconds.
-            case LINE_ATTACK, BOULDER -> true;
+            // would only bring the same strike back round in two seconds. The dash's lane
+            // is the same promise, and its target only ever pointed it.
+            case LINE_ATTACK, BOULDER, DASH -> true;
             // And the rain is not aimed at anybody at all: the ring is centred on the boss
             // and lands on ground, so there is nobody in particular who could have left it.
             case BOULDER_RAIN -> true;

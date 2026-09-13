@@ -72,6 +72,8 @@ public enum BossAbility {
     COCOON(BossAbilityKind.COCOON, phase -> phase.cocoon().canCocoon(),
             phase -> phase.cocoon().isConfigured(),
             phase -> phase.cocoon().getCooldownTicks(), phase -> phase.cocoon().castSpot()),
+    DASH(BossAbilityKind.DASH, phase -> phase.dash().isEnabled(),
+            phase -> phase.dash().getCooldownTicks(), phase -> phase.dash().castSpot()),
     SUMMON(BossAbilityKind.SUMMON, phase -> phase.summon().canSummon(),
             phase -> phase.summon().isConfigured(),
             phase -> phase.summon().getCooldownTicks(), phase -> phase.summon().castSpot()),

@@ -126,6 +126,10 @@ class BossAbilityTableTest {
                     },
                     (phase, ticks) -> phase.cocoon().setCooldownTicks(ticks),
                     phase -> phase.cocoon().castSpot())),
+            Map.entry(BossAbility.DASH, new Wiring(
+                    phase -> phase.dash().setEnabled(true),
+                    (phase, ticks) -> phase.dash().setCooldownTicks(ticks),
+                    phase -> phase.dash().castSpot())),
             Map.entry(BossAbility.SUMMON, new Wiring(
                     phase -> {
                         phase.summon().setEnabled(true);

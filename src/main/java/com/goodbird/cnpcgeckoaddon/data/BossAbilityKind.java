@@ -53,7 +53,12 @@ public final class BossAbilityKind {
      * party has to come and break them out, or they pay for it when the time runs out.
      */
     public static final int COCOON = 20;
-    public static final int COUNT = 21;
+    /**
+     * A charge down a line the boss committed to: whoever it meets first takes the hit, and a
+     * wall it meets instead stuns it, sets off a slam round it or enrages it.
+     */
+    public static final int DASH = 21;
+    public static final int COUNT = 22;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -76,7 +81,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.hazard",
             "cnpcgeckoaddon.boss.ability.hunt",
             "cnpcgeckoaddon.boss.ability.beam",
-            "cnpcgeckoaddon.boss.ability.cocoon"
+            "cnpcgeckoaddon.boss.ability.cocoon",
+            "cnpcgeckoaddon.boss.ability.dash"
     };
 
     static {
@@ -96,7 +102,7 @@ public final class BossAbilityKind {
      */
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON, DASH
     };
 
     /**
@@ -104,7 +110,8 @@ public final class BossAbilityKind {
      * ones a boss can be told to see through before it starts anything else.
      *
      * <p>The leap is absent because its flight already keeps the boss busy until it lands,
-     * and the hunt because its own silence switch does the same job for the chase.</p>
+     * the dash because its run does the same until it stops, and the hunt because its own
+     * silence switch does the same job for the chase.</p>
      */
     public static final int[] LASTING_ABILITIES = {
             HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON
@@ -121,7 +128,7 @@ public final class BossAbilityKind {
      */
     public static final int[] COMBO_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, SUMMON, LEAP, LINE, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON, DASH
     };
 
     /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */

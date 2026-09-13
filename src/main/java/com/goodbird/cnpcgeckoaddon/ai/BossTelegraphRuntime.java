@@ -40,15 +40,18 @@ final class BossTelegraphRuntime {
     private final BossCoverRuntime coverRuntime;
     private final BossHuntRuntime huntRuntime;
     private final BossLeapRuntime leap;
+    private final BossDashRuntime dash;
     private final BossMinionSpawnRuntime minionSpawns;
 
     BossTelegraphRuntime(TeleportPathController boss, EntityNPCInterface npc, BossCoverRuntime coverRuntime,
-                         BossHuntRuntime huntRuntime, BossLeapRuntime leap, BossMinionSpawnRuntime minionSpawns) {
+                         BossHuntRuntime huntRuntime, BossLeapRuntime leap, BossDashRuntime dash,
+                         BossMinionSpawnRuntime minionSpawns) {
         this.boss = boss;
         this.npc = npc;
         this.coverRuntime = coverRuntime;
         this.huntRuntime = huntRuntime;
         this.leap = leap;
+        this.dash = dash;
         this.minionSpawns = minionSpawns;
     }
 
@@ -128,6 +131,15 @@ final class BossTelegraphRuntime {
                 if (cast.axis() != null) {
                     BossTelegraphUtil.corridor(level, npc.position(), cast.axis(),
                             phase.boulder().getRange(), phase.boulder().getScale() / 10.0D,
+                            0.0D, dust, BossTelegraphUtil.fadedDust(ability));
+                }
+            }
+            // The lane as far as the run will really go: a home leash that cuts it short cuts
+            // the mark short too, so nobody dodges out of a stretch the boss never reaches.
+            case DASH -> {
+                if (cast.axis() != null) {
+                    BossTelegraphUtil.corridor(level, npc.position(), cast.axis(),
+                            dash.previewReach(data, phase, cast.axis()), phase.dash().getWidth(),
                             0.0D, dust, BossTelegraphUtil.fadedDust(ability));
                 }
             }

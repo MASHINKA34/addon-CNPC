@@ -50,7 +50,8 @@ public final class BossTelegraphUtil {
             0xFF1A1A, // arena hazard - plain red, between the slam's orange and the strike's crimson
             0x2E8B57, // hunt - hunter green, well darker than the spit's mint and the lime of take cover
             0xE6F2FF, // sweeping beam - cold white, a searing line read against the melee's warm cream
-            0xD9A6E0  // cocoon - cobweb mauve, the capture's pink with the life bled out of it
+            0xD9A6E0, // cocoon - cobweb mauve, the capture's pink with the life bled out of it
+            0x1E90FF  // dash - azure streak, a deeper blue than the shot's cyan and brighter than the geyser's
     };
 
     /** How much of an ability's colour its faded half keeps. */

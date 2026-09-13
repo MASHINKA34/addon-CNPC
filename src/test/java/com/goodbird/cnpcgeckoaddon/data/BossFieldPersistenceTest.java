@@ -69,6 +69,7 @@ class BossFieldPersistenceTest {
                         Map.entry(BossCaptureSettings.class, BossPhaseData::capture),
                         Map.entry(BossCocoonSettings.class, BossPhaseData::cocoon),
                         Map.entry(BossCoverSettings.class, BossPhaseData::cover),
+                        Map.entry(BossDashSettings.class, BossPhaseData::dash),
                         Map.entry(BossFluidSpitSettings.class, BossPhaseData::fluidSpit),
                         Map.entry(BossGeyserSettings.class, BossPhaseData::geyser),
                         Map.entry(BossGravitySettings.class, BossPhaseData::gravity),
@@ -119,6 +120,7 @@ class BossFieldPersistenceTest {
                         Map.entry("Hunt", phase -> phase.hunt().castSpot()),
                         Map.entry("Beam", phase -> phase.beam().castSpot()),
                         Map.entry("Cocoon", phase -> phase.cocoon().castSpot()),
+                        Map.entry("Dash", phase -> phase.dash().castSpot()),
                         Map.entry("Summon", phase -> phase.summon().castSpot()))
                 .map(entry -> DynamicTest.dynamicTest(entry.getKey() + " cast spot",
                         () -> assertPersisted(BossCastSpot.class, BossFieldPersistenceTest::configuredHost,
