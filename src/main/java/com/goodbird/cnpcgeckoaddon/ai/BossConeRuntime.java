@@ -18,17 +18,22 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.POST_ACTION_LOCK_TICKS;
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The cone strike: a wind-up with its sector marked, then a hit over the whole fan at once -
- * toward whoever it picked, along the boss' gaze, or at the builder's points.
+ * toward whoever it picked, along the boss' gaze, or at the builder's points one after another.
  *
  * <p>Owned by {@link TeleportPathController}. Which way the cone opens is settled as the boss
  * commits, the line strike's rule: the sector drawn on the floor is a promise, and a boss that
  * swung it round after a sidestepping player would turn the warning into a lie. A point is
  * the one aim that is not a direction - it is the block lying on the middle of its cone - so
  * that cone is laid from wherever the boss stands toward it.</p>
+ *
+ * <p>A series over the points is the boss' own swings, one after another, so it holds the boss
+ * busy and on its spot until the last of them lands. Nothing here is saved: a server that goes
+ * down mid series leaves the rest of it unstruck.</p>
  */
 final class BossConeRuntime {
 
@@ -45,6 +50,10 @@ final class BossConeRuntime {
 
     /** Where the points the cast being wound up strikes stand, in order; empty unless it is aimed at points. */
     private final List<Vec3> planned = new ArrayList<>();
+    /** The points a series under way has still to strike, or null between series. */
+    private Series<Vec3> series;
+    /** Phase the series started in: what its cones hit for belongs to the settings that launched it. */
+    private int phaseIndex = -1;
 
     BossConeRuntime(TeleportPathController boss, EntityNPCInterface npc, BossMinionSpawnRuntime minionSpawns) {
         this.boss = boss;
@@ -52,8 +61,19 @@ final class BossConeRuntime {
         this.minionSpawns = minionSpawns;
     }
 
+    /** Whether a series is under way, which the busy gate, the pin and the chains all wait for. */
+    boolean isSequencing() {
+        return series != null;
+    }
+
+    /** The cone a series strikes next, from where the boss stands now, or null between series. */
+    Vec3 nextAxis() {
+        return series == null || series.isOver() ? null : axisToward(series.upcoming());
+    }
+
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        if (!boss.mayStart(BossAbility.CONE, phase) || gameTime < boss.abilityScheduleAt(BossAbility.CONE)) {
+        if (!boss.mayStart(BossAbility.CONE, phase) || gameTime < boss.abilityScheduleAt(BossAbility.CONE)
+                || isSequencing()) {
             return false;
         }
         BossConeSettings cone = phase.cone();
@@ -127,19 +147,66 @@ final class BossConeRuntime {
         if (planned.isEmpty()) {
             return committed == null ? List.of() : List.of(committed);
         }
-        List<Vec3> axes = new ArrayList<>(planned.size());
-        for (Vec3 point : planned) {
-            axes.add(axisToward(point));
-        }
-        return axes;
+        return axesToward(planned);
     }
 
+    /**
+     * The first cone at the end of the wind-up, and the series after it when the cast is aimed at
+     * points: the rest follow one pause apart, or land with the first when there is no pause.
+     */
     void perform(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
-        List<Vec3> axes = axesFor(boss.committedAxis());
+        List<Vec3> points = List.copyOf(planned);
         planned.clear();
-        if (!axes.isEmpty()) {
-            strike(level, data, phase, axes);
+        if (points.isEmpty()) {
+            Vec3 committed = boss.committedAxis();
+            if (committed != null) {
+                strike(level, data, phase, List.of(committed));
+            }
+            return;
         }
+        Series<Vec3> started = new Series<>(points, phase.cone().getPointIntervalTicks(), gameTime);
+        strike(level, data, phase, axesToward(started.due(gameTime)));
+        if (!started.isOver()) {
+            series = started;
+            phaseIndex = boss.currentPhaseIndex();
+            // Nothing else starts from this tick on until the last cone has landed.
+            boss.holdBusyUntil(gameTime + 1);
+        }
+    }
+
+    /**
+     * Carries a series one tick further: the next cone once its pause is over, and the usual
+     * pause after a cast once the last one has landed.
+     *
+     * <p>Runs every tick above the controller's gates, the dash's way: the series holds the busy
+     * gate shut itself, so it has to be ticked before that gate turns everything else away.</p>
+     */
+    void tick(ServerLevel level, TeleportPathData data, long gameTime) {
+        if (series == null) {
+            return;
+        }
+        boss.holdBusyUntil(gameTime + 1);
+        BossPhaseData phase = phaseOf(data);
+        if (phase == null) {
+            // Its phase was deleted from under it, and what the rest would hit for with it.
+            finish(gameTime);
+            return;
+        }
+        List<Vec3> due = series.due(gameTime);
+        if (!due.isEmpty()) {
+            strike(level, data, phase, axesToward(due));
+        }
+        // Asked again rather than trusted: a hit can set off a script that kills or resets the
+        // boss, and that clears the series under it.
+        if (series != null && series.isOver()) {
+            finish(gameTime);
+        }
+    }
+
+    /** The end every series but a called-off one comes to: the usual pause after a cast. */
+    private void finish(long gameTime) {
+        clear();
+        boss.holdBusyUntil(gameTime + POST_ACTION_LOCK_TICKS);
     }
 
     /**
@@ -242,15 +309,35 @@ final class BossConeRuntime {
         return along >= Math.sqrt(distanceSqr) * Math.cos(Math.toRadians(angle * 0.5D)) - EDGE_EPSILON;
     }
 
-    /** Forgets the points a wind-up was aimed at: a phase change, a reset or a death called it off. */
+    /**
+     * Drops the points a wind-up was aimed at and whatever is left of a series.
+     *
+     * <p>Idempotent and the one road out: the last cone, a phase change, a reset, a death and a
+     * stagger all end a series here, so none of them can leave the boss held busy for good.</p>
+     */
     void clear() {
         planned.clear();
+        series = null;
+        phaseIndex = -1;
+    }
+
+    /** The phase a series belongs to, so a phase that disappears mid series cannot rewrite its hits. */
+    private BossPhaseData phaseOf(TeleportPathData data) {
+        return phaseIndex >= 0 && phaseIndex < data.getPhaseCount() ? data.getPhase(phaseIndex) : null;
     }
 
     /** The flat line from the boss to a spot, or the gaze for a spot inside the boss. */
     private Vec3 axisToward(Vec3 point) {
         Vec3 flat = new Vec3(point.x - npc.getX(), 0.0D, point.z - npc.getZ());
         return flat.lengthSqr() < CENTRE_EPSILON ? boss.facingAxis() : flat.normalize();
+    }
+
+    private List<Vec3> axesToward(List<Vec3> points) {
+        List<Vec3> axes = new ArrayList<>(points.size());
+        for (Vec3 point : points) {
+            axes.add(axisToward(point));
+        }
+        return axes;
     }
 
     /** Where the points one cast strikes stand in the world, in the order it strikes them. */
@@ -281,5 +368,58 @@ final class BossConeRuntime {
         }
         int taken = count <= 0 ? ordered.size() : Math.min(count, ordered.size());
         return List.copyOf(ordered.subList(0, taken));
+    }
+
+    /**
+     * The cones of one series still to strike, and when the next is due: a list and a clock,
+     * kept apart from the world so the order and the timing can be tested without one.
+     */
+    static final class Series<T> {
+        private final List<T> items;
+        private final int interval;
+        private int next;
+        private long nextAt;
+
+        Series(List<T> items, int interval, long startsAt) {
+            this.items = List.copyOf(items);
+            this.interval = Math.max(0, interval);
+            this.nextAt = startsAt;
+        }
+
+        /**
+         * The cones due at this tick, in order, taken off the series: all that are left when there
+         * is no pause between them, otherwise the next one once its pause is over.
+         *
+         * <p>The pause is counted from when the cone before really landed, so a series held up -
+         * a carried boss is not ticked - picks up again one cone at a time rather than landing
+         * every cone that fell due in the meantime at once.</p>
+         */
+        List<T> due(long gameTime) {
+            if (isOver() || gameTime < nextAt) {
+                return List.of();
+            }
+            if (interval == 0) {
+                List<T> rest = items.subList(next, items.size());
+                next = items.size();
+                return rest;
+            }
+            T item = items.get(next++);
+            nextAt = gameTime + interval;
+            return List.of(item);
+        }
+
+        boolean isOver() {
+            return next >= items.size();
+        }
+
+        /** The next cone to strike, or null once the series is over. */
+        T upcoming() {
+            return isOver() ? null : items.get(next);
+        }
+
+        /** Every cone still to strike, the next one first. */
+        List<T> remaining() {
+            return items.subList(next, items.size());
+        }
     }
 }

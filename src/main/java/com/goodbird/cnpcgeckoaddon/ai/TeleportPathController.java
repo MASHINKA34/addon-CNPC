@@ -499,9 +499,11 @@ public final class TeleportPathController {
         if ((data.isStationary() || totems.isHolding() || isBarrierStunned() || castSpots.isHolding())
                 && !leap.isAirborne() && !dash.isRunning()) {
             keepStationary();
-        } else if (castRootActive) {
+        } else if (castRootActive || cone.isSequencing()) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
             // boss when the action began, so this holds the spot its warning was shown on.
+            // A series of cones holds it the same way whatever the wind-up chose: the cones
+            // still to come are laid out from the spot the boss swings them on.
             keepStationary();
         } else {
             // A leap owns the boss' position while it is in the air - the pin would drag it
@@ -525,6 +527,8 @@ public final class TeleportPathController {
         leap.tick(level, data, gameTime);
         // For the leap's reason: a run already under way has to stop somewhere, target or not.
         dash.tick(level, data, gameTime);
+        // And a series of cones, which holds the busy gate below shut until its last cone lands.
+        cone.tick(level, data, gameTime);
         // Right after the touchdown that tick may have caught, and above every gate: a leap ends
         // when it lands, and an effect that runs out under a lock or a wind-up still ended then.
         tickComboWatch(phase, gameTime);
@@ -1604,6 +1608,17 @@ public final class TeleportPathController {
             turnTowardAxis(dash.axis(), DASH_LOOK_DISTANCE, 360.0F);
             return true;
         }
+        // Between two cones of a series the boss turns onto the next, eased the way a wind-up
+        // turns and snapped square as that cone lands, unless the phase keeps it off its cones.
+        if (cone.isSequencing()) {
+            BossPhaseData coning = data.getPhase(currentPhase);
+            Vec3 next = cone.nextAxis();
+            if (next == null || !coning.cone().isFaceAxis()) {
+                return false;
+            }
+            turnTowardAxis(next, coning.cone().getLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
+            return true;
+        }
         if (pendingAction != BossAbility.LINE_ATTACK && pendingAction != BossAbility.BOULDER
                 && pendingAction != BossAbility.DASH && pendingAction != BossAbility.CONE) {
             return false;
@@ -1818,6 +1833,7 @@ public final class TeleportPathController {
             case CAPTURE -> BossCaptureManager.hasCaptureForBoss(npc.getUUID());
             case LEAP -> leap.isAirborne();
             case DASH -> dash.isRunning();
+            case CONE -> cone.isSequencing();
             case GEYSER -> BossGeyserScheduler.hasPending(npc);
             case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
             case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
@@ -1982,6 +1998,12 @@ public final class TeleportPathController {
             // after the dash was owed to a dash that got where it was going.
             combo.forget(BossAbility.DASH);
             dash.clear();
+        }
+        if (cone.isSequencing()) {
+            // A staggered boss swings nothing: the rest of a series goes, and for the dash's reason
+            // it hands on to no follow-up.
+            combo.forget(BossAbility.CONE);
+            cone.clear();
         }
         // The follow-up waiting to start goes the way the wind-up does, walk to its spot and all:
         // the stagger breaks the chain it lands in. An effect still running keeps its claim, and
@@ -2417,7 +2439,8 @@ public final class TeleportPathController {
         forcedScheduleBefore = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and
         // every one of those ends up here. Nor does a sweep, nor a run: unlike a leap's flight
-        // a dash is the boss' own legs, and it stops where it is.
+        // a dash is the boss' own legs, and it stops where it is. A series of cones is the boss'
+        // own swings, and the ones still to come are never swung.
         huntRuntime.end();
         BossBeamScheduler.clearBoss(npc);
         dash.clear();
