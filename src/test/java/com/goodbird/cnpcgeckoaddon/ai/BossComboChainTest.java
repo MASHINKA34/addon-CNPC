@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -18,20 +19,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BossComboChainTest {
 
+    /** A boss nobody has retuned: every number below is the constant the chain shipped with. */
+    private static final BossTuningSettings TUNING = new BossTuningSettings();
+
     @Test
     @DisplayName("an ability the phase chains nothing onto is not watched")
     void unchainedAbilitiesAreNotWatched() {
         BossComboChain chain = new BossComboChain();
         BossPhaseData phase = new BossPhaseData();
-        chain.watch(BossAbility.LEAP, 1, phase);
+        chain.watch(BossAbility.LEAP, 1, phase, TUNING);
         assertFalse(chain.isWatching());
-        assertFalse(chain.finish(BossAbility.LEAP, phase, 100L), "nobody watched the leap, so its end arms nothing");
+        assertFalse(chain.finish(BossAbility.LEAP, phase, 100L, TUNING), "nobody watched the leap, so its end arms nothing");
         assertFalse(chain.hasPending());
 
         // Neither the hop nor an idle boss has a slot to chain from.
         phase.setComboFollowUp(BossAbilityKind.LEAP, BossAbilityKind.BOULDER_RAIN);
-        chain.watch(BossAbility.TELEPORT, 1, phase);
-        chain.watch(BossAbility.NONE, 1, phase);
+        chain.watch(BossAbility.TELEPORT, 1, phase, TUNING);
+        chain.watch(BossAbility.NONE, 1, phase, TUNING);
         assertFalse(chain.isWatching());
     }
 
@@ -40,18 +44,18 @@ class BossComboChainTest {
     void anEndArmsTheFollowUp() {
         BossComboChain chain = new BossComboChain();
         BossPhaseData phase = leapIntoRain(10);
-        chain.watch(BossAbility.LEAP, 1, phase);
+        chain.watch(BossAbility.LEAP, 1, phase, TUNING);
         assertTrue(chain.isWatching());
         assertEquals(List.of(BossAbility.LEAP), chain.watchedAbilities());
 
-        assertTrue(chain.finish(BossAbility.LEAP, phase, 100L));
+        assertTrue(chain.finish(BossAbility.LEAP, phase, 100L, TUNING));
         assertTrue(chain.hasPending());
         assertEquals(BossAbility.BOULDER_RAIN, chain.next());
         assertEquals(BossAbility.LEAP, chain.from());
         assertEquals(110L, chain.readyAt(), "the delay counts from the end, not from the cast");
         assertEquals(2, chain.links(), "the follow-up of an ability the boss started itself is the second link");
         assertFalse(chain.isWatching(), "an ability hands on once per time it went off");
-        assertFalse(chain.finish(BossAbility.LEAP, phase, 120L));
+        assertFalse(chain.finish(BossAbility.LEAP, phase, 120L, TUNING));
     }
 
     @Test
@@ -59,17 +63,17 @@ class BossComboChainTest {
     void theEndReadsThePhase() {
         BossComboChain chain = new BossComboChain();
         BossPhaseData phase = leapIntoRain(10);
-        chain.watch(BossAbility.LEAP, 1, phase);
+        chain.watch(BossAbility.LEAP, 1, phase, TUNING);
         phase.setComboFollowUp(BossAbilityKind.LEAP, BossAbilityKind.HOOK);
         phase.setComboDelay(BossAbilityKind.LEAP, 25);
-        assertTrue(chain.finish(BossAbility.LEAP, phase, 40L));
+        assertTrue(chain.finish(BossAbility.LEAP, phase, 40L, TUNING));
         assertEquals(BossAbility.HOOK, chain.next());
         assertEquals(65L, chain.readyAt());
 
         chain.clear();
-        chain.watch(BossAbility.LEAP, 1, phase);
+        chain.watch(BossAbility.LEAP, 1, phase, TUNING);
         phase.setComboFollowUp(BossAbilityKind.LEAP, BossPhaseData.NO_COMBO);
-        assertFalse(chain.finish(BossAbility.LEAP, phase, 40L), "a chain emptied mid effect hands on nothing");
+        assertFalse(chain.finish(BossAbility.LEAP, phase, 40L, TUNING), "a chain emptied mid effect hands on nothing");
         assertFalse(chain.hasPending());
     }
 
@@ -80,15 +84,15 @@ class BossComboChainTest {
         BossPhaseData phase = new BossPhaseData();
         phase.setComboFollowUp(BossAbilityKind.DASH, BossAbilityKind.LEAP);
         phase.setComboFollowUp(BossAbilityKind.BEAM, BossAbilityKind.GRAVITY);
-        chain.watch(BossAbility.DASH, 1, phase);
-        chain.watch(BossAbility.BEAM, 1, phase);
+        chain.watch(BossAbility.DASH, 1, phase, TUNING);
+        chain.watch(BossAbility.BEAM, 1, phase, TUNING);
 
         // A dash a stun stopped: its end is not the end its chain was waiting for.
         chain.forget(BossAbility.DASH);
         assertEquals(List.of(BossAbility.BEAM), chain.watchedAbilities(), "the sweep still running keeps its claim");
-        assertFalse(chain.finish(BossAbility.DASH, phase, 30L), "a forgotten dash arms nothing when it is seen to be over");
+        assertFalse(chain.finish(BossAbility.DASH, phase, 30L, TUNING), "a forgotten dash arms nothing when it is seen to be over");
         assertFalse(chain.hasPending());
-        assertTrue(chain.finish(BossAbility.BEAM, phase, 40L));
+        assertTrue(chain.finish(BossAbility.BEAM, phase, 40L, TUNING));
         assertEquals(BossAbility.GRAVITY, chain.next());
 
         chain.forget(BossAbility.HOOK);
@@ -103,15 +107,15 @@ class BossComboChainTest {
         phase.setComboFollowUp(BossAbilityKind.BEAM, BossAbilityKind.GRAVITY);
         phase.setComboDelay(BossAbilityKind.BEAM, 5);
         phase.setComboFollowUp(BossAbilityKind.GEYSER, BossAbilityKind.CAPTURE);
-        chain.watch(BossAbility.BEAM, 1, phase);
-        chain.watch(BossAbility.GEYSER, 1, phase);
+        chain.watch(BossAbility.BEAM, 1, phase, TUNING);
+        chain.watch(BossAbility.GEYSER, 1, phase, TUNING);
         assertEquals(2, chain.watchedAbilities().size(), "two effects running at once are two claims");
 
-        assertTrue(chain.finish(BossAbility.GEYSER, phase, 50L));
+        assertTrue(chain.finish(BossAbility.GEYSER, phase, 50L, TUNING));
         assertEquals(BossAbility.CAPTURE, chain.next());
         assertTrue(chain.isWatching(), "the sweep is still running and still owed its own");
 
-        assertTrue(chain.finish(BossAbility.BEAM, phase, 80L));
+        assertTrue(chain.finish(BossAbility.BEAM, phase, 80L, TUNING));
         assertEquals(BossAbility.GRAVITY, chain.next());
         assertEquals(BossAbility.BEAM, chain.from());
         assertEquals(85L, chain.readyAt());
@@ -124,10 +128,10 @@ class BossComboChainTest {
         BossComboChain chain = new BossComboChain();
         BossPhaseData phase = new BossPhaseData();
         phase.setComboFollowUp(BossAbilityKind.GEYSER, BossAbilityKind.MARK);
-        chain.watch(BossAbility.GEYSER, 1, phase);
-        chain.watch(BossAbility.GEYSER, 5, phase);
+        chain.watch(BossAbility.GEYSER, 1, phase, TUNING);
+        chain.watch(BossAbility.GEYSER, 5, phase, TUNING);
         assertEquals(List.of(BossAbility.GEYSER), chain.watchedAbilities());
-        assertTrue(chain.finish(BossAbility.GEYSER, phase, 0L));
+        assertTrue(chain.finish(BossAbility.GEYSER, phase, 0L, TUNING));
         assertEquals(6, chain.links());
     }
 
@@ -145,8 +149,8 @@ class BossComboChainTest {
         int abilities = 1;
         long gameTime = 0L;
         while (true) {
-            chain.watch(ability, links, phase);
-            if (!chain.finish(ability, phase, gameTime)) {
+            chain.watch(ability, links, phase, TUNING);
+            if (!chain.finish(ability, phase, gameTime, TUNING)) {
                 break;
             }
             ability = chain.next();
@@ -158,8 +162,8 @@ class BossComboChainTest {
         }
         assertEquals(BossComboChain.MAX_LINKS, abilities, "the longest chain is the ability count, the first cast included");
         assertEquals(BossAbilityKind.COUNT, BossComboChain.MAX_LINKS);
-        assertTrue(BossComboChain.hasRoomAfter(BossComboChain.MAX_LINKS - 1));
-        assertFalse(BossComboChain.hasRoomAfter(BossComboChain.MAX_LINKS));
+        assertTrue(BossComboChain.hasRoomAfter(BossComboChain.MAX_LINKS - 1, TUNING));
+        assertFalse(BossComboChain.hasRoomAfter(BossComboChain.MAX_LINKS, TUNING));
         assertFalse(chain.isWatching(), "the last link is not even watched");
     }
 
@@ -169,9 +173,9 @@ class BossComboChainTest {
         BossComboChain chain = new BossComboChain();
         BossPhaseData phase = leapIntoRain(10);
         phase.setComboFollowUp(BossAbilityKind.BEAM, BossAbilityKind.GRAVITY);
-        chain.watch(BossAbility.LEAP, 1, phase);
-        chain.watch(BossAbility.BEAM, 1, phase);
-        chain.finish(BossAbility.LEAP, phase, 0L);
+        chain.watch(BossAbility.LEAP, 1, phase, TUNING);
+        chain.watch(BossAbility.BEAM, 1, phase, TUNING);
+        chain.finish(BossAbility.LEAP, phase, 0L, TUNING);
 
         chain.clearPending();
         assertFalse(chain.hasPending());
@@ -181,7 +185,7 @@ class BossComboChainTest {
 
         chain.clear();
         assertFalse(chain.isWatching());
-        assertFalse(chain.finish(BossAbility.BEAM, phase, 10L));
+        assertFalse(chain.finish(BossAbility.BEAM, phase, 10L, TUNING));
         assertFalse(chain.hasPending());
     }
 
@@ -191,11 +195,11 @@ class BossComboChainTest {
         BossComboChain chain = armed(leapIntoRain(10), 100L);
         assertFalse(chain.isDue(109L));
         assertTrue(chain.isDue(110L));
-        assertFalse(chain.isStale(110L + BossComboChain.STALE_TICKS), "exactly that late is still owed");
-        assertTrue(chain.isStale(111L + BossComboChain.STALE_TICKS));
+        assertFalse(chain.isStale(110L + TUNING.comboStaleTicks(), TUNING), "exactly that late is still owed");
+        assertTrue(chain.isStale(111L + TUNING.comboStaleTicks(), TUNING));
         chain.clearPending();
         assertFalse(chain.isDue(500L), "nothing waiting is never due");
-        assertFalse(chain.isStale(5000L));
+        assertFalse(chain.isStale(5000L, TUNING));
     }
 
     @Test
@@ -207,15 +211,15 @@ class BossComboChainTest {
         while (chain.hasPending()) {
             assertTrue(chain.isDue(gameTime), "every retry is due on its own tick, attempt " + attempts);
             attempts++;
-            if (chain.refused(gameTime)) {
-                assertFalse(chain.isDue(gameTime + TeleportPathController.RETRY_TICKS - 1), "a retry waits its pause");
-                gameTime += TeleportPathController.RETRY_TICKS;
+            if (chain.refused(gameTime, TUNING)) {
+                assertFalse(chain.isDue(gameTime + TUNING.retryTicks() - 1), "a retry waits its pause");
+                gameTime += TUNING.retryTicks();
             }
         }
-        assertEquals(100L + BossComboChain.RETRY_WINDOW_TICKS, gameTime, "the last try is the one at the end of the window");
-        assertEquals(BossComboChain.RETRY_WINDOW_TICKS / TeleportPathController.RETRY_TICKS + 1, attempts);
-        assertEquals(60, BossComboChain.RETRY_WINDOW_TICKS);
-        assertFalse(chain.refused(gameTime), "nothing is left to refuse");
+        assertEquals(100L + TUNING.comboRetryWindowTicks(), gameTime, "the last try is the one at the end of the window");
+        assertEquals(TUNING.comboRetryWindowTicks() / TUNING.retryTicks() + 1, attempts);
+        assertEquals(60, TUNING.comboRetryWindowTicks());
+        assertFalse(chain.refused(gameTime, TUNING), "nothing is left to refuse");
     }
 
     @Test
@@ -223,9 +227,9 @@ class BossComboChainTest {
     void theWindowOpensAtTheFirstRefusal() {
         BossComboChain chain = armed(leapIntoRain(0), 100L);
         // Kept waiting by a silence for a while, and only then refused for the first time.
-        assertTrue(chain.refused(250L));
-        assertTrue(chain.refused(300L));
-        assertFalse(chain.refused(310L));
+        assertTrue(chain.refused(250L, TUNING));
+        assertTrue(chain.refused(300L, TUNING));
+        assertFalse(chain.refused(310L, TUNING));
         assertFalse(chain.hasPending());
     }
 
@@ -235,17 +239,17 @@ class BossComboChainTest {
         BossPhaseData phase = leapIntoRain(0);
         phase.setComboFollowUp(BossAbilityKind.BEAM, BossAbilityKind.GRAVITY);
         BossComboChain chain = new BossComboChain();
-        chain.watch(BossAbility.LEAP, 1, phase);
-        chain.watch(BossAbility.BEAM, 1, phase);
-        assertTrue(chain.finish(BossAbility.LEAP, phase, 100L));
-        chain.refused(100L);
-        chain.refused(150L);
+        chain.watch(BossAbility.LEAP, 1, phase, TUNING);
+        chain.watch(BossAbility.BEAM, 1, phase, TUNING);
+        assertTrue(chain.finish(BossAbility.LEAP, phase, 100L, TUNING));
+        chain.refused(100L, TUNING);
+        chain.refused(150L, TUNING);
         assertFalse(chain.isDue(155L));
 
-        assertTrue(chain.finish(BossAbility.BEAM, phase, 155L));
+        assertTrue(chain.finish(BossAbility.BEAM, phase, 155L, TUNING));
         assertTrue(chain.isDue(155L), "the pause after the rain's refusal is not the gravity's");
-        assertTrue(chain.refused(155L));
-        assertTrue(chain.refused(210L), "and neither is the rain's window");
+        assertTrue(chain.refused(155L, TUNING));
+        assertTrue(chain.refused(210L, TUNING), "and neither is the rain's window");
     }
 
     @Test
@@ -255,14 +259,14 @@ class BossComboChainTest {
         assertEquals("Combo: none", chain.status(0L));
 
         BossPhaseData phase = leapIntoRain(10);
-        chain.watch(BossAbility.LEAP, 1, phase);
+        chain.watch(BossAbility.LEAP, 1, phase, TUNING);
         assertEquals("Combo: waiting for LEAP to end", chain.status(50L));
 
-        chain.finish(BossAbility.LEAP, phase, 100L);
+        chain.finish(BossAbility.LEAP, phase, 100L, TUNING);
         assertEquals("Combo: LEAP -> BOULDER_RAIN in 10", chain.status(100L));
         assertEquals("Combo: LEAP -> BOULDER_RAIN in 0", chain.status(140L), "an overdue follow-up is not counted below zero");
-        chain.refused(140L);
-        assertEquals("Combo: LEAP -> BOULDER_RAIN in " + TeleportPathController.RETRY_TICKS, chain.status(140L),
+        chain.refused(140L, TUNING);
+        assertEquals("Combo: LEAP -> BOULDER_RAIN in " + TUNING.retryTicks(), chain.status(140L),
                 "after a refusal the count is to the retry");
     }
 
@@ -282,8 +286,8 @@ class BossComboChainTest {
     /** A chain whose leap has just ended, with its follow-up waiting. */
     private static BossComboChain armed(BossPhaseData phase, long endedAt) {
         BossComboChain chain = new BossComboChain();
-        chain.watch(BossAbility.LEAP, 1, phase);
-        assertTrue(chain.finish(BossAbility.LEAP, phase, endedAt));
+        chain.watch(BossAbility.LEAP, 1, phase, TUNING);
+        assertTrue(chain.finish(BossAbility.LEAP, phase, endedAt, TUNING));
         return chain;
     }
 

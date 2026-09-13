@@ -12,7 +12,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The line strike: a corridor laid straight out in front of the boss, with a weaker wave
@@ -49,7 +48,7 @@ final class BossLineAttackRuntime {
         // An empty corridor is no reason to swing: the strike would land on bare floor and
         // spend a whole cooldown doing it.
         if (axis == null || targetsIn(level, npc.position(), axis, phase).isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + boss.retryTicks());
             return false;
         }
         boss.commitAxis(axis);

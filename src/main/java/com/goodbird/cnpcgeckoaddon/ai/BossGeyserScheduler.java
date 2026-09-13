@@ -231,7 +231,7 @@ public final class BossGeyserScheduler {
      */
     private static void markFuse(ServerLevel level, Pending pending, long gameTime) {
         if (gameTime % MARK_INTERVAL_TICKS != 0L || level.getNearestPlayer(pending.pos.x,
-                pending.pos.y, pending.pos.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+                pending.pos.y, pending.pos.z, BossTelegraphUtil.audienceRange(pending.boss), false) == null) {
             return;
         }
         double burned = fuseProgress(pending, gameTime);
@@ -311,7 +311,7 @@ public final class BossGeyserScheduler {
     /** The column itself: what a player watching sees come up out of the mark. */
     private static void drawColumn(ServerLevel level, Pending pending) {
         Vec3 pos = pending.pos;
-        if (level.getNearestPlayer(pos.x, pos.y, pos.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+        if (level.getNearestPlayer(pos.x, pos.y, pos.z, BossTelegraphUtil.audienceRange(pending.boss), false) == null) {
             return;
         }
         double height = Mth.clamp(pending.radius * COLUMN_HEIGHT_PER_RADIUS,

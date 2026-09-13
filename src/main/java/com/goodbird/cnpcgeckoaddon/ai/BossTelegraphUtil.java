@@ -8,10 +8,13 @@ import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
@@ -23,7 +26,12 @@ import java.util.function.Supplier;
  */
 public final class BossTelegraphUtil {
 
-    /** With no player this close the mark cannot be seen, so it is not worth the particles. */
+    /**
+     * With no player this close the mark cannot be seen, so it is not worth the particles.
+     *
+     * <p>What every boss used before the range was a setting, and still what anything with
+     * no boss behind it uses. Ask {@link #audienceRange} wherever the boss is known.</p>
+     */
     public static final double AUDIENCE_RANGE = 64.0D;
 
     /**
@@ -58,7 +66,7 @@ public final class BossTelegraphUtil {
             0x00FF00  // platforms - signal green, pure where take cover's lime leans yellow and the spit's mint pales, and never the hazard box's red
     };
 
-    /** How much of an ability's colour its faded half keeps. */
+    /** How much of an ability's colour its faded half keeps, before the boss says otherwise. */
     private static final float FADED_BRIGHTNESS = 0.55F;
     /** Smaller as well as darker: the two together are what read as "this part hurts less". */
     private static final float FADED_SCALE = 0.7F;
@@ -66,6 +74,13 @@ public final class BossTelegraphUtil {
     /** Built once: the options are immutable and one is handed out per ability per emit. */
     private static final DustParticleOptions[] ABILITY_DUST = buildDust(1.0F, 1.0F);
     private static final DustParticleOptions[] FADED_DUST = buildDust(FADED_BRIGHTNESS, FADED_SCALE);
+
+    /**
+     * One set of faded dust per brightness a boss asked for, so a mark drawn every other tick
+     * is not a new options object every other tick. A handful of bosses is a handful of
+     * entries, and the whole range is ninety of them at worst.
+     */
+    private static final Map<Integer, DustParticleOptions[]> TUNED_FADED_DUST = new ConcurrentHashMap<>();
 
     /** Roughly one emit per this many blocks along a ring, an arc or a line. */
     private static final double EMIT_SPACING = 0.6D;
@@ -80,8 +95,8 @@ public final class BossTelegraphUtil {
      * flanks are eight more, so each of them has to stay well under a whole ring's budget.
      */
     private static final int MAX_CORRIDOR_EDGE_POINTS = 24;
-    /** Rare on purpose: the aura only has to catch the eye, not hide the boss behind dust. */
-    private static final int AURA_PARTICLES = 6;
+    /** The brightness the prebuilt faded set was made at, in per cent. */
+    private static final int DEFAULT_FADED_PERCENT = Math.round(FADED_BRIGHTNESS * 100.0F);
     /**
      * Spacing and ceiling for an edge that stays up for a whole phase rather than a wind-up.
      *
@@ -111,6 +126,26 @@ public final class BossTelegraphUtil {
      */
     public static DustParticleOptions fadedDust(int ability) {
         return FADED_DUST[Mth.clamp(ability, 0, FADED_DUST.length - 1)];
+    }
+
+    /** The same, as dim as this boss asked its faded half to be. */
+    public static DustParticleOptions fadedDust(int ability, int fadedPercent) {
+        if (fadedPercent == DEFAULT_FADED_PERCENT) {
+            return fadedDust(ability);
+        }
+        DustParticleOptions[] set = TUNED_FADED_DUST.computeIfAbsent(fadedPercent,
+                percent -> buildDust(percent / 100.0F, FADED_SCALE));
+        return set[Mth.clamp(ability, 0, set.length - 1)];
+    }
+
+    /**
+     * How far from this boss a mark of its is worth drawing at all.
+     *
+     * @param boss the boss whose mark it is; anything that is not a configured boss gets
+     *             {@link #AUDIENCE_RANGE}, which is what every one of them used to get
+     */
+    public static double audienceRange(Entity boss) {
+        return BossTuningUtil.of(boss).telegraphAudienceRange();
     }
 
     /** The same colour as packed RGB, for the name that goes into the action bar. */
@@ -405,9 +440,13 @@ public final class BossTelegraphUtil {
      * than their own feet that it is charging something.</p>
      */
     public static void aura(ServerLevel level, LivingEntity boss, DustParticleOptions dust) {
+        int particles = BossTuningUtil.of(boss).telegraphAuraParticles();
+        if (particles <= 0) {
+            return;
+        }
         double spread = boss.getBbWidth() * 0.6D;
         level.sendParticles(dust, boss.getX(), boss.getY() + boss.getBbHeight() * 0.5D, boss.getZ(),
-                AURA_PARTICLES, spread, boss.getBbHeight() * 0.4D, spread, 0.0D);
+                particles, spread, boss.getBbHeight() * 0.4D, spread, 0.0D);
     }
 
     private static int shapePoints(double length) {

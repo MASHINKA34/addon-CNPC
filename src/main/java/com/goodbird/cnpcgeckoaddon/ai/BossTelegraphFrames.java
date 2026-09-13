@@ -115,9 +115,10 @@ public final class BossTelegraphFrames {
         // The shapes' own spread is added to the audience range: a mark rides its victim
         // across the arena and a hazard's edge is by nature nowhere near its middle, so
         // measuring only to the boss would leave the people standing on it in the dark.
-        double range = BossTelegraphUtil.AUDIENCE_RANGE;
+        double audience = BossTelegraphUtil.audienceRange(owner);
+        double range = audience;
         for (TelegraphShape shape : frame.shapes) {
-            range = Math.max(range, BossTelegraphUtil.AUDIENCE_RANGE + shape.reachFrom(from));
+            range = Math.max(range, audience + shape.reachFrom(from));
         }
         double rangeSquared = range * range;
         BossTelegraphPaint paint = frame.paint;

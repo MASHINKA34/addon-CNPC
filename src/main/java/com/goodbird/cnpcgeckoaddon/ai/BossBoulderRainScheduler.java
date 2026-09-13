@@ -241,7 +241,7 @@ public final class BossBoulderRainScheduler {
     /** Paints the circle the stone is about to come down in, and the grit shaken off it. */
     private static void markFloor(ServerLevel level, Pending pending, long gameTime) {
         if (gameTime % MARK_INTERVAL_TICKS != 0L || level.getNearestPlayer(pending.pos.x,
-                pending.pos.y, pending.pos.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+                pending.pos.y, pending.pos.z, BossTelegraphUtil.audienceRange(pending.boss), false) == null) {
             return;
         }
         BossTelegraphUtil.ring(level, pending.pos, pending.markRadius(),

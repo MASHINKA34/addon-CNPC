@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -9,7 +10,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The chains a phase hangs off its abilities: which abilities that went off are still owed
@@ -23,21 +23,15 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 final class BossComboChain {
 
     /**
-     * The longest chain, counted in abilities from the one the boss started on its own.
+     * The longest chain the boss shipped with, counted in abilities from the one it started
+     * on its own.
      *
      * <p>A loop - the leap onto the rain and the rain back onto the leap - would otherwise run
-     * for ever with every cooldown skipped; one this long hands the boss back to its rotation.</p>
+     * for ever with every cooldown skipped; one this long hands the boss back to its rotation.
+     * The boss may be told to allow more or fewer, never past
+     * {@link BossTuningSettings#COMBO_LINK_CEILING}, which is the recursion guard itself.</p>
      */
     static final int MAX_LINKS = BossAbilityKind.COUNT;
-
-    /**
-     * How far past its time a follow-up may be kept waiting - by a silence, an immune window, a
-     * wind-up or a lock - before it is dropped: past ten seconds it no longer reads as one.
-     */
-    static final int STALE_TICKS = 200;
-
-    /** How long a follow-up that refuses to start - nobody in reach, say - is tried again for. */
-    static final int RETRY_WINDOW_TICKS = 60;
 
     /** Abilities that went off and are owed a follow-up when they end, each with its place in a chain. */
     private final Map<BossAbility, Integer> watched = new EnumMap<>(BossAbility.class);
@@ -60,9 +54,10 @@ final class BossComboChain {
      *
      * @param links the action's place in its chain: 1 for one the boss started on its own
      */
-    void watch(BossAbility performed, int links, BossPhaseData phase) {
+    void watch(BossAbility performed, int links, BossPhaseData phase, BossTuningSettings tuning) {
         int kind = performed.kind();
-        if (kind < 0 || phase.comboFollowUp(kind) == BossPhaseData.NO_COMBO || !hasRoomAfter(links)) {
+        if (kind < 0 || phase.comboFollowUp(kind) == BossPhaseData.NO_COMBO
+                || !hasRoomAfter(links, tuning)) {
             return;
         }
         // Cast again before the last one ended: its end is still one moment, and the newer
@@ -97,9 +92,9 @@ final class BossComboChain {
      * @return whether a follow-up was armed; not for an ability nobody watched, nor for one the
      *         phase no longer chains anything onto
      */
-    boolean finish(BossAbility ended, BossPhaseData phase, long gameTime) {
+    boolean finish(BossAbility ended, BossPhaseData phase, long gameTime, BossTuningSettings tuning) {
         Integer place = watched.remove(ended);
-        if (place == null || !hasRoomAfter(place)) {
+        if (place == null || !hasRoomAfter(place, tuning)) {
             return false;
         }
         BossAbility followUp = BossAbility.ofKind(phase.comboFollowUp(ended.kind()));
@@ -120,36 +115,39 @@ final class BossComboChain {
         return hasPending() && gameTime >= Math.max(readyAt, nextTryAt);
     }
 
-    /** Whether the waiting follow-up was kept from starting for too long past its time to still be owed. */
-    boolean isStale(long gameTime) {
-        return hasPending() && gameTime - readyAt > STALE_TICKS;
+    /**
+     * Whether the waiting follow-up was kept from starting for too long past its time to still
+     * be owed - by a silence, an immune window, a wind-up or a lock.
+     */
+    boolean isStale(long gameTime, BossTuningSettings tuning) {
+        return hasPending() && gameTime - readyAt > tuning.comboStaleTicks();
     }
 
     /**
-     * The waiting follow-up refused to start: it is tried again every {@code RETRY_TICKS} for
-     * {@link #RETRY_WINDOW_TICKS} from the first refusal, and then dropped without a word - a
-     * boss with nobody in reach is not a broken boss.
+     * The waiting follow-up refused to start: it is tried again every retry for as long as the
+     * boss' retry window, from the first refusal, and then dropped without a word - a boss with
+     * nobody in reach is not a broken boss.
      *
      * @return whether the follow-up is still waiting
      */
-    boolean refused(long gameTime) {
+    boolean refused(long gameTime, BossTuningSettings tuning) {
         if (!hasPending()) {
             return false;
         }
         if (retryUntil == NOT_SCHEDULED) {
-            retryUntil = gameTime + RETRY_WINDOW_TICKS;
+            retryUntil = gameTime + tuning.comboRetryWindowTicks();
         }
         if (gameTime >= retryUntil) {
             clearPending();
             return false;
         }
-        nextTryAt = gameTime + RETRY_TICKS;
+        nextTryAt = gameTime + tuning.retryTicks();
         return true;
     }
 
     /** Whether an ability this far down a chain may still hand on to one more. */
-    static boolean hasRoomAfter(int links) {
-        return links < MAX_LINKS;
+    static boolean hasRoomAfter(int links, BossTuningSettings tuning) {
+        return links < Math.min(tuning.comboMaxLinks(), BossTuningSettings.COMBO_LINK_CEILING);
     }
 
     /** Whether a follow-up is waiting to start. */

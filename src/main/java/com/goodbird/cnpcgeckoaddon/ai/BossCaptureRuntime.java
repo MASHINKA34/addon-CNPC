@@ -14,7 +14,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The grab: one victim lifted or pinned in a beam for as long as the hold lasts.
@@ -39,7 +38,7 @@ final class BossCaptureRuntime {
                 || BossCaptureManager.hasCaptureForBoss(npc.getUUID())) return false;
         LivingEntity target = selectTarget(level, phase);
         if (target == null) {
-            boss.setAbilityScheduleAt(BossAbility.CAPTURE, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.CAPTURE, gameTime + boss.retryTicks());
             return false;
         }
         boss.beginAction(BossAbility.CAPTURE, phase.capture().getAnimation(),

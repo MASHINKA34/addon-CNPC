@@ -16,8 +16,6 @@ import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The jump: a wind-up on the spot, a flight the boss does not steer, and a slam where it lands.
@@ -97,7 +95,7 @@ final class BossLeapRuntime {
         if (!npc.onGround()) {
             // Nothing to push off from. Knocked into the air or standing in a boat, the
             // boss simply tries again in half a second.
-            boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + boss.retryTicks());
             return false;
         }
         LivingEntity target = null;
@@ -105,13 +103,13 @@ final class BossLeapRuntime {
             target = boss.selectAbilityTarget(level, phase.leap().getTargetMode(),
                     phase.leap().getMaxRange(), candidate -> isValidTarget(candidate, phase));
             if (target == null) {
-                boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + RETRY_TICKS);
+                boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + boss.retryTicks());
                 return false;
             }
         }
         Vec3 planned = resolveDestination(data, phase, target);
         if (planned == null) {
-            boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + boss.retryLongTicks());
             return false;
         }
         this.destination = planned;
@@ -313,7 +311,7 @@ final class BossLeapRuntime {
         Vec3 impact = npc.position();
         // Re-pins the stationary boss on the spot it came down on, before anything else.
         clear();
-        boss.holdBusyUntil(gameTime + TeleportPathController.POST_ACTION_LOCK_TICKS);
+        boss.holdBusyUntil(gameTime + boss.postActionLockTicks());
         if (phase == null) {
             return;
         }

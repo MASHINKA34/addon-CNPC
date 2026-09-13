@@ -12,7 +12,6 @@ import noppes.npcs.entity.data.DataRanged;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The projectile the boss throws.
@@ -41,7 +40,7 @@ final class BossRangedAttackRuntime {
         LivingEntity target = boss.selectAbilityTarget(level, phase.rangedAttack().getTargetMode(),
                 phase.rangedAttack().getMaxRange(), candidate -> isValidTarget(candidate, phase));
         if (target == null || !ProjectileEntityUtil.canShoot(npc)) {
-            boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK, gameTime + boss.retryTicks());
             return false;
         }
         boss.beginAction(BossAbility.RANGED_ATTACK, phase.rangedAttack().getAnimation(),

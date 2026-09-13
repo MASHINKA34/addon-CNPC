@@ -398,7 +398,7 @@ final class BossBarrierRuntime {
      */
     private void paint(ServerLevel level) {
         if (level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
-                BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+                BossTelegraphUtil.audienceRange(npc), false) == null) {
             return;
         }
         DustParticleOptions dust = dust();

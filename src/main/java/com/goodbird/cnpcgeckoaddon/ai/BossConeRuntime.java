@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.POST_ACTION_LOCK_TICKS;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The cone strike: a wind-up with its sector marked, then a hit over the whole fan at once -
@@ -98,7 +96,7 @@ final class BossConeRuntime {
         // swing, the strike would land on bare floor and spend a whole cooldown doing it.
         if (axis == null || victimsIn(level, data, cone, npc.position(), axesFor(axis)).isEmpty()) {
             planned.clear();
-            boss.setAbilityScheduleAt(BossAbility.CONE, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.CONE, gameTime + boss.retryTicks());
             return false;
         }
         boss.commitAxis(axis);
@@ -213,7 +211,7 @@ final class BossConeRuntime {
     /** The end every series but a called-off one comes to: the usual pause after a cast. */
     private void finish(long gameTime) {
         clear();
-        boss.holdBusyUntil(gameTime + POST_ACTION_LOCK_TICKS);
+        boss.holdBusyUntil(gameTime + boss.postActionLockTicks());
     }
 
     /**
@@ -278,7 +276,7 @@ final class BossConeRuntime {
     private void flash(ServerLevel level, Vec3 origin, List<Vec3> axes, BossConeSettings cone) {
         level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.PLAYER_ATTACK_SWEEP,
                 SoundSource.HOSTILE, 1.5F, 0.6F);
-        if (level.getNearestPlayer(origin.x, origin.y, origin.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+        if (level.getNearestPlayer(origin.x, origin.y, origin.z, BossTelegraphUtil.audienceRange(npc), false) == null) {
             return;
         }
         DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.CONE);

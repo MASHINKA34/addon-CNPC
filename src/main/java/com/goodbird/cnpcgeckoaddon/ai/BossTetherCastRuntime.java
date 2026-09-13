@@ -11,7 +11,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The leash: victims tied to the boss, to a spot or to each other for a while.
@@ -43,7 +42,7 @@ final class BossTetherCastRuntime {
                 reach(phase), candidate -> isValidTarget(candidate, phase),
                 phase.tether().getTargetCount());
         if (targets.isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.TETHER, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.TETHER, gameTime + boss.retryTicks());
             return false;
         }
         boss.rememberExtraTargets(targets);

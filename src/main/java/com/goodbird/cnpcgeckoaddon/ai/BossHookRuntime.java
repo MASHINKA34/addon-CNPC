@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The chain the boss throws, and the drag that keeps hold of whoever it caught.
@@ -64,7 +63,7 @@ final class BossHookRuntime {
                 phase.hook().getMaxRange(), candidate -> isValidTarget(candidate, phase),
                 phase.hook().getTargetCount());
         if (targets.isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.HOOK, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.HOOK, gameTime + boss.retryTicks());
             return false;
         }
         boss.rememberExtraTargets(targets);

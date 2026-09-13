@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The geyser: a fuse lit under a handful of victims, and a column up through the floor when
@@ -52,7 +51,7 @@ final class BossGeyserRuntime {
                 phase.geyser().getMaxRange(), candidate -> isValidTarget(candidate, phase),
                 phase.geyser().getTargetCount());
         if (targets.isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.GEYSER, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.GEYSER, gameTime + boss.retryTicks());
             return false;
         }
         boss.rememberExtraTargets(targets);

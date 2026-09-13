@@ -16,7 +16,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
 
 /**
  * The spit: a lobbed ball of fluid that leaves a puddle where it lands.
@@ -54,7 +53,7 @@ final class BossFluidSpitRuntime {
         LivingEntity target = boss.selectAbilityTarget(level, phase.fluidSpit().getTargetMode(),
                 phase.fluidSpit().getMaxRange(), candidate -> isValidTarget(candidate, phase));
         if (target == null || FluidBlockUtil.resolve(phase.fluidSpit().getBlock()) == null) {
-            boss.setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + boss.retryLongTicks());
             return false;
         }
         boss.beginAction(BossAbility.FLUID_SPIT, phase.fluidSpit().getAnimation(),

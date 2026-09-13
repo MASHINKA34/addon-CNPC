@@ -23,9 +23,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.POST_ACTION_LOCK_TICKS;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The dash: a wind-up on the spot with its corridor marked, then a run straight down it that
@@ -124,7 +121,7 @@ final class BossDashRuntime {
         }
         if (!npc.onGround()) {
             // Nothing to push off from: a boss knocked into the air tries again shortly.
-            boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + boss.retryTicks());
             return false;
         }
         LivingEntity target = null;
@@ -133,7 +130,7 @@ final class BossDashRuntime {
             target = boss.selectAbilityTarget(level, phase.dash().getTargetMode(), phase.dash().getLength(),
                     candidate -> isValidTarget(candidate, phase));
             if (target == null) {
-                boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + RETRY_TICKS);
+                boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + boss.retryTicks());
                 return false;
             }
             committed = axisToward(target);
@@ -144,13 +141,13 @@ final class BossDashRuntime {
         if (allowed < MIN_REACH) {
             // Up against the edge of its leash with the lane pointing out: the run would end
             // before it began, so the boss looks again once it has moved.
-            boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + boss.retryLongTicks());
             return false;
         }
         // An empty lane is no reason to charge, the line strike's rule: the run would cross bare
         // floor and spend a whole cooldown doing it. A lane aimed at somebody has them in it.
         if (target == null && !anyoneInLane(level, phase, committed, allowed)) {
-            boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + boss.retryTicks());
             return false;
         }
         boss.commitAxis(committed);
@@ -487,7 +484,7 @@ final class BossDashRuntime {
     /** The end every run but an interrupted one comes to: stopped, and the usual pause after a cast. */
     private void finish(long gameTime) {
         clear();
-        boss.holdBusyUntil(gameTime + POST_ACTION_LOCK_TICKS);
+        boss.holdBusyUntil(gameTime + boss.postActionLockTicks());
     }
 
     /**

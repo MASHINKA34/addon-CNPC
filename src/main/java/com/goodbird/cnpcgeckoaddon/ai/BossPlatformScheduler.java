@@ -231,7 +231,7 @@ public final class BossPlatformScheduler {
             if (pending.announces && (gameTime - pending.litAt) % COUNTDOWN_INTERVAL_TICKS == 0L) {
                 announceCountdown(level, controller, pending, gameTime);
             }
-            if (gameTime % TeleportPathController.TELEGRAPH_INTERVAL_TICKS == 0L
+            if (gameTime % controller.telegraphIntervalTicks() == 0L
                     && hasAudience(level, pending)) {
                 outline(level, controller, pending, fuseProgress(pending, gameTime),
                         (gameTime / BLINK_TICKS) % 2L == 0L);
@@ -246,7 +246,7 @@ public final class BossPlatformScheduler {
         if (burn.isOver(gameTime)) {
             return false;
         }
-        if (gameTime % TeleportPathController.TELEGRAPH_INTERVAL_TICKS == 0L && hasAudience(level, pending)) {
+        if (gameTime % controller.telegraphIntervalTicks() == 0L && hasAudience(level, pending)) {
             // Steady from here on, and a flame now and then inside it: the platform is still burning.
             outline(level, controller, pending, BossTelegraphPaint.NO_END, true);
             scatter(level, pending, ParticleTypes.FLAME, 1);
@@ -320,7 +320,7 @@ public final class BossPlatformScheduler {
         Vec3 centre = pending.box.getCenter();
         double reach = Math.max(pending.box.getXsize(), pending.box.getZsize()) * 0.5D;
         return level.getNearestPlayer(centre.x, pending.floorY, centre.z,
-                BossTelegraphUtil.AUDIENCE_RANGE + reach, false) != null;
+                BossTelegraphUtil.audienceRange(pending.boss) + reach, false) != null;
     }
 
     /**

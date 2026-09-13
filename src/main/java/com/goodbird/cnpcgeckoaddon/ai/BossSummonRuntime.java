@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
 import noppes.npcs.entity.EntityNPCInterface;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
 
 /**
  * The call for help: whether the boss may summon right now, and the wave it summons.
@@ -34,7 +33,7 @@ final class BossSummonRuntime {
         }
         if (BossMinionUtil.countAlive(level, npc, phase.summon().getMaxAlives())
                 >= phase.summon().getMaxAlives()) {
-            boss.setAbilityScheduleAt(BossAbility.SUMMON, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.SUMMON, gameTime + boss.retryLongTicks());
             return false;
         }
         boss.beginAction(BossAbility.SUMMON, phase.summon().getAnimation(),

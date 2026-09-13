@@ -134,7 +134,7 @@ final class BossHealthScalingRuntime {
         }
 
         ServerPlayer currentTarget = npc.getTarget() instanceof ServerPlayer target ? target : null;
-        double dynamicRadius = data.getTargetSearchRadius() * 1.5D;
+        double dynamicRadius = data.tuning().targetLeash(data.getTargetSearchRadius());
         double dynamicRadiusSquared = dynamicRadius * dynamicRadius;
         AABB zone = dynamic && data.isAggroZoneEnabled() ? boss.aggroZoneBounds(level, data) : null;
         int count = 0;

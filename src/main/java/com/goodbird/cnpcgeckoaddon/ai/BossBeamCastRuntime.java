@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
 import noppes.npcs.entity.EntityNPCInterface;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
 
 /**
  * The sweep: beams swept round the boss for a while after the cast.
@@ -36,11 +35,11 @@ final class BossBeamCastRuntime {
         // One sweep at a time: a second set of beams on top of the first would double the
         // hits and leave nowhere to walk to.
         if (BossBeamScheduler.isSweeping(npc)) {
-            boss.setAbilityScheduleAt(BossAbility.BEAM, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.BEAM, gameTime + boss.retryLongTicks());
             return false;
         }
         if (!hasTargets(level, phase)) {
-            boss.setAbilityScheduleAt(BossAbility.BEAM, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.BEAM, gameTime + boss.retryLongTicks());
             return false;
         }
         boss.commitYaw(phase.beam().getStartMode() == BossPhaseData.BEAM_START_RANDOM

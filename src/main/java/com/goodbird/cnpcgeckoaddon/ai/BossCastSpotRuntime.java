@@ -17,8 +17,6 @@ import java.util.EnumMap;
 import java.util.Map;
 
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.POST_ACTION_LOCK_TICKS;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
 
 /**
  * The spot an ability is cast from: the journey there, and the hold that keeps the boss on it.
@@ -141,7 +139,7 @@ final class BossCastSpotRuntime {
         // would double the hits, and the beam's own starter refuses that anyway. Looked at
         // again shortly, the way a starter that found a sweep already turning does.
         if (boss.isAbilityRunning(ability, gameTime)) {
-            boss.setAbilityScheduleAt(ability, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(ability, gameTime + boss.retryLongTicks());
             return false;
         }
         Vec3 target = resolve(level, spot, ability);
@@ -264,8 +262,8 @@ final class BossCastSpotRuntime {
         hold = Hold.AFTER;
         // Never shorter than the after-pause the cast root keeps, so an instant cast does
         // not let go on the very tick it lands.
-        int ticks = stayMode == BossCastSpot.STAY_TICKS ? Math.max(stayTicks, POST_ACTION_LOCK_TICKS)
-                : POST_ACTION_LOCK_TICKS;
+        int ticks = stayMode == BossCastSpot.STAY_TICKS ? Math.max(stayTicks, boss.postActionLockTicks())
+                : boss.postActionLockTicks();
         holdUntil = gameTime + ticks;
     }
 

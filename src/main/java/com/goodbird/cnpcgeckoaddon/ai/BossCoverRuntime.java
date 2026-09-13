@@ -24,7 +24,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
 
 /**
  * The take cover strike: a channel that hits the whole arena and spares only whoever hid.
@@ -88,14 +87,14 @@ final class BossCoverRuntime {
             return false;
         }
         if (boss.coverVictims(level, npc.position(), phase.cover().getRange()).isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + boss.retryLongTicks());
             return false;
         }
         boolean shelterRule = phase.cover().getMode() == BossPhaseData.COVER_MODE_SHELTER;
         List<Vec3> shelters = shelterRule ? placeShelters(level, phase) : List.of();
         if (shelterRule && shelters.isEmpty()) {
             // Nowhere to put a single shelter down is a strike nobody could have answered.
-            boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + boss.retryLongTicks());
             return false;
         }
         cast = new CoverCast(phase.cover().getMode(), phase.cover().getRange(),

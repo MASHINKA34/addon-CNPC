@@ -201,7 +201,7 @@ final class BossHazardRuntime {
             return;
         }
         boolean open = gameTime >= hazard.opensAt;
-        if (gameTime % TeleportPathController.TELEGRAPH_INTERVAL_TICKS == 0L) {
+        if (gameTime % boss.telegraphIntervalTicks() == 0L) {
             if (!open) {
                 announceCountdown(level, hazard, gameTime);
             }
@@ -269,9 +269,9 @@ final class BossHazardRuntime {
      * Decoration only, so a hazard with nobody near enough to see its edge costs nothing.
      * The shape's own reach is added on: its edge can be a long way from its middle.
      */
-    private static boolean hasAudience(ServerLevel level, Vec3 centre, double reach) {
+    private boolean hasAudience(ServerLevel level, Vec3 centre, double reach) {
         return level.getNearestPlayer(centre.x, centre.y, centre.z,
-                BossTelegraphUtil.AUDIENCE_RANGE + reach, false) != null;
+                BossTelegraphUtil.audienceRange(npc) + reach, false) != null;
     }
 
     /**

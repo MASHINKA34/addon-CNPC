@@ -264,7 +264,7 @@ public final class BossMarkScheduler {
             announce(pending, player, inside, gameTime);
         }
         if (level.getNearestPlayer(pending.pos.x, pending.pos.y, pending.pos.z,
-                BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+                BossTelegraphUtil.audienceRange(pending.boss), false) == null) {
             return;
         }
         double burned = fuseProgress(pending, gameTime);

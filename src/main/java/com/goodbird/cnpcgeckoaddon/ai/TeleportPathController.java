@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
@@ -52,7 +53,6 @@ public final class TeleportPathController {
     static final long NOT_SCHEDULED = Long.MIN_VALUE;
     /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
     private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
-    static final int POST_ACTION_LOCK_TICKS = 10;
 
     @FunctionalInterface
     private interface AbilityStarter {
@@ -204,17 +204,6 @@ public final class TeleportPathController {
         }
     }
 
-    /** Quietest gap that still reads as one clang per hit rather than a rattle. */
-    private static final int BLOCK_FEEDBACK_INTERVAL_TICKS = 5;
-    static final int RETRY_SHORT_TICKS = 5;
-    static final int RETRY_TICKS = 10;
-    static final int RETRY_LONG_TICKS = 20;
-    /** How often the wind-up mark is repainted. Every other tick reads as a steady shape. */
-    static final int TELEGRAPH_INTERVAL_TICKS = 2;
-    /** A dodged ability comes back round in a couple of seconds, not a whole cooldown. */
-    private static final int TELEGRAPH_DODGE_RETRY_TICKS = 40;
-    /** Yaw eased onto a wound-up line strike's axis per tick; the hit itself snaps the rest. */
-    private static final float LINE_FACE_TURN_DEGREES_PER_TICK = 15.0F;
     /** How far down its lane a running boss looks; only sets the gaze, never a reach. */
     private static final double DASH_LOOK_DISTANCE = 8.0D;
     private static final int MINION_ALIVE_SCAN_INTERVAL_TICKS = 5;
@@ -559,13 +548,13 @@ public final class TeleportPathController {
         tickComboWatch(phase, gameTime);
         // Above the busy gate and the pending block below on purpose: a wind-up has to stay
         // marked through a lock, and the mark has to stop on the tick the ability goes off.
-        if (pendingAction != BossAbility.NONE && gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
+        if (pendingAction != BossAbility.NONE && gameTime % telegraphIntervalTicks() == 0L) {
             telegraphs.tick(level, data, gameTime, castPreview());
         }
         // Between two cones of a series nothing is pending, so the cone it strikes next is marked
         // here on the same clock - below the series' own tick, so a cone that has just landed is
         // not marked again.
-        if (cone.isSequencing() && gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
+        if (cone.isSequencing() && gameTime % telegraphIntervalTicks() == 0L) {
             telegraphs.paintConeSeries(level, data);
         }
         hazardRuntime.tick(level, data, gameTime);
@@ -599,7 +588,7 @@ public final class TeleportPathController {
                 // rhythm it had without one.
                 delayAbilitySchedule(pendingAction, pendingLeadTicks);
                 clearPendingAction();
-                busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
+                busyUntil = Math.max(busyUntil, gameTime + postActionLockTicks());
                 holdCastRootThroughLock(gameTime);
             }
             return;
@@ -699,6 +688,38 @@ public final class TeleportPathController {
 
     TeleportPathData settings() {
         return ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData();
+    }
+
+    /**
+     * The trim this boss was built with: the pauses, the retries and the repaint clocks that
+     * used to be constants here. Read through the boss rather than snapshotted, so a builder
+     * editing them mid-fight sees the change on the next tick.
+     */
+    BossTuningSettings tuning() {
+        return settings().tuning();
+    }
+
+    /** How long the boss stands still after anything it does. */
+    int postActionLockTicks() {
+        return tuning().postActionLockTicks();
+    }
+
+    /** How soon a start that did not come off is tried again: the short, the usual and the long. */
+    int retryShortTicks() {
+        return tuning().retryShortTicks();
+    }
+
+    int retryTicks() {
+        return tuning().retryTicks();
+    }
+
+    int retryLongTicks() {
+        return tuning().retryLongTicks();
+    }
+
+    /** How often the wind-up mark is repainted. */
+    int telegraphIntervalTicks() {
+        return tuning().telegraphIntervalTicks();
     }
 
     /** The phase being fought by index, which is -1 until the boss is activated. */
@@ -1209,9 +1230,9 @@ public final class TeleportPathController {
         if (data.isAggroZoneOnlyWayIn() && !isInsideAggroZone(target, data)) {
             return false;
         }
-        // Half a search radius of slack on top, so a target standing right on the edge of
-        // it does not flicker the fight on and off from one tick to the next.
-        double leash = data.getTargetSearchRadius() * 1.5D;
+        // Slack on top of the search radius, so a target standing right on the edge of it
+        // does not flicker the fight on and off from one tick to the next.
+        double leash = data.tuning().targetLeash(data.getTargetSearchRadius());
         return npc.distanceToSqr(target) <= leash * leash;
     }
 
@@ -1592,7 +1613,7 @@ public final class TeleportPathController {
     /** Keeps the root up for the pause a finished action leaves, instead of for ever. */
     private void holdCastRootThroughLock(long gameTime) {
         if (castRootActive) {
-            castRootUntil = gameTime + POST_ACTION_LOCK_TICKS;
+            castRootUntil = gameTime + postActionLockTicks();
         }
     }
 
@@ -1657,7 +1678,8 @@ public final class TeleportPathController {
         }
         LivingEntity target = npc.getTarget();
         if (target == null || !target.isAlive()) return;
-        npc.getLookControl().setLookAt(target, 90.0F, 90.0F);
+        float turn = tuning().trackTurnDegrees();
+        npc.getLookControl().setLookAt(target, turn, turn);
         double dx = target.getX() - npc.getX();
         double dz = target.getZ() - npc.getZ();
         double horizontal = Math.sqrt(dx * dx + dz * dz);
@@ -1697,7 +1719,7 @@ public final class TeleportPathController {
             if (next == null || !coning.cone().isFaceAxis()) {
                 return false;
             }
-            turnTowardAxis(next, coning.cone().getLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
+            turnTowardAxis(next, coning.cone().getLength(), tuning().lineFaceTurnDegrees());
             return true;
         }
         if (pendingAction != BossAbility.LINE_ATTACK && pendingAction != BossAbility.BOULDER
@@ -1709,7 +1731,7 @@ public final class TeleportPathController {
             if (committedAxis == null || !phase.lineAttack().isFaceAxis()) {
                 return false;
             }
-            turnTowardAxis(committedAxis, phase.lineAttack().getLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
+            turnTowardAxis(committedAxis, phase.lineAttack().getLength(), tuning().lineFaceTurnDegrees());
             return true;
         }
         if (pendingAction == BossAbility.CONE) {
@@ -1718,7 +1740,7 @@ public final class TeleportPathController {
             if (first == null || !phase.cone().isFaceAxis()) {
                 return false;
             }
-            turnTowardAxis(first, phase.cone().getLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
+            turnTowardAxis(first, phase.cone().getLength(), tuning().lineFaceTurnDegrees());
             return true;
         }
         // The boulder has no opt-out: its corridor is exactly as wide as the stone, so one
@@ -1728,7 +1750,7 @@ public final class TeleportPathController {
             return false;
         }
         double reach = pendingAction == BossAbility.DASH ? phase.dash().getLength() : phase.boulder().getRange();
-        turnTowardAxis(committedAxis, reach, LINE_FACE_TURN_DEGREES_PER_TICK);
+        turnTowardAxis(committedAxis, reach, tuning().lineFaceTurnDegrees());
         return true;
     }
 
@@ -1857,12 +1879,12 @@ public final class TeleportPathController {
             // Only a walk to the follow-up's spot keeps the flag past its own tick, and this runs
             // once that walk is over: whatever ended it, the follow-up did not start.
             abandonForcedStart();
-            combo.refused(gameTime);
+            combo.refused(gameTime, data.tuning());
         }
         if (!combo.hasPending()) {
             return false;
         }
-        if (combo.isStale(gameTime)) {
+        if (combo.isStale(gameTime, data.tuning())) {
             combo.clearPending();
             return false;
         }
@@ -1883,7 +1905,7 @@ public final class TeleportPathController {
             return true;
         }
         abandonForcedStart();
-        return combo.refused(gameTime);
+        return combo.refused(gameTime, data.tuning());
     }
 
     /**
@@ -1934,7 +1956,7 @@ public final class TeleportPathController {
      * when the action ended with its own perform: a slam, a shot, a summon.
      */
     private void watchForFollowUp(BossPhaseData phase, long gameTime) {
-        combo.watch(pendingAction, pendingLinks, phase);
+        combo.watch(pendingAction, pendingLinks, phase, settings().tuning());
         tickComboWatch(phase, gameTime);
     }
 
@@ -1950,7 +1972,7 @@ public final class TeleportPathController {
             return;
         }
         for (BossAbility ability : combo.watchedAbilities()) {
-            if (!isAbilityRunning(ability, gameTime) && combo.finish(ability, phase, gameTime)
+            if (!isAbilityRunning(ability, gameTime) && combo.finish(ability, phase, gameTime, settings().tuning())
                     && forcedAbility != BossAbility.NONE) {
                 // The newer follow-up takes the place of the one still walking to its spot.
                 castSpots.abortTravel();
@@ -1996,13 +2018,13 @@ public final class TeleportPathController {
         if (!mayStart(BossAbility.HUNT, phase) || gameTime < abilityScheduleAt(BossAbility.HUNT)) return false;
         if (huntRuntime.isHunting()) {
             // One prey at a time. A cooldown shorter than the chase looks again once it is over.
-            setAbilityScheduleAt(BossAbility.HUNT, gameTime + RETRY_LONG_TICKS);
+            setAbilityScheduleAt(BossAbility.HUNT, gameTime + retryLongTicks());
             return false;
         }
         LivingEntity prey = selectAbilityTarget(level, phase.hunt().getTargetMode(),
                 data.getTargetSearchRadius(), candidate -> huntRuntime.isValidTarget(candidate, data));
         if (prey == null) {
-            setAbilityScheduleAt(BossAbility.HUNT, gameTime + RETRY_TICKS);
+            setAbilityScheduleAt(BossAbility.HUNT, gameTime + retryTicks());
             return false;
         }
         beginAction(BossAbility.HUNT, phase.hunt().getAnimation(),
@@ -2144,7 +2166,7 @@ public final class TeleportPathController {
         if (gameTime < nextBlockFeedbackAt) {
             return false;
         }
-        nextBlockFeedbackAt = gameTime + BLOCK_FEEDBACK_INTERVAL_TICKS;
+        nextBlockFeedbackAt = gameTime + tuning().blockFeedbackIntervalTicks();
         return true;
     }
 
@@ -2172,7 +2194,7 @@ public final class TeleportPathController {
             }
             castSpots.onActionPerformed(action, gameTime);
             clearPendingAction();
-            busyUntil = Math.max(busyUntil, gameTime + POST_ACTION_LOCK_TICKS);
+            busyUntil = Math.max(busyUntil, gameTime + postActionLockTicks());
             holdCastRootThroughLock(gameTime);
             return;
         }
@@ -2219,7 +2241,7 @@ public final class TeleportPathController {
             // A short retry rather than the whole cooldown: a boss left standing for ten
             // seconds because somebody stepped aside is a worse fight than the one this
             // replaced.
-            bringAbilityScheduleForward(dodged, gameTime + TELEGRAPH_DODGE_RETRY_TICKS);
+            bringAbilityScheduleForward(dodged, gameTime + tuning().dodgeRetryTicks());
             return false;
         }
         playAnimation(pendingAnimation);

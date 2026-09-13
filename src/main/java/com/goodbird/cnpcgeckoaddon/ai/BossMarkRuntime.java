@@ -11,7 +11,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The mark: a circle handed to a handful of victims that goes off where they are standing
@@ -42,7 +41,7 @@ final class BossMarkRuntime {
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.mark().getTargetMode(),
                 REACH, this::isValidTarget, phase.mark().getTargetCount());
         if (targets.isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.MARK, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.MARK, gameTime + boss.retryTicks());
             return false;
         }
         boss.rememberExtraTargets(targets);

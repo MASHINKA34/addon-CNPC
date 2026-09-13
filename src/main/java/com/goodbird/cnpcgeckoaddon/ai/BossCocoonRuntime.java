@@ -23,7 +23,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The cocoon: the shell the boss closes round a victim, and the guard posted beside it.
@@ -84,7 +83,7 @@ final class BossCocoonRuntime {
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.cocoon().getTargetMode(),
                 REACH, this::isValidTarget, phase.cocoon().getTargetCount());
         if (targets.isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.COCOON, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.COCOON, gameTime + boss.retryTicks());
             return false;
         }
         boss.rememberExtraTargets(targets);

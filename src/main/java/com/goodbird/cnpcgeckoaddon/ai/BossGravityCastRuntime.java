@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
 import noppes.npcs.entity.EntityNPCInterface;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
 
 /**
  * The field: a pull, a push or a throw covering everything around the boss.
@@ -30,7 +29,7 @@ final class BossGravityCastRuntime {
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!boss.mayStart(BossAbility.GRAVITY, phase) || gameTime < boss.abilityScheduleAt(BossAbility.GRAVITY)) return false;
         if (!hasTargets(level, phase)) {
-            boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + boss.retryLongTicks());
             return false;
         }
         boss.beginAction(BossAbility.GRAVITY, phase.gravity().getAnimation(),

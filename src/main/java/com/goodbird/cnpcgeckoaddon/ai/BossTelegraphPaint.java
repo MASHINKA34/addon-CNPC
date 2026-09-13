@@ -30,12 +30,6 @@ public final class BossTelegraphPaint {
     /** A warning with nothing to count towards: an open hazard, a platform already alight. */
     public static final float NO_END = -1.0F;
 
-    /**
-     * How long a frame outlives the tick it was drawn on. Every clock that paints one runs
-     * every other tick, so one tick more than that is what carries a warning from one frame
-     * to the next without leaving it up after the last of them.
-     */
-    public static final int TTL_TICKS = TeleportPathController.TELEGRAPH_INTERVAL_TICKS + 1;
 
     /**
      * The boss' own settings for drawn warnings, taken once.
@@ -45,17 +39,29 @@ public final class BossTelegraphPaint {
      * changing the style mid-fight must not change the mark already burning on the floor.</p>
      */
     public record Settings(String style, int widthTenths, int motion, int fillPercent,
-                           boolean lasting) {
+                           boolean lasting, int intervalTicks, int fadedPercent) {
 
         /** What a boss with no settings of its own warns like: exactly as it always did. */
         public static final Settings PARTICLES = new Settings(TelegraphLineStyles.PARTICLES,
                 TeleportPathData.DEFAULT_TELEGRAPH_LINE_WIDTH,
-                TeleportPathData.TELEGRAPH_MOTION_STATIC, 0, true);
+                TeleportPathData.TELEGRAPH_MOTION_STATIC, 0, true,
+                BossTuningUtil.defaults().telegraphIntervalTicks(),
+                BossTuningUtil.defaults().telegraphFadedPercent());
 
         public static Settings of(TeleportPathData data) {
             return new Settings(data.getTelegraphLineStyle(), data.getTelegraphLineWidth(),
                     data.getTelegraphLineMotion(), data.getTelegraphLineFill(),
-                    data.isTelegraphLineLasting());
+                    data.isTelegraphLineLasting(), data.tuning().telegraphIntervalTicks(),
+                    data.tuning().telegraphFadedPercent());
+        }
+
+        /**
+         * How long a frame drawn with these outlives the tick it was drawn on. Every clock
+         * that paints one runs on the repaint interval, so one tick more than that is what
+         * carries a warning from one frame to the next without leaving it up after the last.
+         */
+        public int ttlTicks() {
+            return intervalTicks + 1;
         }
 
         /** The same, for a scheduler that holds the boss rather than its settings. */
@@ -126,7 +132,7 @@ public final class BossTelegraphPaint {
     }
 
     public int ttlTicks() {
-        return TTL_TICKS;
+        return settings.ttlTicks();
     }
 
     /** The dust the mark would be spat out as, for the half of the code that still does. */
@@ -135,7 +141,7 @@ public final class BossTelegraphPaint {
     }
 
     public DustParticleOptions fadedDust() {
-        return BossTelegraphUtil.fadedDust(ability);
+        return BossTelegraphUtil.fadedDust(ability, settings.fadedPercent());
     }
 
     /** The ability's colour, which is what a drawn band is drawn in. */

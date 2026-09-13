@@ -15,7 +15,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
 
 /**
  * The stones: one rolled or thrown down a committed corridor, and the ring of them dropped
@@ -65,7 +64,7 @@ final class BossBoulderRuntime {
         LivingEntity target = boss.selectAbilityTarget(level, phase.boulder().getTargetMode(),
                 phase.boulder().getRange(), candidate -> isValidTarget(candidate, phase));
         if (target == null || EntityBossBoulder.resolveBlock(phase.boulder().getBlock()) == null) {
-            boss.setAbilityScheduleAt(BossAbility.BOULDER, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.BOULDER, gameTime + boss.retryLongTicks());
             return false;
         }
         Vec3 flat = new Vec3(target.getX() - npc.getX(), 0.0D, target.getZ() - npc.getZ());
@@ -151,7 +150,7 @@ final class BossBoulderRuntime {
                 || gameTime < boss.abilityScheduleAt(BossAbility.BOULDER_RAIN)) return false;
         if (EntityBossBoulder.resolveBlock(phase.boulderRain().getBlock()) == null
                 || !hasRainTargets(level, phase)) {
-            boss.setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + boss.retryLongTicks());
             return false;
         }
         boss.beginAction(BossAbility.BOULDER_RAIN, phase.boulderRain().getAnimation(),

@@ -109,7 +109,7 @@ final class BossHuntRuntime {
                 return false;
             }
         }
-        double leash = data.getTargetSearchRadius() * 1.5D;
+        double leash = data.tuning().targetLeash(data.getTargetSearchRadius());
         return npc.distanceToSqr(target) <= leash * leash;
     }
 

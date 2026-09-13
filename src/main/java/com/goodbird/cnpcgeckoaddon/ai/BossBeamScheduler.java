@@ -207,7 +207,7 @@ public final class BossBeamScheduler {
                     sweep.length, sweep.stopsAtWalls);
         }
         burn(level, sweep, ends, gameTime);
-        paint(level, sweep.centre, ends, sweep.length, sweep.look);
+        paint(level, boss, sweep.centre, ends, sweep.length, sweep.look);
         return true;
     }
 
@@ -363,7 +363,7 @@ public final class BossBeamScheduler {
             float yaw = (float) (startYaw + i * 360.0D / count);
             ends[i] = reach(level, boss, centre, direction(yaw), length, stopsAtWalls);
         }
-        paint(level, centre, ends, length, BeamLooks.KIND);
+        paint(level, boss, centre, ends, length, BeamLooks.KIND);
     }
 
     /**
@@ -375,8 +375,10 @@ public final class BossBeamScheduler {
      * them, since a beam is drawn on every tick it turns. A look only says which particle a
      * point or a wall gets, never how many, so a fire beam costs exactly what a plain one does.</p>
      */
-    private static void paint(ServerLevel level, Vec3 centre, Vec3[] ends, double length, String look) {
-        if (level.getNearestPlayer(centre.x, centre.y, centre.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+    private static void paint(ServerLevel level, EntityNPCInterface boss, Vec3 centre, Vec3[] ends,
+                              double length, String look) {
+        if (level.getNearestPlayer(centre.x, centre.y, centre.z,
+                BossTelegraphUtil.audienceRange(boss), false) == null) {
             return;
         }
         RandomSource random = level.getRandom();

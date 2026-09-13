@@ -22,8 +22,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_TICKS;
 
 /**
  * The platforms: a wind-up that picks which of the builder's boxes go, and a fuse lit under
@@ -69,7 +67,7 @@ final class BossPlatformRuntime {
         // and all but one of them going twice over leaves nowhere to stand. A cast spot's walk
         // refuses the same thing before it sets off.
         if (BossPlatformScheduler.hasPending(npc)) {
-            boss.setAbilityScheduleAt(BossAbility.PLATFORM, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.PLATFORM, gameTime + boss.retryLongTicks());
             return false;
         }
         clear();
@@ -79,7 +77,7 @@ final class BossPlatformRuntime {
         // nothing, so the boss looks again shortly instead.
         List<Zone> picked = zones.isEmpty() || !anyoneOn(level, zones) ? List.of() : pick(platform, zones);
         if (picked.isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.PLATFORM, gameTime + RETRY_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.PLATFORM, gameTime + boss.retryTicks());
             return false;
         }
         for (Zone zone : picked) {

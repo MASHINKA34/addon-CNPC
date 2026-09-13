@@ -414,7 +414,7 @@ public final class BossGravityScheduler {
 
     /** The ring at the field's edge, and the motes streaming through it the way it pulls. */
     private static void paint(ServerLevel level, Field field, Vec3 centre, long gameTime) {
-        if (level.getNearestPlayer(centre.x, centre.y, centre.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+        if (level.getNearestPlayer(centre.x, centre.y, centre.z, BossTelegraphUtil.audienceRange(field.boss), false) == null) {
             return;
         }
         if (gameTime % MARK_INTERVAL_TICKS == 0L) {

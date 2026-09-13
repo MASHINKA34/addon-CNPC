@@ -7,7 +7,6 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -16,14 +15,7 @@ import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.TELEGRAPH_INTERVAL_TICKS;
-
 final class BossTelegraphRuntime {
-    private static final double TELEGRAPH_MELEE_HALF_ANGLE = 60.0D;
-    private static final double TELEGRAPH_SPAWN_RING_RADIUS = 1.0D;
-    private static final int TELEGRAPH_MAX_SPAWN_RINGS = 8;
-    private static final float TELEGRAPH_SOUND_VOLUME = 0.8F;
-    private static final float TELEGRAPH_SOUND_PITCH = 0.6F;
 
     record Cast(BossAbility action, long executesAt, long startedAt, int targetId,
                 List<Integer> extraTargets, Vec3 axis, float yaw) {
@@ -76,7 +68,7 @@ final class BossTelegraphRuntime {
 
     void tick(ServerLevel level, TeleportPathData data, long gameTime, Cast cast) {
         if (cast.action() == BossAbility.NONE || gameTime >= cast.executesAt()
-                || gameTime % TELEGRAPH_INTERVAL_TICKS != 0L) {
+                || gameTime % data.tuning().telegraphIntervalTicks() != 0L) {
             return;
         }
         paint(level, data, gameTime, cast);
@@ -100,7 +92,7 @@ final class BossTelegraphRuntime {
             return;
         }
         if (level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
-                BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+                BossTelegraphUtil.audienceRange(npc), false) == null) {
             return;
         }
         BossTelegraphPaint paint = BossTelegraphPaint.of(data, npc,
@@ -121,9 +113,9 @@ final class BossTelegraphRuntime {
             return;
         }
         if (data.isTelegraphSound() && npc.level() instanceof ServerLevel level) {
-            level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.HOSTILE,
-                    TELEGRAPH_SOUND_VOLUME, TELEGRAPH_SOUND_PITCH);
+            // The switch above is still the master one: the cue only says what it sounds like.
+            data.tuning().telegraphSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
+                    SoundSource.HOSTILE);
         }
         if (!data.isTelegraphAnnounce()) {
             return;
@@ -175,7 +167,8 @@ final class BossTelegraphRuntime {
             // after the wind-up flashes the same outline whatever the warnings say.
             case PLATFORM -> platform.drawCommitted(level, paint);
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
-                    phase.meleeAttack().getRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, paint);
+                    phase.meleeAttack().getRange(), npc.getYRot(),
+                    data.tuning().telegraphMeleeHalfAngle(), paint);
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE, HUNT ->
                     drawTelegraphTargetZone(level, data, cast.target(level), paint);
             case HOOK, GEYSER, MARK, COCOON -> {
@@ -186,7 +179,7 @@ final class BossTelegraphRuntime {
                     }
                 }
             }
-            case SUMMON -> drawTelegraphSpawnRings(level, phase, paint);
+            case SUMMON -> drawTelegraphSpawnRings(level, data, phase, paint);
             case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.gravity().getRadius(), paint);
             // The ring the volley will fall in, and the dead zone at the boss' feet where it
             // cannot: nothing is aimed at anybody, so the shape is the whole warning.
@@ -235,7 +228,7 @@ final class BossTelegraphRuntime {
         Vec3 next = cone.nextAxis();
         if (next == null || !telegraphs(data, BossAbilityKind.CONE) || !data.isTelegraphZone()
                 || level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
-                BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+                BossTelegraphUtil.audienceRange(npc), false) == null) {
             return;
         }
         // Nothing is being wound up between two cones of a series, so the mark has no end to
@@ -277,17 +270,18 @@ final class BossTelegraphRuntime {
                 target.position().add(0.0D, target.getBbHeight() * 0.5D, 0.0D), paint);
     }
 
-    private void drawTelegraphSpawnRings(ServerLevel level, BossPhaseData phase,
-                                         BossTelegraphPaint paint) {
+    private void drawTelegraphSpawnRings(ServerLevel level, TeleportPathData data,
+                                         BossPhaseData phase, BossTelegraphPaint paint) {
         int drawn = 0;
+        int rings = data.tuning().telegraphSpawnRings();
         if (phase.summon().getSpawnMode() != BossPhaseData.MINION_SPAWN_RANDOM_RADIUS) {
             for (BossMinionSpawnPoint point : phase.summon().getSpawnPoints().entries()) {
-                if (drawn >= TELEGRAPH_MAX_SPAWN_RINGS) {
+                if (drawn >= rings) {
                     break;
                 }
                 if (point.isEnabled()) {
                     BossTelegraphUtil.ring(level, minionSpawns.pointAnchor(point),
-                            TELEGRAPH_SPAWN_RING_RADIUS, paint);
+                            data.tuning().telegraphSpawnRingRadius(), paint);
                     drawn++;
                 }
             }

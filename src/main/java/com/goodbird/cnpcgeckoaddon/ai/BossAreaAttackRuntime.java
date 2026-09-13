@@ -9,7 +9,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.List;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_LONG_TICKS;
 
 /**
  * The hit that goes off all round the boss, and the wave of floor it lifts.
@@ -33,7 +32,7 @@ final class BossAreaAttackRuntime {
             return false;
         }
         if (targets(level, phase).isEmpty()) {
-            boss.setAbilityScheduleAt(BossAbility.GROUND_ATTACK, gameTime + RETRY_LONG_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.GROUND_ATTACK, gameTime + boss.retryLongTicks());
             return false;
         }
         boss.beginAction(BossAbility.GROUND_ATTACK, phase.areaAttack().getAnimation(),

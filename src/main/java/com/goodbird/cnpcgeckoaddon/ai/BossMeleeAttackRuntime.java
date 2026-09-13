@@ -8,7 +8,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import noppes.npcs.entity.EntityNPCInterface;
 
-import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.RETRY_SHORT_TICKS;
 
 /**
  * The swing the boss makes at whoever is in reach.
@@ -36,7 +35,7 @@ final class BossMeleeAttackRuntime {
                 phase.meleeAttack().getRange() + npc.getBbWidth() * 0.5D,
                 candidate -> isValidTarget(candidate, phase));
         if (target == null) {
-            boss.setAbilityScheduleAt(BossAbility.MELEE_ATTACK, gameTime + RETRY_SHORT_TICKS);
+            boss.setAbilityScheduleAt(BossAbility.MELEE_ATTACK, gameTime + boss.retryShortTicks());
             return false;
         }
         boss.beginAction(BossAbility.MELEE_ATTACK, phase.meleeAttack().getAnimation(),
