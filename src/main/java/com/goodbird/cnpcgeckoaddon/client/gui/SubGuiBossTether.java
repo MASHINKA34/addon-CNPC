@@ -24,6 +24,7 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
     private static final int COOLDOWN_FIELD = 11;
     private static final int STYLE_BUTTON = 12;
     private static final int WIDTH_FIELD = 13;
+    private static final int TUNING_BUTTON = 14;
     private static final int EFFECTS_BUTTON = 67;
     private static final int FAIL_EFFECTS_BUTTON = 68;
 
@@ -107,6 +108,9 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
                 "cnpcgeckoaddon.boss.tether_effects"));
         addButton(new GuiButtonNop(this, FAIL_EFFECTS_BUTTON, guiLeft + 126, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.tether_fail_effects"));
+        // Beside the Done, on the row the Done already had to itself.
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY + 24, 168, 20,
+                "cnpcgeckoaddon.boss.tether_tuning"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
     }
 
@@ -161,6 +165,9 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.tether().getFailEffects(),
                     "cnpcgeckoaddon.boss.effects_tether_fail"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossTetherTuning(phase.tether()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.tether().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANCHOR_BUTTON) {

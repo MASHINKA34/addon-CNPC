@@ -27,6 +27,7 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
     private static final int FAIL_DAMAGE_FIELD = 13;
     private static final int ACTION_DELAY_FIELD = 14;
     private static final int COOLDOWN_FIELD = 15;
+    private static final int TUNING_BUTTON = 16;
     private static final int EFFECTS_BUTTON = 67;
     /** Row labels take ids from here up, two per row, so a wrapped one keeps both its lines. */
     private static final int FIRST_ROW_LABEL = 100;
@@ -53,7 +54,9 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 266;
+        // Room under the hint for the fine-tuning row as well as the effects and the Done,
+        // with the hint free to wrap to four lines in a locale that needs them.
+        imageHeight = 296;
         closeOnEsc = true;
     }
 
@@ -106,9 +109,11 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.cocoon_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 240);
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+                "cnpcgeckoaddon.boss.cocoon_tuning"));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, buttonsY, 60, 20);
+        addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
         updateRescueFields();
     }
 
@@ -212,6 +217,9 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossCocoonEffects(phase));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossCocoonTuning(phase.cocoon()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.cocoon().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == TARGET_MODE_BUTTON) {

@@ -18,6 +18,7 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 8;
     private static final int COOLDOWN_FIELD = 9;
     private static final int SPAWN_POINTS_BUTTON = 10;
+    private static final int TUNING_BUTTON = 11;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -28,7 +29,8 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 256;
+        // Room under the last row for the fine-tuning line as well as the spawn points.
+        imageHeight = 280;
         closeOnEsc = true;
     }
 
@@ -64,9 +66,11 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.summon().getCooldownTicks(), 20, 12000, 400);
 
-        addButton(new GuiButtonNop(this, SPAWN_POINTS_BUTTON, guiLeft + 8, guiTop + 230, 168, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 8, guiTop + 228, 234, 20,
+                "cnpcgeckoaddon.boss.summon_tuning"));
+        addButton(new GuiButtonNop(this, SPAWN_POINTS_BUTTON, guiLeft + 8, guiTop + 252, 168, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 252, 60, 20);
     }
 
     private void addTextFieldRow(int id, String label, int y, String value) {
@@ -103,6 +107,9 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         } else if (button.id == SPAWN_POINTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossMinionSpawnSettings(npc, phase, phaseIndex));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossSummonTuning(phase.summon()));
         }
     }
 

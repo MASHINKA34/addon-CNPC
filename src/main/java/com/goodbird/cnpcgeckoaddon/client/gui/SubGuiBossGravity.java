@@ -21,6 +21,7 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 9;
     private static final int COOLDOWN_FIELD = 10;
     private static final int VFX_STYLE_BUTTON = 11;
+    private static final int TUNING_BUTTON = 12;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
@@ -36,7 +37,9 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 244;
+        // Room under the hint for the fine-tuning row as well as the effects and the Done,
+        // with the hint free to wrap to four lines in a locale that needs them.
+        imageHeight = 284;
         closeOnEsc = true;
     }
 
@@ -69,7 +72,10 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
                 phase.gravity().getRadius(), 3, 48, 16,
                 phase.gravity().getDurationTicks(), 5, 400, 60);
         y += 21;
-        addPairRow(STRENGTH_FIELD, TOUCH_RADIUS_FIELD, "cnpcgeckoaddon.boss.gravity_strength", y,
+        // The one row whose number means two different things: the tooltip is where the
+        // divider each mode uses is written down, since the label itself may not change.
+        addPairRow(STRENGTH_FIELD, TOUCH_RADIUS_FIELD, "cnpcgeckoaddon.boss.gravity_strength",
+                "cnpcgeckoaddon.boss.gravity_strength_units", y,
                 phase.gravity().getStrength(), 1, 20, 10,
                 phase.gravity().getTouchRadius(), 1, 6, 2);
         y += 21;
@@ -87,9 +93,11 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.gravity_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 214);
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+                "cnpcgeckoaddon.boss.gravity_tuning"));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, buttonsY, 60, 20);
+        addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
     }
 
     private int vfxStyleIndex() {
@@ -106,7 +114,17 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addPairRow(leftId, rightId, label, null, y, leftValue, leftMin, leftMax, leftFallback,
+                rightValue, rightMin, rightMax, rightFallback);
+    }
+
+    /** The same, with a tooltip on the label for a row whose units need saying. */
+    private void addPairRow(int leftId, int rightId, String label, String tooltip, int y,
+                            int leftValue, int leftMin, int leftMax, int leftFallback,
+                            int rightValue, int rightMin, int rightMax, int rightFallback) {
+        addLabel(tooltip == null
+                ? new GuiLabel(leftId, label, guiLeft + 6, y + 6)
+                : new GuiLabel(leftId, label, guiLeft + 6, y + 6, tooltip));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
     }
@@ -138,6 +156,9 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.gravity().getEffects(), "cnpcgeckoaddon.boss.effects_gravity"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossGravityTuning(phase.gravity()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.gravity().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == MODE_BUTTON) {
