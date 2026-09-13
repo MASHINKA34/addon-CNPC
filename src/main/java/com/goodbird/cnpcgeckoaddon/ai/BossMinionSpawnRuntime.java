@@ -207,11 +207,19 @@ final class BossMinionSpawnRuntime {
 
     /** Where one point sits in the world: an absolute spot, or an offset from the arena. */
     Vec3 pointAnchor(BossMinionSpawnPoint point) {
-        if (point.getCoordinateMode() == BossMinionSpawnPoint.COORDINATE_FIXED) {
-            return new Vec3(point.getX() + 0.5D, point.getY(), point.getZ() + 0.5D);
+        return anchor(point.getCoordinateMode() == BossMinionSpawnPoint.COORDINATE_FIXED,
+                point.getX(), point.getY(), point.getZ());
+    }
+
+    /**
+     * The same for any point kept in a summon point's two coordinate modes, so a cone strike's
+     * aim point and a spawn point written with the same numbers stand on the same block.
+     */
+    Vec3 anchor(boolean fixed, int x, int y, int z) {
+        if (fixed) {
+            return new Vec3(x + 0.5D, y, z + 0.5D);
         }
-        return new Vec3(boss.homeX() + point.getX(), boss.homeY() + point.getY(),
-                boss.homeZ() + point.getZ());
+        return new Vec3(boss.homeX() + x, boss.homeY() + y, boss.homeZ() + z);
     }
 
     private Vec3 findConfiguredPosition(ServerLevel level, Vec3 anchor, int radius,

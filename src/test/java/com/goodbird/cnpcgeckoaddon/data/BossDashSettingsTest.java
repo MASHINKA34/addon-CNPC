@@ -219,7 +219,9 @@ class BossDashSettingsTest {
     @Test
     @DisplayName("a boss that warned for everything warns for the dash; one that chose keeps its choice")
     void theWarningBitIsMigrated() {
-        int beforeDash = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1 << BossAbilityKind.DASH);
+        // Everything the mask held just before the dash joined it, so the kinds appended after
+        // the dash are not in it either.
+        int beforeDash = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ((1 << BossAbilityKind.DASH) - 1);
         TeleportPathData everything = configuredBoss();
         everything.setTelegraphAbilities(beforeDash);
         TeleportPathData reread = new TeleportPathData();
@@ -247,7 +249,7 @@ class BossDashSettingsTest {
         assertTrue(contains(TeleportPathData.TELEGRAPH_ABILITIES, BossAbilityKind.DASH), "the wind-up warns");
         assertFalse(contains(BossAbilityKind.LASTING_ABILITIES, BossAbilityKind.DASH),
                 "the run holds the boss busy itself, so there is nothing to wait out");
-        assertEquals(BossAbilityKind.DASH, BossAbilityKind.COUNT - 1, "a new kind is appended, never slotted in");
+        assertEquals(BossAbilityKind.COCOON + 1, BossAbilityKind.DASH, "a new kind is appended, never slotted in");
     }
 
     private static boolean contains(int[] list, int ability) {

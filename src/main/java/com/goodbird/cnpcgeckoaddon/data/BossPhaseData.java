@@ -289,6 +289,47 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.dash_wall.rage"
     };
 
+    /** The cone opens toward whoever it picked. */
+    public static final int CONE_AIM_TARGET = 0;
+
+    /** The cone opens the way the boss is facing, whoever happens to be standing in it. */
+    public static final int CONE_AIM_FACING = 1;
+
+    /** One cone toward each of the builder's points, one after another. */
+    public static final int CONE_AIM_POINTS = 2;
+
+    public static final String[] CONE_AIM_LABELS = {
+            "cnpcgeckoaddon.boss.cone_aim.target",
+            "cnpcgeckoaddon.boss.cone_aim.facing",
+            "cnpcgeckoaddon.boss.cone_aim.points"
+    };
+
+    /** Whoever the cone catches is knocked away from the boss. */
+    public static final int CONE_IMPULSE_PUSH = 0;
+
+    /** ...thrown straight up, the way a geyser throws. */
+    public static final int CONE_IMPULSE_LIFT = 1;
+
+    /** ...pulled in toward the boss. */
+    public static final int CONE_IMPULSE_PULL = 2;
+
+    public static final String[] CONE_IMPULSE_LABELS = {
+            "cnpcgeckoaddon.boss.cone_impulse.push",
+            "cnpcgeckoaddon.boss.cone_impulse.lift",
+            "cnpcgeckoaddon.boss.cone_impulse.pull"
+    };
+
+    /** A series takes its points in the order the list holds them. */
+    public static final int CONE_ORDER_LIST = 0;
+
+    /** A series takes its points in a fresh random order every cast. */
+    public static final int CONE_ORDER_RANDOM = 1;
+
+    public static final String[] CONE_ORDER_LABELS = {
+            "cnpcgeckoaddon.boss.cone_order.list",
+            "cnpcgeckoaddon.boss.cone_order.random"
+    };
+
     /**
      * The abilities whose wind-up can pin a walking boss to the spot it started on, in
      * {@link BossAbilityKind} order. One mask rather than a boolean per ability: there are
@@ -299,7 +340,8 @@ public final class BossPhaseData {
      * flies free from the push, a teleport is never held - moving away is the whole
      * ability - and the death blast goes off with nobody left standing to hold. The dash is
      * the one mover listed: its bit only holds the wind-up, and the run lets go of the pin
-     * on its own the moment it starts, the way the leap's push does.</p>
+     * on its own the moment it starts, the way the leap's push does. The cone strike's bit
+     * likewise only holds the wind-up: a series over its points stands still whatever it says.</p>
      */
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -308,7 +350,7 @@ public final class BossPhaseData {
             BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
-            BossAbilityKind.DASH
+            BossAbilityKind.DASH, BossAbilityKind.CONE
     };
 
     /**
@@ -351,6 +393,7 @@ public final class BossPhaseData {
     private final BossBoulderRainSettings boulderRain = new BossBoulderRainSettings();
     private final BossCaptureSettings capture = new BossCaptureSettings();
     private final BossCocoonSettings cocoon = new BossCocoonSettings();
+    private final BossConeSettings cone = new BossConeSettings();
     private final BossCoverSettings cover = new BossCoverSettings();
     private final BossDashSettings dash = new BossDashSettings();
     private final BossFluidSpitSettings fluidSpit = new BossFluidSpitSettings();
@@ -402,6 +445,11 @@ public final class BossPhaseData {
     /** The shell closed round a victim, and the guard posted beside it. */
     public BossCocoonSettings cocoon() {
         return cocoon;
+    }
+
+    /** The fan of a hit toward a victim, along the gaze or over the builder's points. */
+    public BossConeSettings cone() {
+        return cone;
     }
 
     /** The hit on the whole arena that spares only whoever got out of sight. */
@@ -638,6 +686,7 @@ public final class BossPhaseData {
         boulderRain.writeToNBT(tag);
         capture.writeToNBT(tag);
         cocoon.writeToNBT(tag);
+        cone.writeToNBT(tag);
         cover.writeToNBT(tag);
         dash.writeToNBT(tag);
         fluidSpit.writeToNBT(tag);
@@ -708,6 +757,10 @@ public final class BossPhaseData {
         if (!tag.contains("DashEnabled")) {
             castRootMask |= 1 << BossAbilityKind.DASH;
         }
+        // And for the cone strike, whose bit likewise only pins the wind-up.
+        if (!tag.contains("ConeEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.CONE;
+        }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight.
         finishMask = tag.getInt("FinishMask") & BossAbilityKind.LASTING_ALL;
@@ -730,6 +783,7 @@ public final class BossPhaseData {
         boulderRain.readFromNBT(tag);
         capture.readFromNBT(tag);
         cocoon.readFromNBT(tag);
+        cone.readFromNBT(tag);
         cover.readFromNBT(tag);
         dash.readFromNBT(tag);
         fluidSpit.readFromNBT(tag);

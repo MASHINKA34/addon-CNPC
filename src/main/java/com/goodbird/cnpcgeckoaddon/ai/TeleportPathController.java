@@ -107,6 +107,8 @@ public final class TeleportPathController {
                     controller.cocoon.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.DASH, (controller, level, data, phase, gameTime) ->
                     controller.dash.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.CONE, (controller, level, data, phase, gameTime) ->
+                    controller.cone.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.tryStart(level, data, phase, gameTime))));
 
@@ -168,6 +170,8 @@ public final class TeleportPathController {
                     controller.cocoon.perform(level, phase, gameTime)),
             Map.entry(BossAbility.DASH, (controller, level, data, phase, gameTime) ->
                     controller.dash.perform(level, data, phase, gameTime)),
+            Map.entry(BossAbility.CONE, (controller, level, data, phase, gameTime) ->
+                    controller.cone.perform(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.perform(level, phase)),
             Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
@@ -278,6 +282,8 @@ public final class TeleportPathController {
     private final BossDashRuntime dash;
     /** Where a summon puts its clones, and the order it takes its points in. */
     private final BossMinionSpawnRuntime minionSpawns;
+    /** The fan of a hit laid toward a victim, along the gaze or at the builder's points. */
+    private final BossConeRuntime cone;
     /** The walk over the teleport path: which point is next, and when. */
     private final BossPathRuntime path;
     /** The shell the boss closes round a victim, and the guard posted beside it. */
@@ -387,6 +393,7 @@ public final class TeleportPathController {
         this.leap = new BossLeapRuntime(this, npc);
         this.dash = new BossDashRuntime(this, npc);
         this.minionSpawns = new BossMinionSpawnRuntime(this, npc);
+        this.cone = new BossConeRuntime(this, npc, minionSpawns);
         this.path = new BossPathRuntime(this, npc);
         this.cocoon = new BossCocoonRuntime(this, npc);
         this.capture = new BossCaptureRuntime(this, npc);
@@ -1580,8 +1587,8 @@ public final class TeleportPathController {
     }
 
     /**
-     * Turns a boss winding up a line strike, a boulder or a dash onto the corridor it committed
-     * to, instead of after the target.
+     * Turns a boss winding up a line strike, a boulder, a dash or a cone onto the corridor or the
+     * sector it committed to, instead of after the target.
      *
      * <p>The axis was fixed the moment the warning went down, but the tracking above kept
      * swinging the model after the runner, so the swing read as aimed one way while the hit
@@ -1598,7 +1605,7 @@ public final class TeleportPathController {
             return true;
         }
         if (pendingAction != BossAbility.LINE_ATTACK && pendingAction != BossAbility.BOULDER
-                && pendingAction != BossAbility.DASH) {
+                && pendingAction != BossAbility.DASH && pendingAction != BossAbility.CONE) {
             return false;
         }
         BossPhaseData phase = data.getPhase(currentPhase);
@@ -1607,6 +1614,15 @@ public final class TeleportPathController {
                 return false;
             }
             turnTowardAxis(committedAxis, phase.lineAttack().getLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
+            return true;
+        }
+        if (pendingAction == BossAbility.CONE) {
+            // The line strike's opt-out, and its eased turn onto the first cone the cast lands.
+            Vec3 first = cone.firstAxis(committedAxis);
+            if (first == null || !phase.cone().isFaceAxis()) {
+                return false;
+            }
+            turnTowardAxis(first, phase.cone().getLength(), LINE_FACE_TURN_DEGREES_PER_TICK);
             return true;
         }
         // The boulder has no opt-out: its corridor is exactly as wide as the stone, so one
@@ -2143,6 +2159,9 @@ public final class TeleportPathController {
             // would only bring the same strike back round in two seconds. The dash's lane
             // is the same promise, and its target only ever pointed it.
             case LINE_ATTACK, BOULDER, DASH -> true;
+            // A cone at a target is the swing at somebody: out of its reach, the way out of a
+            // swing's, is a dodge. Along the gaze or at points it promised a sector instead.
+            case CONE -> cone.stillValid(target, phase);
             // And the rain is not aimed at anybody at all: the ring is centred on the boss
             // and lands on ground, so there is nobody in particular who could have left it.
             case BOULDER_RAIN -> true;
@@ -2402,6 +2421,7 @@ public final class TeleportPathController {
         huntRuntime.end();
         BossBeamScheduler.clearBoss(npc);
         dash.clear();
+        cone.clear();
     }
 
     private void reset() {

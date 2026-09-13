@@ -68,6 +68,7 @@ class BossFieldPersistenceTest {
                         Map.entry(BossBoulderRainSettings.class, BossPhaseData::boulderRain),
                         Map.entry(BossCaptureSettings.class, BossPhaseData::capture),
                         Map.entry(BossCocoonSettings.class, BossPhaseData::cocoon),
+                        Map.entry(BossConeSettings.class, BossPhaseData::cone),
                         Map.entry(BossCoverSettings.class, BossPhaseData::cover),
                         Map.entry(BossDashSettings.class, BossPhaseData::dash),
                         Map.entry(BossFluidSpitSettings.class, BossPhaseData::fluidSpit),
@@ -121,10 +122,25 @@ class BossFieldPersistenceTest {
                         Map.entry("Beam", phase -> phase.beam().castSpot()),
                         Map.entry("Cocoon", phase -> phase.cocoon().castSpot()),
                         Map.entry("Dash", phase -> phase.dash().castSpot()),
+                        Map.entry("Cone", phase -> phase.cone().castSpot()),
                         Map.entry("Summon", phase -> phase.summon().castSpot()))
                 .map(entry -> DynamicTest.dynamicTest(entry.getKey() + " cast spot",
                         () -> assertPersisted(BossCastSpot.class, BossFieldPersistenceTest::configuredHost,
                                 data -> entry.getValue().apply(data.getPhase(1)))));
+    }
+
+    /**
+     * The same sweep over one of a cone strike's aim points.
+     *
+     * <p>A point lives in a list inside the cone's settings, which the sweep above skips as a
+     * nested object, and it writes its keys into a compound of its own rather than under a
+     * prefix. So it is swept through a host that has one point to change.</p>
+     */
+    @Test
+    @DisplayName("every cone aim point field reaches the save tag")
+    void everyConeAimPointFieldIsPersisted() {
+        assertPersisted(BossConeAimPoint.class, BossFieldPersistenceTest::hostWithConePoint,
+                data -> data.getPhase(1).cone().getPoints().get(0));
     }
 
     @Test
@@ -138,6 +154,12 @@ class BossFieldPersistenceTest {
         TeleportPathData data = new TeleportPathData();
         data.setEnabled(true);
         data.markConfigured();
+        return data;
+    }
+
+    private static TeleportPathData hostWithConePoint() {
+        TeleportPathData data = configuredHost();
+        data.getPhase(1).cone().getPoints().add();
         return data;
     }
 
