@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.data.BossFluidSpitSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
@@ -22,6 +23,7 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 9;
     private static final int COOLDOWN_FIELD = 10;
     private static final int TARGET_MODE_BUTTON = 11;
+    private static final int AIM_TURN_FIELD = 12;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -32,7 +34,9 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 256;
+        // One row taller than the panel it used to be: the aim's own number sits under the
+        // rows a builder already knows.
+        imageHeight = 277;
         closeOnEsc = true;
     }
 
@@ -74,10 +78,14 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         y += 21;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.fluidSpit().getCooldownTicks(), 1, 12000, 120);
+        y += 21;
+        addNumberField(AIM_TURN_FIELD, "cnpcgeckoaddon.boss.fluid_aim_turn", y,
+                phase.fluidSpit().getAimTurnDegrees(), BossFluidSpitSettings.MIN_AIM_TURN,
+                BossFluidSpitSettings.MAX_AIM_TURN, 30);
 
-        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 232, 120, 20,
+        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 253, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 253, 60, 20);
     }
 
     private void addSelectRow(int id, String label, int y, String value) {
@@ -165,5 +173,6 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         if (min != null && max != null) phase.fluidSpit().setRange(min.getInteger(), max.getInteger());
         applyNumberField(ACTION_DELAY_FIELD, phase.fluidSpit()::setActionDelayTicks);
         applyNumberField(COOLDOWN_FIELD, phase.fluidSpit()::setCooldownTicks);
+        applyNumberField(AIM_TURN_FIELD, phase.fluidSpit()::setAimTurnDegrees);
     }
 }

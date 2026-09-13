@@ -15,6 +15,13 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossRangedAttackSettings {
 
+    /** Degrees a tick the head turns while the strike aims; one is a boss that barely tracks. */
+    public static final int MIN_AIM_TURN = 1;
+    public static final int MAX_AIM_TURN = 180;
+    /** A percentage of the squared range past which an arcing shot is used instead of a flat one. */
+    public static final int MIN_LOB_SHARE = 10;
+    public static final int MAX_LOB_SHARE = 100;
+
     private boolean rangedAttackEnabled;
     private String rangedAttackAnimation = "";
     private int rangedAttackActionDelayTicks = 12;
@@ -24,6 +31,10 @@ public final class BossRangedAttackSettings {
     private int rangedAttackMaxRange = 24;
     private int rangedAttackTargetMode = BossTargetMode.MAIN;
     private final BossEffectSet rangedAttackEffects = new BossEffectSet();
+    /** How fast the head swings onto the victim as the shot goes off, in degrees a tick. */
+    private int rangedAimTurnDegrees = 30;
+    /** Past this share of the squared range an arcing shot is used instead of a flat one. */
+    private int rangedLobSharePercent = 50;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot rangedAttackCastSpot = new BossCastSpot();
 
@@ -70,6 +81,26 @@ public final class BossRangedAttackSettings {
 
     public BossEffectSet getEffects() { return rangedAttackEffects; }
 
+    public int getAimTurnDegrees() { return rangedAimTurnDegrees; }
+
+    public void setAimTurnDegrees(int value) {
+        rangedAimTurnDegrees = Mth.clamp(value, MIN_AIM_TURN, MAX_AIM_TURN);
+    }
+
+    public int getLobSharePercent() { return rangedLobSharePercent; }
+
+    public void setLobSharePercent(int value) {
+        rangedLobSharePercent = Mth.clamp(value, MIN_LOB_SHARE, MAX_LOB_SHARE);
+    }
+
+    /**
+     * How far, squared, a victim has to be before the shot is arced over rather than sent
+     * flat. Measured off the squared range because that is what the shot itself compares.
+     */
+    public double lobBeyondSquared() {
+        return rangedAttackMaxRange * (double) rangedAttackMaxRange * rangedLobSharePercent / 100.0D;
+    }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return rangedAttackCastSpot; }
 
@@ -83,6 +114,8 @@ public final class BossRangedAttackSettings {
         tag.putInt("RangedAttackMaxRange", rangedAttackMaxRange);
         tag.putInt("RangedAttackTargetMode", rangedAttackTargetMode);
         tag.put("RangedAttackEffects", rangedAttackEffects.writeToNBT());
+        tag.putInt("RangedAimTurn", rangedAimTurnDegrees);
+        tag.putInt("RangedLobShare", rangedLobSharePercent);
         rangedAttackCastSpot.writeToNBT(tag, "RangedAttack");
     }
 
@@ -98,6 +131,9 @@ public final class BossRangedAttackSettings {
         rangedAttackTargetMode = value(tag, "RangedAttackTargetMode",
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         rangedAttackEffects.readFromNBT(tag, "RangedAttackEffects");
+        rangedAimTurnDegrees = value(tag, "RangedAimTurn", 30, MIN_AIM_TURN, MAX_AIM_TURN);
+        // Half the squared range: what the shot arced past before it was a setting.
+        rangedLobSharePercent = value(tag, "RangedLobShare", 50, MIN_LOB_SHARE, MAX_LOB_SHARE);
         rangedAttackCastSpot.readFromNBT(tag, "RangedAttack");
     }
 }

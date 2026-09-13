@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossRangedAttackSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -17,6 +18,8 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 6;
     private static final int COOLDOWN_FIELD = 7;
     private static final int TARGET_MODE_BUTTON = 8;
+    private static final int AIM_TURN_FIELD = 9;
+    private static final int LOB_SHARE_FIELD = 10;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -27,7 +30,9 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 256;
+        // Two rows taller than the panel it used to be: the aim's own numbers sit under the
+        // rows a builder already knows.
+        imageHeight = 304;
         closeOnEsc = true;
     }
 
@@ -63,12 +68,20 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         y += 24;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.rangedAttack().getCooldownTicks(), 1, 12000, 80);
+        y += 24;
+        addNumberField(AIM_TURN_FIELD, "cnpcgeckoaddon.boss.ranged_aim_turn", y,
+                phase.rangedAttack().getAimTurnDegrees(), BossRangedAttackSettings.MIN_AIM_TURN,
+                BossRangedAttackSettings.MAX_AIM_TURN, 30);
+        y += 24;
+        addNumberField(LOB_SHARE_FIELD, "cnpcgeckoaddon.boss.ranged_lob_share", y,
+                phase.rangedAttack().getLobSharePercent(), BossRangedAttackSettings.MIN_LOB_SHARE,
+                BossRangedAttackSettings.MAX_LOB_SHARE, 50);
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.projectile_hint",
-                guiLeft + 8, guiTop + 212, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 230, 120, 20,
+                guiLeft + 8, guiTop + 260, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 278, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 278, 60, 20);
     }
 
     private void addTargetModeRow(int id, int y, int mode) {
@@ -112,5 +125,7 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         if (min != null && max != null) phase.rangedAttack().setRange(min.getInteger(), max.getInteger());
         applyNumberField(ACTION_DELAY_FIELD, phase.rangedAttack()::setActionDelayTicks);
         applyNumberField(COOLDOWN_FIELD, phase.rangedAttack()::setCooldownTicks);
+        applyNumberField(AIM_TURN_FIELD, phase.rangedAttack()::setAimTurnDegrees);
+        applyNumberField(LOB_SHARE_FIELD, phase.rangedAttack()::setLobSharePercent);
     }
 }

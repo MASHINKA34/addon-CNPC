@@ -15,6 +15,10 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossFluidSpitSettings {
 
+    /** Degrees a tick the head turns while the strike aims; one is a boss that barely tracks. */
+    public static final int MIN_AIM_TURN = 1;
+    public static final int MAX_AIM_TURN = 180;
+
     private boolean fluidSpitEnabled;
     private String fluidSpitAnimation = "";
     private int fluidSpitActionDelayTicks = 12;
@@ -27,6 +31,8 @@ public final class BossFluidSpitSettings {
     private int fluidSpitMaxRange = 24;
     private int fluidSpitTargetMode = BossTargetMode.MAIN;
     private final BossEffectSet fluidSpitEffects = new BossEffectSet();
+    /** How fast the head swings onto the victim as the glob leaves, in degrees a tick. */
+    private int fluidAimTurnDegrees = 30;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot fluidSpitCastSpot = new BossCastSpot();
 
@@ -93,6 +99,12 @@ public final class BossFluidSpitSettings {
 
     public BossEffectSet getEffects() { return fluidSpitEffects; }
 
+    public int getAimTurnDegrees() { return fluidAimTurnDegrees; }
+
+    public void setAimTurnDegrees(int value) {
+        fluidAimTurnDegrees = Mth.clamp(value, MIN_AIM_TURN, MAX_AIM_TURN);
+    }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return fluidSpitCastSpot; }
 
@@ -109,6 +121,7 @@ public final class BossFluidSpitSettings {
         tag.putInt("FluidSpitMaxRange", fluidSpitMaxRange);
         tag.putInt("FluidSpitTargetMode", fluidSpitTargetMode);
         tag.put("FluidSpitEffects", fluidSpitEffects.writeToNBT());
+        tag.putInt("FluidAimTurn", fluidAimTurnDegrees);
         fluidSpitCastSpot.writeToNBT(tag, "FluidSpit");
     }
 
@@ -128,6 +141,7 @@ public final class BossFluidSpitSettings {
         fluidSpitTargetMode = value(tag, "FluidSpitTargetMode",
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         fluidSpitEffects.readFromNBT(tag, "FluidSpitEffects");
+        fluidAimTurnDegrees = value(tag, "FluidAimTurn", 30, MIN_AIM_TURN, MAX_AIM_TURN);
         fluidSpitCastSpot.readFromNBT(tag, "FluidSpit");
     }
 }

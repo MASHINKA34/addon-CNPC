@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.data.BossMeleeAttackSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -17,6 +18,8 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 6;
     private static final int COOLDOWN_FIELD = 7;
     private static final int TARGET_MODE_BUTTON = 8;
+    private static final int AIM_TURN_FIELD = 9;
+    private static final int REACH_MODELS_BUTTON = 10;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -27,7 +30,9 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 256;
+        // Two rows taller than the panel it used to be: the aim's own numbers sit under the
+        // rows a builder already knows.
+        imageHeight = 304;
         closeOnEsc = true;
     }
 
@@ -63,10 +68,19 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         y += 24;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.meleeAttack().getCooldownTicks(), 1, 12000, 30);
+        y += 24;
+        addNumberField(AIM_TURN_FIELD, "cnpcgeckoaddon.boss.melee_aim_turn", y,
+                phase.meleeAttack().getAimTurnDegrees(), BossMeleeAttackSettings.MIN_AIM_TURN,
+                BossMeleeAttackSettings.MAX_AIM_TURN, 30);
+        y += 24;
+        addLabel(new GuiLabel(REACH_MODELS_BUTTON, "cnpcgeckoaddon.boss.melee_reach_models",
+                guiLeft + 8, y + 6));
+        addButton(new GuiButtonYesNo(this, REACH_MODELS_BUTTON, guiLeft + 195, y, 47, 20,
+                phase.meleeAttack().isReachAddsModels()));
 
-        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 230, 120, 20,
+        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 278, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 278, 60, 20);
     }
 
     private void addTargetModeRow(int id, int y, int mode) {
@@ -84,6 +98,8 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         }
         if (button.id == TARGET_MODE_BUTTON) {
             phase.meleeAttack().setTargetMode(button.getValue());
+        } else if (button.id == REACH_MODELS_BUTTON) {
+            phase.meleeAttack().setReachAddsModels(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ENABLED_BUTTON) {
             phase.meleeAttack().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ANIMATION_FIELD) {
@@ -109,5 +125,6 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         applyNumberField(KNOCKBACK_FIELD, phase.meleeAttack()::setKnockback);
         applyNumberField(ACTION_DELAY_FIELD, phase.meleeAttack()::setActionDelayTicks);
         applyNumberField(COOLDOWN_FIELD, phase.meleeAttack()::setCooldownTicks);
+        applyNumberField(AIM_TURN_FIELD, phase.meleeAttack()::setAimTurnDegrees);
     }
 }

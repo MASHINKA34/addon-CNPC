@@ -86,7 +86,8 @@ final class BossFluidSpitRuntime {
         }
         reportedBrokenFluid = "";
 
-        npc.getLookControl().setLookAt(target, 30.0F, 30.0F);
+        float aim = phase.fluidSpit().getAimTurnDegrees();
+        npc.getLookControl().setLookAt(target, aim, aim);
         EntityFluidSpit spit = new EntityFluidSpit(EntityRegistry.entityFluidSpit, npc, level);
         spit.configure(fluid, phase.fluidSpit().getLifetimeTicks(), phase.fluidSpit().getRadius(),
                 boss.rageUp(phase.fluidSpit().getDamage()));

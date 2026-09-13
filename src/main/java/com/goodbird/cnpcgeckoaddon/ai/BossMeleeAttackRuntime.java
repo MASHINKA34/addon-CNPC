@@ -29,10 +29,10 @@ final class BossMeleeAttackRuntime {
         if (!boss.mayStart(BossAbility.MELEE_ATTACK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.MELEE_ATTACK)) {
             return false;
         }
-        // Melee reach is measured hitbox to hitbox, so the search box carries the boss own
-        // half-width on top of the configured range or a wide boss loses candidates to it.
+        // With the reach measured hitbox to hitbox the search box carries the boss' own
+        // half-width on top of the configured range, or a wide boss loses candidates to it.
         LivingEntity target = boss.selectAbilityTarget(level, phase.meleeAttack().getTargetMode(),
-                phase.meleeAttack().getRange() + npc.getBbWidth() * 0.5D,
+                phase.meleeAttack().getRange() + modelReach(npc.getBbWidth(), phase),
                 candidate -> isValidTarget(candidate, phase));
         if (target == null) {
             boss.setAbilityScheduleAt(BossAbility.MELEE_ATTACK, gameTime + boss.retryShortTicks());
@@ -48,7 +48,8 @@ final class BossMeleeAttackRuntime {
     void perform(ServerLevel level, BossPhaseData phase) {
         LivingEntity target = boss.pendingTarget(level);
         if (!isValidTarget(target, phase)) return;
-        npc.getLookControl().setLookAt(target, 30.0F, 30.0F);
+        float aim = phase.meleeAttack().getAimTurnDegrees();
+        npc.getLookControl().setLookAt(target, aim, aim);
         // Swinging makes the model play its generic attack animation from the "Attack"
         // list. With a phase animation configured that second animation is queued behind
         // the one already running, so it only becomes visible after the hit has landed -
@@ -64,7 +65,13 @@ final class BossMeleeAttackRuntime {
 
     boolean isValidTarget(LivingEntity target, BossPhaseData phase) {
         if (target == null || !target.isAlive() || !boss.isAbilityTarget(target, BossAbilityKind.MELEE)) return false;
-        double range = phase.meleeAttack().getRange() + (npc.getBbWidth() + target.getBbWidth()) * 0.5D;
+        double range = phase.meleeAttack().getRange()
+                + modelReach(npc.getBbWidth() + target.getBbWidth(), phase);
         return npc.distanceToSqr(target) <= range * range;
+    }
+
+    /** Half of however much model width the reach is allowed to count, or nothing at all. */
+    private static double modelReach(double width, BossPhaseData phase) {
+        return phase.meleeAttack().isReachAddsModels() ? width * 0.5D : 0.0D;
     }
 }

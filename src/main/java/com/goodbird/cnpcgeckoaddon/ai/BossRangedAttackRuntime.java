@@ -53,7 +53,8 @@ final class BossRangedAttackRuntime {
     void perform(ServerLevel level, BossPhaseData phase) {
         LivingEntity target = boss.pendingTarget(level);
         if (!isValidTarget(target, phase) || !ProjectileEntityUtil.canShoot(npc)) return;
-        npc.getLookControl().setLookAt(target, 30.0F, 30.0F);
+        float aim = phase.rangedAttack().getAimTurnDegrees();
+        npc.getLookControl().setLookAt(target, aim, aim);
         DataRanged ranged = npc.stats.ranged;
         int previousDamage = ranged.getStrength();
         try {
@@ -62,7 +63,7 @@ final class BossRangedAttackRuntime {
             boolean indirect = ranged.getFireType() == 2
                     ? !npc.getSensing().hasLineOfSight(target)
                     : ranged.getFireType() == 1
-                    && distanceSquared > phase.rangedAttack().getMaxRange() * phase.rangedAttack().getMaxRange() / 2.0D;
+                    && distanceSquared > phase.rangedAttack().lobBeyondSquared();
             npc.performRangedAttack(target, indirect ? 1.0F : 0.0F);
         } catch (Throwable error) {
             LOGGER.warn("Could not perform configured ranged attack for NPC {}: {}",

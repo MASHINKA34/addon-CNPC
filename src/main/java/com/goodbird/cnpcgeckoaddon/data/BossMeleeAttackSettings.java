@@ -15,6 +15,10 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossMeleeAttackSettings {
 
+    /** Degrees a tick the head turns while the strike aims; one is a boss that barely tracks. */
+    public static final int MIN_AIM_TURN = 1;
+    public static final int MAX_AIM_TURN = 180;
+
     private boolean meleeAttackEnabled;
     private String meleeAttackAnimation = "";
     private int meleeAttackActionDelayTicks = 8;
@@ -24,6 +28,10 @@ public final class BossMeleeAttackSettings {
     private int meleeAttackKnockback = 1;
     private int meleeAttackTargetMode = BossTargetMode.MAIN;
     private final BossEffectSet meleeAttackEffects = new BossEffectSet();
+    /** How fast the head swings onto the victim as the swing lands, in degrees a tick. */
+    private int meleeAimTurnDegrees = 30;
+    /** Whether the reach counts both bodies' half widths on top, so a wide boss still reaches. */
+    private boolean meleeReachAddsModels = true;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot meleeAttackCastSpot = new BossCastSpot();
 
@@ -67,6 +75,20 @@ public final class BossMeleeAttackSettings {
 
     public BossEffectSet getEffects() { return meleeAttackEffects; }
 
+    public int getAimTurnDegrees() { return meleeAimTurnDegrees; }
+
+    public void setAimTurnDegrees(int value) {
+        meleeAimTurnDegrees = Mth.clamp(value, MIN_AIM_TURN, MAX_AIM_TURN);
+    }
+
+    /**
+     * Whether the reach is measured hitbox to hitbox rather than centre to centre. Off, a wide
+     * boss stops reaching the people standing against it at the range it used to.
+     */
+    public boolean isReachAddsModels() { return meleeReachAddsModels; }
+
+    public void setReachAddsModels(boolean value) { meleeReachAddsModels = value; }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return meleeAttackCastSpot; }
 
@@ -80,6 +102,8 @@ public final class BossMeleeAttackSettings {
         tag.putInt("MeleeAttackKnockback", meleeAttackKnockback);
         tag.putInt("MeleeAttackTargetMode", meleeAttackTargetMode);
         tag.put("MeleeAttackEffects", meleeAttackEffects.writeToNBT());
+        tag.putInt("MeleeAimTurn", meleeAimTurnDegrees);
+        tag.putBoolean("MeleeReachModels", meleeReachAddsModels);
         meleeAttackCastSpot.writeToNBT(tag, "MeleeAttack");
     }
 
@@ -94,6 +118,9 @@ public final class BossMeleeAttackSettings {
         meleeAttackTargetMode = value(tag, "MeleeAttackTargetMode",
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         meleeAttackEffects.readFromNBT(tag, "MeleeAttackEffects");
+        meleeAimTurnDegrees = value(tag, "MeleeAimTurn", 30, MIN_AIM_TURN, MAX_AIM_TURN);
+        // A boss saved before the switch existed measured its reach hitbox to hitbox.
+        meleeReachAddsModels = !tag.contains("MeleeReachModels") || tag.getBoolean("MeleeReachModels");
         meleeAttackCastSpot.readFromNBT(tag, "MeleeAttack");
     }
 }
