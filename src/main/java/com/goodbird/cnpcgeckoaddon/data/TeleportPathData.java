@@ -92,6 +92,25 @@ public final class TeleportPathData {
     public static final int MIN_RAGE_MULTIPLIER_PERCENT = 100;
     public static final int MAX_RAGE_MULTIPLIER_PERCENT = 1000;
 
+    /** Linked bosses have one health: whatever one of them loses or gains, each partner does by the same share. */
+    public static final int HEALTH_LINK_SHARED = 0;
+    /** Linked bosses have to die together: a killed one lies down and waits for its partners to fall. */
+    public static final int HEALTH_LINK_TOGETHER = 1;
+    public static final String[] HEALTH_LINK_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.health_link_mode.shared",
+            "cnpcgeckoaddon.boss.health_link_mode.together"
+    };
+    /** A range of nothing links the group across the whole level. */
+    public static final int MIN_HEALTH_LINK_RANGE = 0;
+    public static final int MAX_HEALTH_LINK_RANGE = 256;
+    public static final int DEFAULT_HEALTH_LINK_RANGE = 64;
+    public static final int MIN_HEALTH_LINK_WINDOW_TICKS = 20;
+    public static final int MAX_HEALTH_LINK_WINDOW_TICKS = 6000;
+    public static final int DEFAULT_HEALTH_LINK_WINDOW_TICKS = 200;
+    public static final int MIN_HEALTH_LINK_REVIVE_PERCENT = 1;
+    public static final int MAX_HEALTH_LINK_REVIVE_PERCENT = 100;
+    public static final int DEFAULT_HEALTH_LINK_REVIVE_PERCENT = 50;
+
     public static final int MIN_CHEST_DELAY_TICKS = 0;
     public static final int MAX_CHEST_DELAY_TICKS = 1200;
     /** Five seconds is the least that gives anyone a chance to walk over and open it. */
@@ -382,6 +401,13 @@ public final class TeleportPathData {
     private static final String RAGE_MULTIPLIER_KEY = "GeckoBossRageMultiplier";
     private static final String RAGE_ANIMATION_KEY = "GeckoBossRageAnimation";
     private static final String RAGE_LOCK_KEY = "GeckoBossRageLock";
+    private static final String HEALTH_LINK_GROUP_KEY = "GeckoBossHealthLinkGroup";
+    private static final String HEALTH_LINK_MODE_KEY = "GeckoBossHealthLinkMode";
+    private static final String HEALTH_LINK_RANGE_KEY = "GeckoBossHealthLinkRange";
+    private static final String HEALTH_LINK_WINDOW_KEY = "GeckoBossHealthLinkWindowTicks";
+    private static final String HEALTH_LINK_REVIVE_KEY = "GeckoBossHealthLinkRevivePercent";
+    private static final String HEALTH_LINK_DOWNED_ANIMATION_KEY = "GeckoBossHealthLinkDownedAnimation";
+    private static final String HEALTH_LINK_REVIVE_ANIMATION_KEY = "GeckoBossHealthLinkReviveAnimation";
     private static final String TOTEMS_ENABLED_KEY = "GeckoBossTotemsEnabled";
     private static final String TOTEM_PROTECTION_KEY = "GeckoBossTotemProtection";
     private static final String TOTEM_GRANT_INVULN_KEY = "GeckoTotemGrantInvuln";
@@ -456,6 +482,17 @@ public final class TeleportPathData {
     private int rageMultiplierPercent = 200;
     private String rageAnimation = "";
     private int rageLockTicks = 40;
+
+    /** Enabled bosses of one level with the same group are partners; an empty group links nobody. */
+    private String healthLinkGroup = "";
+    private int healthLinkMode = HEALTH_LINK_SHARED;
+    private int healthLinkRange = DEFAULT_HEALTH_LINK_RANGE;
+    /** Must-die-together: how long the rest have to fall once one of them is down. */
+    private int healthLinkWindowTicks = DEFAULT_HEALTH_LINK_WINDOW_TICKS;
+    /** Must-die-together: the share of its maximum health a boss gets up with when they did not. */
+    private int healthLinkRevivePercent = DEFAULT_HEALTH_LINK_REVIVE_PERCENT;
+    private String healthLinkDownedAnimation = "";
+    private String healthLinkReviveAnimation = "";
 
     private boolean clearMinionsOnDeath = true;
     private boolean clearMinionsOnReset = true;
@@ -662,6 +699,13 @@ public final class TeleportPathData {
         tag.putString(CHEST_STYLE_KEY, chestStyle);
         tag.putString(BOSS_BAR_STYLE_KEY, bossBarStyle);
         tag.putInt(BOSS_BAR_SCALE_KEY, bossBarScalePercent);
+        tag.putString(HEALTH_LINK_GROUP_KEY, healthLinkGroup);
+        tag.putInt(HEALTH_LINK_MODE_KEY, healthLinkMode);
+        tag.putInt(HEALTH_LINK_RANGE_KEY, healthLinkRange);
+        tag.putInt(HEALTH_LINK_WINDOW_KEY, healthLinkWindowTicks);
+        tag.putInt(HEALTH_LINK_REVIVE_KEY, healthLinkRevivePercent);
+        tag.putString(HEALTH_LINK_DOWNED_ANIMATION_KEY, healthLinkDownedAnimation);
+        tag.putString(HEALTH_LINK_REVIVE_ANIMATION_KEY, healthLinkReviveAnimation);
         return tag;
     }
 
@@ -837,6 +881,20 @@ public final class TeleportPathData {
         bossBarScalePercent = tag.contains(BOSS_BAR_SCALE_KEY)
                 ? Mth.clamp(tag.getInt(BOSS_BAR_SCALE_KEY), MIN_BOSS_BAR_SCALE_PERCENT,
                 MAX_BOSS_BAR_SCALE_PERCENT) : DEFAULT_BOSS_BAR_SCALE_PERCENT;
+
+        // Missing on bosses saved before the link existed, and an empty group links nobody:
+        // an old boss fights alone, the way it always did.
+        healthLinkGroup = BossSettingValue.clean(tag.getString(HEALTH_LINK_GROUP_KEY));
+        healthLinkMode = BossSettingValue.value(tag, HEALTH_LINK_MODE_KEY, HEALTH_LINK_SHARED,
+                HEALTH_LINK_SHARED, HEALTH_LINK_TOGETHER);
+        healthLinkRange = BossSettingValue.value(tag, HEALTH_LINK_RANGE_KEY, DEFAULT_HEALTH_LINK_RANGE,
+                MIN_HEALTH_LINK_RANGE, MAX_HEALTH_LINK_RANGE);
+        healthLinkWindowTicks = BossSettingValue.value(tag, HEALTH_LINK_WINDOW_KEY, DEFAULT_HEALTH_LINK_WINDOW_TICKS,
+                MIN_HEALTH_LINK_WINDOW_TICKS, MAX_HEALTH_LINK_WINDOW_TICKS);
+        healthLinkRevivePercent = BossSettingValue.value(tag, HEALTH_LINK_REVIVE_KEY,
+                DEFAULT_HEALTH_LINK_REVIVE_PERCENT, MIN_HEALTH_LINK_REVIVE_PERCENT, MAX_HEALTH_LINK_REVIVE_PERCENT);
+        healthLinkDownedAnimation = BossSettingValue.clean(tag.getString(HEALTH_LINK_DOWNED_ANIMATION_KEY));
+        healthLinkReviveAnimation = BossSettingValue.clean(tag.getString(HEALTH_LINK_REVIVE_ANIMATION_KEY));
     }
 
     private void readPhases(CompoundTag tag) {
@@ -1157,6 +1215,33 @@ public final class TeleportPathData {
     /** How long the boss stands still after enraging, so the animation can play out. */
     public int getRageLockTicks() { return rageLockTicks; }
     public void setRageLockTicks(int value) { rageLockTicks = Mth.clamp(value, 0, 1200); }
+
+    /** The name that ties this boss to the others of its level; empty means it is linked to nobody. */
+    public String getHealthLinkGroup() { return healthLinkGroup; }
+    public void setHealthLinkGroup(String value) { healthLinkGroup = BossSettingValue.clean(value); }
+    /** Whether a group is set at all, which is the link's one switch. */
+    public boolean isHealthLinked() { return !healthLinkGroup.isEmpty(); }
+    public int getHealthLinkMode() { return healthLinkMode; }
+    public void setHealthLinkMode(int value) {
+        healthLinkMode = Mth.clamp(value, HEALTH_LINK_SHARED, HEALTH_LINK_TOGETHER);
+    }
+    /** How close two bosses of the group have to stand to be partners, in blocks; 0 is the whole level. */
+    public int getHealthLinkRange() { return healthLinkRange; }
+    public void setHealthLinkRange(int value) {
+        healthLinkRange = Mth.clamp(value, MIN_HEALTH_LINK_RANGE, MAX_HEALTH_LINK_RANGE);
+    }
+    public int getHealthLinkWindowTicks() { return healthLinkWindowTicks; }
+    public void setHealthLinkWindowTicks(int value) {
+        healthLinkWindowTicks = Mth.clamp(value, MIN_HEALTH_LINK_WINDOW_TICKS, MAX_HEALTH_LINK_WINDOW_TICKS);
+    }
+    public int getHealthLinkRevivePercent() { return healthLinkRevivePercent; }
+    public void setHealthLinkRevivePercent(int value) {
+        healthLinkRevivePercent = Mth.clamp(value, MIN_HEALTH_LINK_REVIVE_PERCENT, MAX_HEALTH_LINK_REVIVE_PERCENT);
+    }
+    public String getHealthLinkDownedAnimation() { return healthLinkDownedAnimation; }
+    public void setHealthLinkDownedAnimation(String value) { healthLinkDownedAnimation = BossSettingValue.clean(value); }
+    public String getHealthLinkReviveAnimation() { return healthLinkReviveAnimation; }
+    public void setHealthLinkReviveAnimation(String value) { healthLinkReviveAnimation = BossSettingValue.clean(value); }
 
     /** Whether the minions this boss summoned are cleaned up once the boss dies. */
     public boolean isClearMinionsOnDeath() { return clearMinionsOnDeath; }

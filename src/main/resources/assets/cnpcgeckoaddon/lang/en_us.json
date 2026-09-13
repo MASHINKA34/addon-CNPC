@@ -141,6 +141,8 @@
   "cnpcgeckoaddon.boss.rage_lock": "Lock after enrage (ticks)",
   "cnpcgeckoaddon.boss.rage_hint": "Doubles damage, attack rate, knockback and speed. Health is untouched.",
   "cnpcgeckoaddon.boss.rage_active": "RAGE",
+  "cnpcgeckoaddon.boss.health_link_mode.shared": "One health for all",
+  "cnpcgeckoaddon.boss.health_link_mode.together": "Must die together",
   "cnpcgeckoaddon.boss.explosion_settings": "Death blast...",
   "cnpcgeckoaddon.boss.explosion": "Explosion on death",
   "cnpcgeckoaddon.boss.explosion_enabled": "Explode when killed",

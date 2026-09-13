@@ -141,6 +141,8 @@
   "cnpcgeckoaddon.boss.rage_lock": "Блокировка после ярости (тики)",
   "cnpcgeckoaddon.boss.rage_hint": "Множит урон, скорость атак, отбрасывание и скорость. Здоровье не трогает.",
   "cnpcgeckoaddon.boss.rage_active": "ЯРОСТЬ",
+  "cnpcgeckoaddon.boss.health_link_mode.shared": "Одно здоровье на всех",
+  "cnpcgeckoaddon.boss.health_link_mode.together": "Умереть вместе",
   "cnpcgeckoaddon.boss.explosion_settings": "Взрыв...",
   "cnpcgeckoaddon.boss.explosion": "Взрыв при смерти",
   "cnpcgeckoaddon.boss.explosion_enabled": "Взрываться при смерти",
