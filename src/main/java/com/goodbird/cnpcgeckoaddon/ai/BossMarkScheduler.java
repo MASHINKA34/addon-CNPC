@@ -92,6 +92,8 @@ public final class BossMarkScheduler {
         private final BossEffectSet effects;
         private final BossEffectSet failEffects;
         private final String vfx;
+        /** How the boss was drawing its warnings when this was put on; see BossTelegraphPaint. */
+        private final BossTelegraphPaint.Settings telegraph;
         private final long litAt;
         private final long explodesAt;
         /** Where the blast lands; moves under a followed carrier, otherwise fixed. */
@@ -113,6 +115,7 @@ public final class BossMarkScheduler {
             this.effects = phase.mark().getEffects();
             this.failEffects = phase.mark().getFailEffects();
             this.vfx = phase.mark().getVfx();
+            this.telegraph = BossTelegraphPaint.Settings.of(boss);
             this.litAt = gameTime;
             this.explodesAt = gameTime + phase.mark().getFuseTicks();
             this.pos = pos;
@@ -264,9 +267,11 @@ public final class BossMarkScheduler {
                 BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
+        double burned = fuseProgress(pending, gameTime);
         BossTelegraphUtil.ring(level, pending.pos, pending.radius,
-                BossTelegraphUtil.dust(BossAbilityKind.MARK));
-        double speed = Mth.lerp(fuseProgress(pending, gameTime), MIN_FUSE_SPEED, MAX_FUSE_SPEED);
+                BossTelegraphPaint.of(pending.telegraph, pending.boss,
+                        BossTelegraphPaint.CHANNEL_MARK, BossAbilityKind.MARK, (float) burned));
+        double speed = Mth.lerp(burned, MIN_FUSE_SPEED, MAX_FUSE_SPEED);
         level.sendParticles(ParticleTypes.CRIT, pending.pos.x, pending.pos.y + 0.2D,
                 pending.pos.z, 2, 0.2D, 0.05D, 0.2D, speed);
         if (carrier != null) {

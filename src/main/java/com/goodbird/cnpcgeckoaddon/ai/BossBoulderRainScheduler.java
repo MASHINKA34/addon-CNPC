@@ -80,6 +80,8 @@ public final class BossBoulderRainScheduler {
         private final int shatterDamage;
         private final String vfx;
         private final BossEffectSet effects;
+        /** How the boss was drawing its warnings when the volley was cast. */
+        private final BossTelegraphPaint.Settings telegraph;
         private final long dropsAt;
         private final long landsAt;
         private boolean dropped;
@@ -87,7 +89,8 @@ public final class BossBoulderRainScheduler {
         private Pending(ResourceKey<Level> dimension, EntityNPCInterface boss, Vec3 pos,
                         double spawnY, BlockState block, String style, int scale, int damage,
                         int knockback, int shatterRadius, int shatterDamage, String vfx,
-                        BossEffectSet effects, long dropsAt, long landsAt) {
+                        BossEffectSet effects, BossTelegraphPaint.Settings telegraph,
+                        long dropsAt, long landsAt) {
             this.dimension = dimension;
             this.boss = boss;
             this.pos = pos;
@@ -101,8 +104,16 @@ public final class BossBoulderRainScheduler {
             this.shatterDamage = shatterDamage;
             this.vfx = vfx;
             this.effects = effects;
+            this.telegraph = telegraph;
             this.dropsAt = dropsAt;
             this.landsAt = landsAt;
+        }
+
+        /** How far the stone has fallen, from the tick it was let go to the tick it lands. */
+        private float fallProgress(long gameTime) {
+            long fall = landsAt - dropsAt;
+            return fall <= 0L ? BossTelegraphPaint.NO_END
+                    : Mth.clamp((float) (gameTime - dropsAt) / fall, 0.0F, 1.0F);
         }
 
         /** How wide a circle this stone burns on the floor: what its landing really covers. */
@@ -146,7 +157,8 @@ public final class BossBoulderRainScheduler {
             PENDING.add(new Pending(level.dimension(), boss, point, spawnY, block,
                     phase.boulderRain().getStyle(), phase.boulderRain().getScale(), damage, knockback,
                     phase.boulderRain().getShatterRadius(), shatterDamage, phase.boulderRain().getVfx(),
-                    phase.boulderRain().getEffects(), dropsAt, landsAt));
+                    phase.boulderRain().getEffects(), BossTelegraphPaint.Settings.of(boss),
+                    dropsAt, landsAt));
             scheduled++;
         }
         return scheduled;
@@ -233,7 +245,9 @@ public final class BossBoulderRainScheduler {
             return;
         }
         BossTelegraphUtil.ring(level, pending.pos, pending.markRadius(),
-                BossTelegraphUtil.dust(BossAbilityKind.BOULDER_RAIN));
+                BossTelegraphPaint.of(pending.telegraph, pending.boss,
+                        BossTelegraphPaint.CHANNEL_BOULDER_RAIN, BossAbilityKind.BOULDER_RAIN,
+                        pending.fallProgress(gameTime)));
         // Debris of the stone's own block, so the mark says what is arriving as well as where.
         level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, pending.block),
                 pending.pos.x, pending.pos.y + 0.2D, pending.pos.z, 2, 0.2D, 0.05D, 0.2D, 0.02D);

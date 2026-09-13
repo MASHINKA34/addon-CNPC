@@ -84,6 +84,8 @@ public final class BossGeyserScheduler {
         private final int launch;
         private final BossEffectSet effects;
         private final String vfx;
+        /** How the boss was drawing its warnings when this was lit; see BossTelegraphPaint. */
+        private final BossTelegraphPaint.Settings telegraph;
         private final boolean blockWave;
         /** null when the eruption leaves nothing behind. */
         private final BlockState fluid;
@@ -95,8 +97,8 @@ public final class BossGeyserScheduler {
 
         private Pending(ResourceKey<Level> dimension, EntityNPCInterface boss, int followId,
                         double radius, int damage, int launch, BossEffectSet effects, String vfx,
-                        boolean blockWave, BlockState fluid, int fluidLifetimeTicks, long litAt,
-                        long eruptsAt, Vec3 pos) {
+                        BossTelegraphPaint.Settings telegraph, boolean blockWave, BlockState fluid,
+                        int fluidLifetimeTicks, long litAt, long eruptsAt, Vec3 pos) {
             this.dimension = dimension;
             this.boss = boss;
             this.followId = followId;
@@ -105,6 +107,7 @@ public final class BossGeyserScheduler {
             this.launch = launch;
             this.effects = effects;
             this.vfx = vfx;
+            this.telegraph = telegraph;
             this.blockWave = blockWave;
             this.fluid = fluid;
             this.fluidLifetimeTicks = fluidLifetimeTicks;
@@ -137,7 +140,8 @@ public final class BossGeyserScheduler {
         PENDING.add(new Pending(level.dimension(), boss,
                 phase.geyser().isFollowTarget() ? victim.getId() : -1,
                 phase.geyser().getRadius(), damage, launch, phase.geyser().getEffects(),
-                phase.geyser().getVfx(), phase.geyser().isBlockWave(), fluid,
+                phase.geyser().getVfx(), BossTelegraphPaint.Settings.of(boss),
+                phase.geyser().isBlockWave(), fluid,
                 phase.geyser().getFluidLifetimeTicks(), gameTime,
                 gameTime + phase.geyser().getFuseTicks(), point));
         // One hiss as the ground opens, for the player who is not looking down.
@@ -230,9 +234,11 @@ public final class BossGeyserScheduler {
                 pending.pos.y, pending.pos.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
+        double burned = fuseProgress(pending, gameTime);
         BossTelegraphUtil.ring(level, pending.pos, pending.radius,
-                BossTelegraphUtil.dust(BossAbilityKind.GEYSER));
-        double speed = Mth.lerp(fuseProgress(pending, gameTime), MIN_BOIL_SPEED, MAX_BOIL_SPEED);
+                BossTelegraphPaint.of(pending.telegraph, pending.boss,
+                        BossTelegraphPaint.CHANNEL_GEYSER, BossAbilityKind.GEYSER, (float) burned));
+        double speed = Mth.lerp(burned, MIN_BOIL_SPEED, MAX_BOIL_SPEED);
         level.sendParticles(ParticleTypes.BUBBLE_POP, pending.pos.x, pending.pos.y + 0.2D,
                 pending.pos.z, 3, 0.25D, 0.05D, 0.25D, speed);
         level.sendParticles(ParticleTypes.SMOKE, pending.pos.x, pending.pos.y + 0.3D,

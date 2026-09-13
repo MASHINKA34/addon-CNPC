@@ -4,7 +4,6 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -84,6 +83,14 @@ final class BossHazardRuntime {
             intervalTicks = phase.hazard().getIntervalTicks();
             effects = phase.hazard().getEffects();
             nextHitAt = opensAt;
+        }
+
+        /** How far the warning has burned down, from the first flash to the arena opening. */
+        private float fuseProgress(long gameTime) {
+            if (opensAt <= warnsAt) {
+                return BossTelegraphPaint.NO_END;
+            }
+            return Mth.clamp((float) (gameTime - warnsAt) / (opensAt - warnsAt), 0.0F, 1.0F);
         }
 
         /** How wide the safe circle is on this tick: closing from the start to the end, then held. */
@@ -198,7 +205,7 @@ final class BossHazardRuntime {
             if (!open) {
                 announceCountdown(level, hazard, gameTime);
             }
-            paint(level, hazard, gameTime, open);
+            paint(level, data, hazard, gameTime, open);
         }
         if (!open || gameTime < hazard.nextHitAt) {
             return;
@@ -219,20 +226,42 @@ final class BossHazardRuntime {
      * warning left off, it is a trap. Flashing until the hazard opens, painted in bursts
      * with gaps as long between them, and steady from then on.</p>
      */
-    private void paint(ServerLevel level, ArenaHazard hazard, long gameTime, boolean open) {
-        if (!open && (gameTime / BLINK_TICKS) % 2L != 0L) {
-            return;
-        }
-        DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.HAZARD);
+    private void paint(ServerLevel level, TeleportPathData data, ArenaHazard hazard,
+                       long gameTime, boolean open) {
+        BossTelegraphPaint paint = BossTelegraphPaint.of(data, npc, BossTelegraphPaint.CHANNEL_HAZARD,
+                BossAbilityKind.HAZARD, open ? BossTelegraphPaint.NO_END : hazard.fuseProgress(gameTime));
+        boolean dark = !open && (gameTime / BLINK_TICKS) % 2L != 0L;
         if (hazard.mode == BossPhaseData.HAZARD_MODE_BOX) {
             AABB box = hazard.box;
-            if (box != null && hasAudience(level, box.getCenter(),
+            if (box == null || !hasAudience(level, box.getCenter(),
                     Math.max(box.getXsize(), box.getZsize()) * 0.5D)) {
-                BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ,
-                        hazard.floorY, dust);
+                return;
             }
+            if (dark) {
+                blank(level, paint);
+                return;
+            }
+            BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ,
+                    hazard.floorY, paint);
         } else if (hasAudience(level, hazard.centre, hazard.startRadius)) {
-            BossTelegraphUtil.edgeRing(level, hazard.centre, hazard.ringRadius(gameTime), dust);
+            if (dark) {
+                blank(level, paint);
+                return;
+            }
+            BossTelegraphUtil.edgeRing(level, hazard.centre, hazard.ringRadius(gameTime), paint);
+        }
+    }
+
+    /**
+     * The dark half of a flash, for an edge drawn as a band.
+     *
+     * <p>Dust that is not spat out is gone by the next tick, so the flashing used to be the
+     * absence of it. A band lives until it is replaced, so the half of the flash where there
+     * is nothing has to be sent as nothing.</p>
+     */
+    private static void blank(ServerLevel level, BossTelegraphPaint paint) {
+        if (paint.lines()) {
+            BossTelegraphFrames.blank(level, paint);
         }
     }
 

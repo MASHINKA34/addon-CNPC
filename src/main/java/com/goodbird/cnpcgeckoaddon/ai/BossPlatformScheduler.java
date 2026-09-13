@@ -7,7 +7,6 @@ import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -233,8 +232,9 @@ public final class BossPlatformScheduler {
                 announceCountdown(level, controller, pending, gameTime);
             }
             if (gameTime % TeleportPathController.TELEGRAPH_INTERVAL_TICKS == 0L
-                    && (gameTime / BLINK_TICKS) % 2L == 0L && hasAudience(level, pending)) {
-                outline(level, pending);
+                    && hasAudience(level, pending)) {
+                outline(level, controller, pending, fuseProgress(pending, gameTime),
+                        (gameTime / BLINK_TICKS) % 2L == 0L);
             }
             return true;
         }
@@ -248,7 +248,7 @@ public final class BossPlatformScheduler {
         }
         if (gameTime % TeleportPathController.TELEGRAPH_INTERVAL_TICKS == 0L && hasAudience(level, pending)) {
             // Steady from here on, and a flame now and then inside it: the platform is still burning.
-            outline(level, pending);
+            outline(level, controller, pending, BossTelegraphPaint.NO_END, true);
             scatter(level, pending, ParticleTypes.FLAME, 1);
         }
         return true;
@@ -268,7 +268,10 @@ public final class BossPlatformScheduler {
         // builder's, and lifting its floor out from under the party is not the mechanic.
         BossAreaVfxScheduler.schedule(level, ground, pending.vfx, radius, BossCoverRuntime.waveDuration(radius), false);
         if (hasAudience(level, pending)) {
-            outline(level, pending);
+            // The outline once more as it goes: the same shape the fuse flashed, so a band
+            // does not blink out of existence for the tick of the bang. The flare itself is
+            // not a shape on the floor and stays the dust it always was.
+            outline(level, controller, pending, BossTelegraphPaint.NO_END, true);
             scatter(level, pending, ParticleTypes.LAVA,
                     (int) Math.round(box.getXsize() * box.getZsize() / FLARE_AREA_PER_PARTICLE));
         }
@@ -320,11 +323,33 @@ public final class BossPlatformScheduler {
                 BossTelegraphUtil.AUDIENCE_RANGE + reach, false) != null;
     }
 
-    /** The outline of the platform, on the floor inside it. */
-    private static void outline(ServerLevel level, Pending pending) {
+    /**
+     * The outline of the platform, on the floor inside it.
+     *
+     * <p>{@code lit} is the half of a flash the outline is there for. Dust that is not spat
+     * out is gone by the next tick, so a flash used to be the absence of it; an outline drawn
+     * as a band lives until it is replaced, so the dark half has to be sent as an empty
+     * frame rather than as nothing at all.</p>
+     */
+    private static void outline(ServerLevel level, TeleportPathController controller,
+                                Pending pending, float progress, boolean lit) {
+        BossTelegraphPaint paint = BossTelegraphPaint.of(controller.settings(), pending.boss,
+                BossTelegraphPaint.CHANNEL_PLATFORM, BossAbilityKind.PLATFORM, progress);
+        if (!lit) {
+            if (paint.lines()) {
+                BossTelegraphFrames.blank(level, paint);
+            }
+            return;
+        }
         AABB box = pending.box;
-        DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.PLATFORM);
-        BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ, pending.floorY, dust);
+        BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ, pending.floorY, paint);
+    }
+
+    /** How far the fuse has burned, from the tick it was lit to the tick the platform goes. */
+    private static float fuseProgress(Pending pending, long gameTime) {
+        long fuse = pending.burn.blastAt() - pending.litAt;
+        return fuse <= 0L ? BossTelegraphPaint.NO_END
+                : Mth.clamp((float) (gameTime - pending.litAt) / fuse, 0.0F, 1.0F);
     }
 
     /**

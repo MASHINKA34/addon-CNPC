@@ -12,6 +12,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.EntityTypeTags;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -106,10 +107,19 @@ public final class BossGravityScheduler {
         /** What the bite hits for, enrage already counted in. */
         private final int damage;
         private final BossEffectSet effects;
+        /** How the boss was drawing its warnings when the field went up. */
+        private final BossTelegraphPaint.Settings telegraph;
         private final long startedAt;
         private final long endsAt;
         /** Victim id -> earliest game time the field may bite them again. */
         private final Map<UUID, Long> nextBiteAt = new HashMap<>();
+
+        /** How much of the field's life is gone, which is what its edge counts towards. */
+        private float lifeProgress(long gameTime) {
+            long life = endsAt - startedAt;
+            return life <= 0L ? BossTelegraphPaint.NO_END
+                    : Mth.clamp((float) (gameTime - startedAt) / life, 0.0F, 1.0F);
+        }
 
         private Field(ResourceKey<Level> dimension, EntityNPCInterface boss, BossPhaseData phase,
                       int damage, long gameTime) {
@@ -121,6 +131,7 @@ public final class BossGravityScheduler {
             this.touchRadius = phase.gravity().getTouchRadius();
             this.damage = damage;
             this.effects = phase.gravity().getEffects();
+            this.telegraph = BossTelegraphPaint.Settings.of(boss);
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.gravity().getDurationTicks();
         }
@@ -407,7 +418,10 @@ public final class BossGravityScheduler {
             return;
         }
         if (gameTime % MARK_INTERVAL_TICKS == 0L) {
-            BossTelegraphUtil.ring(level, centre, field.radius, BossTelegraphUtil.dust(BossAbilityKind.GRAVITY));
+            BossTelegraphUtil.ring(level, centre, field.radius,
+                    BossTelegraphPaint.of(field.telegraph, field.boss,
+                            BossTelegraphPaint.CHANNEL_GRAVITY, BossAbilityKind.GRAVITY,
+                            field.lifeProgress(gameTime)));
         }
         RandomSource random = level.getRandom();
         boolean pull = field.mode == BossPhaseData.GRAVITY_MODE_PULL;
