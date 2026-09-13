@@ -22,12 +22,6 @@ import java.util.List;
  */
 final class BossMarkRuntime {
 
-    /**
-     * How far a mark is handed out: the arena, not the world. A mark has no reach of its
-     * own - what it does happens where its carrier takes it - so it borrows the leash's.
-     */
-    private static final double REACH = 32.0D;
-
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
 
@@ -39,7 +33,8 @@ final class BossMarkRuntime {
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!boss.mayStart(BossAbility.MARK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.MARK)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.mark().getTargetMode(),
-                REACH, this::isValidTarget, phase.mark().getTargetCount());
+                phase.mark().getReach(), candidate -> isValidTarget(candidate, phase),
+                phase.mark().getTargetCount());
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.MARK, gameTime + boss.retryTicks());
             return false;
@@ -60,24 +55,25 @@ final class BossMarkRuntime {
      * alike. Two circles on one person is two countdowns in one action bar and two answers
      * to give at once, which is not a harder mechanic, only an unreadable one.</p>
      */
-    boolean isValidTarget(LivingEntity target) {
+    boolean isValidTarget(LivingEntity target, BossPhaseData phase) {
         if (target == null || target.level() != npc.level() || !target.isAlive()
                 || target.isRemoved() || !boss.isAbilityTarget(target, BossAbilityKind.MARK)
                 || BossMarkScheduler.isMarked(target.getUUID())) {
             return false;
         }
-        return npc.distanceToSqr(target) <= REACH * REACH;
+        double reach = phase.mark().getReach();
+        return npc.distanceToSqr(target) <= reach * reach;
     }
 
     /** Marks everyone this cast wound up on. */
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
         List<LivingEntity> victims = new ArrayList<>();
         LivingEntity primary = boss.pendingTarget(level);
-        if (primary != null && isValidTarget(primary)) {
+        if (primary != null && isValidTarget(primary, phase)) {
             victims.add(primary);
         }
         for (int id : boss.pendingExtraTargets()) {
-            if (level.getEntity(id) instanceof LivingEntity extra && isValidTarget(extra)
+            if (level.getEntity(id) instanceof LivingEntity extra && isValidTarget(extra, phase)
                     && !victims.contains(extra)) {
                 victims.add(extra);
             }

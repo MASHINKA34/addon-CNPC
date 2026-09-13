@@ -2272,7 +2272,7 @@ public final class TeleportPathController {
             case HOOK -> hasWoundUpVictim(level, candidate -> hook.isValidTarget(candidate, phase));
             case GEYSER -> hasWoundUpVictim(level, candidate -> geyser.isValidTarget(candidate, phase));
             case TETHER -> hasWoundUpVictim(level, candidate -> tether.isValidTarget(candidate, phase));
-            case MARK -> hasWoundUpVictim(level, mark::isValidTarget);
+            case MARK -> hasWoundUpVictim(level, candidate -> mark.isValidTarget(candidate, phase));
             case COCOON -> hasWoundUpVictim(level, cocoon::isValidTarget);
             case CAPTURE -> capture.isValidTarget(target, phase);
             // A prey that got out of reach before the boss even set off is a hunt not worth

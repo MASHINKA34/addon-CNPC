@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossGeyserSettings;
+import com.goodbird.cnpcgeckoaddon.data.BossMarkSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformSettings;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -124,5 +125,40 @@ class BossZoneCastSnapshotTest {
         geyser.setColumnMinTenths(0);
         geyser.setColumnMaxTenths(0);
         assertEquals(0.0D, BossGeyserScheduler.look(geyser).columnHeight(16.0D), EPSILON);
+    }
+
+    @Test
+    @DisplayName("a mark is set with the look the settings had on that tick")
+    void theMarkTakesItsLookOnTheCast() {
+        BossMarkSettings mark = new BossMarkSettings();
+        mark.setVfxTicks(60);
+        mark.setFuseMinHundredths(0);
+        mark.setFuseMaxHundredths(50);
+        mark.setCarrierParticles(0);
+        mark.getBlastSound().setVolume(1);
+
+        BossMarkScheduler.Look look = BossMarkScheduler.look(mark);
+        assertEquals(60, look.vfxTicks());
+        assertEquals(0.0D, look.fuseSpeed(0.0D), EPSILON);
+        assertEquals(0.5D, look.fuseSpeed(1.0D), EPSILON);
+        assertEquals(0, look.carrierParticles());
+        assertEquals(1, look.blastSound().getVolume());
+    }
+
+    @Test
+    @DisplayName("editing the mark after it was handed out leaves the burning one alone")
+    void theMarkLookDoesNotFollowLaterEdits() {
+        BossMarkSettings mark = new BossMarkSettings();
+        BossMarkScheduler.Look look = BossMarkScheduler.look(mark);
+
+        mark.setVfxTicks(200);
+        mark.setCarrierParticles(0);
+        mark.setFuseMaxHundredths(100);
+        mark.getDefusedSound().setEnabled(false);
+
+        assertEquals(20, look.vfxTicks());
+        assertEquals(2, look.carrierParticles());
+        assertEquals(0.12D, look.fuseSpeed(1.0D), EPSILON);
+        assertTrue(look.defusedSound().isEnabled());
     }
 }

@@ -15,6 +15,14 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossMarkSettings {
 
+    /** The blast's wave, the fuse's sparks and how far a mark is handed out. */
+    public static final int MIN_VFX_TICKS = 1;
+    public static final int MAX_VFX_TICKS = 200;
+    public static final int MAX_FUSE_SPEED = 100;
+    public static final int MAX_CARRIER_PARTICLES = 20;
+    public static final int MIN_REACH = 8;
+    public static final int MAX_REACH = 128;
+
     private boolean markEnabled;
     private String markAnimation = "";
     private int markActionDelayTicks = 12;
@@ -40,6 +48,21 @@ public final class BossMarkSettings {
     private final BossEffectSet markEffects = new BossEffectSet();
     /** Gather up: landed instead on everyone inside when there were not enough of them. */
     private final BossEffectSet markFailEffects = new BossEffectSet();
+    /** How long the wave that runs out of the blast is drawn for. */
+    private int markVfxTicks = 20;
+    /** Hundredths of a block a tick the fuse spits, from the tick it was set to its last. */
+    private int markFuseMin = 2;
+    private int markFuseMax = 12;
+    /** Sparks over the carrier's own head; nought leaves the crowd to spot the circle. */
+    private int markCarrierParticles = 2;
+    /** How far a mark is handed out: the arena, not the world. */
+    private int markReach = 32;
+    private final BossSoundCue markMarkedSound =
+            new BossSoundCue("minecraft:block.note_block.bell", 1.2F, 1.8F);
+    private final BossSoundCue markDefusedSound =
+            new BossSoundCue("minecraft:block.fire.extinguish", 1.0F, 1.4F);
+    private final BossSoundCue markBlastSound =
+            new BossSoundCue("minecraft:entity.generic.explode", 2.0F, 1.4F);
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot markCastSpot = new BossCastSpot();
 
@@ -108,6 +131,52 @@ public final class BossMarkSettings {
 
     public void setVfx(String value) { markVfx = AreaVfxStyles.normalize(value); }
 
+    /** Ticks the blast's wave runs for. */
+    public int getVfxTicks() { return markVfxTicks; }
+
+    public void setVfxTicks(int value) {
+        markVfxTicks = Mth.clamp(value, MIN_VFX_TICKS, MAX_VFX_TICKS);
+    }
+
+    /** Hundredths of a block a tick the fuse spits on the tick the mark was set. */
+    public int getFuseMinHundredths() { return markFuseMin; }
+
+    public void setFuseMinHundredths(int value) {
+        markFuseMin = Mth.clamp(value, 0, MAX_FUSE_SPEED);
+    }
+
+    /** And on its last tick, which is how the circle says how long is left. */
+    public int getFuseMaxHundredths() { return markFuseMax; }
+
+    public void setFuseMaxHundredths(int value) {
+        markFuseMax = Mth.clamp(value, 0, MAX_FUSE_SPEED);
+    }
+
+    /** Sparks drawn over the carrier's head each repaint; nought draws none at all. */
+    public int getCarrierParticles() { return markCarrierParticles; }
+
+    public void setCarrierParticles(int value) {
+        markCarrierParticles = Mth.clamp(value, 0, MAX_CARRIER_PARTICLES);
+    }
+
+    /**
+     * How far from the boss a mark may be handed out.
+     *
+     * <p>A mark has no reach of its own - what it does happens wherever its carrier takes it -
+     * so this is the arena's size rather than the ability's.</p>
+     */
+    public int getReach() { return markReach; }
+
+    public void setReach(int value) { markReach = Mth.clamp(value, MIN_REACH, MAX_REACH); }
+
+    /** The bell as the mark goes on: on the carrier, because from here it is theirs. */
+    public BossSoundCue getMarkedSound() { return markMarkedSound; }
+
+    /** The puff of a mark whose carrier is gone before it could go off. */
+    public BossSoundCue getDefusedSound() { return markDefusedSound; }
+
+    public BossSoundCue getBlastSound() { return markBlastSound; }
+
     public BossEffectSet getEffects() { return markEffects; }
 
     public BossEffectSet getFailEffects() { return markFailEffects; }
@@ -133,6 +202,14 @@ public final class BossMarkSettings {
         tag.putString("MarkVfx", markVfx);
         tag.put("MarkEffects", markEffects.writeToNBT());
         tag.put("MarkFailEffects", markFailEffects.writeToNBT());
+        tag.putInt("MarkVfxTicks", markVfxTicks);
+        tag.putInt("MarkFuseMin", markFuseMin);
+        tag.putInt("MarkFuseMax", markFuseMax);
+        tag.putInt("MarkCarrierParticles", markCarrierParticles);
+        tag.putInt("MarkReach", markReach);
+        markMarkedSound.writeToNBT(tag, "MarkMarkedSound");
+        markDefusedSound.writeToNBT(tag, "MarkDefusedSound");
+        markBlastSound.writeToNBT(tag, "MarkBlastSound");
         markCastSpot.writeToNBT(tag, "Mark");
     }
 
@@ -155,6 +232,14 @@ public final class BossMarkSettings {
         markVfx = AreaVfxStyles.normalize(tag.getString("MarkVfx"));
         markEffects.readFromNBT(tag, "MarkEffects");
         markFailEffects.readFromNBT(tag, "MarkFailEffects");
+        markVfxTicks = value(tag, "MarkVfxTicks", 20, MIN_VFX_TICKS, MAX_VFX_TICKS);
+        markFuseMin = value(tag, "MarkFuseMin", 2, 0, MAX_FUSE_SPEED);
+        markFuseMax = value(tag, "MarkFuseMax", 12, 0, MAX_FUSE_SPEED);
+        markCarrierParticles = value(tag, "MarkCarrierParticles", 2, 0, MAX_CARRIER_PARTICLES);
+        markReach = value(tag, "MarkReach", 32, MIN_REACH, MAX_REACH);
+        markMarkedSound.readFromNBT(tag, "MarkMarkedSound");
+        markDefusedSound.readFromNBT(tag, "MarkDefusedSound");
+        markBlastSound.readFromNBT(tag, "MarkBlastSound");
         markCastSpot.readFromNBT(tag, "Mark");
     }
 }

@@ -2,7 +2,9 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossMarkSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
@@ -13,7 +15,6 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -65,13 +66,59 @@ public final class BossMarkScheduler {
     /** Beyond this nobody can see the circle, so the fuse burns down without costing anything. */
     /** How often the circle is repainted and the carrier's countdown refreshed. */
     private static final int MARK_INTERVAL_TICKS = 2;
-    /** How long the blast's wave runs for; a mark has no length setting of its own. */
-    private static final int VFX_DURATION_TICKS = 20;
-    /** How hard the fuse spits at the centre, from the moment it is lit to the last tick. */
-    private static final double MIN_FUSE_SPEED = 0.02D;
-    private static final double MAX_FUSE_SPEED = 0.12D;
-    /** Sparks over the carrier's own head, so the group can see who is carrying it. */
-    private static final int CARRIER_PARTICLES = 2;
+
+    /**
+     * How a mark looks and sounds, taken off the settings on the tick it was handed out.
+     *
+     * <p>Frozen with the rest of the cast for the reason the damage is: the circle is a promise
+     * made to everybody standing in it the moment it is drawn, and a builder editing the
+     * ability while it burns must not change what they are already answering. Split out of
+     * {@link Pending} so it can be taken without a world to set a mark in.</p>
+     */
+    static final class Look {
+        private final int vfxTicks;
+        private final double fuseMin;
+        private final double fuseMax;
+        private final int carrierParticles;
+        private final BossSoundCue defusedSound;
+        private final BossSoundCue blastSound;
+
+        private Look(BossMarkSettings mark) {
+            vfxTicks = mark.getVfxTicks();
+            fuseMin = mark.getFuseMinHundredths() / 100.0D;
+            fuseMax = mark.getFuseMaxHundredths() / 100.0D;
+            carrierParticles = mark.getCarrierParticles();
+            defusedSound = mark.getDefusedSound().copy();
+            blastSound = mark.getBlastSound().copy();
+        }
+
+        int vfxTicks() {
+            return vfxTicks;
+        }
+
+        /** How hard the fuse spits this far into its burn. */
+        double fuseSpeed(double burned) {
+            return Mth.lerp(burned, fuseMin, fuseMax);
+        }
+
+        /** Sparks over the carrier's head; nought is none at all rather than one stray. */
+        int carrierParticles() {
+            return carrierParticles;
+        }
+
+        BossSoundCue defusedSound() {
+            return defusedSound;
+        }
+
+        BossSoundCue blastSound() {
+            return blastSound;
+        }
+    }
+
+    /** What this mark will look and sound like, whatever the builder does next. */
+    static Look look(BossMarkSettings mark) {
+        return new Look(mark);
+    }
 
     /** One mark, mid-fuse. */
     private static final class Pending {
@@ -96,6 +143,8 @@ public final class BossMarkScheduler {
         private final BossWaveTuning wave;
         /** How the boss was drawing its warnings when this was put on; see BossTelegraphPaint. */
         private final BossTelegraphPaint.Settings telegraph;
+        /** How it looks and sounds, taken off the settings on the same tick. */
+        private final Look look;
         private final long litAt;
         private final long explodesAt;
         /** Where the blast lands; moves under a followed carrier, otherwise fixed. */
@@ -119,6 +168,7 @@ public final class BossMarkScheduler {
             this.vfx = phase.mark().getVfx();
             this.wave = BossWaveTuning.of(boss, this.vfx);
             this.telegraph = BossTelegraphPaint.Settings.of(boss);
+            this.look = look(phase.mark());
             this.litAt = gameTime;
             this.explodesAt = gameTime + phase.mark().getFuseTicks();
             this.pos = pos;
@@ -148,8 +198,8 @@ public final class BossMarkScheduler {
         PENDING.add(new Pending(level.dimension(), boss, carrier, phase, damage, failDamage,
                 selfDamage, gameTime, point));
         // On the carrier rather than on the boss: from this moment the mark is theirs.
-        level.playSound(null, carrier.getX(), carrier.getY(), carrier.getZ(),
-                SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.HOSTILE, 1.2F, 1.8F);
+        phase.mark().getMarkedSound().play(level, carrier.getX(), carrier.getY(), carrier.getZ(),
+                SoundSource.HOSTILE);
         return true;
     }
 
@@ -274,14 +324,16 @@ public final class BossMarkScheduler {
         BossTelegraphUtil.ring(level, pending.pos, pending.radius,
                 BossTelegraphPaint.of(pending.telegraph, pending.boss,
                         BossTelegraphPaint.CHANNEL_MARK, BossAbilityKind.MARK, (float) burned));
-        double speed = Mth.lerp(burned, MIN_FUSE_SPEED, MAX_FUSE_SPEED);
+        double speed = pending.look.fuseSpeed(burned);
         level.sendParticles(ParticleTypes.CRIT, pending.pos.x, pending.pos.y + 0.2D,
                 pending.pos.z, 2, 0.2D, 0.05D, 0.2D, speed);
-        if (carrier != null) {
-            // Above the head, where a mark on somebody in a crowd can still be picked out.
+        // Above the head, where a mark on somebody in a crowd can still be picked out. A count
+        // of nought is no sparks at all: vanilla reads nought as one particle given a velocity,
+        // which is not what a builder who asked for none meant.
+        if (carrier != null && pending.look.carrierParticles() > 0) {
             level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.MARK), carrier.getX(),
                     carrier.getY() + carrier.getBbHeight() + 0.4D, carrier.getZ(),
-                    CARRIER_PARTICLES, 0.2D, 0.1D, 0.2D, 0.0D);
+                    pending.look.carrierParticles(), 0.2D, 0.1D, 0.2D, 0.0D);
         }
     }
 
@@ -314,8 +366,8 @@ public final class BossMarkScheduler {
 
     /** A followed mark whose carrier is gone: a puff where it was, and nothing else at all. */
     private static void fizzle(ServerLevel level, Pending pending) {
-        level.playSound(null, pending.pos.x, pending.pos.y, pending.pos.z, SoundEvents.FIRE_EXTINGUISH,
-                SoundSource.HOSTILE, 1.0F, 1.4F);
+        pending.look.defusedSound().play(level, pending.pos.x, pending.pos.y, pending.pos.z,
+                SoundSource.HOSTILE);
         level.sendParticles(ParticleTypes.SMOKE, pending.pos.x, pending.pos.y + 0.3D, pending.pos.z,
                 12, 0.4D, 0.2D, 0.4D, 0.02D);
     }
@@ -324,10 +376,9 @@ public final class BossMarkScheduler {
         Vec3 pos = pending.pos;
         // Started before the hits, so what a player sees leaves at the same moment the damage
         // lands rather than a tick behind it.
-        BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius, VFX_DURATION_TICKS,
-                false, pending.wave);
-        level.playSound(null, pos.x, pos.y, pos.z, SoundEvents.GENERIC_EXPLODE.value(),
-                SoundSource.HOSTILE, 2.0F, 1.4F);
+        BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius,
+                pending.look.vfxTicks(), false, pending.wave);
+        pending.look.blastSound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
         level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.MARK), pos.x, pos.y + 0.5D, pos.z,
                 24, pending.radius * 0.4D, 0.3D, pending.radius * 0.4D, 0.0D);
         if (pending.mode == BossPhaseData.MARK_MODE_SOAK) {
