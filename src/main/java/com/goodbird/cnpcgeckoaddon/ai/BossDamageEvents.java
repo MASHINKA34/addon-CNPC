@@ -7,6 +7,7 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
+import com.goodbird.cnpcgeckoaddon.world.NpcLaunchPadManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
@@ -17,6 +18,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerFlyableFallEvent;
 import noppes.npcs.entity.EntityNPCInterface;
 
 /**
@@ -393,17 +395,28 @@ public final class BossDamageEvents {
     }
 
     /**
-     * What a landing owes, in the one order that lets both halves happen.
+     * What a landing owes, in the one order that lets every part happen.
      *
-     * <p>The gravity throw's hit goes first because the leap's half cancels the event, and a
-     * cancelled event is the end of the bus: as two listeners these two could never both run
+     * <p>The gravity throw's hit goes first because the other two cancel the event, and a
+     * cancelled event is the end of the bus: as separate listeners they could never all run
      * on the same landing, and which one did was down to the order the bus happened to
      * register them in.</p>
      */
     @SubscribeEvent
     public static void onLivingFall(final LivingFallEvent event) {
         landGravityThrow(event);
+        cancelLaunchPadFall(event);
         cancelOwnLeapFall(event);
+    }
+
+    /**
+     * The landing of a player who cannot take fall damage at all, a creative one, never reaches
+     * the event above; the launch pad still has to hear that their flight is over, or no pad
+     * would throw them again until it timed out.
+     */
+    @SubscribeEvent
+    public static void onFlyableFall(final PlayerFlyableFallEvent event) {
+        NpcLaunchPadManager.land(event.getEntity());
     }
 
     /**
@@ -417,6 +430,18 @@ public final class BossDamageEvents {
     private static void landGravityThrow(LivingFallEvent event) {
         if (!event.getEntity().level().isClientSide) {
             BossGravityScheduler.onFall(event.getEntity(), event.getDistance(), event.getDamageMultiplier());
+        }
+    }
+
+    /**
+     * A player a launch pad threw comes down unhurt, when the pad is set to spare the landing.
+     *
+     * <p>After the gravity throw's hit: that one is a blow, not the fall, and a player thrown by
+     * a boss and caught by a pad on the way still takes it.</p>
+     */
+    private static void cancelLaunchPadFall(LivingFallEvent event) {
+        if (NpcLaunchPadManager.land(event.getEntity())) {
+            event.setCanceled(true);
         }
     }
 

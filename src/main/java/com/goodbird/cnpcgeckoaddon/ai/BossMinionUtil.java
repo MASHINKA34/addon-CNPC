@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import com.goodbird.cnpcgeckoaddon.world.BossTotemCleanupStore;
+import com.goodbird.cnpcgeckoaddon.world.NpcLaunchPadManager;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -44,6 +45,9 @@ public final class BossMinionUtil {
         minion.getPersistentData().remove(MINION_SLOT_KEY);
         // And one saved from a cocoon or its guard: the role would keep it out of the caps.
         BossCocoonUtil.clearRole(minion);
+        // And one saved from a summoned launch pad: its lifetime ran out long ago, and a new
+        // summon starts its own on its first tick.
+        minion.getPersistentData().remove(NpcLaunchPadManager.DIES_AT_KEY);
         BossOwnedEntityIndex.invalidate();
     }
 

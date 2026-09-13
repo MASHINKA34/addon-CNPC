@@ -3,14 +3,19 @@ package com.goodbird.cnpcgeckoaddon.world;
 import com.goodbird.cnpcgeckoaddon.ai.ArcPhysics;
 import com.goodbird.cnpcgeckoaddon.ai.BossCaptureManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossCocoonManager;
+import com.goodbird.cnpcgeckoaddon.ai.BossMinionUtil;
 import com.goodbird.cnpcgeckoaddon.data.NpcLaunchPadData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcLaunchPadData;
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -28,8 +33,10 @@ import java.util.UUID;
  * client's physics - which {@link ArcPhysics} solves the push for. Npcs and mobs walk into a pad
  * and nothing happens to them.</p>
  *
- * <p>Nothing here is saved. A pause is seconds long and a flight shorter, so a restart simply
- * forgets both.</p>
+ * <p>A launched player is remembered until they land, for two things: a pad does not throw
+ * somebody already in the air on a throw, and their landing can be forgiven its fall damage.
+ * None of that is saved - a pause is seconds long and a flight shorter, so a restart simply
+ * forgets both. The one thing that is saved is when a pad a boss summoned has to go.</p>
  */
 public final class NpcLaunchPadManager {
     /**
@@ -41,9 +48,20 @@ public final class NpcLaunchPadManager {
     private static final int LANDING_GRACE_TICKS = 40;
     /** The motes kicked up at the player's feet when they are thrown. */
     private static final int LAUNCH_PARTICLES = 12;
+    /**
+     * Game time a summoned pad goes away at, in its persistent data: written on its first tick
+     * with a lifetime, and saved with it, so a restart halfway through keeps the clock running.
+     */
+    public static final String DIES_AT_KEY = "GeckoLaunchDiesAt";
 
-    /** One throw, until the player lands or the game time it runs out at passes. */
-    private record Flight(long until, boolean noFallDamage) {
+    /**
+     * One throw, until the player lands or the game time it runs out at passes.
+     *
+     * @param landsFrom the first game time a landing can belong to this throw: nobody comes down
+     *                  before the top of the arc, so a fall reported earlier is one their client
+     *                  finished before the push reached it
+     */
+    private record Flight(long landsFrom, long until, boolean noFallDamage) {
     }
 
     /** Pad id -> player id -> the game time from which that pad may throw that player again. */
@@ -61,6 +79,9 @@ public final class NpcLaunchPadManager {
             return;
         }
         long gameTime = level.getGameTime();
+        if (expire(level, pad, data, gameTime)) {
+            return;
+        }
         // A carried pad would throw its own carrier out of their hands.
         if (!pad.isAlive() || pad.isKilled() || NpcCarryManager.isCarried(pad)) {
             return;
@@ -97,6 +118,59 @@ public final class NpcLaunchPadManager {
             z += padBlock.getZ();
         }
         return new Vec3(x + 0.5D, y + 1.0D, z + 0.5D);
+    }
+
+    /**
+     * Takes a pad a boss summoned out of the arena once its lifetime is up.
+     *
+     * <p>Only a minion: a pad placed by hand is part of the map, and the lifetime on it is read
+     * as meant for the clones made from it. It goes the way a totem goes - discarded, because a
+     * kill would run the clone's death scripts and drop its loot first.</p>
+     *
+     * @return whether the pad is gone
+     */
+    private static boolean expire(ServerLevel level, EntityNPCInterface pad, NpcLaunchPadData data, long gameTime) {
+        if (data.getLifetimeTicks() <= 0 || pad.isRemoved() || !BossMinionUtil.isMinion(pad)) {
+            return false;
+        }
+        // Read through the util: asking the entity itself hangs an empty tag on every npc it sees.
+        CompoundTag saved = PersistentDataUtil.read(pad);
+        if (!saved.contains(DIES_AT_KEY, Tag.TAG_LONG)) {
+            pad.getPersistentData().putLong(DIES_AT_KEY, gameTime + data.getLifetimeTicks());
+            return false;
+        }
+        if (gameTime < saved.getLong(DIES_AT_KEY)) {
+            return false;
+        }
+        level.sendParticles(ParticleTypes.POOF, pad.getX(), pad.getY(0.5D), pad.getZ(), 8,
+                pad.getBbWidth() * 0.5D, pad.getBbHeight() * 0.5D, pad.getBbWidth() * 0.5D, 0.02D);
+        pad.discard();
+        return true;
+    }
+
+    /**
+     * A launched player has come down: their flight is over, and the answer is whether this
+     * landing is one to spare the fall damage of.
+     *
+     * <p>Called from the fall events. Past the flight's time it is an unrelated fall, and hurts.</p>
+     */
+    public static boolean land(LivingEntity entity) {
+        // Server state; the fall events fire on the client too, and on an integrated server that
+        // is the same static map from another thread.
+        if (entity.level().isClientSide || FLIGHTS.isEmpty()) {
+            return false;
+        }
+        Flight flight = FLIGHTS.get(entity.getUUID());
+        if (flight == null) {
+            return false;
+        }
+        long gameTime = entity.level().getGameTime();
+        if (gameTime < flight.landsFrom()) {
+            // The end of a hop they threw themselves into the pad with. The flight is still ahead.
+            return flight.noFallDamage();
+        }
+        FLIGHTS.remove(entity.getUUID());
+        return flight.noFallDamage() && gameTime < flight.until();
     }
 
     /** Whether this player can be thrown at all right now, by any pad. */
@@ -144,7 +218,8 @@ public final class NpcLaunchPadManager {
         forgetExpired(gameTime);
         READY_AT.computeIfAbsent(pad.getUUID(), id -> new HashMap<>())
                 .put(player.getUUID(), gameTime + data.getCooldownTicks());
-        FLIGHTS.put(player.getUUID(), new Flight(gameTime + arc.flightTicks() + LANDING_GRACE_TICKS,
+        long landsFrom = gameTime + (long) Math.ceil(ArcPhysics.riseTicks(arc.velocity().y));
+        FLIGHTS.put(player.getUUID(), new Flight(landsFrom, gameTime + arc.flightTicks() + LANDING_GRACE_TICKS,
                 data.isNoFallDamage()));
 
         if (data.isSound()) {
