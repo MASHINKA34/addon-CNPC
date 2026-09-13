@@ -409,7 +409,8 @@ public final class TeleportPathController {
         this.rangedAttack = new BossRangedAttackRuntime(this, npc);
         this.meleeAttack = new BossMeleeAttackRuntime(this, npc);
         this.summonRuntime = new BossSummonRuntime(this, npc);
-        this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, dash, minionSpawns);
+        this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, dash, cone,
+                minionSpawns);
         this.castSpots = new BossCastSpotRuntime(this, npc);
         INSTANCES.add(this);
     }
@@ -536,6 +537,12 @@ public final class TeleportPathController {
         // marked through a lock, and the mark has to stop on the tick the ability goes off.
         if (pendingAction != BossAbility.NONE && gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
             telegraphs.tick(level, data, gameTime, castPreview());
+        }
+        // Between two cones of a series nothing is pending, so the cones still to come are marked
+        // here on the same clock - below the series' own tick, so a cone that has just landed is
+        // not marked again.
+        if (cone.isSequencing() && gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
+            telegraphs.paintConeSeries(level, data);
         }
         hazardRuntime.tick(level, data, gameTime);
         // Above the gates for the hazard's reason: the party's clock does not stop because

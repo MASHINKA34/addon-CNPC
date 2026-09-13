@@ -41,17 +41,19 @@ final class BossTelegraphRuntime {
     private final BossHuntRuntime huntRuntime;
     private final BossLeapRuntime leap;
     private final BossDashRuntime dash;
+    private final BossConeRuntime cone;
     private final BossMinionSpawnRuntime minionSpawns;
 
     BossTelegraphRuntime(TeleportPathController boss, EntityNPCInterface npc, BossCoverRuntime coverRuntime,
                          BossHuntRuntime huntRuntime, BossLeapRuntime leap, BossDashRuntime dash,
-                         BossMinionSpawnRuntime minionSpawns) {
+                         BossConeRuntime cone, BossMinionSpawnRuntime minionSpawns) {
         this.boss = boss;
         this.npc = npc;
         this.coverRuntime = coverRuntime;
         this.huntRuntime = huntRuntime;
         this.leap = leap;
         this.dash = dash;
+        this.cone = cone;
         this.minionSpawns = minionSpawns;
     }
 
@@ -143,6 +145,13 @@ final class BossTelegraphRuntime {
                             0.0D, dust, BossTelegraphUtil.fadedDust(ability));
                 }
             }
+            // Every cone the cast lands, laid from where the boss stands now: the first bright and
+            // the ones a series strikes after it faded, unless they all land together.
+            case CONE -> {
+                List<Vec3> axes = cone.axesFor(cast.axis());
+                int bright = phase.cone().getPointIntervalTicks() == 0 ? axes.size() : 1;
+                drawConeSectors(level, phase, axes, bright, dust, BossTelegraphUtil.fadedDust(ability));
+            }
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
                     phase.meleeAttack().getRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE, HUNT ->
@@ -178,6 +187,39 @@ final class BossTelegraphRuntime {
                 }
             }
             default -> {
+            }
+        }
+    }
+
+    /**
+     * Marks the cones a series has still to strike: the next one bright and the rest faded.
+     *
+     * <p>Nothing is wound up between two cones of a series, so the controller asks for this on
+     * the paint clock rather than through {@link #tick}. The warning switches rule it the way
+     * they rule the wind-up's mark, minus the aura: the boss is already swinging, and lighting it
+     * up says nothing the cones do not.</p>
+     */
+    void paintConeSeries(ServerLevel level, TeleportPathData data) {
+        if (!telegraphs(data, BossAbilityKind.CONE) || !data.isTelegraphZone()
+                || level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
+                BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+            return;
+        }
+        drawConeSectors(level, data.getPhase(boss.currentPhaseIndex()), cone.seriesAxes(), 1,
+                BossTelegraphUtil.dust(BossAbilityKind.CONE), BossTelegraphUtil.fadedDust(BossAbilityKind.CONE));
+    }
+
+    /** The fans laid from the boss along {@code axes}, the first {@code bright} of them in full colour. */
+    private void drawConeSectors(ServerLevel level, BossPhaseData phase, List<Vec3> axes, int bright,
+                                 DustParticleOptions dust, DustParticleOptions faded) {
+        double length = phase.cone().getLength();
+        double halfAngle = phase.cone().getAngle() * 0.5D;
+        for (int i = 0; i < axes.size(); i++) {
+            float yaw = BossConeRuntime.yawOf(axes.get(i));
+            if (i < bright) {
+                BossTelegraphUtil.sector(level, npc.position(), length, yaw, halfAngle, dust);
+            } else {
+                BossTelegraphUtil.fadedSector(level, npc.position(), length, yaw, halfAngle, faded);
             }
         }
     }

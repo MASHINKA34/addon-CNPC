@@ -4,6 +4,7 @@ import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -79,6 +80,22 @@ class BossConeGeometryTest {
         assertTrue(BossConeRuntime.inSector(ORIGIN, EAST, 10, 2, 1, ORIGIN.x, ORIGIN.y, ORIGIN.z));
         assertTrue(BossConeRuntime.inSector(ORIGIN, new Vec3(0.0D, 0.0D, -1.0D), 10, 2, 1,
                 ORIGIN.x, ORIGIN.y + 0.5D, ORIGIN.z));
+    }
+
+    @Test
+    @DisplayName("the yaw a sector is drawn at points down the same axis the cone is judged along")
+    void theMarkIsTurnedTheWayTheConeIs() {
+        assertEquals(0.0F, BossConeRuntime.yawOf(new Vec3(0.0D, 0.0D, 1.0D)), 1.0E-4F, "Minecraft's yaw 0 looks south");
+        assertEquals(-90.0F, BossConeRuntime.yawOf(EAST), 1.0E-4F, "and -90 looks east");
+        for (float yaw : new float[]{-170.0F, -45.0F, 0.0F, 30.0F, 135.0F}) {
+            // The gaze the boss reads its facing axis off, turned back into the yaw the arc is drawn at.
+            double radians = Math.toRadians(yaw);
+            Vec3 gaze = new Vec3(-Math.sin(radians), 0.0D, Math.cos(radians));
+            float back = BossConeRuntime.yawOf(gaze);
+            double arcFacing = Math.toRadians(back + 90.0F);
+            assertEquals(gaze.x, Math.cos(arcFacing), 1.0E-4D, "the arc's middle has to lie on the axis at yaw " + yaw);
+            assertEquals(gaze.z, Math.sin(arcFacing), 1.0E-4D, "the arc's middle has to lie on the axis at yaw " + yaw);
+        }
     }
 
     @Test

@@ -181,14 +181,56 @@ public final class BossTelegraphUtil {
      */
     public static void arc(ServerLevel level, Vec3 centre, double radius, float yaw,
                            double halfAngle, DustParticleOptions dust) {
+        arc(level, centre, radius, yaw, halfAngle, dust, EMIT_SPACING);
+    }
+
+    private static void arc(ServerLevel level, Vec3 centre, double radius, float yaw,
+                            double halfAngle, DustParticleOptions dust, double spacing) {
         double half = halfAngle * Mth.DEG_TO_RAD;
         // Minecraft measures yaw from south and turns it clockwise, which is a quarter turn
         // away from the angles the ring above walks through.
         double facing = (yaw + 90.0F) * Mth.DEG_TO_RAD;
-        int points = shapePoints(2.0D * half * radius);
+        int points = shapePoints(2.0D * half * radius, spacing);
         for (int i = 0; i <= points; i++) {
             double angle = facing - half + i * 2.0D * half / points;
             emitOnFloor(level, centre, Math.cos(angle) * radius, Math.sin(angle) * radius, dust);
+        }
+    }
+
+    /**
+     * The fan a cone strike is about to land: the arc at its full length, and a straight edge
+     * along the floor from the boss out to each end of it.
+     *
+     * <p>An arc on its own is the melee swing's mark, and reads as "somewhere in front". The two
+     * edges are what a player needs from a cone: where its sides run, so which way is out.</p>
+     *
+     * @param yaw       the middle of the fan, in Minecraft's own degrees
+     * @param halfAngle how far the fan opens to either side of that
+     */
+    public static void sector(ServerLevel level, Vec3 centre, double radius, float yaw,
+                              double halfAngle, DustParticleOptions dust) {
+        sector(level, centre, radius, yaw, halfAngle, dust, EMIT_SPACING);
+    }
+
+    /**
+     * The same fan walked at half the density, for a cone that lands after the one marked
+     * brightly: drawn in the faded colour, the way a corridor's flanks are, and for the same
+     * reason spaced out the way they are.
+     */
+    public static void fadedSector(ServerLevel level, Vec3 centre, double radius, float yaw,
+                                   double halfAngle, DustParticleOptions dust) {
+        sector(level, centre, radius, yaw, halfAngle, dust, SIDE_EMIT_SPACING);
+    }
+
+    private static void sector(ServerLevel level, Vec3 centre, double radius, float yaw,
+                               double halfAngle, DustParticleOptions dust, double spacing) {
+        arc(level, centre, radius, yaw, halfAngle, dust, spacing);
+        double facing = (yaw + 90.0F) * Mth.DEG_TO_RAD;
+        double half = halfAngle * Mth.DEG_TO_RAD;
+        for (double side : new double[]{-half, half}) {
+            double angle = facing + side;
+            edge(level, centre, new Vec3(Math.cos(angle), 0.0D, Math.sin(angle)), dust, spacing,
+                    0.0D, 0.0D, radius, 0.0D);
         }
     }
 
@@ -280,7 +322,11 @@ public final class BossTelegraphUtil {
     }
 
     private static int shapePoints(double length) {
-        return Mth.clamp((int) Math.round(length / EMIT_SPACING), MIN_SHAPE_POINTS, MAX_SHAPE_POINTS);
+        return shapePoints(length, EMIT_SPACING);
+    }
+
+    private static int shapePoints(double length, double spacing) {
+        return Mth.clamp((int) Math.round(length / spacing), MIN_SHAPE_POINTS, MAX_SHAPE_POINTS);
     }
 
     /**

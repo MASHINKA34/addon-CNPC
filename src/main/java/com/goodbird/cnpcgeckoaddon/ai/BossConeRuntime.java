@@ -5,9 +5,11 @@ import com.goodbird.cnpcgeckoaddon.data.BossConeAimPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossConeSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
@@ -43,6 +45,8 @@ final class BossConeRuntime {
     private static final double CENTRE_EPSILON = 1.0E-6D;
     /** Slack on the sector's edges, its length and its height, so standing exactly on one is standing in the cone. */
     static final double EDGE_EPSILON = 1.0E-7D;
+    /** How many arcs the strike's flash lays over a fan: at a third, two thirds and its full length. */
+    private static final int FLASH_ARCS = 3;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -69,6 +73,11 @@ final class BossConeRuntime {
     /** The cone a series strikes next, from where the boss stands now, or null between series. */
     Vec3 nextAxis() {
         return series == null || series.isOver() ? null : axisToward(series.upcoming());
+    }
+
+    /** Every cone a series has still to strike, the next one first, from where the boss stands now. */
+    List<Vec3> seriesAxes() {
+        return series == null ? List.of() : axesToward(series.remaining());
     }
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
@@ -221,8 +230,9 @@ final class BossConeRuntime {
             boss.turnTowardAxis(axes.getFirst(), cone.getLength(), SNAP_DEGREES);
         }
         Vec3 origin = npc.position();
-        level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.PLAYER_ATTACK_SWEEP,
-                SoundSource.HOSTILE, 1.5F, 0.6F);
+        // Purely for show, and started before the hits so the flash goes out at the same moment
+        // the damage lands rather than a tick behind it.
+        flash(level, origin, axes, cone);
         int damage = boss.rageUp(cone.getDamage());
         int strength = boss.rageUp(cone.getImpulseStrength());
         for (LivingEntity victim : victimsIn(level, data, cone, origin, axes)) {
@@ -245,6 +255,32 @@ final class BossConeRuntime {
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.CONE, npc, damage, cone.getEffects(), strength,
                     pull ? -towardX : towardX, pull ? -towardZ : towardZ);
         }
+    }
+
+    /**
+     * The strike seen and heard: a sweep's whoosh, and a quick flash of arcs over each fan at a
+     * third, two thirds and the whole of its length, so the hit reads as travelling outward.
+     */
+    private void flash(ServerLevel level, Vec3 origin, List<Vec3> axes, BossConeSettings cone) {
+        level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.PLAYER_ATTACK_SWEEP,
+                SoundSource.HOSTILE, 1.5F, 0.6F);
+        if (level.getNearestPlayer(origin.x, origin.y, origin.z, BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
+            return;
+        }
+        DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.CONE);
+        double halfAngle = cone.getAngle() * 0.5D;
+        for (Vec3 axis : axes) {
+            float yaw = yawOf(axis);
+            for (int step = 1; step <= FLASH_ARCS; step++) {
+                BossTelegraphUtil.arc(level, origin, cone.getLength() * step / (double) FLASH_ARCS, yaw,
+                        halfAngle, dust);
+            }
+        }
+    }
+
+    /** The Minecraft yaw a flat unit axis points along, which is what the floor marks are turned by. */
+    static float yawOf(Vec3 axis) {
+        return (float) (Mth.atan2(axis.z, axis.x) * Mth.RAD_TO_DEG) - 90.0F;
     }
 
     /**
