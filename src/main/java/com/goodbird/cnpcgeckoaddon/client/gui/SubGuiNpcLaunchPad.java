@@ -25,15 +25,22 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
     private static final int NO_FALL_BUTTON = 9;
     private static final int SOUND_BUTTON = 10;
     private static final int LIFETIME_FIELD = 11;
+    private static final int TOUCH_MARGIN_FIELD = 12;
+    private static final int GRACE_FIELD = 13;
+    private static final int LAUNCH_SOUND_BUTTON = 14;
+    private static final int LAUNCH_PARTICLES_BUTTON = 15;
+    private static final int EXPIRE_PARTICLES_BUTTON = 16;
     private static final int TITLE_LABEL = 30;
     private static final int FIRST_HINT_LABEL = 40;
+    private static final int SECOND_HINT_LABEL = 50;
 
     private static final int FIRST_ROW_Y = 26;
     private static final int ROW_HEIGHT = 22;
-    private static final int ROWS = 9;
+    private static final int ROWS = 14;
     private static final int BUTTON_HEIGHT = 20;
     private static final int BOTTOM_MARGIN = 6;
     private static final String HINT = "cnpcgeckoaddon.launch.hint";
+    private static final String TUNING_HINT = "cnpcgeckoaddon.npc.tuning_hint";
 
     private final NpcLaunchPadData data;
     private final EntityNPCInterface npc;
@@ -89,8 +96,30 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
 
         addNumberField(LIFETIME_FIELD, "cnpcgeckoaddon.launch.lifetime", y, data.getLifetimeTicks(),
                 0, NpcLaunchPadData.MAX_LIFETIME_TICKS, 0);
+        y += ROW_HEIGHT;
 
-        addWrappedHint(FIRST_HINT_LABEL, HINT, guiTop + hintY());
+        addNumberField(TOUCH_MARGIN_FIELD, "cnpcgeckoaddon.launch.touch_margin", y,
+                data.getTouchMarginTenths(), 0, NpcLaunchPadData.MAX_TOUCH_MARGIN_TENTHS,
+                NpcLaunchPadData.DEFAULT_TOUCH_MARGIN_TENTHS);
+        y += ROW_HEIGHT;
+
+        addNumberField(GRACE_FIELD, "cnpcgeckoaddon.launch.grace", y,
+                data.getLandingGraceTicks(), 0, NpcLaunchPadData.MAX_LANDING_GRACE_TICKS,
+                NpcLaunchPadData.DEFAULT_LANDING_GRACE_TICKS);
+        y += ROW_HEIGHT;
+
+        addCueButton(LAUNCH_SOUND_BUTTON, "cnpcgeckoaddon.launch.cue_launch", y, data.getLaunchSound());
+        y += ROW_HEIGHT;
+
+        addCueButton(LAUNCH_PARTICLES_BUTTON, "cnpcgeckoaddon.launch.cue_launch_particles", y,
+                data.getLaunchParticles());
+        y += ROW_HEIGHT;
+
+        addCueButton(EXPIRE_PARTICLES_BUTTON, "cnpcgeckoaddon.launch.cue_expire", y,
+                data.getExpireParticles());
+
+        int hintY = addWrappedHint(FIRST_HINT_LABEL, HINT, guiTop + hintY());
+        addWrappedHint(SECOND_HINT_LABEL, TUNING_HINT, hintY);
         addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, BUTTON_HEIGHT);
     }
 
@@ -99,9 +128,9 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
         return FIRST_ROW_Y + ROWS * ROW_HEIGHT + 4;
     }
 
-    /** Where the done button goes, from the panel's top: just under the hint. */
+    /** Where the done button goes, from the panel's top: just under the two hints. */
     private int doneButtonY() {
-        return hintY() + wrappedHintHeight(HINT) + 4;
+        return hintY() + wrappedHintHeight(HINT) + wrappedHintHeight(TUNING_HINT) + 4;
     }
 
     @Override
@@ -152,6 +181,8 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
         applyNumberField(HEIGHT_FIELD, data::setArcHeight);
         applyNumberField(COOLDOWN_FIELD, data::setCooldownTicks);
         applyNumberField(LIFETIME_FIELD, data::setLifetimeTicks);
+        applyNumberField(TOUCH_MARGIN_FIELD, data::setTouchMarginTenths);
+        applyNumberField(GRACE_FIELD, data::setLandingGraceTicks);
     }
 
     /** Right of the longest toggle label, "Touching it launches players", with room to spare. */
