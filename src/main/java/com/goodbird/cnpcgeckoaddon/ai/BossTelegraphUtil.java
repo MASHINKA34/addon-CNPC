@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
@@ -341,7 +342,7 @@ public final class BossTelegraphUtil {
                                     DustParticleOptions dust) {
         double x = centre.x + offsetX;
         double z = centre.z + offsetZ;
-        BlockPos floor = BossAreaVfxScheduler.findFloor(level, x, centre.y, z);
+        BlockPos floor = BossFloorUtil.findFloor(level, x, centre.y, z);
         if (floor == null) {
             return;
         }

@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.TemporaryFluidStore;
 import net.minecraft.core.BlockPos;
@@ -214,7 +215,7 @@ public final class BossGeyserScheduler {
      * other shape the boss paints does, and gives up on the same holes.</p>
      */
     private static Vec3 groundUnder(ServerLevel level, LivingEntity victim) {
-        BlockPos floor = BossAreaVfxScheduler.findFloor(level, victim.getX(), victim.getY(), victim.getZ());
+        BlockPos floor = BossFloorUtil.findFloor(level, victim.getX(), victim.getY(), victim.getZ());
         return floor == null ? null : new Vec3(victim.getX(), floor.getY() + 1.0D, victim.getZ());
     }
 

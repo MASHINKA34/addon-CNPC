@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -236,7 +237,7 @@ public final class BossMarkScheduler {
      * other shape the boss paints does, and gives up on the same holes.</p>
      */
     private static Vec3 groundUnder(ServerLevel level, LivingEntity carrier) {
-        BlockPos floor = BossAreaVfxScheduler.findFloor(level, carrier.getX(), carrier.getY(),
+        BlockPos floor = BossFloorUtil.findFloor(level, carrier.getX(), carrier.getY(),
                 carrier.getZ());
         return floor == null ? null : new Vec3(carrier.getX(), floor.getY() + 1.0D, carrier.getZ());
     }

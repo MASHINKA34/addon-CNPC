@@ -2,9 +2,9 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SculkChargeParticleOptions;
@@ -68,9 +68,6 @@ public final class BossAreaVfxScheduler {
     private static final double CORRIDOR_FRONT_SPEED = 0.5D;
     private static final int MIN_CORRIDOR_DURATION_TICKS = 10;
     private static final int MAX_CORRIDOR_DURATION_TICKS = 60;
-    /** Beyond this the wave is invisible anyway, so it plays out without costing anything. */
-    /** How far below the boss the ring will look for a floor to run along. */
-    private static final int FLOOR_SEARCH_DEPTH = 4;
 
     private static final int MAX_BLOCKS_PER_WAVE = 48;
     private static final int MAX_BLOCKS_PER_TICK = 12;
@@ -247,7 +244,7 @@ public final class BossAreaVfxScheduler {
             double angle = spin + i * Mth.TWO_PI / points;
             double x = wave.center.x + Math.cos(angle) * radius;
             double z = wave.center.z + Math.sin(angle) * radius;
-            BlockPos floor = findFloor(level, x, wave.center.y, z);
+            BlockPos floor = BossFloorUtil.findFloor(level, x, wave.center.y, z);
             if (floor == null) {
                 continue;
             }
@@ -294,7 +291,7 @@ public final class BossAreaVfxScheduler {
             double offset = frontOffset(i, mainPoints, sidePoints, half, wave.sideWidth);
             double x = wave.center.x + wave.axis.x * front + acrossX * offset;
             double z = wave.center.z + wave.axis.z * front + acrossZ * offset;
-            BlockPos floor = findFloor(level, x, wave.center.y, z);
+            BlockPos floor = BossFloorUtil.findFloor(level, x, wave.center.y, z);
             if (floor == null) {
                 continue;
             }
@@ -326,27 +323,6 @@ public final class BossAreaVfxScheduler {
         int step = index - mainPoints;
         double distance = half + (step / 2 + 1) * sideWidth / sidePoints;
         return (step & 1) == 0 ? distance : -distance;
-    }
-
-    /**
-     * The block the wave runs along at one point of the ring, or null when the floor is more
-     * than {@link #FLOOR_SEARCH_DEPTH} below the boss - a wave hanging in mid air over a
-     * balcony edge looks worse than one that simply skips the gap. Shared with the
-     * ability warnings, which lie on the arena floor under the same rule.
-     */
-    static BlockPos findFloor(ServerLevel level, double x, double y, double z) {
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(Mth.floor(x), Mth.floor(y), Mth.floor(z));
-        for (int depth = 0; depth <= FLOOR_SEARCH_DEPTH; depth++) {
-            if (!level.isLoaded(pos)) {
-                return null;
-            }
-            BlockState state = level.getBlockState(pos);
-            if (!state.isAir() && !state.getCollisionShape(level, pos).isEmpty()) {
-                return pos.immutable();
-            }
-            pos.move(Direction.DOWN);
-        }
-        return null;
     }
 
     /**

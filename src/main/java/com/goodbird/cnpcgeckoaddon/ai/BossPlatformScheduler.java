@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformSettings;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -337,7 +338,7 @@ public final class BossPlatformScheduler {
         for (int i = 0; i < particles; i++) {
             double x = box.minX + random.nextDouble() * box.getXsize();
             double z = box.minZ + random.nextDouble() * box.getZsize();
-            BlockPos floor = BossAreaVfxScheduler.findFloor(level, x, pending.floorY, z);
+            BlockPos floor = BossFloorUtil.findFloor(level, x, pending.floorY, z);
             if (floor != null) {
                 level.sendParticles(particle, x, floor.getY() + 1.05D, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
             }

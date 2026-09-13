@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
@@ -227,7 +228,7 @@ final class BossCoverRuntime {
                 if (crowdsShelter(shelters, x, z, apart)) {
                     continue;
                 }
-                BlockPos floor = BossAreaVfxScheduler.findFloor(level, x, origin.y, z);
+                BlockPos floor = BossFloorUtil.findFloor(level, x, origin.y, z);
                 if (floor != null) {
                     shelters.add(new Vec3(x, floor.getY() + 1.0D, z));
                     break;

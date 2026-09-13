@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
+import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -253,7 +254,7 @@ public final class BossBoulderRainScheduler {
             double distance = Math.sqrt(min * min + random.nextDouble() * (max * max - min * min));
             double x = origin.x + Math.cos(angle) * distance;
             double z = origin.z + Math.sin(angle) * distance;
-            BlockPos floor = BossAreaVfxScheduler.findFloor(level, x, origin.y, z);
+            BlockPos floor = BossFloorUtil.findFloor(level, x, origin.y, z);
             if (floor != null) {
                 return new Vec3(x, floor.getY() + 1.0D, z);
             }
