@@ -22,6 +22,7 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
     private static final int CHEST_BUTTON = 28;
     private static final int TELEGRAPH_BUTTON = 29;
     private static final int HEALTH_LINK_BUTTON = 30;
+    private static final int TUNING_BUTTON = 31;
 
     private final TeleportPathData data;
     private final EntityNPCInterface npc;
@@ -31,9 +32,10 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
         this.data.markConfigured();
         this.npc = npc;
         imageWidth = 256;
-        // A row taller for the health link: the tall-screen drawing tiles the panel to any height,
-        // and the screen scrolls in a window too short for it.
-        imageHeight = 278;
+        // Two rows taller than the settings grid: one for the health link, one for the
+        // fine-tuning, and Done on a line of its own under them. The tall-screen drawing tiles
+        // the panel to any height, and the screen scrolls in a window too short for it.
+        imageHeight = 322;
         closeOnEsc = true;
     }
 
@@ -79,13 +81,14 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
                 "cnpcgeckoaddon.boss.phase_settings"));
         addButton(new GuiButtonNop(this, BOSS_BAR_BUTTON, guiLeft + 128, guiTop + 206, 114, 20,
                 "cnpcgeckoaddon.boss.bar_settings"));
-        // The longest label gets a row of its own, and the health link takes the wide half of the
-        // bottom row, next to Done.
+        // The three longest labels get a row each, and Done the line under them.
         addButton(new GuiButtonNop(this, TELEGRAPH_BUTTON, guiLeft + 8, guiTop + 228, 234, 20,
                 "cnpcgeckoaddon.boss.telegraph_settings"));
-        addButton(new GuiButtonNop(this, HEALTH_LINK_BUTTON, guiLeft + 8, guiTop + 250, 170, 20,
+        addButton(new GuiButtonNop(this, HEALTH_LINK_BUTTON, guiLeft + 8, guiTop + 250, 234, 20,
                 "cnpcgeckoaddon.boss.health_link_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 250, 60, 20);
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 8, guiTop + 272, 234, 20,
+                "cnpcgeckoaddon.boss.tuning_settings"));
+        addDoneButton(guiLeft + 182, guiTop + 294, 60, 20);
     }
 
 
@@ -133,6 +136,9 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
         } else if (button.id == HEALTH_LINK_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossHealthLink(npc, data));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossTuning(data.tuning()));
         }
     }
 
