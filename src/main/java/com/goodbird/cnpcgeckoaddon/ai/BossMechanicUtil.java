@@ -25,9 +25,10 @@ public final class BossMechanicUtil {
         // A boss stunned by its broken barrier is held the same way.
         TeleportPathController controller = npc instanceof IBossController holder
                 ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
-        // And one holding the cast spot it went to: the hold is the point of the spot.
+        // And one holding the cast spot it went to: the hold is the point of the spot. And one
+        // lying down under its health link, held the stun's way.
         return controller != null && (controller.isTotemHeld() || controller.isBarrierStunned()
-                || controller.isCastSpotHeld());
+                || controller.isCastSpotHeld() || controller.isHealthLinkDowned());
     }
 
     /**

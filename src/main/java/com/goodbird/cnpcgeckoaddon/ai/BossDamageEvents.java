@@ -100,8 +100,8 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent
     public static void onIncomingDamage(final LivingIncomingDamageEvent event) {
-        if (blockTotemsOwnSwing(event) || blockProtectedBoss(event) || blockOutsideAggroZone(event)
-                || blockTotemVulnerability(event)) {
+        if (blockTotemsOwnSwing(event) || blockProtectedBoss(event) || blockDownedBoss(event)
+                || blockOutsideAggroZone(event) || blockTotemVulnerability(event)) {
             return;
         }
         blockBlastImmunity(event);
@@ -149,6 +149,36 @@ public final class BossDamageEvents {
             controller.playInvulnerableHitFeedback();
         }
         event.setCanceled(true);
+        return true;
+    }
+
+    /**
+     * Swallows every hit on a boss lying down under its health link, until it gets up or its
+     * partners fall with it.
+     *
+     * <p>Under the phase and totem protection, which a boss cannot be downed through anyway, and
+     * over the aggro zone, so a downed boss answers everyone the same way. Whoever swung is signed
+     * up for the fight, the immune phase's reason: the hit is still a hit on this boss. /kill goes
+     * through, the escape hatch the whole row leaves, and a boss killed that way dies alone.</p>
+     */
+    private static boolean blockDownedBoss(LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return false;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null || !controller.isHealthLinkDowned()) {
+            return false;
+        }
+        if (event.getSource().getEntity() instanceof ServerPlayer player) {
+            trackParticipant(npc, player);
+        }
+        float before = event.getAmount();
+        event.setCanceled(true);
+        controller.playInvulnerableHitFeedback();
+        // Nothing downstream is told a cancelled hit existed, so the reason is given here.
+        NpcDamageInfoManager.reportDownedBlock(event, before, controller.healthLinkDownedTicksLeft());
         return true;
     }
 
@@ -334,17 +364,43 @@ public final class BossDamageEvents {
     }
 
     /**
-     * The two claims on the fully mitigated number, after armor and effects but before any
+     * The three claims on the fully mitigated number, after armor and effects but before any
      * health changes. Absorption is applied later and can only make the result safer.
      *
-     * <p>The lethal guard runs first and the cocoon last, because what breaks a shell open
-     * is the damage that would really have landed - including a clamp the guard just put
-     * on it.</p>
+     * <p>The health link's fall comes first, since it claims a hit by whether it would kill, and
+     * it stands aside for a standing lethal guard, which holds such a hit on its own. The cocoon
+     * runs last, because what breaks a shell open is the damage that would really have landed -
+     * including a clamp one of the two before it just put on it.</p>
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onDamagePre(final LivingDamageEvent.Pre event) {
+        downOnLethalHit(event);
         clampToLethalGuard(event);
         breakCocoonOnLethalHit(event);
+    }
+
+    /**
+     * Lays a boss that has to die together with its partners down on its killing blow, leaving it
+     * its last point of health.
+     *
+     * <p>Here rather than in the death event, because CustomNPCs drops the loot and runs the death
+     * scripts before that event fires. /kill is let through, the way every protection lets it.</p>
+     */
+    private static void downOnLethalHit(LivingDamageEvent.Pre event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null
+                || !controller.healthLink().downOnLethalHit(controller.settings(), event.getNewDamage())) {
+            return;
+        }
+        if (event.getSource().getEntity() instanceof ServerPlayer player) {
+            trackParticipant(npc, player);
+        }
+        event.setNewDamage(BossHealthLinkRuntime.downedDamage(npc.getHealth()));
     }
 
     /** Leaves a boss standing on one health for as long as its lethal-guard totems do. */
@@ -417,11 +473,13 @@ public final class BossDamageEvents {
 
     /**
      * Hands the share of a heal a linked boss is about to get to the partners it shares its health
-     * with.
+     * with, and refuses any heal to one lying down.
      *
      * <p>LOWEST so the amount is whatever every other listener left it at, and a heal one of them
      * cancelled never arrives. Read before the heal lands, which is the only moment the event
-     * offers: the share is worked out from the health the boss still has.</p>
+     * offers: the share is worked out from the health the boss still has. A downed boss' health
+     * stands where the killing blow left it - its regeneration would only fill a bar that the
+     * getting up sets anyway.</p>
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingHeal(final LivingHealEvent event) {
@@ -430,9 +488,14 @@ public final class BossDamageEvents {
             return;
         }
         TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
-        if (controller != null) {
-            controller.healthLink().shareGain(controller.settings(), event.getAmount());
+        if (controller == null) {
+            return;
         }
+        if (controller.isHealthLinkDowned()) {
+            event.setCanceled(true);
+            return;
+        }
+        controller.healthLink().shareGain(controller.settings(), event.getAmount());
     }
 
     /**

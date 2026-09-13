@@ -153,6 +153,24 @@ public final class NpcDamageInfoManager {
         player.sendSystemMessage(Component.literal(text).withStyle(ChatFormatting.GRAY));
     }
 
+    /**
+     * Chats why a boss turned a hit away whole: it is lying down under its health link, waiting on
+     * its partners - with how long it lies there, which is how long the party has to finish them.
+     *
+     * <p>The whole breakdown, for the outside-zone refusal's reason: the hit was dropped before the
+     * resistance listener could describe it.</p>
+     */
+    public static void reportDownedBlock(LivingIncomingDamageEvent event, float before, long ticksLeft) {
+        if (ENABLED.isEmpty() || !(event.getSource().getEntity() instanceof ServerPlayer player)
+                || !ENABLED.contains(player.getUUID())) {
+            return;
+        }
+        String text = describe(event.getSource()).append("\ndamage=").append(format(before))
+                .append(" -> 0.0 (blocked: downed by its health link, gets up in ").append(ticksLeft)
+                .append(" ticks unless its partners fall first)").toString();
+        player.sendSystemMessage(Component.literal(text).withStyle(ChatFormatting.GRAY));
+    }
+
     /** The attacker when there is one, plus every listener within sight of the totem. */
     private static List<ServerPlayer> listeners(LivingIncomingDamageEvent event) {
         List<ServerPlayer> result = new ArrayList<>();

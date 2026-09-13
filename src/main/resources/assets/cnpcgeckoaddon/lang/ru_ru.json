@@ -143,6 +143,7 @@
   "cnpcgeckoaddon.boss.rage_active": "ЯРОСТЬ",
   "cnpcgeckoaddon.boss.health_link_mode.shared": "Одно здоровье на всех",
   "cnpcgeckoaddon.boss.health_link_mode.together": "Умереть вместе",
+  "cnpcgeckoaddon.boss.health_link_downed": "%s повержен: %s",
   "cnpcgeckoaddon.boss.explosion_settings": "Взрыв...",
   "cnpcgeckoaddon.boss.explosion": "Взрыв при смерти",
   "cnpcgeckoaddon.boss.explosion_enabled": "Взрываться при смерти",

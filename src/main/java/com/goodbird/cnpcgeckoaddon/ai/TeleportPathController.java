@@ -511,9 +511,10 @@ public final class TeleportPathController {
         // hold has to outlive that deadline so the end of a cast cannot set the boss loose.
         // A boss stunned by its broken barrier is pinned the way a held one is, and for as
         // long: the pin is the stun. And a boss holding the cast spot it went to is pinned
-        // the same way, for as long as the spot's stay rule keeps it there.
-        if ((data.isStationary() || totems.isHolding() || isBarrierStunned() || castSpots.isHolding())
-                && !leap.isAirborne() && !dash.isRunning()) {
+        // the same way, for as long as the spot's stay rule keeps it there. And one lying down
+        // under its health link, the stun's way, for as long as it lies there.
+        if ((data.isStationary() || totems.isHolding() || isBarrierStunned() || castSpots.isHolding()
+                || healthLink.isDowned()) && !leap.isAirborne() && !dash.isRunning()) {
             keepStationary();
         } else if (castRootActive || cone.isSequencing()) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
@@ -619,9 +620,11 @@ public final class TeleportPathController {
         // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
         // And a stun: a boss that cannot walk cannot blink out of the window either. And a
         // cast spot it is holding: leaving the spot is exactly what the hold is there to stop.
+        // And a boss lying down under its health link, for the stun's reason.
         if (points.size() >= 2 && gameTime >= abilityScheduleAt(BossAbility.TELEPORT) && !totems.isHolding()
                 && !castSpots.isHolding() && !huntRuntime.isSilenced()
-                && !isBarrierStunned() && (!isInvulnerable() || phase.invulnerable().isAllowTeleport())) {
+                && !isBarrierStunned() && !healthLink.isDowned()
+                && (!isInvulnerable() || phase.invulnerable().isAllowTeleport())) {
             setAbilityScheduleAt(BossAbility.TELEPORT, NOT_SCHEDULED);
             beginAction(BossAbility.TELEPORT, phase.teleport().getPreparationAnimation(),
                     phase.teleport().getPreparationTicks(), gameTime, null, data, phase);
@@ -908,6 +911,11 @@ public final class TeleportPathController {
             // the phase back off its health would leave it stuck in the phase the last
             // fight ended in and open the next one with late-phase abilities.
             endEncounter(level, data);
+            return;
+        }
+        // A boss lying down under its health link is not losing health, it is waiting on its
+        // partners: the last point a killing blow left it on must not walk it into its last phase.
+        if (healthLink.isDowned()) {
             return;
         }
 
@@ -1486,6 +1494,19 @@ public final class TeleportPathController {
         return healthLink;
     }
 
+    /**
+     * True while the boss lies down under its health link, waiting on its partners: pinned, silent
+     * and turning every hit away. Read by the damage handler and the pounce.
+     */
+    boolean isHealthLinkDowned() {
+        return active && healthLink.isDowned();
+    }
+
+    /** Ticks until a downed boss gets up, or 0 while it stands. */
+    long healthLinkDownedTicksLeft() {
+        return npc.level() instanceof ServerLevel level ? healthLink.downedTicksLeft(level.getGameTime()) : 0L;
+    }
+
     public static void shutdownLevel(ServerLevel level) {
         for (TeleportPathController controller : List.copyOf(INSTANCES)) {
             if (controller.npc.level() == level) {
@@ -1781,11 +1802,12 @@ public final class TeleportPathController {
 
     /**
      * Whether the boss is kept from starting anything of its own right now: silenced by its
-     * totems, running a silent hunt, or staggered by its broken barrier. Read by the rotation
-     * and by a journey to a cast spot, which is a start that happens a few ticks late.
+     * totems, running a silent hunt, staggered by its broken barrier, or lying down under its
+     * health link. Read by the rotation and by a journey to a cast spot, which is a start that
+     * happens a few ticks late.
      */
     boolean abilitiesSilenced() {
-        return totems.isSilencing() || huntRuntime.isSilenced() || isBarrierStunned();
+        return totems.isSilencing() || huntRuntime.isSilenced() || isBarrierStunned() || healthLink.isDowned();
     }
 
     /** Runs one ability's starter, which winds it up when it can and says no when it cannot. */

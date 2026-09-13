@@ -126,6 +126,72 @@ class BossHealthLinkTest {
         assertEquals(Set.of("alone"), BossHealthLinkRuntime.connected("alone", partners::get));
     }
 
+    @Test
+    @DisplayName("a killing blow lays a boss down only while it has a partner still standing")
+    void aKillingBlowDownsOnlyWithAStandingPartner() {
+        assertTrue(BossHealthLinkRuntime.isLethal(30.0F, 30.0F), "a hit for exactly what is left kills");
+        assertFalse(BossHealthLinkRuntime.isLethal(29.5F, 30.0F));
+        assertTrue(BossHealthLinkRuntime.downsOnLethalHit(1, false), "one twin still up: the other lies down");
+        assertFalse(BossHealthLinkRuntime.downsOnLethalHit(0, true),
+                "a boss with no partner in reach just dies - the link needs somebody to wait for");
+        assertFalse(BossHealthLinkRuntime.downsOnLethalHit(2, true),
+                "the last one standing dies on the hit, and takes the ones lying down with it");
+        assertEquals(29.0F, BossHealthLinkRuntime.downedDamage(30.0F), EPSILON, "the cut hit leaves one health");
+        assertEquals(0.0F, BossHealthLinkRuntime.downedDamage(0.5F),
+                "a boss already under one health is left on what it has, never healed by the cut");
+    }
+
+    @Test
+    @DisplayName("downed with a partner standing, the boss waits out the window and gets up on its last tick")
+    void theWindowRunsOutIntoGettingUp() {
+        long downedAt = 1000L;
+        long until = BossHealthLinkRuntime.downedUntil(downedAt, 200);
+        assertEquals(1200L, until);
+        for (long tick = downedAt; tick < until; tick++) {
+            assertEquals(BossHealthLinkRuntime.Verdict.WAIT, BossHealthLinkRuntime.verdict(1, false, tick, until),
+                    "tick " + tick + " is still inside the window");
+        }
+        assertEquals(BossHealthLinkRuntime.Verdict.GET_UP, BossHealthLinkRuntime.verdict(1, false, until, until));
+        assertEquals(50.0F, BossHealthLinkRuntime.reviveHealth(100.0F, 50), EPSILON);
+        assertEquals(1.0F, BossHealthLinkRuntime.reviveHealth(100.0F, 0), EPSILON,
+                "a share of nothing is read as the least a boss can get up with");
+        assertEquals(100.0F, BossHealthLinkRuntime.reviveHealth(100.0F, 250), EPSILON);
+    }
+
+    @Test
+    @DisplayName("the partner falling inside the window takes the group down, even on the window's last tick")
+    void aFallingPartnerEndsTheWait() {
+        long until = BossHealthLinkRuntime.downedUntil(0L, 200);
+        assertEquals(BossHealthLinkRuntime.Verdict.DIE_TOGETHER, BossHealthLinkRuntime.verdict(1, true, 150L, until));
+        assertEquals(BossHealthLinkRuntime.Verdict.DIE_TOGETHER, BossHealthLinkRuntime.verdict(1, true, until, until),
+                "deaths are read before the clock");
+        assertEquals(BossHealthLinkRuntime.Verdict.DIE_ALONE, BossHealthLinkRuntime.verdict(0, true, 10L, until),
+                "a partner that died, unloaded or walked out of range leaves nobody to wait for");
+        assertEquals(BossHealthLinkRuntime.Verdict.WAIT, BossHealthLinkRuntime.verdict(2, false, 10L, until),
+                "one of two partners down is not the group down");
+    }
+
+    @Test
+    @DisplayName("a death takes the ones lying down along only once nobody of the group stands")
+    void aDeathTakesTheRestOnlyWhenNobodyStands() {
+        assertTrue(BossHealthLinkRuntime.deathTakesTheRest(1, true), "the last twin standing fell: the other goes too");
+        assertFalse(BossHealthLinkRuntime.deathTakesTheRest(1, false),
+                "a downed boss /killed while its partner stands takes nobody along");
+        assertFalse(BossHealthLinkRuntime.deathTakesTheRest(0, true));
+    }
+
+    @Test
+    @DisplayName("the countdown reads whole seconds rounded up and is told once a second from the fall")
+    void theCountdownIsWholeSeconds() {
+        assertEquals(10, BossHealthLinkRuntime.secondsLeft(200L, 0L));
+        assertEquals(10, BossHealthLinkRuntime.secondsLeft(200L, 1L), "nineteen and a half seconds read as ten");
+        assertEquals(1, BossHealthLinkRuntime.secondsLeft(200L, 199L), "the last tick reads as one, not none");
+        assertEquals(1, BossHealthLinkRuntime.secondsLeft(200L, 200L));
+        assertTrue(BossHealthLinkRuntime.announcesOn(37L, 37L), "told on the tick the boss goes down");
+        assertFalse(BossHealthLinkRuntime.announcesOn(37L, 38L));
+        assertTrue(BossHealthLinkRuntime.announcesOn(37L, 57L));
+    }
+
     private static TeleportPathData linked(String group, int mode) {
         TeleportPathData data = new TeleportPathData();
         data.setEnabled(true);

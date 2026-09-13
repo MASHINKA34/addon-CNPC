@@ -143,6 +143,7 @@
   "cnpcgeckoaddon.boss.rage_active": "RAGE",
   "cnpcgeckoaddon.boss.health_link_mode.shared": "One health for all",
   "cnpcgeckoaddon.boss.health_link_mode.together": "Must die together",
+  "cnpcgeckoaddon.boss.health_link_downed": "%s is down: %s",
   "cnpcgeckoaddon.boss.explosion_settings": "Death blast...",
   "cnpcgeckoaddon.boss.explosion": "Explosion on death",
   "cnpcgeckoaddon.boss.explosion_enabled": "Explode when killed",
