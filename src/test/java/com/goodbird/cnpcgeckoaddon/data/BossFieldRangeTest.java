@@ -50,7 +50,8 @@ class BossFieldRangeTest {
      */
     private static final Set<String> UNBOUNDED = Set.of(
             // Bit masks, not magnitudes: every bit past the ability count is simply never read.
-            "GeckoBossTelegraphAbilities", "GeckoNpcImmunityAbilities", "TelegraphAbilities",
+            "GeckoBossTelegraphAbilities", "GeckoBossTelegraphAbilitiesKnown",
+            "GeckoNpcImmunityAbilities", "TelegraphAbilities",
             "CastRootMask");
 
     @Test
