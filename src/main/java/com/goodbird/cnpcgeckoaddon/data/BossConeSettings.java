@@ -27,6 +27,10 @@ public final class BossConeSettings {
     /** Knockback for a push or a pull; tenths of a block per tick for a throw. */
     public static final int MAX_IMPULSE_STRENGTH = 40;
     public static final int MAX_POINT_INTERVAL_TICKS = 200;
+    public static final int MAX_FLASH_ARCS = 8;
+    /** Degrees the strike may finish the eased wind-up's turn by: a full circle snaps outright. */
+    public static final int MIN_SNAP_DEGREES = 10;
+    public static final int MAX_SNAP_DEGREES = 360;
 
     private boolean coneEnabled;
     private String coneAnimation = "";
@@ -48,6 +52,12 @@ public final class BossConeSettings {
     /** How many of the points one cast strikes; zero strikes every one that is switched on. */
     private int conePointCount;
     private int conePointIntervalTicks = 10;
+    /** How many arcs the strike's flash lays over a fan, spread evenly along its length. */
+    private int coneFlashArcs = 3;
+    /** The turn left over from the eased wind-up, finished on the tick the cone lands. */
+    private int coneSnapDegrees = 360;
+    private final BossSoundCue coneSwingSound =
+            new BossSoundCue("minecraft:entity.player.attack.sweep", 1.5F, 0.6F);
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot coneCastSpot = new BossCastSpot();
 
@@ -144,6 +154,18 @@ public final class BossConeSettings {
     }
 
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
+    public int getFlashArcs() { return coneFlashArcs; }
+
+    public void setFlashArcs(int value) { coneFlashArcs = Mth.clamp(value, 0, MAX_FLASH_ARCS); }
+
+    public int getSnapDegrees() { return coneSnapDegrees; }
+
+    public void setSnapDegrees(int value) {
+        coneSnapDegrees = Mth.clamp(value, MIN_SNAP_DEGREES, MAX_SNAP_DEGREES);
+    }
+
+    public BossSoundCue getSwingSound() { return coneSwingSound; }
+
     public BossCastSpot castSpot() { return coneCastSpot; }
 
     void writeToNBT(CompoundTag tag) {
@@ -165,6 +187,9 @@ public final class BossConeSettings {
         tag.putInt("ConePointOrder", conePointOrder);
         tag.putInt("ConePointCount", conePointCount);
         tag.putInt("ConePointIntervalTicks", conePointIntervalTicks);
+        tag.putInt("ConeFlashArcs", coneFlashArcs);
+        tag.putInt("ConeSnap", coneSnapDegrees);
+        coneSwingSound.writeToNBT(tag, "ConeSwingSound");
         coneCastSpot.writeToNBT(tag, "Cone");
     }
 
@@ -191,6 +216,11 @@ public final class BossConeSettings {
                 BossPhaseData.CONE_ORDER_LIST, BossPhaseData.CONE_ORDER_RANDOM);
         conePointCount = value(tag, "ConePointCount", 0, 0, BossConeAimList.MAX_ENTRIES);
         conePointIntervalTicks = value(tag, "ConePointIntervalTicks", 10, 0, MAX_POINT_INTERVAL_TICKS);
+        // A boss saved before these were settings flashes three arcs and snaps outright,
+        // which is what the strike always did.
+        coneFlashArcs = value(tag, "ConeFlashArcs", 3, 0, MAX_FLASH_ARCS);
+        coneSnapDegrees = value(tag, "ConeSnap", 360, MIN_SNAP_DEGREES, MAX_SNAP_DEGREES);
+        coneSwingSound.readFromNBT(tag, "ConeSwingSound");
         coneCastSpot.readFromNBT(tag, "Cone");
     }
 }

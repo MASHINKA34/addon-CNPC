@@ -45,7 +45,9 @@ class BossConeSettingsTest {
             Map.entry("ConeImpulseStrength", new Bound(0, 40)),
             Map.entry("ConePointOrder", new Bound(BossPhaseData.CONE_ORDER_LIST, BossPhaseData.CONE_ORDER_RANDOM)),
             Map.entry("ConePointCount", new Bound(0, 16)),
-            Map.entry("ConePointIntervalTicks", new Bound(0, 200)));
+            Map.entry("ConePointIntervalTicks", new Bound(0, 200)),
+            Map.entry("ConeFlashArcs", new Bound(0, 8)),
+            Map.entry("ConeSnap", new Bound(10, 360)));
 
     @Test
     @DisplayName("a boss saved before the cone reads it back switched off, at its defaults")
@@ -119,6 +121,8 @@ class BossConeSettingsTest {
         // The spot's numbers belong to the cast spot, which has bounds and tests of its own.
         Set<String> numbers = tag.getAllKeys().stream()
                 .filter(key -> key.startsWith("Cone") && !key.startsWith("ConeSpot"))
+                // The swing cue's volume and pitch are the cue's own range, pinned by its test.
+                .filter(key -> !key.startsWith("ConeSwingSound"))
                 .filter(key -> tag.get(key) instanceof IntTag)
                 .collect(Collectors.toCollection(TreeSet::new));
         assertEquals(new TreeSet<>(BOUNDS.keySet()), numbers,

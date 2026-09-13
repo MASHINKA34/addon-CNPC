@@ -7,7 +7,6 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -37,14 +36,10 @@ import java.util.List;
  */
 final class BossConeRuntime {
 
-    /** The turn left over from the eased wind-up, finished on the tick the cone lands. */
-    private static final float SNAP_DEGREES = 360.0F;
     /** Closer than this (squared, flat) somebody stands inside the boss and has no direction of their own. */
     private static final double CENTRE_EPSILON = 1.0E-6D;
     /** Slack on the sector's edges, its length and its height, so standing exactly on one is standing in the cone. */
     static final double EDGE_EPSILON = 1.0E-7D;
-    /** How many arcs the strike's flash lays over a fan: at a third, two thirds and its full length. */
-    private static final int FLASH_ARCS = 3;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -223,7 +218,7 @@ final class BossConeRuntime {
         if (cone.isFaceAxis()) {
             // Whatever the eased turn had left is finished on the tick the cone lands, so the
             // model points exactly down the middle of the fan it hits.
-            boss.turnTowardAxis(axes.getFirst(), cone.getLength(), SNAP_DEGREES);
+            boss.turnTowardAxis(axes.getFirst(), cone.getLength(), cone.getSnapDegrees());
         }
         Vec3 origin = npc.position();
         // Purely for show, and started before the hits so the flash goes out at the same moment
@@ -270,21 +265,23 @@ final class BossConeRuntime {
     }
 
     /**
-     * The strike seen and heard: a sweep's whoosh, and a quick flash of arcs over each fan at a
-     * third, two thirds and the whole of its length, so the hit reads as travelling outward.
+     * The strike seen and heard: a sweep's whoosh, and a quick flash of arcs spread evenly
+     * along each fan, so the hit reads as travelling outward.
      */
     private void flash(ServerLevel level, Vec3 origin, List<Vec3> axes, BossConeSettings cone) {
-        level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.PLAYER_ATTACK_SWEEP,
-                SoundSource.HOSTILE, 1.5F, 0.6F);
-        if (level.getNearestPlayer(origin.x, origin.y, origin.z, BossTelegraphUtil.audienceRange(npc), false) == null) {
+        cone.getSwingSound().play(level, origin.x, origin.y, origin.z, SoundSource.HOSTILE);
+        int arcs = cone.getFlashArcs();
+        if (arcs <= 0
+                || level.getNearestPlayer(origin.x, origin.y, origin.z,
+                BossTelegraphUtil.audienceRange(npc), false) == null) {
             return;
         }
         DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.CONE);
         double halfAngle = cone.getAngle() * 0.5D;
         for (Vec3 axis : axes) {
             float yaw = yawOf(axis);
-            for (int step = 1; step <= FLASH_ARCS; step++) {
-                BossTelegraphUtil.arc(level, origin, cone.getLength() * step / (double) FLASH_ARCS, yaw,
+            for (int step = 1; step <= arcs; step++) {
+                BossTelegraphUtil.arc(level, origin, cone.getLength() * step / (double) arcs, yaw,
                         halfAngle, dust);
             }
         }

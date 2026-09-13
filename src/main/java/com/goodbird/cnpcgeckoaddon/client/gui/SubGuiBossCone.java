@@ -33,6 +33,9 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
     private static final int COUNT_FIELD = 15;
     private static final int INTERVAL_FIELD = 16;
     private static final int POINTS_BUTTON = 17;
+    private static final int FLASH_ARCS_FIELD = 18;
+    private static final int SNAP_FIELD = 19;
+    private static final int SWING_CUE_BUTTON = 20;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final int TITLE_LABEL = 30;
@@ -137,6 +140,17 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
             }
             y += ROW;
         }
+
+        y = single(place, FLASH_ARCS_FIELD, "cnpcgeckoaddon.boss.cone_flash_arcs", y,
+                cone.getFlashArcs(), 0, BossConeSettings.MAX_FLASH_ARCS, 3);
+        y = single(place, SNAP_FIELD, "cnpcgeckoaddon.boss.cone_snap", y,
+                cone.getSnapDegrees(), BossConeSettings.MIN_SNAP_DEGREES,
+                BossConeSettings.MAX_SNAP_DEGREES, 360);
+        if (place) {
+            addCueButton(SWING_CUE_BUTTON, "cnpcgeckoaddon.boss.cone_cue_swing", guiTop + y,
+                    cone.getSwingSound());
+        }
+        y += ROW;
 
         y += HINT_GAP;
         if (place) {
@@ -294,6 +308,8 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
         applyNumberField(DAMAGE_FIELD, cone::setDamage);
         applyNumberField(IMPULSE_STRENGTH_FIELD, cone::setImpulseStrength);
         applyNumberField(COUNT_FIELD, cone::setPointCount);
+        applyNumberField(FLASH_ARCS_FIELD, cone::setFlashArcs);
+        applyNumberField(SNAP_FIELD, cone::setSnapDegrees);
         applyNumberField(INTERVAL_FIELD, cone::setPointIntervalTicks);
     }
 }
