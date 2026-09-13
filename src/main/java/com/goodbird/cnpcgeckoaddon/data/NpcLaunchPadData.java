@@ -22,6 +22,11 @@ public class NpcLaunchPadData {
     public static final int MAX_COOLDOWN_TICKS = 1200;
     public static final int DEFAULT_COOLDOWN_TICKS = 20;
     public static final int MAX_LIFETIME_TICKS = 72000;
+    /** Tenths of a block: how far outside the pad's own box standing against it still counts. */
+    public static final int DEFAULT_TOUCH_MARGIN_TENTHS = 3;
+    public static final int MAX_TOUCH_MARGIN_TENTHS = 20;
+    public static final int DEFAULT_LANDING_GRACE_TICKS = 40;
+    public static final int MAX_LANDING_GRACE_TICKS = 400;
 
     private static final String ENABLED_KEY = "GeckoNpcLaunchEnabled";
     private static final String COORDINATE_MODE_KEY = "GeckoNpcLaunchCoordMode";
@@ -33,6 +38,16 @@ public class NpcLaunchPadData {
     private static final String NO_FALL_KEY = "GeckoNpcLaunchNoFall";
     private static final String SOUND_KEY = "GeckoNpcLaunchSound";
     private static final String LIFETIME_KEY = "GeckoNpcLaunchLifetime";
+    private static final String TOUCH_MARGIN_KEY = "GeckoNpcLaunchTouchMargin";
+    private static final String GRACE_KEY = "GeckoNpcLaunchGrace";
+    /**
+     * The cue prefixes. The launch sound's is the switch's own key with the cue's suffixes
+     * after it - {@code ...SoundOn}, {@code ...SoundSound} - which is a different string from
+     * the bare {@code GeckoNpcLaunchSound} the switch is saved under, so the two never meet.
+     */
+    private static final String LAUNCH_SOUND_PREFIX = "GeckoNpcLaunchSound";
+    private static final String LAUNCH_PARTICLES_PREFIX = "GeckoNpcLaunchParticles";
+    private static final String EXPIRE_PARTICLES_PREFIX = "GeckoNpcLaunchExpire";
 
     private boolean enabled;
     private int coordinateMode = COORDINATE_NPC_OFFSET;
@@ -44,6 +59,12 @@ public class NpcLaunchPadData {
     private boolean noFallDamage = true;
     private boolean sound = true;
     private int lifetimeTicks;
+    private int touchMarginTenths = DEFAULT_TOUCH_MARGIN_TENTHS;
+    private int landingGraceTicks = DEFAULT_LANDING_GRACE_TICKS;
+    private final BossSoundCue launchSound =
+            new BossSoundCue("minecraft:block.slime_block.fall", 1.0F, 1.2F);
+    private final BossParticleCue launchParticles = new BossParticleCue("minecraft:cloud", 12);
+    private final BossParticleCue expireParticles = new BossParticleCue("minecraft:poof", 8);
 
     public CompoundTag writeToNBT(CompoundTag tag) {
         tag.putBoolean(ENABLED_KEY, enabled);
@@ -56,6 +77,11 @@ public class NpcLaunchPadData {
         tag.putBoolean(NO_FALL_KEY, noFallDamage);
         tag.putBoolean(SOUND_KEY, sound);
         tag.putInt(LIFETIME_KEY, lifetimeTicks);
+        tag.putInt(TOUCH_MARGIN_KEY, touchMarginTenths);
+        tag.putInt(GRACE_KEY, landingGraceTicks);
+        launchSound.writeToNBT(tag, LAUNCH_SOUND_PREFIX);
+        launchParticles.writeToNBT(tag, LAUNCH_PARTICLES_PREFIX);
+        expireParticles.writeToNBT(tag, EXPIRE_PARTICLES_PREFIX);
         return tag;
     }
 
@@ -78,6 +104,13 @@ public class NpcLaunchPadData {
         noFallDamage = !tag.contains(NO_FALL_KEY) || tag.getBoolean(NO_FALL_KEY);
         sound = !tag.contains(SOUND_KEY) || tag.getBoolean(SOUND_KEY);
         lifetimeTicks = readInt(tag, LIFETIME_KEY, 0, 0, MAX_LIFETIME_TICKS);
+        touchMarginTenths = readInt(tag, TOUCH_MARGIN_KEY, DEFAULT_TOUCH_MARGIN_TENTHS,
+                0, MAX_TOUCH_MARGIN_TENTHS);
+        landingGraceTicks = readInt(tag, GRACE_KEY, DEFAULT_LANDING_GRACE_TICKS,
+                0, MAX_LANDING_GRACE_TICKS);
+        launchSound.readFromNBT(tag, LAUNCH_SOUND_PREFIX);
+        launchParticles.readFromNBT(tag, LAUNCH_PARTICLES_PREFIX);
+        expireParticles.readFromNBT(tag, EXPIRE_PARTICLES_PREFIX);
     }
 
     /** The default for a key an older world never wrote, and the clamp for one it did. */
@@ -162,5 +195,43 @@ public class NpcLaunchPadData {
 
     public void setLifetimeTicks(int lifetimeTicks) {
         this.lifetimeTicks = Mth.clamp(lifetimeTicks, 0, MAX_LIFETIME_TICKS);
+    }
+
+    /**
+     * How far past the pad's own box a player still counts as touching it, in tenths of a block.
+     *
+     * <p>A solid hitbox cannot be walked into, so standing against it from outside has to be
+     * the touch, and how much "against" is worth depends on how wide the pad is drawn.</p>
+     */
+    public int getTouchMarginTenths() {
+        return touchMarginTenths;
+    }
+
+    public void setTouchMarginTenths(int touchMarginTenths) {
+        this.touchMarginTenths = Mth.clamp(touchMarginTenths, 0, MAX_TOUCH_MARGIN_TENTHS);
+    }
+
+    /** How long past the solved flight a launched player is still treated as in the air. */
+    public int getLandingGraceTicks() {
+        return landingGraceTicks;
+    }
+
+    public void setLandingGraceTicks(int landingGraceTicks) {
+        this.landingGraceTicks = Mth.clamp(landingGraceTicks, 0, MAX_LANDING_GRACE_TICKS);
+    }
+
+    /** The noise the throw makes; {@link #isSound()} is still the switch over both cues. */
+    public BossSoundCue getLaunchSound() {
+        return launchSound;
+    }
+
+    /** The motes kicked up at the player's feet when they are thrown. */
+    public BossParticleCue getLaunchParticles() {
+        return launchParticles;
+    }
+
+    /** The puff a summoned pad leaves when its lifetime runs out. */
+    public BossParticleCue getExpireParticles() {
+        return expireParticles;
     }
 }

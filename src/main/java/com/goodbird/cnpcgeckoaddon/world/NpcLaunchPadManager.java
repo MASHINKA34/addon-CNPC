@@ -8,12 +8,10 @@ import com.goodbird.cnpcgeckoaddon.data.NpcLaunchPadData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcLaunchPadData;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
@@ -39,15 +37,6 @@ import java.util.UUID;
  * forgets both. The one thing that is saved is when a pad a boss summoned has to go.</p>
  */
 public final class NpcLaunchPadManager {
-    /**
-     * How far past the pad's own box a player still counts as touching it. A solid hitbox cannot
-     * be walked into, so standing against it from outside has to be the touch.
-     */
-    private static final double TOUCH_MARGIN = 0.3D;
-    /** How long past the solved flight a launched player is still treated as in the air. */
-    private static final int LANDING_GRACE_TICKS = 40;
-    /** The motes kicked up at the player's feet when they are thrown. */
-    private static final int LAUNCH_PARTICLES = 12;
     /**
      * Game time a summoned pad goes away at, in its persistent data: written on its first tick
      * with a lifetime, and saved with it, so a restart halfway through keeps the clock running.
@@ -90,7 +79,7 @@ public final class NpcLaunchPadManager {
         if (players.isEmpty()) {
             return;
         }
-        AABB touch = pad.getBoundingBox().inflate(TOUCH_MARGIN);
+        AABB touch = pad.getBoundingBox().inflate(data.getTouchMarginTenths() / 10.0D);
         Vec3 landing = null;
         for (ServerPlayer player : players) {
             if (!touch.intersects(player.getBoundingBox()) || !isThrowable(player, gameTime)
@@ -142,7 +131,7 @@ public final class NpcLaunchPadManager {
         if (gameTime < saved.getLong(DIES_AT_KEY)) {
             return false;
         }
-        level.sendParticles(ParticleTypes.POOF, pad.getX(), pad.getY(0.5D), pad.getZ(), 8,
+        data.getExpireParticles().emit(level, pad.getX(), pad.getY(0.5D), pad.getZ(),
                 pad.getBbWidth() * 0.5D, pad.getBbHeight() * 0.5D, pad.getBbWidth() * 0.5D, 0.02D);
         pad.discard();
         return true;
@@ -219,14 +208,16 @@ public final class NpcLaunchPadManager {
         READY_AT.computeIfAbsent(pad.getUUID(), id -> new HashMap<>())
                 .put(player.getUUID(), gameTime + data.getCooldownTicks());
         long landsFrom = gameTime + (long) Math.ceil(ArcPhysics.riseTicks(arc.velocity().y));
-        FLIGHTS.put(player.getUUID(), new Flight(landsFrom, gameTime + arc.flightTicks() + LANDING_GRACE_TICKS,
-                data.isNoFallDamage()));
+        FLIGHTS.put(player.getUUID(), new Flight(landsFrom,
+                gameTime + arc.flightTicks() + data.getLandingGraceTicks(), data.isNoFallDamage()));
 
+        // The switch stays over both cues, the way the one label on the screen reads: a pad
+        // told to be quiet was always a pad that kicked up nothing either.
         if (data.isSound()) {
-            level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.SLIME_BLOCK_FALL,
-                    SoundSource.NEUTRAL, 1.0F, 1.2F);
-            level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.1D, player.getZ(),
-                    LAUNCH_PARTICLES, 0.3D, 0.05D, 0.3D, 0.05D);
+            data.getLaunchSound().play(level, player.getX(), player.getY(), player.getZ(),
+                    SoundSource.NEUTRAL);
+            data.getLaunchParticles().emit(level, player.getX(), player.getY() + 0.1D, player.getZ(),
+                    0.3D, 0.05D, 0.3D, 0.05D);
         }
     }
 

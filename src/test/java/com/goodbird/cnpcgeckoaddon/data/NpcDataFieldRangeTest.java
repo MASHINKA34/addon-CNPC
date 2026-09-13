@@ -86,6 +86,14 @@ class NpcDataFieldRangeTest {
         bounds.put("GeckoNpcLaunchHeight", new Bound(NpcLaunchPadData.MIN_ARC_HEIGHT, NpcLaunchPadData.MAX_ARC_HEIGHT));
         bounds.put("GeckoNpcLaunchCooldown", new Bound(0.0D, NpcLaunchPadData.MAX_COOLDOWN_TICKS));
         bounds.put("GeckoNpcLaunchLifetime", new Bound(0.0D, NpcLaunchPadData.MAX_LIFETIME_TICKS));
+        bounds.put("GeckoNpcLaunchTouchMargin", new Bound(0.0D, NpcLaunchPadData.MAX_TOUCH_MARGIN_TENTHS));
+        bounds.put("GeckoNpcLaunchGrace", new Bound(0.0D, NpcLaunchPadData.MAX_LANDING_GRACE_TICKS));
+        bounds.put("GeckoNpcLaunchSoundVolume", new Bound(BossSoundCue.MIN_VOLUME, BossSoundCue.MAX_VOLUME));
+        bounds.put("GeckoNpcLaunchSoundPitch", new Bound(BossSoundCue.MIN_PITCH, BossSoundCue.MAX_PITCH));
+        bounds.put("GeckoNpcLaunchParticlesCount",
+                new Bound(BossParticleCue.MIN_COUNT, BossParticleCue.MAX_COUNT));
+        bounds.put("GeckoNpcLaunchExpireCount",
+                new Bound(BossParticleCue.MIN_COUNT, BossParticleCue.MAX_COUNT));
         bounds.put("GeckoSoundReactionRadius", new Bound(1.0D, 16.0D));
         bounds.put("GeckoSoundReactionMemory", new Bound(20.0D, 1200.0D));
         bounds.put("GeckoSoundReactionCooldown", new Bound(0.0D, 200.0D));
