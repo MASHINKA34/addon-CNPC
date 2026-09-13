@@ -156,6 +156,46 @@ class BossFieldPersistenceTest {
                 data -> data.getPhase(1).platform().getZones().get(0));
     }
 
+    /**
+     * The same sweep over the boss-wide tuning, which is a final field of {@link TeleportPathData}
+     * and so skipped by the sweep above as a nested object.
+     */
+    @Test
+    @DisplayName("every tuning field reaches the save tag")
+    void everyTuningFieldIsPersisted() {
+        assertPersisted(BossTuningSettings.class, BossFieldPersistenceTest::configuredHost,
+                TeleportPathData::tuning);
+    }
+
+    /**
+     * The same sweep over every cue the tuning carries.
+     *
+     * <p>Each one is a final field writing three or four keys under a prefix of its own, which
+     * is two ways of being invisible to the sweep above at once. They are found by walking the
+     * tuning's fields rather than being listed, so a cue added by a later prompt is covered by
+     * existing rather than by being remembered here.</p>
+     */
+    @TestFactory
+    @DisplayName("every tuning cue field reaches the save tag")
+    Stream<DynamicTest> everyCueFieldIsPersisted() {
+        return Stream.of(BossTuningSettings.class.getDeclaredFields())
+                .filter(field -> field.getType() == BossSoundCue.class
+                        || field.getType() == BossParticleCue.class)
+                .map(field -> DynamicTest.dynamicTest(field.getName(), () -> {
+                    field.setAccessible(true);
+                    assertPersisted(field.getType(), BossFieldPersistenceTest::configuredHost,
+                            data -> reach(field, data.tuning()));
+                }));
+    }
+
+    private static Object reach(Field field, Object owner) {
+        try {
+            return field.get(owner);
+        } catch (IllegalAccessException error) {
+            throw new AssertionError("could not reach " + field.getName(), error);
+        }
+    }
+
     @Test
     @DisplayName("every boss-wide field reaches the save tag")
     void everyBossFieldIsPersisted() {

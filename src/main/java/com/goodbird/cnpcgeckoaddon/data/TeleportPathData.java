@@ -610,6 +610,12 @@ public final class TeleportPathData {
     private int chestFixedZ;
     private String chestStyle = BossChestStyles.VANILLA;
 
+    /**
+     * The trim round every mechanic: the pauses, the leashes, the repaint clocks and the
+     * noises the boss itself makes. Every default in it is the constant it replaced.
+     */
+    private final BossTuningSettings tuning = new BossTuningSettings();
+
     private String bossBarStyle = BossBarStyles.NONE;
     private int bossBarScalePercent = DEFAULT_BOSS_BAR_SCALE_PERCENT;
 
@@ -771,6 +777,7 @@ public final class TeleportPathData {
         tag.putInt(HEALTH_LINK_REVIVE_KEY, healthLinkRevivePercent);
         tag.putString(HEALTH_LINK_DOWNED_ANIMATION_KEY, healthLinkDownedAnimation);
         tag.putString(HEALTH_LINK_REVIVE_ANIMATION_KEY, healthLinkReviveAnimation);
+        tuning.writeToNBT(tag);
         return tag;
     }
 
@@ -969,6 +976,7 @@ public final class TeleportPathData {
                 DEFAULT_HEALTH_LINK_REVIVE_PERCENT, MIN_HEALTH_LINK_REVIVE_PERCENT, MAX_HEALTH_LINK_REVIVE_PERCENT);
         healthLinkDownedAnimation = BossSettingValue.clean(tag.getString(HEALTH_LINK_DOWNED_ANIMATION_KEY));
         healthLinkReviveAnimation = BossSettingValue.clean(tag.getString(HEALTH_LINK_REVIVE_ANIMATION_KEY));
+        tuning.readFromNBT(tag);
     }
 
     private void readPhases(CompoundTag tag) {
@@ -1316,6 +1324,9 @@ public final class TeleportPathData {
     public void setHealthLinkDownedAnimation(String value) { healthLinkDownedAnimation = BossSettingValue.clean(value); }
     public String getHealthLinkReviveAnimation() { return healthLinkReviveAnimation; }
     public void setHealthLinkReviveAnimation(String value) { healthLinkReviveAnimation = BossSettingValue.clean(value); }
+
+    /** The boss-wide trim: the timings, the leash and the cues that used to be literals. */
+    public BossTuningSettings tuning() { return tuning; }
 
     /** Whether the minions this boss summoned are cleaned up once the boss dies. */
     public boolean isClearMinionsOnDeath() { return clearMinionsOnDeath; }
