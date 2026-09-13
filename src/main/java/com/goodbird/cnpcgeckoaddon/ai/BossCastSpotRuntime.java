@@ -37,18 +37,13 @@ final class BossCastSpotRuntime {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
-    /** How close the walk has to get before the boss counts as standing on the spot. */
-    private static final double ARRIVAL_DISTANCE = 1.0D;
-    /** How far below a spot the floor may be before it counts as a spot over nothing. */
-    private static final int GROUND_SEARCH_BLOCKS = 3;
-    /** How often the walk re-asks for its path; the path is cached for the same target in between. */
-    private static final int REPATH_INTERVAL_TICKS = 4;
-    /**
-     * How long an ability that refused to start on its spot waits before it is taken there
-     * again. Its own retry is a matter of ticks, which for a spot means a boss blinking to
-     * its pedestal every half second to find nobody in reach of it.
-     */
-    private static final int SPOT_RETRY_TICKS = 100;
+    /** The walking speed the npc's own ai number is turned into before the spot's percentage. */
+    private static final double WALK_SPEED_DIVISOR = 5.0D;
+    private static final double MIN_BASE_WALK_SPEED = 0.5D;
+    private static final double MAX_BASE_WALK_SPEED = 2.0D;
+    /** The widened ends, so a spot asking for three hundred per cent actually gets there. */
+    private static final double MIN_WALK_SPEED = 0.1D;
+    private static final double MAX_WALK_SPEED = 5.0D;
     /** How far ahead a boss held to a fixed yaw looks; only sets the gaze, never a reach. */
     private static final double FIXED_LOOK_DISTANCE = 8.0D;
     private static final float SNAP_DEGREES = 360.0F;
@@ -72,6 +67,13 @@ final class BossCastSpotRuntime {
     /** Game time the walk gives up and blinks at. */
     private long travelDeadline = NOT_SCHEDULED;
     private long nextRepathAt = NOT_SCHEDULED;
+    /**
+     * The journey's own numbers, frozen when it sets off: an edit mid walk cannot move the
+     * spot's arrival line or its pace under a boss already on its way there.
+     */
+    private double travelArrival;
+    private int travelRepath;
+    private int travelWalkSpeedPercent;
 
     /** The ability whose spot the boss is standing on, or NONE. */
     private BossAbility occupied = BossAbility.NONE;
@@ -146,7 +148,8 @@ final class BossCastSpotRuntime {
         if (target == null) {
             return false;
         }
-        if (npc.distanceToSqr(target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE) {
+        double arrival = spot.getArrivalDistance();
+        if (npc.distanceToSqr(target) <= arrival * arrival) {
             return arrive(level, data, phase, ability, gameTime);
         }
         // A new journey drops whatever hold the last cast left: the boss was told to be
@@ -158,6 +161,9 @@ final class BossCastSpotRuntime {
             destination = target;
             travelDeadline = gameTime + spot.getTravelTimeoutTicks();
             nextRepathAt = NOT_SCHEDULED;
+            travelArrival = arrival;
+            travelRepath = spot.getRepathInterval();
+            travelWalkSpeedPercent = spot.getWalkSpeedPercent();
             walk(gameTime);
             return true;
         }
@@ -185,7 +191,7 @@ final class BossCastSpotRuntime {
             clearTravel();
             return true;
         }
-        if (npc.distanceToSqr(destination) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE) {
+        if (npc.distanceToSqr(destination) <= travelArrival * travelArrival) {
             arrive(level, data, phase, ability, gameTime);
             return true;
         }
@@ -239,7 +245,7 @@ final class BossCastSpotRuntime {
         release();
         long current = boss.abilityScheduleAt(ability);
         if (current != NOT_SCHEDULED) {
-            boss.setAbilityScheduleAt(ability, Math.max(current, gameTime + SPOT_RETRY_TICKS));
+            boss.setAbilityScheduleAt(ability, Math.max(current, gameTime + spot.getRetryTicks()));
         }
         return false;
     }
@@ -324,7 +330,7 @@ final class BossCastSpotRuntime {
                 ? new Vec3(spot.getX() + 0.5D, spot.getY(), spot.getZ() + 0.5D)
                 : new Vec3(boss.homeX() + spot.getX(), boss.homeY() + spot.getY(), boss.homeZ() + spot.getZ());
         Vec3 safe = BossTeleportUtil.findSafeDestination(level, npc, asked.x, asked.y, asked.z);
-        if (safe != null && hasGroundBelow(level, safe)) {
+        if (safe != null && hasGroundBelow(level, safe, spot.getGroundSearch())) {
             reportedUnsafe.remove(ability);
             return safe;
         }
@@ -338,9 +344,9 @@ final class BossCastSpotRuntime {
     }
 
     /** Whether there is floor within reach under a spot; a spot over a pit is a fall, not a stand. */
-    private boolean hasGroundBelow(ServerLevel level, Vec3 spot) {
+    private boolean hasGroundBelow(ServerLevel level, Vec3 spot, int searchBlocks) {
         AABB feet = npc.getBoundingBox().move(spot.x - npc.getX(), spot.y - npc.getY(), spot.z - npc.getZ());
-        for (int drop = 1; drop <= GROUND_SEARCH_BLOCKS; drop++) {
+        for (int drop = 1; drop <= searchBlocks; drop++) {
             if (!level.noCollision(npc, feet.move(0.0D, -drop, 0.0D))) {
                 return true;
             }
@@ -360,9 +366,22 @@ final class BossCastSpotRuntime {
         if (nextRepathAt != NOT_SCHEDULED && gameTime < nextRepathAt) {
             return;
         }
-        nextRepathAt = gameTime + REPATH_INTERVAL_TICKS;
-        double speed = Mth.clamp(npc.ais.getWalkingSpeed() / 5.0D, 0.5D, 2.0D);
+        nextRepathAt = gameTime + travelRepath;
+        double speed = walkSpeed(npc.ais.getWalkingSpeed(), travelWalkSpeedPercent);
         npc.getNavigation().moveTo(destination.x, destination.y, destination.z, speed);
+    }
+
+    /**
+     * How fast the boss is told to walk to its spot.
+     *
+     * <p>The npc's own walking speed first, inside the ends the walk has always been held to,
+     * and the spot's percentage on top of that - so a spot left at a hundred asks for exactly
+     * the pace every walk to a spot has had, whatever the npc's own number is. Only the ends
+     * widen, and only so a spot asking for three hundred per cent actually gets there.</p>
+     */
+    static double walkSpeed(double walkingSpeed, int percent) {
+        double base = Mth.clamp(walkingSpeed / WALK_SPEED_DIVISOR, MIN_BASE_WALK_SPEED, MAX_BASE_WALK_SPEED);
+        return Mth.clamp(base * percent / 100.0D, MIN_WALK_SPEED, MAX_WALK_SPEED);
     }
 
     private void clearTravel() {
@@ -373,6 +392,9 @@ final class BossCastSpotRuntime {
         destination = null;
         travelDeadline = NOT_SCHEDULED;
         nextRepathAt = NOT_SCHEDULED;
+        travelArrival = 0.0D;
+        travelRepath = 0;
+        travelWalkSpeedPercent = 0;
     }
 
     private void release() {

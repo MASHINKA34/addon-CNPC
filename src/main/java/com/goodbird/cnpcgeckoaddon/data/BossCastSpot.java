@@ -62,6 +62,16 @@ public final class BossCastSpot {
     public static final int MIN_TRAVEL_TIMEOUT_TICKS = 10;
     public static final int MAX_TRAVEL_TIMEOUT_TICKS = 1200;
     public static final int MAX_STAY_TICKS = 12000;
+    /** Tenths of a block: how close the walk has to get to count as standing on the spot. */
+    public static final int MIN_ARRIVAL_DISTANCE = 2;
+    public static final int MAX_ARRIVAL_DISTANCE = 50;
+    public static final int MAX_GROUND_SEARCH = 16;
+    public static final int MIN_REPATH_INTERVAL = 1;
+    public static final int MAX_REPATH_INTERVAL = 40;
+    public static final int MAX_RETRY_TICKS = 1200;
+    /** A percentage on top of the walking speed the npc's own ai settings give. */
+    public static final int MIN_WALK_SPEED_PERCENT = 10;
+    public static final int MAX_WALK_SPEED_PERCENT = 400;
 
     private static final int DEFAULT_TRAVEL_TIMEOUT_TICKS = 100;
     private static final int DEFAULT_STAY_TICKS = 100;
@@ -79,6 +89,16 @@ public final class BossCastSpot {
     private int stayMode = STAY_ACTIVE;
     /** How long the spot is held after the cast, for {@link #STAY_TICKS}. */
     private int stayTicks = DEFAULT_STAY_TICKS;
+    /** Tenths of a block: how close the walk has to get before the boss counts as arrived. */
+    private int arrivalDistance = 10;
+    /** How far below the spot the floor may be before it counts as a spot over nothing. */
+    private int groundSearch = 3;
+    /** How often the walk re-asks for its path; the path is cached for the same target between. */
+    private int repathInterval = 4;
+    /** How long an ability that refused to start on its spot waits before it is taken there again. */
+    private int retryTicks = 100;
+    /** What the walk's own speed is multiplied by, as a percentage. */
+    private int walkSpeedPercent = 100;
 
     /** Whether this ability sends the boss anywhere at all before it casts. */
     public boolean isSet() { return mode != MODE_NONE; }
@@ -133,6 +153,34 @@ public final class BossCastSpot {
 
     public void setStayTicks(int value) { stayTicks = Mth.clamp(value, 0, MAX_STAY_TICKS); }
 
+    public int getArrivalDistanceTenths() { return arrivalDistance; }
+
+    public void setArrivalDistanceTenths(int value) {
+        arrivalDistance = Mth.clamp(value, MIN_ARRIVAL_DISTANCE, MAX_ARRIVAL_DISTANCE);
+    }
+
+    public double getArrivalDistance() { return arrivalDistance / 10.0D; }
+
+    public int getGroundSearch() { return groundSearch; }
+
+    public void setGroundSearch(int value) { groundSearch = Mth.clamp(value, 0, MAX_GROUND_SEARCH); }
+
+    public int getRepathInterval() { return repathInterval; }
+
+    public void setRepathInterval(int value) {
+        repathInterval = Mth.clamp(value, MIN_REPATH_INTERVAL, MAX_REPATH_INTERVAL);
+    }
+
+    public int getRetryTicks() { return retryTicks; }
+
+    public void setRetryTicks(int value) { retryTicks = Mth.clamp(value, 0, MAX_RETRY_TICKS); }
+
+    public int getWalkSpeedPercent() { return walkSpeedPercent; }
+
+    public void setWalkSpeedPercent(int value) {
+        walkSpeedPercent = Mth.clamp(value, MIN_WALK_SPEED_PERCENT, MAX_WALK_SPEED_PERCENT);
+    }
+
     /** Writes the spot under {@code prefix}, which is the owning ability's key prefix. */
     void writeToNBT(CompoundTag tag, String prefix) {
         tag.putInt(prefix + "SpotMode", mode);
@@ -145,6 +193,11 @@ public final class BossCastSpot {
         tag.putFloat(prefix + "SpotYaw", yaw);
         tag.putInt(prefix + "SpotStayMode", stayMode);
         tag.putInt(prefix + "SpotStayTicks", stayTicks);
+        tag.putInt(prefix + "SpotArrival", arrivalDistance);
+        tag.putInt(prefix + "SpotGroundSearch", groundSearch);
+        tag.putInt(prefix + "SpotRepath", repathInterval);
+        tag.putInt(prefix + "SpotRetry", retryTicks);
+        tag.putInt(prefix + "SpotWalkSpeed", walkSpeedPercent);
     }
 
     void readFromNBT(CompoundTag tag, String prefix) {
@@ -160,5 +213,14 @@ public final class BossCastSpot {
         setYaw(tag.getFloat(prefix + "SpotYaw"));
         stayMode = value(tag, prefix + "SpotStayMode", STAY_ACTIVE, STAY_WINDUP, STAY_TICKS);
         stayTicks = value(tag, prefix + "SpotStayTicks", DEFAULT_STAY_TICKS, 0, MAX_STAY_TICKS);
+        // A boss saved before these were settings walks on the numbers that used to be
+        // literals in the journey itself.
+        arrivalDistance = value(tag, prefix + "SpotArrival", 10,
+                MIN_ARRIVAL_DISTANCE, MAX_ARRIVAL_DISTANCE);
+        groundSearch = value(tag, prefix + "SpotGroundSearch", 3, 0, MAX_GROUND_SEARCH);
+        repathInterval = value(tag, prefix + "SpotRepath", 4, MIN_REPATH_INTERVAL, MAX_REPATH_INTERVAL);
+        retryTicks = value(tag, prefix + "SpotRetry", 100, 0, MAX_RETRY_TICKS);
+        walkSpeedPercent = value(tag, prefix + "SpotWalkSpeed", 100,
+                MIN_WALK_SPEED_PERCENT, MAX_WALK_SPEED_PERCENT);
     }
 }

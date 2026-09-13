@@ -31,6 +31,11 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen {
     private static final int YAW_FIELD = 8;
     private static final int STAY_MODE_BUTTON = 9;
     private static final int STAY_TICKS_FIELD = 10;
+    private static final int ARRIVAL_FIELD = 11;
+    private static final int GROUND_SEARCH_FIELD = 12;
+    private static final int REPATH_FIELD = 13;
+    private static final int RETRY_FIELD = 14;
+    private static final int WALK_SPEED_FIELD = 15;
     private static final int TITLE_LABEL = 30;
     private static final int FIRST_HINT_LABEL = 40;
 
@@ -47,7 +52,9 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen {
         this.ability = ability;
         this.spot = ability.castSpot(phase);
         imageWidth = 256;
-        imageHeight = 276;
+        // Five rows taller than the panel it used to be: the walk's own numbers sit under the
+        // rows a builder already knows, and the screen scrolls to them.
+        imageHeight = 391;
         closeOnEsc = true;
     }
 
@@ -97,8 +104,31 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen {
                 0, BossCastSpot.MAX_STAY_TICKS, 100);
         y += ROW_HEIGHT;
 
+        addNumberField(ARRIVAL_FIELD, "cnpcgeckoaddon.boss.cast_spot_arrival", y,
+                spot.getArrivalDistanceTenths(), BossCastSpot.MIN_ARRIVAL_DISTANCE,
+                BossCastSpot.MAX_ARRIVAL_DISTANCE, 10);
+        y += ROW_HEIGHT;
+
+        addNumberField(GROUND_SEARCH_FIELD, "cnpcgeckoaddon.boss.cast_spot_ground_search", y,
+                spot.getGroundSearch(), 0, BossCastSpot.MAX_GROUND_SEARCH, 3);
+        y += ROW_HEIGHT;
+
+        addNumberField(REPATH_FIELD, "cnpcgeckoaddon.boss.cast_spot_repath", y,
+                spot.getRepathInterval(), BossCastSpot.MIN_REPATH_INTERVAL,
+                BossCastSpot.MAX_REPATH_INTERVAL, 4);
+        y += ROW_HEIGHT;
+
+        addNumberField(RETRY_FIELD, "cnpcgeckoaddon.boss.cast_spot_retry", y,
+                spot.getRetryTicks(), 0, BossCastSpot.MAX_RETRY_TICKS, 100);
+        y += ROW_HEIGHT;
+
+        addNumberField(WALK_SPEED_FIELD, "cnpcgeckoaddon.boss.cast_spot_walk_speed", y,
+                spot.getWalkSpeedPercent(), BossCastSpot.MIN_WALK_SPEED_PERCENT,
+                BossCastSpot.MAX_WALK_SPEED_PERCENT, 100);
+        y += ROW_HEIGHT;
+
         addWrappedHint(FIRST_HINT_LABEL, "cnpcgeckoaddon.boss.cast_spot_hint", y + 2);
-        addDoneButton(guiLeft + 182, guiTop + 250, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 365, 60, 20);
     }
 
     @Override
@@ -144,5 +174,10 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen {
         GuiTextFieldNop yaw = getTextField(YAW_FIELD);
         if (yaw != null) spot.setYaw(yaw.getFloat());
         applyNumberField(STAY_TICKS_FIELD, spot::setStayTicks);
+        applyNumberField(ARRIVAL_FIELD, spot::setArrivalDistanceTenths);
+        applyNumberField(GROUND_SEARCH_FIELD, spot::setGroundSearch);
+        applyNumberField(REPATH_FIELD, spot::setRepathInterval);
+        applyNumberField(RETRY_FIELD, spot::setRetryTicks);
+        applyNumberField(WALK_SPEED_FIELD, spot::setWalkSpeedPercent);
     }
 }
