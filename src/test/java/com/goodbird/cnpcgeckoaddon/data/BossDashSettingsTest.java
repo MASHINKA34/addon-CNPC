@@ -47,7 +47,23 @@ class BossDashSettingsTest {
             Map.entry("DashSlamDamage", new Bound(0, 1000)),
             Map.entry("DashSlamKnockback", new Bound(0, 10)),
             Map.entry("DashChainStunTicks", new Bound(0, 1200)),
-            Map.entry("DashChainDamagePercent", new Bound(100, 1000)));
+            Map.entry("DashChainDamagePercent", new Bound(100, 1000)),
+            Map.entry("DashMinReach", new Bound(0, 100)),
+            Map.entry("DashWallShare", new Bound(1, 100)),
+            Map.entry("DashContactSlice", new Bound(1, 20)),
+            Map.entry("DashMaxSteer", new Bound(0, 50)),
+            Map.entry("DashSweepSlack", new Bound(0, 50)),
+            Map.entry("DashTeleportSlack", new Bound(5, 100)),
+            Map.entry("DashChainHeightSlack", new Bound(0, 50)),
+            Map.entry("DashSlamVfxTicks", new Bound(1, 200)));
+
+    /**
+     * The cues' own prefixes. Their numbers are a volume, a pitch and a count, whose ranges
+     * belong to the cue rather than to the dash, and are pinned by the cue's own test.
+     */
+    private static final List<String> CUE_PREFIXES = List.of(
+            "DashStartSound", "DashStartParticles", "DashHitSound", "DashSlamSound",
+            "DashSlamParticles", "DashChainSound", "DashChainParticles", "DashWallSound");
 
     @Test
     @DisplayName("a boss saved before the dash reads it back switched off, at its defaults")
@@ -126,6 +142,7 @@ class BossDashSettingsTest {
         // The spot's numbers belong to the cast spot, which has bounds and tests of its own.
         Set<String> numbers = tag.getAllKeys().stream()
                 .filter(key -> key.startsWith("Dash") && !key.startsWith("DashSpot"))
+                .filter(key -> CUE_PREFIXES.stream().noneMatch(key::startsWith))
                 .filter(key -> tag.get(key) instanceof IntTag)
                 .collect(Collectors.toCollection(TreeSet::new));
         assertEquals(new TreeSet<>(BOUNDS.keySet()), numbers,

@@ -41,6 +41,7 @@ public final class SubGuiBossDash extends SubGuiFieldScreen {
     private static final int CHAIN_BUTTON = 22;
     private static final int CHAIN_TICKS_FIELD = 23;
     private static final int CHAIN_PERCENT_FIELD = 24;
+    private static final int TUNING_BUTTON = 25;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final int TITLE_LABEL = 30;
@@ -54,6 +55,7 @@ public final class SubGuiBossDash extends SubGuiFieldScreen {
     private static final int ROW = CONTROL_HEIGHT + 1;
     private static final int LABEL_X = 8;
     private static final int LABEL_DROP = 6;
+    private static final int RIGHT_EDGE = 242;
     private static final int TOGGLE_X = 196;
     private static final int TOGGLE_WIDTH = 46;
     private static final int CHOICE_X = 112;
@@ -165,6 +167,12 @@ public final class SubGuiBossDash extends SubGuiFieldScreen {
             y = select(place, STUN_ANIMATION_FIELD, "cnpcgeckoaddon.boss.dash_stun_anim", y,
                     dash.getStunAnimation());
         }
+
+        if (place) {
+            addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y,
+                    RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.dash_tuning"));
+        }
+        y += ROW;
 
         y += HINT_GAP;
         if (place) {
@@ -288,6 +296,9 @@ public final class SubGuiBossDash extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(dash.getEffects(), "cnpcgeckoaddon.boss.effects_dash"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossDashTuning(dash));
         } else if (button.id == ENABLED_BUTTON) {
             dash.setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == DIRECTION_BUTTON) {

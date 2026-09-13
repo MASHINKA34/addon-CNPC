@@ -31,6 +31,20 @@ public final class BossDashSettings {
     public static final int MAX_TAKEN_PERCENT = 1000;
     public static final int MAX_SLAM_RADIUS = 16;
 
+    // The run's own slacks, every one of them in tenths of a block unless it says otherwise.
+    public static final int MAX_MIN_REACH = 100;
+    public static final int MIN_WALL_SHARE = 1;
+    public static final int MAX_WALL_SHARE = 100;
+    public static final int MIN_CONTACT_SLICE = 1;
+    public static final int MAX_CONTACT_SLICE = 20;
+    public static final int MAX_STEER = 50;
+    public static final int MAX_SWEEP_SLACK = 50;
+    public static final int MIN_TELEPORT_SLACK = 5;
+    public static final int MAX_TELEPORT_SLACK = 100;
+    public static final int MAX_CHAIN_HEIGHT_SLACK = 50;
+    public static final int MIN_SLAM_VFX_TICKS = 1;
+    public static final int MAX_SLAM_VFX_TICKS = 200;
+
     private boolean dashEnabled;
     private String dashAnimation = "";
     private int dashActionDelayTicks = 12;
@@ -58,6 +72,36 @@ public final class BossDashSettings {
     private boolean dashChainStun = true;
     private int dashChainStunTicks = 80;
     private int dashChainDamagePercent = 200;
+    /** A lane the home leash cuts shorter than this is not worth running. */
+    private int dashMinReach = 10;
+    /**
+     * A tick's progress below this share of the step it was given, with the boss up against
+     * something, is a wall stopping it rather than a corner it is scraping past.
+     */
+    private int dashWallSharePercent = 25;
+    /** How far down the lane past the first victim somebody still counts as met on the same step. */
+    private int dashContactSlice = 4;
+    /** The most the run steers back toward its line in one tick. */
+    private int dashMaxSteer = 5;
+    /** Extra room round the swept box, so a boss that drifted off its line still finds the lane's edge. */
+    private int dashSweepSlack = 10;
+    /** A move this much longer than a step in one tick was a carry or a teleport, not the run. */
+    private int dashTeleportSlack = 20;
+    /** How far above the boss' head or below its feet a chain still counts as across its path. */
+    private int dashChainHeightSlack = 5;
+    private int dashSlamVfxTicks = 20;
+    private final BossSoundCue dashStartSound =
+            new BossSoundCue("minecraft:entity.ravager.roar", 1.2F, 1.4F);
+    private final BossParticleCue dashStartParticles = new BossParticleCue("minecraft:cloud", 12);
+    private final BossSoundCue dashHitSound =
+            new BossSoundCue("minecraft:entity.player.attack.knockback", 1.2F, 0.7F);
+    private final BossSoundCue dashSlamSound = new BossSoundCue("minecraft:block.anvil.land", 2.0F, 0.5F);
+    private final BossParticleCue dashSlamParticles = new BossParticleCue("minecraft:explosion", 1);
+    private final BossSoundCue dashChainSound = new BossSoundCue("minecraft:block.chain.hit", 2.0F, 0.6F);
+    /** The tether's own colour, which is what the chain the boss broke was drawn in. */
+    private final BossParticleCue dashChainParticles = new BossParticleCue(BossParticleCue.DUST_ID, 20);
+    private final BossSoundCue dashWallSound =
+            new BossSoundCue("minecraft:entity.zombie.break_wooden_door", 1.0F, 0.7F);
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot dashCastSpot = new BossCastSpot();
 
@@ -181,6 +225,80 @@ public final class BossDashSettings {
         dashChainDamagePercent = Mth.clamp(value, MIN_TAKEN_PERCENT, MAX_TAKEN_PERCENT);
     }
 
+    /** Tenths of a block: the shortest lane still worth running. */
+    public int getMinReachTenths() { return dashMinReach; }
+
+    public void setMinReachTenths(int value) { dashMinReach = Mth.clamp(value, 0, MAX_MIN_REACH); }
+
+    public double getMinReach() { return dashMinReach / 10.0D; }
+
+    public int getWallSharePercent() { return dashWallSharePercent; }
+
+    public void setWallSharePercent(int value) {
+        dashWallSharePercent = Mth.clamp(value, MIN_WALL_SHARE, MAX_WALL_SHARE);
+    }
+
+    public double getWallShare() { return dashWallSharePercent / 100.0D; }
+
+    public int getContactSliceTenths() { return dashContactSlice; }
+
+    public void setContactSliceTenths(int value) {
+        dashContactSlice = Mth.clamp(value, MIN_CONTACT_SLICE, MAX_CONTACT_SLICE);
+    }
+
+    public double getContactSlice() { return dashContactSlice / 10.0D; }
+
+    public int getMaxSteerTenths() { return dashMaxSteer; }
+
+    public void setMaxSteerTenths(int value) { dashMaxSteer = Mth.clamp(value, 0, MAX_STEER); }
+
+    public double getMaxSteer() { return dashMaxSteer / 10.0D; }
+
+    public int getSweepSlackTenths() { return dashSweepSlack; }
+
+    public void setSweepSlackTenths(int value) { dashSweepSlack = Mth.clamp(value, 0, MAX_SWEEP_SLACK); }
+
+    public double getSweepSlack() { return dashSweepSlack / 10.0D; }
+
+    public int getTeleportSlackTenths() { return dashTeleportSlack; }
+
+    public void setTeleportSlackTenths(int value) {
+        dashTeleportSlack = Mth.clamp(value, MIN_TELEPORT_SLACK, MAX_TELEPORT_SLACK);
+    }
+
+    public double getTeleportSlack() { return dashTeleportSlack / 10.0D; }
+
+    public int getChainHeightSlackTenths() { return dashChainHeightSlack; }
+
+    public void setChainHeightSlackTenths(int value) {
+        dashChainHeightSlack = Mth.clamp(value, 0, MAX_CHAIN_HEIGHT_SLACK);
+    }
+
+    public double getChainHeightSlack() { return dashChainHeightSlack / 10.0D; }
+
+    /** How long the wave the wall's slam sends out travels for. */
+    public int getSlamVfxTicks() { return dashSlamVfxTicks; }
+
+    public void setSlamVfxTicks(int value) {
+        dashSlamVfxTicks = Mth.clamp(value, MIN_SLAM_VFX_TICKS, MAX_SLAM_VFX_TICKS);
+    }
+
+    public BossSoundCue getStartSound() { return dashStartSound; }
+
+    public BossParticleCue getStartParticles() { return dashStartParticles; }
+
+    public BossSoundCue getHitSound() { return dashHitSound; }
+
+    public BossSoundCue getSlamSound() { return dashSlamSound; }
+
+    public BossParticleCue getSlamParticles() { return dashSlamParticles; }
+
+    public BossSoundCue getChainSound() { return dashChainSound; }
+
+    public BossParticleCue getChainParticles() { return dashChainParticles; }
+
+    public BossSoundCue getWallSound() { return dashWallSound; }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return dashCastSpot; }
 
@@ -210,6 +328,22 @@ public final class BossDashSettings {
         tag.putBoolean("DashChainStun", dashChainStun);
         tag.putInt("DashChainStunTicks", dashChainStunTicks);
         tag.putInt("DashChainDamagePercent", dashChainDamagePercent);
+        tag.putInt("DashMinReach", dashMinReach);
+        tag.putInt("DashWallShare", dashWallSharePercent);
+        tag.putInt("DashContactSlice", dashContactSlice);
+        tag.putInt("DashMaxSteer", dashMaxSteer);
+        tag.putInt("DashSweepSlack", dashSweepSlack);
+        tag.putInt("DashTeleportSlack", dashTeleportSlack);
+        tag.putInt("DashChainHeightSlack", dashChainHeightSlack);
+        tag.putInt("DashSlamVfxTicks", dashSlamVfxTicks);
+        dashStartSound.writeToNBT(tag, "DashStartSound");
+        dashStartParticles.writeToNBT(tag, "DashStartParticles");
+        dashHitSound.writeToNBT(tag, "DashHitSound");
+        dashSlamSound.writeToNBT(tag, "DashSlamSound");
+        dashSlamParticles.writeToNBT(tag, "DashSlamParticles");
+        dashChainSound.writeToNBT(tag, "DashChainSound");
+        dashChainParticles.writeToNBT(tag, "DashChainParticles");
+        dashWallSound.writeToNBT(tag, "DashWallSound");
         dashCastSpot.writeToNBT(tag, "Dash");
     }
 
@@ -242,6 +376,24 @@ public final class BossDashSettings {
         dashChainStun = !tag.contains("DashChainStun") || tag.getBoolean("DashChainStun");
         dashChainStunTicks = value(tag, "DashChainStunTicks", 80, 0, MAX_STUN_TICKS);
         dashChainDamagePercent = value(tag, "DashChainDamagePercent", 200, MIN_TAKEN_PERCENT, MAX_TAKEN_PERCENT);
+        // A boss saved before these were settings carries none of them and runs on the
+        // numbers that used to be literals in the run itself.
+        dashMinReach = value(tag, "DashMinReach", 10, 0, MAX_MIN_REACH);
+        dashWallSharePercent = value(tag, "DashWallShare", 25, MIN_WALL_SHARE, MAX_WALL_SHARE);
+        dashContactSlice = value(tag, "DashContactSlice", 4, MIN_CONTACT_SLICE, MAX_CONTACT_SLICE);
+        dashMaxSteer = value(tag, "DashMaxSteer", 5, 0, MAX_STEER);
+        dashSweepSlack = value(tag, "DashSweepSlack", 10, 0, MAX_SWEEP_SLACK);
+        dashTeleportSlack = value(tag, "DashTeleportSlack", 20, MIN_TELEPORT_SLACK, MAX_TELEPORT_SLACK);
+        dashChainHeightSlack = value(tag, "DashChainHeightSlack", 5, 0, MAX_CHAIN_HEIGHT_SLACK);
+        dashSlamVfxTicks = value(tag, "DashSlamVfxTicks", 20, MIN_SLAM_VFX_TICKS, MAX_SLAM_VFX_TICKS);
+        dashStartSound.readFromNBT(tag, "DashStartSound");
+        dashStartParticles.readFromNBT(tag, "DashStartParticles");
+        dashHitSound.readFromNBT(tag, "DashHitSound");
+        dashSlamSound.readFromNBT(tag, "DashSlamSound");
+        dashSlamParticles.readFromNBT(tag, "DashSlamParticles");
+        dashChainSound.readFromNBT(tag, "DashChainSound");
+        dashChainParticles.readFromNBT(tag, "DashChainParticles");
+        dashWallSound.readFromNBT(tag, "DashWallSound");
         dashCastSpot.readFromNBT(tag, "Dash");
     }
 }

@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossDashSettings;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BossDashGeometryTest {
 
     private static final double EPSILON = 1.0E-9D;
+
+    /** The share of its step a tick has to keep to count as a scrape: the shipped default. */
+    private static final double QUARTER = 0.25D;
 
     @Test
     @DisplayName("a run from home is cut at the leash in whichever direction it goes")
@@ -183,9 +187,46 @@ class BossDashGeometryTest {
     @Test
     @DisplayName("a wall is being against something without getting anywhere")
     void aWallIsNoProgressAgainstSomething() {
-        assertTrue(BossDashRuntime.stoppedByWall(true, 0.0D, 0.8D), "pressed against it and not moving");
-        assertTrue(BossDashRuntime.stoppedByWall(true, 0.1D, 0.8D), "a crawl along its face is still the wall");
-        assertFalse(BossDashRuntime.stoppedByWall(true, 0.5D, 0.8D), "scraping past a corner at speed is not");
-        assertFalse(BossDashRuntime.stoppedByWall(false, 0.0D, 0.8D), "no collision, whatever held it up, is no wall");
+        assertTrue(BossDashRuntime.stoppedByWall(true, 0.0D, 0.8D, QUARTER), "pressed against it and not moving");
+        assertTrue(BossDashRuntime.stoppedByWall(true, 0.1D, 0.8D, QUARTER),
+                "a crawl along its face is still the wall");
+        assertFalse(BossDashRuntime.stoppedByWall(true, 0.5D, 0.8D, QUARTER),
+                "scraping past a corner at speed is not");
+        assertFalse(BossDashRuntime.stoppedByWall(false, 0.0D, 0.8D, QUARTER),
+                "no collision, whatever held it up, is no wall");
+    }
+
+    @Test
+    @DisplayName("the share the wall is judged by is what decides a scrape from a stop")
+    void theWallShareDecides() {
+        // Nine tenths: all but a full-speed tick against something reads as a wall.
+        assertTrue(BossDashRuntime.stoppedByWall(true, 0.5D, 0.8D, 0.9D),
+                "scraping a corner counts as a wall once the share is this high");
+        assertFalse(BossDashRuntime.stoppedByWall(true, 0.75D, 0.8D, 0.9D),
+                "a tick that kept nearly all its step is still not a wall");
+        // A hundredth: only a boss that has genuinely stopped dead counts.
+        assertTrue(BossDashRuntime.stoppedByWall(true, 0.0D, 0.8D, 0.01D), "dead stop, at any share");
+        assertFalse(BossDashRuntime.stoppedByWall(true, 0.1D, 0.8D, 0.01D),
+                "the crawl that used to be a wall is a scrape at this share");
+    }
+
+    @Test
+    @DisplayName("the tenths the settings hold are the numbers the run used to be written with")
+    void theTenthsAreYesterdaysLiterals() {
+        BossDashSettings dash = new BossDashSettings();
+        assertEquals(1.0D, dash.getMinReach(), EPSILON, "the shortest lane worth running");
+        assertEquals(0.25D, dash.getWallShare(), EPSILON);
+        assertEquals(0.4D, dash.getContactSlice(), EPSILON);
+        assertEquals(0.5D, dash.getMaxSteer(), EPSILON);
+        assertEquals(1.0D, dash.getSweepSlack(), EPSILON);
+        assertEquals(2.0D, dash.getTeleportSlack(), EPSILON);
+        assertEquals(0.5D, dash.getChainHeightSlack(), EPSILON);
+
+        // A lane the leash cuts to under the shortest one is refused; the setting moves where
+        // that line is drawn, so a boss set to zero runs whatever stub is left.
+        dash.setMinReachTenths(0);
+        assertEquals(0.0D, dash.getMinReach(), EPSILON);
+        dash.setMinReachTenths(1000);
+        assertEquals(10.0D, dash.getMinReach(), EPSILON, "clamped to the longest lane a setting allows");
     }
 }

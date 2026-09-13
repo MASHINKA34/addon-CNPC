@@ -60,6 +60,40 @@ class BossFieldPersistenceTest {
     @TestFactory
     @DisplayName("every ability settings field reaches the save tag")
     Stream<DynamicTest> everyAbilityFieldIsPersisted() {
+        return abilitySettings()
+                .map(entry -> DynamicTest.dynamicTest(entry.getKey().getSimpleName(),
+                        () -> assertPersisted(entry.getKey(), BossFieldPersistenceTest::configuredHost,
+                                data -> entry.getValue().apply(data.getPhase(1)))));
+    }
+
+    /**
+     * The same sweep over every cue an ability's settings carry.
+     *
+     * <p>A cue is a final field writing its keys under a prefix of its own, so the sweep above
+     * skips it twice over: once as final, once as a nested object. The tuning's cues are swept
+     * on their own below for that reason, and an ability's need the same - the dash alone has
+     * five of them, each able to go silent without a word. Found by walking the fields rather
+     * than listed, so a cue a later prompt hangs on an ability is covered by existing.</p>
+     */
+    @TestFactory
+    @DisplayName("every ability cue field reaches the save tag")
+    Stream<DynamicTest> everyAbilityCueFieldIsPersisted() {
+        return abilitySettings().flatMap(entry -> Stream.of(entry.getKey().getDeclaredFields())
+                .filter(BossFieldPersistenceTest::isCue)
+                .map(field -> DynamicTest.dynamicTest(
+                        entry.getKey().getSimpleName() + "." + field.getName(), () -> {
+                            field.setAccessible(true);
+                            assertPersisted(field.getType(), BossFieldPersistenceTest::configuredHost,
+                                    data -> reach(field, entry.getValue().apply(data.getPhase(1))));
+                        })));
+    }
+
+    private static boolean isCue(Field field) {
+        return field.getType() == BossSoundCue.class || field.getType() == BossParticleCue.class;
+    }
+
+    /** Every ability's settings object, asked for by name so a new ability is a loud omission. */
+    private static Stream<Map.Entry<Class<?>, Function<BossPhaseData, ?>>> abilitySettings() {
         return Stream.<Map.Entry<Class<?>, Function<BossPhaseData, ?>>>of(
                         Map.entry(BossAreaAttackSettings.class, BossPhaseData::areaAttack),
                         Map.entry(BossBarrierSettings.class, BossPhaseData::barrier),
@@ -86,10 +120,7 @@ class BossFieldPersistenceTest {
                         Map.entry(BossRangedAttackSettings.class, BossPhaseData::rangedAttack),
                         Map.entry(BossSummonSettings.class, BossPhaseData::summon),
                         Map.entry(BossTeleportSettings.class, BossPhaseData::teleport),
-                        Map.entry(BossTetherSettings.class, BossPhaseData::tether))
-                .map(entry -> DynamicTest.dynamicTest(entry.getKey().getSimpleName(),
-                        () -> assertPersisted(entry.getKey(), BossFieldPersistenceTest::configuredHost,
-                                data -> entry.getValue().apply(data.getPhase(1)))));
+                        Map.entry(BossTetherSettings.class, BossPhaseData::tether));
     }
 
     /**
@@ -179,8 +210,7 @@ class BossFieldPersistenceTest {
     @DisplayName("every tuning cue field reaches the save tag")
     Stream<DynamicTest> everyCueFieldIsPersisted() {
         return Stream.of(BossTuningSettings.class.getDeclaredFields())
-                .filter(field -> field.getType() == BossSoundCue.class
-                        || field.getType() == BossParticleCue.class)
+                .filter(BossFieldPersistenceTest::isCue)
                 .map(field -> DynamicTest.dynamicTest(field.getName(), () -> {
                     field.setAccessible(true);
                     assertPersisted(field.getType(), BossFieldPersistenceTest::configuredHost,
