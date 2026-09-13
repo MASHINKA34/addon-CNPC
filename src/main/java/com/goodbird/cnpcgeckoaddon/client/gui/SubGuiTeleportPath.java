@@ -21,6 +21,7 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
     private static final int RAGE_BUTTON = 27;
     private static final int CHEST_BUTTON = 28;
     private static final int TELEGRAPH_BUTTON = 29;
+    private static final int HEALTH_LINK_BUTTON = 30;
 
     private final TeleportPathData data;
     private final EntityNPCInterface npc;
@@ -30,7 +31,9 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
         this.data.markConfigured();
         this.npc = npc;
         imageWidth = 256;
-        imageHeight = 256;
+        // A row taller for the health link: the tall-screen drawing tiles the panel to any height,
+        // and the screen scrolls in a window too short for it.
+        imageHeight = 278;
         closeOnEsc = true;
     }
 
@@ -76,10 +79,13 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
                 "cnpcgeckoaddon.boss.phase_settings"));
         addButton(new GuiButtonNop(this, BOSS_BAR_BUTTON, guiLeft + 128, guiTop + 206, 114, 20,
                 "cnpcgeckoaddon.boss.bar_settings"));
-        // The longest label of the nine gets the wide half of the bottom row, next to Done.
-        addButton(new GuiButtonNop(this, TELEGRAPH_BUTTON, guiLeft + 8, guiTop + 228, 170, 20,
+        // The longest label gets a row of its own, and the health link takes the wide half of the
+        // bottom row, next to Done.
+        addButton(new GuiButtonNop(this, TELEGRAPH_BUTTON, guiLeft + 8, guiTop + 228, 234, 20,
                 "cnpcgeckoaddon.boss.telegraph_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 228, 60, 20);
+        addButton(new GuiButtonNop(this, HEALTH_LINK_BUTTON, guiLeft + 8, guiTop + 250, 170, 20,
+                "cnpcgeckoaddon.boss.health_link_settings"));
+        addDoneButton(guiLeft + 182, guiTop + 250, 60, 20);
     }
 
 
@@ -124,6 +130,9 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
         } else if (button.id == TELEGRAPH_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossTelegraph(data));
+        } else if (button.id == HEALTH_LINK_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossHealthLink(npc, data));
         }
     }
 

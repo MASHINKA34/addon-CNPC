@@ -263,6 +263,20 @@ final class BossHealthLinkRuntime {
         }
     }
 
+    /**
+     * Read-only status used by the boss diagnostic command: the group, the mode, how many partners
+     * the link finds right now and, for a boss lying down, how long it still lies there.
+     */
+    String status(TeleportPathData data, long gameTime) {
+        if (!data.isHealthLinked()) {
+            return "Health link: off";
+        }
+        String mode = data.getHealthLinkMode() == TeleportPathData.HEALTH_LINK_TOGETHER ? "die together" : "shared";
+        String line = "Health link: group " + data.getHealthLinkGroup() + ", " + mode
+                + ", partners " + linkedTo(npc, data).size();
+        return isDowned() ? line + ", downed " + downedTicksLeft(gameTime) + " ticks" : line;
+    }
+
     /** Whether this boss is lying down right now, waiting on its partners. */
     boolean isDowned() {
         return downedUntil != NOT_SCHEDULED;

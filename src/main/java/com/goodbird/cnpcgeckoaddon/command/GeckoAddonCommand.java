@@ -138,6 +138,11 @@ public class GeckoAddonCommand {
                         ? (data.isHealthScalingEnabled()
                         ? "Party health: awaiting controller" : "Party health: off")
                         : controller.partyHealthStatus(data);
+                String healthLinkLine = controller == null
+                        ? (data.isHealthLinked()
+                        ? "Health link: group " + data.getHealthLinkGroup() + ", awaiting controller"
+                        : "Health link: off")
+                        : controller.healthLinkStatus(level.getGameTime());
                 source.sendSuccess(() -> Component.literal(bossLine), false);
                 source.sendSuccess(() -> Component.literal(totemLine), false);
                 source.sendSuccess(() -> Component.literal(captureLine), false);
@@ -152,6 +157,7 @@ public class GeckoAddonCommand {
                 source.sendSuccess(() -> Component.literal(comboLine), false);
                 source.sendSuccess(() -> Component.literal(leashLine), false);
                 source.sendSuccess(() -> Component.literal(partyHealthLine), false);
+                source.sendSuccess(() -> Component.literal(healthLinkLine), false);
             }
         }
         if (found == 0) {

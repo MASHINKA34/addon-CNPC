@@ -1507,6 +1507,11 @@ public final class TeleportPathController {
         return npc.level() instanceof ServerLevel level ? healthLink.downedTicksLeft(level.getGameTime()) : 0L;
     }
 
+    /** Read-only status used by the boss diagnostic command. */
+    public String healthLinkStatus(long gameTime) {
+        return healthLink.status(settings(), gameTime);
+    }
+
     public static void shutdownLevel(ServerLevel level) {
         for (TeleportPathController controller : List.copyOf(INSTANCES)) {
             if (controller.npc.level() == level) {
