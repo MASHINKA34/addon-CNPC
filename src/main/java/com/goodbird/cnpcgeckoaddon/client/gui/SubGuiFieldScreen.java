@@ -1,5 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -9,8 +12,11 @@ import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 
 /**
  * Shared scaffolding for the settings screens: the labelled, clamped number field every
@@ -31,9 +37,68 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
     /** One line of text plus the pixel that keeps two of them apart. */
     protected static final int LINE_HEIGHT = 9;
 
+    /**
+     * What each cue button on this screen should read, by button id. Rebuilt from scratch on
+     * every layout, and read again whenever an editor opened from one of them closes.
+     */
+    private final Map<Integer, Supplier<String>> cueLabels = new HashMap<>();
+
     /** The panel every settings screen is drawn on; a screen that wants another sets its own. */
     protected SubGuiFieldScreen() {
         setBackground("menubg.png");
+    }
+
+    @Override
+    public void init() {
+        // The buttons themselves are about to be thrown away and added again, so what they
+        // read has to be forgotten with them.
+        cueLabels.clear();
+        super.init();
+    }
+
+    /**
+     * A full-width button that opens the editor for one sound cue, reading "label: id" - or
+     * "label: off" while the cue is switched off.
+     *
+     * <p>The opening and the refresh afterwards live here rather than in each topic screen:
+     * a cue is edited the same way wherever it hangs, and the screens that carry a dozen of
+     * them would otherwise carry a dozen copies of the same three lines.</p>
+     */
+    protected void addCueButton(int id, String labelKey, int y, BossSoundCue cue) {
+        addCueRow(id, y, () -> cueLabel(labelKey, cue.isEnabled(), cue.getSoundId()),
+                () -> setSubGui(new SubGuiBossSoundCue(labelKey, cue)));
+    }
+
+    /** The same, for a particle cue. */
+    protected void addCueButton(int id, String labelKey, int y, BossParticleCue cue) {
+        addCueRow(id, y, () -> cueLabel(labelKey, cue.isEnabled(), cue.getParticleId()),
+                () -> setSubGui(new SubGuiBossParticleCue(labelKey, cue)));
+    }
+
+    private void addCueRow(int id, int y, Supplier<String> label, Runnable open) {
+        cueLabels.put(id, label);
+        addButton(new GuiButtonNop(this, id, guiLeft + numberLabelX(), y,
+                imageWidth - numberLabelX() * 2, toggleButtonHeight(), label.get(),
+                button -> {
+                    applyFields();
+                    open.run();
+                }));
+    }
+
+    private static String cueLabel(String labelKey, boolean enabled, String id) {
+        return I18n.get(labelKey) + ": "
+                + (enabled ? id : I18n.get("cnpcgeckoaddon.cue.off"));
+    }
+
+    @Override
+    public void subGuiClosed(Screen subgui) {
+        super.subGuiClosed(subgui);
+        cueLabels.forEach((id, label) -> {
+            GuiButtonNop button = getButton(id);
+            if (button != null) {
+                button.setDisplayText(label.get());
+            }
+        });
     }
 
     /** The close button each screen ends with, at the spot that screen puts it. */
