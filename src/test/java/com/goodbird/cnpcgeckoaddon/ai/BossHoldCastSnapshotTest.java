@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossCocoonSettings;
+import com.goodbird.cnpcgeckoaddon.data.BossGravitySettings;
 import com.goodbird.cnpcgeckoaddon.data.BossTetherSettings;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -99,5 +100,52 @@ class BossHoldCastSnapshotTest {
         assertEquals(0.1D, look.pullSpeed(5), EPSILON, "level five at 0.02 is the tug of war it was tied at");
         assertTrue(look.placeSound().isEnabled());
         assertEquals(12, look.breakParticles().getCount());
+    }
+
+    @Test
+    @DisplayName("a gravity field is opened with the look the settings had on that tick")
+    void theFieldTakesItsLookOnTheCast() {
+        BossGravitySettings gravity = new BossGravitySettings();
+        gravity.setEffectIntervalTicks(5);
+        gravity.setBiteIntervalTicks(5);
+        gravity.setVfxTicks(60);
+        gravity.setPullSlackTenths(0);
+        gravity.setLandingTimeoutTicks(20);
+        gravity.setStreamParticles(0);
+        gravity.setStreamInnerPercent(80);
+        gravity.setStreamHeightTenths(5);
+        gravity.getOpenSound().setEnabled(false);
+
+        BossGravityScheduler.Look look = BossGravityScheduler.look(gravity);
+        assertEquals(5, look.effectIntervalTicks());
+        assertEquals(5, look.biteIntervalTicks());
+        assertEquals(60, look.vfxTicks());
+        assertEquals(0.0D, look.pullSlack(), EPSILON);
+        assertEquals(20, look.landingTimeoutTicks());
+        assertEquals(0, look.streamParticles());
+        assertEquals(0.8D, look.streamInnerShare(), EPSILON);
+        assertEquals(0.5D, look.streamHeight(), EPSILON);
+        assertFalse(look.openSound().isEnabled());
+    }
+
+    @Test
+    @DisplayName("editing the field after it opened leaves the standing one alone")
+    void theFieldLookDoesNotFollowLaterEdits() {
+        BossGravitySettings gravity = new BossGravitySettings();
+        BossGravityScheduler.Look look = BossGravityScheduler.look(gravity);
+
+        gravity.setEffectIntervalTicks(1);
+        gravity.setBiteIntervalTicks(200);
+        gravity.setPullSlackTenths(50);
+        gravity.setLandingTimeoutTicks(2400);
+        gravity.setStreamParticles(20);
+        gravity.getLandingSound().setEnabled(false);
+
+        assertEquals(20, look.effectIntervalTicks());
+        assertEquals(20, look.biteIntervalTicks());
+        assertEquals(1.0D, look.pullSlack(), EPSILON);
+        assertEquals(400, look.landingTimeoutTicks(), "the wait a throw was made with outlives the field");
+        assertEquals(3, look.streamParticles());
+        assertTrue(look.landingSound().isEnabled());
     }
 }

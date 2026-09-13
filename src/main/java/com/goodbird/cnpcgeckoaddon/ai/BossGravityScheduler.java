@@ -2,14 +2,15 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossGravitySettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.util.Mth;
@@ -59,12 +60,6 @@ public final class BossGravityScheduler {
     /** Beyond this nobody can see the ring, so the field works without costing anything. */
     /** How often the ring is repainted. Every other tick reads as a steady shape. */
     private static final int MARK_INTERVAL_TICKS = 2;
-    /** Ticks between one dose of the held effects and the next. */
-    private static final int EFFECT_INTERVAL_TICKS = 20;
-    /** The least a victim held against the boss gets between one bite and the next. */
-    private static final int BITE_INTERVAL_TICKS = 20;
-    /** How long the opening wave runs for; the field has no length setting of its own. */
-    private static final int VFX_DURATION_TICKS = 20;
     /**
      * What an entity keeps of its last tick's movement on plain ground: block friction times
      * the air drag every entity gets.
@@ -81,19 +76,100 @@ public final class BossGravityScheduler {
     /** What every tick takes off a vertical speed, and what it takes off before that: vanilla's own two numbers. */
     private static final double VERTICAL_DRAG = 0.98D;
     private static final double GRAVITY = 0.08D;
-    /** Inside this the pull lets go, or a victim already at the boss would twitch about it. */
-    private static final double PULL_SLACK = 1.0D;
     /**
-     * How long a thrown victim is waited for. A throw at full strength is down again inside
-     * a hundred ticks; one that never comes down - flown off, teleported away - is forgotten
-     * rather than bitten a minute later on some unrelated landing.
+     * The clocks, the slack, the wind and the noises a field was opened with, taken off the
+     * settings on that tick.
+     *
+     * <p>Frozen the way the radius and the force already are: a field runs on the level tick
+     * for seconds after the boss has moved on, and a builder retuning it meanwhile must not
+     * change what the party is standing in. Split out of {@link Field} so a test can take one
+     * without a world to open it in - and the landing carries its own copy, because it is owed
+     * long after the field that threw it has closed.</p>
      */
-    private static final int LANDING_TIMEOUT_TICKS = 400;
-    /** Motes drifting with the field each tick, so it reads as a wind and not only as a ring. */
-    private static final int STREAM_PARTICLES_PER_TICK = 3;
-    /** The motes start no nearer the boss than this share of the radius, or they say nothing. */
-    private static final double STREAM_INNER_SHARE = 0.35D;
-    private static final double STREAM_HEIGHT = 2.0D;
+    static final class Look {
+        private final int effectIntervalTicks;
+        private final int biteIntervalTicks;
+        private final int vfxTicks;
+        private final double pullSlack;
+        private final int landingTimeoutTicks;
+        private final int streamParticles;
+        private final double streamInnerShare;
+        private final double streamHeight;
+        private final BossSoundCue openSound;
+        private final BossSoundCue pushSound;
+        private final BossSoundCue launchSound;
+        private final BossSoundCue landingSound;
+
+        private Look(BossGravitySettings gravity) {
+            effectIntervalTicks = gravity.getEffectIntervalTicks();
+            biteIntervalTicks = gravity.getBiteIntervalTicks();
+            vfxTicks = gravity.getVfxTicks();
+            pullSlack = gravity.getPullSlackTenths() / 10.0D;
+            landingTimeoutTicks = gravity.getLandingTimeoutTicks();
+            streamParticles = gravity.getStreamParticles();
+            streamInnerShare = gravity.getStreamInnerPercent() / 100.0D;
+            streamHeight = gravity.getStreamHeightTenths() / 10.0D;
+            openSound = gravity.getOpenSound().copy();
+            pushSound = gravity.getPushSound().copy();
+            launchSound = gravity.getLaunchSound().copy();
+            landingSound = gravity.getLandingSound().copy();
+        }
+
+        int effectIntervalTicks() {
+            return effectIntervalTicks;
+        }
+
+        int biteIntervalTicks() {
+            return biteIntervalTicks;
+        }
+
+        int vfxTicks() {
+            return vfxTicks;
+        }
+
+        /** Inside this the pull lets go, or a victim already at the boss would twitch about it. */
+        double pullSlack() {
+            return pullSlack;
+        }
+
+        int landingTimeoutTicks() {
+            return landingTimeoutTicks;
+        }
+
+        /** Motes of wind a tick; nought leaves the field with only its ring. */
+        int streamParticles() {
+            return streamParticles;
+        }
+
+        double streamInnerShare() {
+            return streamInnerShare;
+        }
+
+        double streamHeight() {
+            return streamHeight;
+        }
+
+        BossSoundCue openSound() {
+            return openSound;
+        }
+
+        BossSoundCue pushSound() {
+            return pushSound;
+        }
+
+        BossSoundCue launchSound() {
+            return launchSound;
+        }
+
+        BossSoundCue landingSound() {
+            return landingSound;
+        }
+    }
+
+    /** What this field will run and sound like, whatever the builder does next. */
+    static Look look(BossGravitySettings gravity) {
+        return new Look(gravity);
+    }
 
     /** One field, pulling or pushing. */
     private static final class Field {
@@ -109,6 +185,8 @@ public final class BossGravityScheduler {
         private final BossEffectSet effects;
         /** How the boss was drawing its warnings when the field went up. */
         private final BossTelegraphPaint.Settings telegraph;
+        /** The clocks, the wind and the noises this field was opened with. */
+        private final Look look;
         private final long startedAt;
         private final long endsAt;
         /** Victim id -> earliest game time the field may bite them again. */
@@ -132,6 +210,7 @@ public final class BossGravityScheduler {
             this.damage = damage;
             this.effects = phase.gravity().getEffects();
             this.telegraph = BossTelegraphPaint.Settings.of(boss);
+            this.look = look(phase.gravity());
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.gravity().getDurationTicks();
         }
@@ -144,14 +223,18 @@ public final class BossGravityScheduler {
         /** What the landing hits for, enrage already counted in. */
         private final int damage;
         private final long thrownAt;
+        /** The wait and the thud this throw was made with, which outlive the field itself. */
+        private final Look look;
         /** Set once the server has seen them off the floor, so the throw tick itself is not a landing. */
         private boolean airborne;
 
-        private Landing(ResourceKey<Level> dimension, EntityNPCInterface boss, int damage, long thrownAt) {
+        private Landing(ResourceKey<Level> dimension, EntityNPCInterface boss, int damage, long thrownAt,
+                        Look look) {
             this.dimension = dimension;
             this.boss = boss;
             this.damage = damage;
             this.thrownAt = thrownAt;
+            this.look = look;
         }
     }
 
@@ -176,22 +259,21 @@ public final class BossGravityScheduler {
     public static void start(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, int damage,
                              long gameTime) {
         Vec3 centre = boss.position();
+        Look look = look(phase.gravity());
         // Purely for show, and started before anything is moved, so what a player sees leaves
         // at the same moment the force lands rather than a tick behind it.
         BossAreaVfxScheduler.schedule(level, centre, phase.gravity().getVfx(), phase.gravity().getRadius(),
-                VFX_DURATION_TICKS, false, BossWaveTuning.of(boss, phase.gravity().getVfx()));
+                look.vfxTicks(), false, BossWaveTuning.of(boss, phase.gravity().getVfx()));
         if (phase.gravity().getMode() == BossPhaseData.GRAVITY_MODE_LIFT) {
-            fling(level, boss, phase, damage, gameTime);
+            fling(level, boss, phase, damage, gameTime, look);
             return;
         }
         FIELDS.add(new Field(level.dimension(), boss, phase, damage, gameTime));
         if (phase.gravity().getMode() == BossPhaseData.GRAVITY_MODE_PULL) {
             // A low hum as the field opens; the wind that follows is the particles' job.
-            level.playSound(null, centre.x, centre.y, centre.z, SoundEvents.BEACON_ACTIVATE,
-                    SoundSource.HOSTILE, 1.5F, 0.5F);
+            look.openSound().play(level, centre.x, centre.y, centre.z, SoundSource.HOSTILE);
         } else {
-            level.playSound(null, centre.x, centre.y, centre.z, SoundEvents.WIND_CHARGE_BURST,
-                    SoundSource.HOSTILE, 1.5F, 0.7F);
+            look.pushSound().play(level, centre.x, centre.y, centre.z, SoundSource.HOSTILE);
         }
     }
 
@@ -202,7 +284,7 @@ public final class BossGravityScheduler {
      * exactly these people, not to whoever happens to fall over in the arena afterwards.</p>
      */
     private static void fling(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, int damage,
-                              long gameTime) {
+                              long gameTime, Look look) {
         double up = phase.gravity().getStrength() / 10.0D;
         for (LivingEntity victim : victims(level, boss, boss.position(), phase.gravity().getRadius())) {
             if (skips(victim)) {
@@ -221,14 +303,13 @@ public final class BossGravityScheduler {
                 BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.GRAVITY, boss,
                         phase.gravity().getEffects());
             }
-            LANDINGS.put(victim.getUUID(), new Landing(level.dimension(), boss, damage, gameTime));
+            LANDINGS.put(victim.getUUID(), new Landing(level.dimension(), boss, damage, gameTime, look));
             level.sendParticles(ParticleTypes.CLOUD, victim.getX(), victim.getY() + 0.2D, victim.getZ(),
                     10, 0.3D, 0.1D, 0.3D, 0.12D);
             level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.GRAVITY), victim.getX(),
                     victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(), 8, 0.3D, 0.5D, 0.3D, 0.0D);
         }
-        level.playSound(null, boss.getX(), boss.getY(), boss.getZ(), SoundEvents.WIND_CHARGE_BURST,
-                SoundSource.HOSTILE, 2.0F, 0.5F);
+        look.launchSound().play(level, boss.getX(), boss.getY(), boss.getZ(), SoundSource.HOSTILE);
     }
 
     public static boolean hasPending() {
@@ -281,7 +362,8 @@ public final class BossGravityScheduler {
         }
         // Read fresh every tick: the field is wherever the boss is now, not where it cast.
         Vec3 centre = boss.position();
-        boolean dose = (gameTime - field.startedAt) % EFFECT_INTERVAL_TICKS == 0L && field.effects.isAnyEnabled();
+        boolean dose = (gameTime - field.startedAt) % field.look.effectIntervalTicks() == 0L
+                && field.effects.isAnyEnabled();
         for (LivingEntity victim : victims(level, boss, centre, field.radius)) {
             // The force is the field, so it asks for itself: somebody whose totem list or
             // immunity changed under it must not keep being dragged.
@@ -325,7 +407,7 @@ public final class BossGravityScheduler {
         Vec3 flat = new Vec3(delta.x, 0.0D, delta.z);
         double distance = flat.length();
         if (field.mode == BossPhaseData.GRAVITY_MODE_PULL) {
-            return distance <= PULL_SLACK ? null : flat.scale(field.force / distance);
+            return distance <= field.look.pullSlack() ? null : flat.scale(field.force / distance);
         }
         // Somebody standing exactly on the boss has no way out to be shoved along.
         return distance < 1.0E-4D ? null : flat.scale(-field.force / distance);
@@ -408,7 +490,7 @@ public final class BossGravityScheduler {
         // No knockback asked for: vanilla already shoves a hit victim off its attacker a
         // little, and the pull takes them straight back - which is the chewing.
         if (BossAbilityDamageUtil.hit(victim, BossAbilityKind.GRAVITY, boss, field.damage, null, 0, 0.0D, 0.0D)) {
-            field.nextBiteAt.put(victim.getUUID(), gameTime + BITE_INTERVAL_TICKS);
+            field.nextBiteAt.put(victim.getUUID(), gameTime + field.look.biteIntervalTicks());
         }
     }
 
@@ -425,10 +507,11 @@ public final class BossGravityScheduler {
         }
         RandomSource random = level.getRandom();
         boolean pull = field.mode == BossPhaseData.GRAVITY_MODE_PULL;
-        for (int i = 0; i < STREAM_PARTICLES_PER_TICK; i++) {
+        double inner = field.look.streamInnerShare();
+        for (int i = 0; i < field.look.streamParticles(); i++) {
             double angle = random.nextDouble() * Math.PI * 2.0D;
-            double distance = field.radius * (STREAM_INNER_SHARE + random.nextDouble() * (1.0D - STREAM_INNER_SHARE));
-            double height = random.nextDouble() * STREAM_HEIGHT;
+            double distance = field.radius * (inner + random.nextDouble() * (1.0D - inner));
+            double height = random.nextDouble() * field.look.streamHeight();
             double dx = Math.cos(angle) * distance;
             double dz = Math.sin(angle) * distance;
             // With a count of zero the offsets are a velocity, and for these two particles the
@@ -490,8 +573,8 @@ public final class BossGravityScheduler {
         if (landed && fallHurts) {
             victim.invulnerableTime = 0;
         }
-        level.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.GENERIC_BIG_FALL,
-                SoundSource.HOSTILE, 1.0F, 0.8F);
+        landing.look.landingSound().play(level, victim.getX(), victim.getY(), victim.getZ(),
+                SoundSource.HOSTILE);
         level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.GRAVITY), victim.getX(),
                 victim.getY() + 0.2D, victim.getZ(), 10, 0.5D, 0.1D, 0.5D, 0.0D);
     }
@@ -512,7 +595,8 @@ public final class BossGravityScheduler {
             }
             LivingEntity victim = level.getEntity(entry.getKey()) instanceof LivingEntity found ? found : null;
             if (victim == null || !victim.isAlive() || victim.isRemoved() || !landing.boss.isAlive()
-                    || landing.boss.isRemoved() || gameTime - landing.thrownAt > LANDING_TIMEOUT_TICKS) {
+                    || landing.boss.isRemoved()
+                    || gameTime - landing.thrownAt > landing.look.landingTimeoutTicks()) {
                 LANDINGS.remove(entry.getKey(), landing);
                 continue;
             }
