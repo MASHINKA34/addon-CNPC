@@ -192,20 +192,22 @@ final class BossTelegraphRuntime {
     }
 
     /**
-     * Marks the cones a series has still to strike: the next one bright and the rest faded.
+     * Marks the cone a series strikes next.
      *
      * <p>Nothing is wound up between two cones of a series, so the controller asks for this on
-     * the paint clock rather than through {@link #tick}. The warning switches rule it the way
-     * they rule the wind-up's mark, minus the aura: the boss is already swinging, and lighting it
-     * up says nothing the cones do not.</p>
+     * the paint clock rather than through {@link #tick}. Only the next one: the wind-up already
+     * showed the whole series, and a series of sixteen long cones repainted every other tick for
+     * as long as it lasts is a flood of particles. The warning switches rule it the way they rule
+     * the wind-up's mark, minus the aura: the boss is already swinging.</p>
      */
     void paintConeSeries(ServerLevel level, TeleportPathData data) {
-        if (!telegraphs(data, BossAbilityKind.CONE) || !data.isTelegraphZone()
+        Vec3 next = cone.nextAxis();
+        if (next == null || !telegraphs(data, BossAbilityKind.CONE) || !data.isTelegraphZone()
                 || level.getNearestPlayer(npc.getX(), npc.getY(), npc.getZ(),
                 BossTelegraphUtil.AUDIENCE_RANGE, false) == null) {
             return;
         }
-        drawConeSectors(level, data.getPhase(boss.currentPhaseIndex()), cone.seriesAxes(), 1,
+        drawConeSectors(level, data.getPhase(boss.currentPhaseIndex()), List.of(next), 1,
                 BossTelegraphUtil.dust(BossAbilityKind.CONE), BossTelegraphUtil.fadedDust(BossAbilityKind.CONE));
     }
 

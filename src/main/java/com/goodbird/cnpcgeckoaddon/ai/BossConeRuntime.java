@@ -75,11 +75,6 @@ final class BossConeRuntime {
         return series == null || series.isOver() ? null : axisToward(series.upcoming());
     }
 
-    /** Every cone a series has still to strike, the next one first, from where the boss stands now. */
-    List<Vec3> seriesAxes() {
-        return series == null ? List.of() : axesToward(series.remaining());
-    }
-
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!boss.mayStart(BossAbility.CONE, phase) || gameTime < boss.abilityScheduleAt(BossAbility.CONE)
                 || isSequencing()) {
@@ -174,13 +169,16 @@ final class BossConeRuntime {
             return;
         }
         Series<Vec3> started = new Series<>(points, phase.cone().getPointIntervalTicks(), gameTime);
-        strike(level, data, phase, axesToward(started.due(gameTime)));
+        List<Vec3> first = started.due(gameTime);
+        // Under way before the first cone lands rather than after: a hit can set off a script that
+        // staggers or resets the boss, and whatever that ends has to find the series to end.
         if (!started.isOver()) {
             series = started;
             phaseIndex = boss.currentPhaseIndex();
             // Nothing else starts from this tick on until the last cone has landed.
             boss.holdBusyUntil(gameTime + 1);
         }
+        strike(level, data, phase, axesToward(first));
     }
 
     /**
@@ -236,25 +234,38 @@ final class BossConeRuntime {
         int damage = boss.rageUp(cone.getDamage());
         int strength = boss.rageUp(cone.getImpulseStrength());
         for (LivingEntity victim : victimsIn(level, data, cone, origin, axes)) {
-            if (cone.getImpulseMode() == BossPhaseData.CONE_IMPULSE_LIFT) {
-                // The throw is this strike's knockback rather than something on top of it, the
-                // geyser's rule: a totem this cone may not break is left standing, not thrown.
-                if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.CONE)) {
-                    continue;
-                }
-                BossAbilityDamageUtil.hit(victim, BossAbilityKind.CONE, npc, damage, cone.getEffects(),
-                        0, 0.0D, 0.0D);
-                BossGeyserScheduler.launch(victim, strength);
+            // The impulse is this strike's own half rather than something on top of the damage,
+            // the geyser's rule: a totem this cone may not break is left standing, not moved.
+            if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.CONE)) {
                 continue;
             }
-            // Vanilla shoves against the vector it is handed: the way to the boss throws the
-            // victim off it, and the way from the boss draws them in.
-            double towardX = origin.x - victim.getX();
-            double towardZ = origin.z - victim.getZ();
-            boolean pull = cone.getImpulseMode() == BossPhaseData.CONE_IMPULSE_PULL;
-            BossAbilityDamageUtil.hit(victim, BossAbilityKind.CONE, npc, damage, cone.getEffects(), strength,
-                    pull ? -towardX : towardX, pull ? -towardZ : towardZ);
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.CONE, npc, damage, cone.getEffects(),
+                    0, 0.0D, 0.0D);
+            // Given whether the damage landed or not, the throw's way, so all three impulses answer
+            // alike: a cone set to no damage still pulls, and a second cone of a series still shoves
+            // somebody the first left in their hurt cooldown.
+            if (cone.getImpulseMode() == BossPhaseData.CONE_IMPULSE_LIFT) {
+                BossGeyserScheduler.launch(victim, strength);
+            } else {
+                // Vanilla shoves against the vector it is handed: the way to the boss throws the
+                // victim off it, and the way from the boss draws them in.
+                double towardX = origin.x - victim.getX();
+                double towardZ = origin.z - victim.getZ();
+                boolean pull = cone.getImpulseMode() == BossPhaseData.CONE_IMPULSE_PULL;
+                shove(victim, strength, pull ? -towardX : towardX, pull ? -towardZ : towardZ);
+            }
         }
+    }
+
+    /** Knockback away from {@code x, z}, sent to a player even when no hurt went through to send it. */
+    private static void shove(LivingEntity victim, int strength, double x, double z) {
+        if (strength <= 0) {
+            return;
+        }
+        victim.knockback(strength, x, z);
+        // Players simulate their own movement, and a hurt that landed is what usually marks the
+        // new velocity for sending; one that did not leaves that to here.
+        victim.hurtMarked = true;
     }
 
     /**
@@ -451,11 +462,6 @@ final class BossConeRuntime {
         /** The next cone to strike, or null once the series is over. */
         T upcoming() {
             return isOver() ? null : items.get(next);
-        }
-
-        /** Every cone still to strike, the next one first. */
-        List<T> remaining() {
-            return items.subList(next, items.size());
         }
     }
 }

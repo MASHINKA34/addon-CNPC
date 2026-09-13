@@ -63,7 +63,6 @@ class BossConeSeriesTest {
         BossConeRuntime.Series<String> series = new BossConeRuntime.Series<>(List.of("a", "b", "c"), 10, 100L);
         assertEquals(List.of("a"), series.due(100L), "the first cone lands on the tick the wind-up ends");
         assertEquals("b", series.upcoming());
-        assertEquals(List.of("b", "c"), series.remaining());
         assertEquals(List.of(), series.due(101L));
         assertEquals(List.of(), series.due(109L), "nine ticks into a ten tick pause is still the pause");
         assertEquals(List.of("b"), series.due(110L));
@@ -73,7 +72,6 @@ class BossConeSeriesTest {
         assertTrue(series.isOver(), "the last cone ends the series");
         assertEquals(List.of(), series.due(200L), "a finished series strikes nothing more");
         assertNull(series.upcoming());
-        assertEquals(List.of(), series.remaining());
     }
 
     @Test

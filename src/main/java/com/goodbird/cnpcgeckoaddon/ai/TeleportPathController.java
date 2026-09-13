@@ -538,7 +538,7 @@ public final class TeleportPathController {
         if (pendingAction != BossAbility.NONE && gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
             telegraphs.tick(level, data, gameTime, castPreview());
         }
-        // Between two cones of a series nothing is pending, so the cones still to come are marked
+        // Between two cones of a series nothing is pending, so the cone it strikes next is marked
         // here on the same clock - below the series' own tick, so a cone that has just landed is
         // not marked again.
         if (cone.isSequencing() && gameTime % TELEGRAPH_INTERVAL_TICKS == 0L) {
