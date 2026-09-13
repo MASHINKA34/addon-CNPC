@@ -572,7 +572,7 @@
   "cnpcgeckoaddon.boss.hazard_hint": "Ring: outside hurts. Box: inside hurts. Resets with the phase.",
   "cnpcgeckoaddon.boss.hazard_tuning": "Fine-tuning...",
   "cnpcgeckoaddon.boss.hazard_tuning_title": "Arena hazard: fine-tuning",
-  "cnpcgeckoaddon.boss.hazard_ring_reach": "Edge shown within (blocks)",
+  "cnpcgeckoaddon.boss.hazard_ring_reach": "Ring: fire past the edge (blocks)",
   "cnpcgeckoaddon.boss.hazard_blink": "Edge blink (ticks)",
   "cnpcgeckoaddon.boss.hunt_settings": "Hunt...",
   "cnpcgeckoaddon.boss.hunt_phase": "Hunt - phase",

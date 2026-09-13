@@ -84,16 +84,6 @@ final class BossBarrierRuntime {
         /** The last hit inside that cooldown, which a later one only lands its excess over. */
         private float lastHurt;
 
-        /**
-         * How wide the aura ring stands round a boss of this width.
-         *
-         * <p>Off the width as it stands now rather than as it stood when the shield went up: a
-         * boss that grows mid-check keeps its ring round it.</p>
-         */
-        private double auraRadius(double bossWidth) {
-            return bossWidth * auraPercent / 100.0D + auraExtraTenths / 10.0D;
-        }
-
         private Barrier(BossPhaseData phase, float absorb, long gameTime) {
             total = absorb;
             left = absorb;
@@ -121,6 +111,16 @@ final class BossBarrierRuntime {
             failCurseSound = barrier.getFailCurseSound().copy();
             hitSound = barrier.getHitSound().copy();
             hitParticles = barrier.getHitParticles().copy();
+        }
+
+        /**
+         * How wide the aura ring stands round a boss of this width.
+         *
+         * <p>Off the width as it stands now rather than as it stood when the shield went up: a
+         * boss that grows mid-check keeps its ring round it.</p>
+         */
+        private double auraRadius(double bossWidth) {
+            return bossWidth * auraPercent / 100.0D + auraExtraTenths / 10.0D;
         }
     }
 
