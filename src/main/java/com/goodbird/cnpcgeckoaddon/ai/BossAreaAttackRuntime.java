@@ -47,7 +47,8 @@ final class BossAreaAttackRuntime {
     void perform(ServerLevel level, BossPhaseData phase) {
         // Purely for show, and started before the hits so the wave leaves at the same moment
         // the damage lands rather than a tick behind it.
-        BossAreaVfxScheduler.schedule(level, npc.position(), phase);
+        BossAreaVfxScheduler.schedule(level, npc.position(), phase,
+                BossWaveTuning.of(npc, phase.areaAttack().getVfx()));
         for (LivingEntity target : targets(level, phase)) {
             BossAbilityDamageUtil.hit(target, BossAbilityKind.AREA, npc,
                     boss.rageUp(phase.areaAttack().getDamage()), phase.areaAttack().getEffects(),

@@ -104,7 +104,8 @@ final class BossLineAttackRuntime {
         Vec3 origin = npc.position();
         // Purely for show, and started before the hits so the wave leaves at the same moment
         // the damage lands rather than a tick behind it.
-        BossAreaVfxScheduler.scheduleLine(level, origin, axis, phase);
+        BossAreaVfxScheduler.scheduleLine(level, origin, axis, phase,
+                BossWaveTuning.of(npc, phase.lineAttack().getVfx()));
         int damage = boss.rageUp(phase.lineAttack().getDamage());
         int sideDamage = sideWaveDamage(damage, phase.lineAttack().getSidePercent());
         int knockback = boss.rageUp(phase.lineAttack().getKnockback());

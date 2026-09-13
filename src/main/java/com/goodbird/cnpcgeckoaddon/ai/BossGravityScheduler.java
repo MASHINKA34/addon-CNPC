@@ -179,7 +179,7 @@ public final class BossGravityScheduler {
         // Purely for show, and started before anything is moved, so what a player sees leaves
         // at the same moment the force lands rather than a tick behind it.
         BossAreaVfxScheduler.schedule(level, centre, phase.gravity().getVfx(), phase.gravity().getRadius(),
-                VFX_DURATION_TICKS, false);
+                VFX_DURATION_TICKS, false, BossWaveTuning.of(boss, phase.gravity().getVfx()));
         if (phase.gravity().getMode() == BossPhaseData.GRAVITY_MODE_LIFT) {
             fling(level, boss, phase, damage, gameTime);
             return;

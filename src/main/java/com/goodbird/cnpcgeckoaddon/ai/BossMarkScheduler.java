@@ -92,6 +92,8 @@ public final class BossMarkScheduler {
         private final BossEffectSet effects;
         private final BossEffectSet failEffects;
         private final String vfx;
+        /** How the boss had its waves tuned when this was set; see BossWaveTuning. */
+        private final BossWaveTuning wave;
         /** How the boss was drawing its warnings when this was put on; see BossTelegraphPaint. */
         private final BossTelegraphPaint.Settings telegraph;
         private final long litAt;
@@ -115,6 +117,7 @@ public final class BossMarkScheduler {
             this.effects = phase.mark().getEffects();
             this.failEffects = phase.mark().getFailEffects();
             this.vfx = phase.mark().getVfx();
+            this.wave = BossWaveTuning.of(boss, this.vfx);
             this.telegraph = BossTelegraphPaint.Settings.of(boss);
             this.litAt = gameTime;
             this.explodesAt = gameTime + phase.mark().getFuseTicks();
@@ -321,7 +324,8 @@ public final class BossMarkScheduler {
         Vec3 pos = pending.pos;
         // Started before the hits, so what a player sees leaves at the same moment the damage
         // lands rather than a tick behind it.
-        BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius, VFX_DURATION_TICKS, false);
+        BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius, VFX_DURATION_TICKS,
+                false, pending.wave);
         level.playSound(null, pos.x, pos.y, pos.z, SoundEvents.GENERIC_EXPLODE.value(),
                 SoundSource.HOSTILE, 2.0F, 1.4F);
         level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.MARK), pos.x, pos.y + 0.5D, pos.z,

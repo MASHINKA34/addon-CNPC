@@ -6,7 +6,6 @@ import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import com.goodbird.cnpcgeckoaddon.world.BossTotemCleanupStore;
 import com.goodbird.cnpcgeckoaddon.world.NpcLaunchPadManager;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -16,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /** Ownership bookkeeping for the clones a boss summons. */
 public final class BossMinionUtil {
@@ -67,6 +67,25 @@ public final class BossMinionUtil {
     /** Whether some boss summoned this, without caring which one - the owner may be unloaded. */
     public static boolean isMinion(Entity entity) {
         return !PersistentDataUtil.getString(entity, MINION_OWNER_KEY).isEmpty();
+    }
+
+    /**
+     * The boss this minion was summoned by, or null while that boss is nowhere loaded.
+     *
+     * <p>For the little that needs something off the owner rather than off the minion - the
+     * puff it leaves when it is taken away. Everything on the hot path reads the minion's own
+     * markers instead, exactly so it never has to go looking for an owner.</p>
+     */
+    public static Entity ownerOf(ServerLevel level, Entity minion) {
+        String owner = PersistentDataUtil.getString(minion, MINION_OWNER_KEY);
+        if (owner.isEmpty()) {
+            return null;
+        }
+        try {
+            return level.getEntity(UUID.fromString(owner));
+        } catch (IllegalArgumentException malformed) {
+            return null;
+        }
     }
 
     public static int countAlive(ServerLevel level, Entity boss) {
@@ -171,8 +190,10 @@ public final class BossMinionUtil {
                 return;
             }
         }
-        level.sendParticles(ParticleTypes.POOF,
-                minion.getX(), minion.getY(0.5D), minion.getZ(), 8,
+        // The owner's own puff: a minion whose boss is nowhere loaded gets the one every
+        // minion used to get.
+        BossTuningUtil.of(ownerOf(level, minion)).minionDespawnParticles().emit(level,
+                minion.getX(), minion.getY(0.5D), minion.getZ(),
                 minion.getBbWidth() * 0.5D, minion.getBbHeight() * 0.5D,
                 minion.getBbWidth() * 0.5D, 0.02D);
         minion.discard();

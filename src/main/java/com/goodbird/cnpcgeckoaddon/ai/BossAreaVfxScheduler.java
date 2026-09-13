@@ -10,8 +10,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SculkChargeParticleOptions;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -58,21 +56,8 @@ public final class BossAreaVfxScheduler {
      */
     private static final int MAX_FRONT_POINTS = 24;
     private static final int MAX_SIDE_POINTS = 8;
-    /**
-     * Roughly how fast a corridor's front travels, in blocks per tick.
-     *
-     * <p>The strike has no length setting for its wave, so the wave takes its time from the
-     * ground it has to cover: a long corridor is watched running down the arena instead of
-     * being over in the same twenty ticks a short one gets.</p>
-     */
-    private static final double CORRIDOR_FRONT_SPEED = 0.5D;
-    private static final int MIN_CORRIDOR_DURATION_TICKS = 10;
-    private static final int MAX_CORRIDOR_DURATION_TICKS = 60;
-
     private static final int MAX_BLOCKS_PER_WAVE = 48;
     private static final int MAX_BLOCKS_PER_TICK = 12;
-    /** A lifted block that never lands - launched over a pit - is dropped after this. */
-    private static final int BLOCK_LIFETIME_TICKS = 40;
 
     /**
      * Ceilings on the queues, high enough that ordinary play never reaches them: a handful of
@@ -101,6 +86,8 @@ public final class BossAreaVfxScheduler {
         private final String style;
         private final int duration;
         private final boolean blockWave;
+        /** The boss' own numbers, taken on the cast; see {@link BossWaveTuning}. */
+        private final BossWaveTuning tuning;
         /**
          * Every floor block this wave has already thrown up. A slow wave crosses the same
          * cell for several ticks running, and without this its whole allowance would be
@@ -111,7 +98,7 @@ public final class BossAreaVfxScheduler {
 
         private Wave(ResourceKey<Level> dimension, Vec3 center, Shape shape, double radius,
                      Vec3 axis, double length, double width, double sideWidth, String style,
-                     int duration, boolean blockWave) {
+                     int duration, boolean blockWave, BossWaveTuning tuning) {
             this.dimension = dimension;
             this.center = center;
             this.shape = shape;
@@ -123,19 +110,22 @@ public final class BossAreaVfxScheduler {
             this.style = style;
             this.duration = duration;
             this.blockWave = blockWave;
+            this.tuning = tuning;
         }
 
         private static Wave ring(ResourceKey<Level> dimension, Vec3 center, double radius,
-                                 String style, int duration, boolean blockWave) {
+                                 String style, int duration, boolean blockWave,
+                                 BossWaveTuning tuning) {
             return new Wave(dimension, center, Shape.RING, radius, null, 0.0D, 0.0D, 0.0D,
-                    style, duration, blockWave);
+                    style, duration, blockWave, tuning);
         }
 
         private static Wave corridor(ResourceKey<Level> dimension, Vec3 origin, Vec3 axis,
                                      double length, double width, double sideWidth,
-                                     String style, int duration, boolean blockWave) {
+                                     String style, int duration, boolean blockWave,
+                                     BossWaveTuning tuning) {
             return new Wave(dimension, origin, Shape.CORRIDOR, 0.0D, axis, length, width,
-                    sideWidth, style, duration, blockWave);
+                    sideWidth, style, duration, blockWave, tuning);
         }
     }
 
@@ -150,9 +140,10 @@ public final class BossAreaVfxScheduler {
     }
 
     /** Starts a wave for an area attack that has just landed. */
-    public static void schedule(ServerLevel level, Vec3 center, BossPhaseData phase) {
+    public static void schedule(ServerLevel level, Vec3 center, BossPhaseData phase,
+                                BossWaveTuning tuning) {
         schedule(level, center, phase.areaAttack().getVfx(), phase.areaAttack().getRadius(),
-                phase.areaAttack().getVfxDurationTicks(), phase.areaAttack().isBlockWave());
+                phase.areaAttack().getVfxDurationTicks(), phase.areaAttack().isBlockWave(), tuning);
     }
 
     /**
@@ -160,14 +151,14 @@ public final class BossAreaVfxScheduler {
      * than where the boss is standing - a leap slam goes off wherever the boss came down.
      */
     public static void schedule(ServerLevel level, Vec3 center, String style, double radius,
-                                int duration, boolean blockWave) {
+                                int duration, boolean blockWave, BossWaveTuning tuning) {
         style = AreaVfxStyles.normalize(style);
         if (!AreaVfxStyles.isVisible(style) && !blockWave) {
             return;
         }
-        WAVES.add(Wave.ring(level.dimension(), center, radius, style, duration, blockWave));
+        WAVES.add(Wave.ring(level.dimension(), center, radius, style, duration, blockWave, tuning));
         // One shout at the front of the wave. Repeating it every tick would drown the fight.
-        playStyleSound(level, center, style);
+        playStyleSound(level, center, tuning);
     }
 
     /**
@@ -176,7 +167,8 @@ public final class BossAreaVfxScheduler {
      *
      * @param axis the flat unit direction the strike was committed to
      */
-    public static void scheduleLine(ServerLevel level, Vec3 origin, Vec3 axis, BossPhaseData phase) {
+    public static void scheduleLine(ServerLevel level, Vec3 origin, Vec3 axis, BossPhaseData phase,
+                                    BossWaveTuning tuning) {
         String style = AreaVfxStyles.normalize(phase.lineAttack().getVfx());
         if (!AreaVfxStyles.isVisible(style) && !phase.lineAttack().isBlockWave()) {
             return;
@@ -184,14 +176,20 @@ public final class BossAreaVfxScheduler {
         int length = phase.lineAttack().getLength();
         WAVES.add(Wave.corridor(level.dimension(), origin, axis, length,
                 phase.lineAttack().getWidth(), phase.lineAttack().getSideWidth(), style,
-                corridorDuration(length), phase.lineAttack().isBlockWave()));
-        playStyleSound(level, origin, style);
+                corridorDuration(length, tuning), phase.lineAttack().isBlockWave(), tuning));
+        playStyleSound(level, origin, tuning);
     }
 
-    /** How long a corridor of this length takes to run itself out. */
-    private static int corridorDuration(int length) {
-        return Mth.clamp((int) Math.round(length / CORRIDOR_FRONT_SPEED),
-                MIN_CORRIDOR_DURATION_TICKS, MAX_CORRIDOR_DURATION_TICKS);
+    /**
+     * How long a corridor of this length takes to run itself out.
+     *
+     * <p>The strike has no length setting for its wave, so the wave takes its time from the
+     * ground it has to cover at the boss' own front speed: a long corridor is watched running
+     * down the arena instead of being over in the same twenty ticks a short one gets.</p>
+     */
+    private static int corridorDuration(int length, BossWaveTuning tuning) {
+        return Mth.clamp((int) Math.round(length / tuning.corridorSpeed()),
+                tuning.minDurationTicks(), tuning.maxDurationTicks());
     }
 
     public static boolean hasPending() {
@@ -207,7 +205,7 @@ public final class BossAreaVfxScheduler {
             // With nobody around the wave still runs its clock down, so a player walking in
             // halfway through catches the rest of it rather than a ring frozen in time.
             if (level.getNearestPlayer(wave.center.x, wave.center.y, wave.center.z,
-                    BossTelegraphUtil.AUDIENCE_RANGE, false) != null) {
+                    wave.tuning.audienceRange(), false) != null) {
                 if (wave.shape == Shape.CORRIDOR) {
                     emitCorridor(level, wave);
                 } else {
@@ -244,7 +242,8 @@ public final class BossAreaVfxScheduler {
             double angle = spin + i * Mth.TWO_PI / points;
             double x = wave.center.x + Math.cos(angle) * radius;
             double z = wave.center.z + Math.sin(angle) * radius;
-            BlockPos floor = BossFloorUtil.findFloor(level, x, wave.center.y, z);
+            BlockPos floor = BossFloorUtil.findFloor(level, x, wave.center.y, z,
+                    wave.tuning.floorSearchDepth());
             if (floor == null) {
                 continue;
             }
@@ -255,7 +254,7 @@ public final class BossAreaVfxScheduler {
                     && blocksThisTick < MAX_BLOCKS_PER_TICK
                     && wave.lifted.size() < MAX_BLOCKS_PER_WAVE
                     && !wave.lifted.contains(floor)
-                    && launchBlock(level, floor, wave.center, random)) {
+                    && launchBlock(level, floor, wave, random)) {
                 wave.lifted.add(floor);
                 blocksThisTick++;
             }
@@ -291,7 +290,8 @@ public final class BossAreaVfxScheduler {
             double offset = frontOffset(i, mainPoints, sidePoints, half, wave.sideWidth);
             double x = wave.center.x + wave.axis.x * front + acrossX * offset;
             double z = wave.center.z + wave.axis.z * front + acrossZ * offset;
-            BlockPos floor = BossFloorUtil.findFloor(level, x, wave.center.y, z);
+            BlockPos floor = BossFloorUtil.findFloor(level, x, wave.center.y, z,
+                    wave.tuning.floorSearchDepth());
             if (floor == null) {
                 continue;
             }
@@ -301,7 +301,7 @@ public final class BossAreaVfxScheduler {
                     && blocksThisTick < MAX_BLOCKS_PER_TICK
                     && wave.lifted.size() < MAX_BLOCKS_PER_WAVE
                     && !wave.lifted.contains(floor)
-                    && launchBlock(level, floor, wave.center, random)) {
+                    && launchBlock(level, floor, wave, random)) {
                 wave.lifted.add(floor);
                 blocksThisTick++;
             }
@@ -402,22 +402,11 @@ public final class BossAreaVfxScheduler {
         }
     }
 
-    private static void playStyleSound(ServerLevel level, Vec3 center, String style) {
-        switch (style) {
-            case AreaVfxStyles.VINES -> playSound(level, center, SoundEvents.AZALEA_LEAVES_BREAK, 2.5F, 0.7F);
-            case AreaVfxStyles.STONE -> playSound(level, center, SoundEvents.STONE_BREAK, 4.0F, 0.5F);
-            case AreaVfxStyles.HURRICANE -> playSound(level, center, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), 3.0F, 0.8F);
-            case AreaVfxStyles.FIRE -> playSound(level, center, SoundEvents.FIRECHARGE_USE, 3.0F, 0.7F);
-            case AreaVfxStyles.GHOST -> playSound(level, center, SoundEvents.SOUL_ESCAPE.value(), 3.0F, 0.6F);
-            case AreaVfxStyles.SCULK_WAVE -> playSound(level, center, SoundEvents.SCULK_SHRIEKER_SHRIEK, 2.5F, 0.9F);
-            default -> {
-                // Styleless waves stay quiet.
-            }
+    /** The shout this style was cast with; a styleless wave has none and stays quiet. */
+    private static void playStyleSound(ServerLevel level, Vec3 center, BossWaveTuning tuning) {
+        if (tuning.sound() != null) {
+            tuning.sound().play(level, center.x, center.y, center.z, SoundSource.HOSTILE);
         }
-    }
-
-    private static void playSound(ServerLevel level, Vec3 center, SoundEvent sound, float volume, float pitch) {
-        level.playSound(null, center.x, center.y, center.z, sound, SoundSource.HOSTILE, volume, pitch);
     }
 
     /**
@@ -427,7 +416,8 @@ public final class BossAreaVfxScheduler {
      * already has, so the real block never leaves and no neighbour ever hears about it. The
      * copy drops nothing, hurts nobody and refuses to settle when it lands.</p>
      */
-    private static boolean launchBlock(ServerLevel level, BlockPos pos, Vec3 center, RandomSource random) {
+    private static boolean launchBlock(ServerLevel level, BlockPos pos, Wave wave, RandomSource random) {
+        Vec3 center = wave.center;
         BlockState state = level.getBlockState(pos);
         if (!canLaunch(level, pos, state)) {
             return false;
@@ -445,7 +435,8 @@ public final class BossAreaVfxScheduler {
         block.setDeltaMovement(dx * outward, 0.35D + random.nextDouble() * 0.25D, dz * outward);
 
         level.addFreshEntity(block);
-        LAUNCHED.add(new Launched(level.dimension(), block, level.getGameTime() + BLOCK_LIFETIME_TICKS));
+        LAUNCHED.add(new Launched(level.dimension(), block,
+                level.getGameTime() + wave.tuning.blockLifetimeTicks()));
         return true;
     }
 

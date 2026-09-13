@@ -126,7 +126,7 @@ final class BossCoverRuntime {
         // lands rather than a tick behind it. No block wave: a shockwave the size of the
         // arena would lift half its floor.
         BossAreaVfxScheduler.schedule(level, origin, strike.vfx(), strike.range(),
-                waveDuration(strike.range()), false);
+                waveDuration(strike.range()), false, BossWaveTuning.of(npc, strike.vfx()));
         level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.GENERIC_EXPLODE.value(),
                 SoundSource.HOSTILE, 4.0F, 0.6F);
         level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.COVER), npc.getX(),

@@ -405,7 +405,8 @@ final class BossDashRuntime {
     private void slam(ServerLevel level, BossPhaseData phase, Vec3 impact) {
         double radius = phase.dash().getSlamRadius();
         // Started before the hits so the wave leaves at the same moment the damage lands.
-        BossAreaVfxScheduler.schedule(level, impact, phase.dash().getSlamVfx(), radius, SLAM_VFX_TICKS, false);
+        BossAreaVfxScheduler.schedule(level, impact, phase.dash().getSlamVfx(), radius, SLAM_VFX_TICKS,
+                false, BossWaveTuning.of(npc, phase.dash().getSlamVfx()));
         int damage = boss.rageUp(phase.dash().getSlamDamage());
         int knockback = boss.rageUp(phase.dash().getSlamKnockback());
         for (LivingEntity target : boss.getTargetsAround(level, impact, radius, BossAbilityKind.DASH)) {

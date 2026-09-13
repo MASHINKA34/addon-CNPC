@@ -322,7 +322,8 @@ final class BossLeapRuntime {
     void performImpact(ServerLevel level, BossPhaseData phase, Vec3 impact) {
         // Started before the hits so the wave leaves at the same moment the damage lands.
         BossAreaVfxScheduler.schedule(level, impact, phase.leap().getVfx(), phase.leap().getImpactRadius(),
-                VFX_DURATION_TICKS, phase.leap().isBlockWave());
+                VFX_DURATION_TICKS, phase.leap().isBlockWave(),
+                BossWaveTuning.of(npc, phase.leap().getVfx()));
         int damage = boss.rageUp(phase.leap().getImpactDamage());
         for (LivingEntity target : boss.getTargetsAround(level, impact, phase.leap().getImpactRadius(),
                 BossAbilityKind.LEAP)) {

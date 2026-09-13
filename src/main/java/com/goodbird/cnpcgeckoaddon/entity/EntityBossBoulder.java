@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.entity;
 
+import com.goodbird.cnpcgeckoaddon.ai.BossWaveTuning;
 import com.goodbird.cnpcgeckoaddon.ai.BossAbilityDamageUtil;
 import com.goodbird.cnpcgeckoaddon.ai.BossAreaVfxScheduler;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
@@ -543,7 +544,8 @@ public class EntityBossBoulder extends Projectile {
                 BossAbilityDamageUtil.hit(victim, abilityKind(), boss, shatterDamage,
                         null, 0, 0.0D, 0.0D);
             }
-            BossAreaVfxScheduler.schedule(server, centre, vfx, shatterRadius, 20, false);
+            BossAreaVfxScheduler.schedule(server, centre, vfx, shatterRadius, 20, false,
+                    BossWaveTuning.of(getOwner(), vfx));
         }
         discard();
     }

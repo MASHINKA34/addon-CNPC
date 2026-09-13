@@ -137,6 +137,8 @@ public final class BossPlatformScheduler {
         private final int launch;
         private final BossEffectSet effects;
         private final String vfx;
+        /** How the boss had its waves tuned when this was lit; see BossWaveTuning. */
+        private final BossWaveTuning wave;
         private final long litAt;
         private final Burn burn;
 
@@ -153,6 +155,7 @@ public final class BossPlatformScheduler {
             this.launch = launch;
             this.effects = platform.getEffects();
             this.vfx = platform.getVfx();
+            this.wave = BossWaveTuning.of(boss, this.vfx);
             this.litAt = litAt;
             this.burn = new Burn(litAt, platform.getFuseTicks(), platform.getLingerTicks(),
                     platform.getLingerIntervalTicks());
@@ -266,7 +269,8 @@ public final class BossPlatformScheduler {
         // All three started before the hits, so what a player sees and hears goes out at the same
         // moment the damage lands rather than a tick behind it. No block wave: the platform is the
         // builder's, and lifting its floor out from under the party is not the mechanic.
-        BossAreaVfxScheduler.schedule(level, ground, pending.vfx, radius, BossCoverRuntime.waveDuration(radius), false);
+        BossAreaVfxScheduler.schedule(level, ground, pending.vfx, radius,
+                BossCoverRuntime.waveDuration(radius), false, pending.wave);
         if (hasAudience(level, pending)) {
             // The outline once more as it goes: the same shape the fuse flashed, so a band
             // does not blink out of existence for the tick of the bang. The flare itself is

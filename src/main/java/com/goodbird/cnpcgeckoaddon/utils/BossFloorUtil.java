@@ -29,8 +29,19 @@ public final class BossFloorUtil {
      * sides run this one search.</p>
      */
     public static BlockPos findFloor(LevelReader level, double x, double y, double z) {
+        return findFloor(level, x, y, z, FLOOR_SEARCH_DEPTH);
+    }
+
+    /**
+     * The same, as far down as the caller says.
+     *
+     * <p>Only the server's own waves pass their own depth: a drawn band is cut on the client,
+     * which is never told what the boss was tuned to, so both sides keep to
+     * {@link #FLOOR_SEARCH_DEPTH} there or the band would step where the dust did not.</p>
+     */
+    public static BlockPos findFloor(LevelReader level, double x, double y, double z, int maxDepth) {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(Mth.floor(x), Mth.floor(y), Mth.floor(z));
-        for (int depth = 0; depth <= FLOOR_SEARCH_DEPTH; depth++) {
+        for (int depth = 0; depth <= maxDepth; depth++) {
             // What Level.isLoaded is, spelled out: the level a client holds answers the same
             // question, it simply does not carry that method down from the reader interface.
             if (level.isOutsideBuildHeight(pos) || !level.hasChunkAt(pos)) {

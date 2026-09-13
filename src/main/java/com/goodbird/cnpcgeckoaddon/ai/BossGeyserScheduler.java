@@ -84,6 +84,8 @@ public final class BossGeyserScheduler {
         private final int launch;
         private final BossEffectSet effects;
         private final String vfx;
+        /** How the boss had its waves tuned when this was lit; see BossWaveTuning. */
+        private final BossWaveTuning wave;
         /** How the boss was drawing its warnings when this was lit; see BossTelegraphPaint. */
         private final BossTelegraphPaint.Settings telegraph;
         private final boolean blockWave;
@@ -97,7 +99,8 @@ public final class BossGeyserScheduler {
 
         private Pending(ResourceKey<Level> dimension, EntityNPCInterface boss, int followId,
                         double radius, int damage, int launch, BossEffectSet effects, String vfx,
-                        BossTelegraphPaint.Settings telegraph, boolean blockWave, BlockState fluid,
+                        BossWaveTuning wave, BossTelegraphPaint.Settings telegraph,
+                        boolean blockWave, BlockState fluid,
                         int fluidLifetimeTicks, long litAt, long eruptsAt, Vec3 pos) {
             this.dimension = dimension;
             this.boss = boss;
@@ -107,6 +110,7 @@ public final class BossGeyserScheduler {
             this.launch = launch;
             this.effects = effects;
             this.vfx = vfx;
+            this.wave = wave;
             this.telegraph = telegraph;
             this.blockWave = blockWave;
             this.fluid = fluid;
@@ -140,7 +144,8 @@ public final class BossGeyserScheduler {
         PENDING.add(new Pending(level.dimension(), boss,
                 phase.geyser().isFollowTarget() ? victim.getId() : -1,
                 phase.geyser().getRadius(), damage, launch, phase.geyser().getEffects(),
-                phase.geyser().getVfx(), BossTelegraphPaint.Settings.of(boss),
+                phase.geyser().getVfx(), BossWaveTuning.of(boss, phase.geyser().getVfx()),
+                BossTelegraphPaint.Settings.of(boss),
                 phase.geyser().isBlockWave(), fluid,
                 phase.geyser().getFluidLifetimeTicks(), gameTime,
                 gameTime + phase.geyser().getFuseTicks(), point));
@@ -256,7 +261,7 @@ public final class BossGeyserScheduler {
         // Both started before the hits, so what a player sees leaves at the same moment the
         // damage lands rather than a tick behind it.
         BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius, VFX_DURATION_TICKS,
-                pending.blockWave);
+                pending.blockWave, pending.wave);
         drawColumn(level, pending);
         level.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LAVA_EXTINGUISH,
                 SoundSource.HOSTILE, 3.0F, 0.5F);
