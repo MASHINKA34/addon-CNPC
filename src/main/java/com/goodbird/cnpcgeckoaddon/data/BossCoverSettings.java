@@ -15,6 +15,16 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossCoverSettings {
 
+    /** The sight line, the wave and the shelters, each in the unit its label names. */
+    public static final int MAX_KNEE_HEIGHT = 100;
+    public static final int MIN_WAVE_SPEED = 1;
+    public static final int MAX_WAVE_SPEED = 50;
+    public static final int MIN_VFX_TICKS = 1;
+    public static final int MAX_VFX_TICKS = 600;
+    public static final int MAX_POST_HEIGHT = 16;
+    public static final int MIN_SHELTER_SPACING = 100;
+    public static final int MAX_SHELTER_SPACING = 500;
+
     private boolean coverEnabled;
     private String coverAnimation = "";
     /**
@@ -36,6 +46,19 @@ public final class BossCoverSettings {
     private int coverShelterMinRange = 4;
     private int coverShelterMaxRange = 14;
     private String coverVfx = AreaVfxStyles.NONE;
+    /** Hundredths of a block the second sight line is drawn to, so 25 is knee height. */
+    private int coverKneeHeight = 25;
+    /** Tenths of a block a tick the shockwave travels, which sets how long it is drawn. */
+    private int coverWaveSpeed = 10;
+    private int coverVfxMinTicks = 20;
+    private int coverVfxMaxTicks = 60;
+    /** Blocks of dust stacked over a shelter's middle so it can be seen across the arena. */
+    private int coverPostHeight = 3;
+    /** How far apart two shelters are held, as a percentage of one shelter's radius. */
+    private int coverShelterSpacing = 200;
+    private final BossSoundCue coverBlastSound =
+            new BossSoundCue("minecraft:entity.generic.explode", 4.0F, 0.6F);
+    private final BossParticleCue coverBlastParticles = new BossParticleCue(BossParticleCue.DUST_ID, 40);
     /** Landed on everyone the strike caught out in the open. */
     private final BossEffectSet coverEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
@@ -104,6 +127,66 @@ public final class BossCoverSettings {
 
     public void setVfx(String value) { coverVfx = AreaVfxStyles.normalize(value); }
 
+    /**
+     * Hundredths of a block above the victim's feet the second sight line is drawn to.
+     *
+     * <p>Two lines rather than one is what makes ducking behind a slab being seen: raise this
+     * and a low wall stops covering anybody, drop it to nothing and a carpet does.</p>
+     */
+    public int getKneeHeightHundredths() { return coverKneeHeight; }
+
+    public void setKneeHeightHundredths(int value) {
+        coverKneeHeight = Mth.clamp(value, 0, MAX_KNEE_HEIGHT);
+    }
+
+    public double getKneeHeight() { return coverKneeHeight / 100.0D; }
+
+    /** Tenths of a block a tick the shockwave travels. */
+    public int getWaveSpeedTenths() { return coverWaveSpeed; }
+
+    public void setWaveSpeedTenths(int value) {
+        coverWaveSpeed = Mth.clamp(value, MIN_WAVE_SPEED, MAX_WAVE_SPEED);
+    }
+
+    public double getWaveSpeed() { return coverWaveSpeed / 10.0D; }
+
+    /** The floor and the ceiling on how long the wave is drawn for, whatever the range says. */
+    public int getVfxMinTicks() { return coverVfxMinTicks; }
+
+    public void setVfxMinTicks(int value) {
+        coverVfxMinTicks = Mth.clamp(value, MIN_VFX_TICKS, MAX_VFX_TICKS);
+    }
+
+    public int getVfxMaxTicks() { return coverVfxMaxTicks; }
+
+    public void setVfxMaxTicks(int value) {
+        coverVfxMaxTicks = Mth.clamp(value, MIN_VFX_TICKS, MAX_VFX_TICKS);
+    }
+
+    /** Blocks of dust over a shelter's middle; zero leaves the ring on the floor alone. */
+    public int getPostHeight() { return coverPostHeight; }
+
+    public void setPostHeight(int value) { coverPostHeight = Mth.clamp(value, 0, MAX_POST_HEIGHT); }
+
+    /**
+     * How far apart two shelters are held, as a percentage of one shelter's radius.
+     *
+     * <p>Two hundred is two radii, which is the two circles standing edge to edge; at a
+     * hundred they are allowed to overlap by half, and a cramped ring fits more of them.</p>
+     */
+    public int getShelterSpacingPercent() { return coverShelterSpacing; }
+
+    public void setShelterSpacingPercent(int value) {
+        coverShelterSpacing = Mth.clamp(value, MIN_SHELTER_SPACING, MAX_SHELTER_SPACING);
+    }
+
+    /** Blocks two shelters are held apart at this radius. */
+    public double shelterSpacing() { return getShelterRadius() * coverShelterSpacing / 100.0D; }
+
+    public BossSoundCue getBlastSound() { return coverBlastSound; }
+
+    public BossParticleCue getBlastParticles() { return coverBlastParticles; }
+
     public BossEffectSet getEffects() { return coverEffects; }
 
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
@@ -124,6 +207,14 @@ public final class BossCoverSettings {
         tag.putInt("CoverShelterMaxRange", coverShelterMaxRange);
         tag.putString("CoverVfx", coverVfx);
         tag.put("CoverEffects", coverEffects.writeToNBT());
+        tag.putInt("CoverKneeHeight", coverKneeHeight);
+        tag.putInt("CoverWaveSpeed", coverWaveSpeed);
+        tag.putInt("CoverVfxMin", coverVfxMinTicks);
+        tag.putInt("CoverVfxMax", coverVfxMaxTicks);
+        tag.putInt("CoverPostHeight", coverPostHeight);
+        tag.putInt("CoverShelterSpacing", coverShelterSpacing);
+        coverBlastSound.writeToNBT(tag, "CoverBlastSound");
+        coverBlastParticles.writeToNBT(tag, "CoverBlastParticles");
         coverCastSpot.writeToNBT(tag, "Cover");
     }
 
@@ -143,6 +234,15 @@ public final class BossCoverSettings {
                 value(tag, "CoverShelterMaxRange", 14, 2, 64));
         coverVfx = AreaVfxStyles.normalize(tag.getString("CoverVfx"));
         coverEffects.readFromNBT(tag, "CoverEffects");
+        coverKneeHeight = value(tag, "CoverKneeHeight", 25, 0, MAX_KNEE_HEIGHT);
+        coverWaveSpeed = value(tag, "CoverWaveSpeed", 10, MIN_WAVE_SPEED, MAX_WAVE_SPEED);
+        coverVfxMinTicks = value(tag, "CoverVfxMin", 20, MIN_VFX_TICKS, MAX_VFX_TICKS);
+        coverVfxMaxTicks = value(tag, "CoverVfxMax", 60, MIN_VFX_TICKS, MAX_VFX_TICKS);
+        coverPostHeight = value(tag, "CoverPostHeight", 3, 0, MAX_POST_HEIGHT);
+        coverShelterSpacing = value(tag, "CoverShelterSpacing", 200,
+                MIN_SHELTER_SPACING, MAX_SHELTER_SPACING);
+        coverBlastSound.readFromNBT(tag, "CoverBlastSound");
+        coverBlastParticles.readFromNBT(tag, "CoverBlastParticles");
         coverCastSpot.readFromNBT(tag, "Cover");
     }
 }

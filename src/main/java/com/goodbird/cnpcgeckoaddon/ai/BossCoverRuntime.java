@@ -1,15 +1,17 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossCoverSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -43,24 +45,29 @@ final class BossCoverRuntime {
 
     /** Tries this many spots per shelter before giving that shelter up as unplaceable. */
     private static final int SHELTER_ATTEMPTS = 12;
-    /** Where the second sight line is drawn to: knee height, so a slab is not full cover. */
-    private static final double KNEE_HEIGHT = 0.25D;
-    /** Blocks per tick the shockwave travels, which is what sets how long it is drawn for. */
-    private static final double WAVE_SPEED = 1.0D;
-    private static final int MIN_VFX_DURATION_TICKS = 20;
-    private static final int MAX_VFX_DURATION_TICKS = 60;
-    /** Blocks of dust stacked over a shelter's centre so it can be found from across the arena. */
-    private static final int SHELTER_POST_HEIGHT = 3;
+    /**
+     * The wave a caller with no cover settings of its own gets: the platform's blast borrows
+     * this shape, and has no strike to read a speed off.
+     */
+    private static final double DEFAULT_WAVE_SPEED = 1.0D;
+    private static final int DEFAULT_MIN_VFX_DURATION_TICKS = 20;
+    private static final int DEFAULT_MAX_VFX_DURATION_TICKS = 60;
 
     /**
      * Everything a strike was wound up with, frozen on the tick it began.
      *
-     * @param mode          shelter rule or line-of-sight rule
-     * @param shelterRadius how far from a shelter's centre still counts as inside it
-     * @param shelters      where the wind-up drew them, empty under the line-of-sight rule
+     * @param mode           shelter rule or line-of-sight rule
+     * @param shelterRadius  how far from a shelter's centre still counts as inside it
+     * @param shelters       where the wind-up drew them, empty under the line-of-sight rule
+     * @param kneeHeight     how high above the feet the second sight line is drawn
+     * @param waveTicks      how long the shockwave is drawn for, worked out on the cast
+     * @param postHeight     blocks of dust over a shelter's middle
+     * @param blastSound     the bang, and the puff that goes with it, as the cast had them
      */
     private record CoverCast(int mode, double range, int damage, int knockback, BossEffectSet effects,
-                             String vfx, double shelterRadius, List<Vec3> shelters) {
+                             String vfx, double shelterRadius, List<Vec3> shelters,
+                             double kneeHeight, int waveTicks, int postHeight,
+                             BossSoundCue blastSound, BossParticleCue blastParticles) {
     }
 
     private final TeleportPathController boss;
@@ -97,9 +104,14 @@ final class BossCoverRuntime {
             boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + boss.retryLongTicks());
             return false;
         }
-        cast = new CoverCast(phase.cover().getMode(), phase.cover().getRange(),
-                boss.rageUp(phase.cover().getDamage()), boss.rageUp(phase.cover().getKnockback()),
-                phase.cover().getEffects(), phase.cover().getVfx(), phase.cover().getShelterRadius(), shelters);
+        BossCoverSettings cover = phase.cover();
+        cast = new CoverCast(cover.getMode(), cover.getRange(),
+                boss.rageUp(cover.getDamage()), boss.rageUp(cover.getKnockback()),
+                cover.getEffects(), cover.getVfx(), cover.getShelterRadius(), shelters,
+                cover.getKneeHeight(), waveDuration(cover.getRange(), cover.getWaveSpeed(),
+                        cover.getVfxMinTicks(), cover.getVfxMaxTicks()),
+                cover.getPostHeight(), cover.getBlastSound().copy(),
+                cover.getBlastParticles().copy());
         boss.beginAction(BossAbility.COVER, phase.cover().getAnimation(),
                 phase.cover().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the wind-up is the time to hide, and an enrage that
@@ -126,16 +138,16 @@ final class BossCoverRuntime {
         // lands rather than a tick behind it. No block wave: a shockwave the size of the
         // arena would lift half its floor.
         BossAreaVfxScheduler.schedule(level, origin, strike.vfx(), strike.range(),
-                waveDuration(strike.range()), false, BossWaveTuning.of(npc, strike.vfx()));
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.GENERIC_EXPLODE.value(),
-                SoundSource.HOSTILE, 4.0F, 0.6F);
-        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.COVER), npc.getX(),
-                npc.getY() + npc.getBbHeight() * 0.5D, npc.getZ(), 40,
-                npc.getBbWidth(), npc.getBbHeight() * 0.5D, npc.getBbWidth(), 0.0D);
+                strike.waveTicks(), false, BossWaveTuning.of(npc, strike.vfx()));
+        strike.blastSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+        strike.blastParticles().emitDust(level, npc.getX(),
+                npc.getY() + npc.getBbHeight() * 0.5D, npc.getZ(),
+                npc.getBbWidth(), npc.getBbHeight() * 0.5D, npc.getBbWidth(), 0.0D,
+                BossAbilityKind.COVER);
         for (LivingEntity victim : boss.coverVictims(level, origin, strike.range())) {
             boolean spared = strike.mode() == BossPhaseData.COVER_MODE_SHELTER
                     ? isSheltered(strike.shelters(), strike.shelterRadius(), victim.position())
-                    : isOutOfSight(level, victim);
+                    : isOutOfSight(level, victim, strike.kneeHeight());
             if (spared) {
                 continue;
             }
@@ -190,7 +202,7 @@ final class BossCoverRuntime {
             BossTelegraphUtil.ring(level, shelter, strike.shelterRadius(), paint);
             // The post over the middle is not a shape on the floor and stays dust: what it is
             // for is being seen over somebody's head from across the arena.
-            for (int step = 0; step < SHELTER_POST_HEIGHT; step++) {
+            for (int step = 0; step < strike.postHeight(); step++) {
                 level.sendParticles(paint.dust(), shelter.x, shelter.y + 0.5D + step, shelter.z, 1,
                         0.0D, 0.0D, 0.0D, 0.0D);
             }
@@ -218,7 +230,7 @@ final class BossCoverRuntime {
         Vec3 origin = npc.position();
         double min = phase.cover().getShelterMinRange();
         double max = phase.cover().getShelterMaxRange();
-        double apart = phase.cover().getShelterRadius() * 2.0D;
+        double apart = phase.cover().shelterSpacing();
         for (int i = 0; i < phase.cover().getShelterCount(); i++) {
             for (int attempt = 0; attempt < SHELTER_ATTEMPTS; attempt++) {
                 double angle = random.nextDouble() * Math.PI * 2.0D;
@@ -247,10 +259,10 @@ final class BossCoverRuntime {
      * collision box counts as cover, leaves and glass included; grass, water and carpets
      * stop nothing.</p>
      */
-    private boolean isOutOfSight(ServerLevel level, LivingEntity victim) {
+    private boolean isOutOfSight(ServerLevel level, LivingEntity victim, double kneeHeight) {
         Vec3 eyes = npc.getEyePosition();
         return blocksSight(level, eyes, victim.getEyePosition())
-                && blocksSight(level, eyes, victim.position().add(0.0D, KNEE_HEIGHT, 0.0D));
+                && blocksSight(level, eyes, victim.position().add(0.0D, kneeHeight, 0.0D));
     }
 
     private boolean blocksSight(ServerLevel level, Vec3 from, Vec3 to) {
@@ -281,9 +293,19 @@ final class BossCoverRuntime {
         return false;
     }
 
-    /** How long the strike's wave takes to reach the edge of its range at a shockwave's pace. */
+    /**
+     * How long a wave takes to reach the edge of its range at the default shockwave pace.
+     *
+     * <p>For a caller whose ability has no wave settings of its own - the platform's blast is
+     * the one - so that it keeps drawing exactly the wave it always did.</p>
+     */
     static int waveDuration(double range) {
-        return Mth.clamp((int) Math.round(range / WAVE_SPEED),
-                MIN_VFX_DURATION_TICKS, MAX_VFX_DURATION_TICKS);
+        return waveDuration(range, DEFAULT_WAVE_SPEED,
+                DEFAULT_MIN_VFX_DURATION_TICKS, DEFAULT_MAX_VFX_DURATION_TICKS);
+    }
+
+    /** The same, at the pace and between the bounds this strike was wound up with. */
+    static int waveDuration(double range, double waveSpeed, int minTicks, int maxTicks) {
+        return Mth.clamp((int) Math.round(range / waveSpeed), minTicks, maxTicks);
     }
 }
