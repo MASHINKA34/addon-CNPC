@@ -6,10 +6,14 @@ import com.goodbird.cnpcgeckoaddon.ai.BossAreaVfxScheduler;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossBoulderSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.BoulderStyles;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
+import com.goodbird.cnpcgeckoaddon.utils.BossProjectileTuning;
+import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -64,8 +68,9 @@ public class EntityBossBoulder extends Projectile {
     private static final EntityDataAccessor<String> STYLE =
             SynchedEntityData.defineId(EntityBossBoulder.class, EntityDataSerializers.STRING);
 
-    public static final int MIN_SCALE_TENTHS = 5;
-    public static final int MAX_SCALE_TENTHS = 40;
+    /** The diameter the settings screens offer, so the stone cannot be clamped past them. */
+    public static final int MIN_SCALE_TENTHS = BossBoulderSettings.MIN_SCALE;
+    public static final int MAX_SCALE_TENTHS = BossBoulderSettings.MAX_SCALE;
 
     /** Hugs the floor down a flat corridor. */
     private static final int MODE_ROLL = 0;
@@ -74,18 +79,29 @@ public class EntityBossBoulder extends Projectile {
     /** Dropped from above with no corridor at all: the boulder rain's stone. */
     private static final int MODE_FALL = 2;
 
-    /** How exactly one stair a rolling boulder climbs; anything taller is a wall. */
-    private static final double STEP_HEIGHT = 1.0D;
     private static final double ROLL_GRAVITY = 0.08D;
-    private static final double MAX_FALL_SPEED = 1.5D;
     /**
      * Longest single collision step, well under the thinnest wall and the smallest stone:
      * a move resolved in slices this short can never skip clean through a block.
      */
     private static final double COLLISION_SLICE = 0.4D;
-    /** A roll that has dropped this far without floor has left the arena, not crossed it. */
-    private static final double MAX_PIT_DEPTH = 16.0D;
-    private static final double THROW_GRAVITY = 0.05D;
+
+    /**
+     * What a stone the boss wrote nothing on runs on, which is what every stone always did:
+     * exactly one stair climbed, a block and a half a tick of fall, sixteen blocks of hole
+     * before it counts as lost, and a twentieth of a block a tick of arc.
+     */
+    private static final int DEFAULT_STEP_HEIGHT_TENTHS = 10;
+    private static final int DEFAULT_FALL_SPEED_TENTHS = 15;
+    private static final int DEFAULT_PIT_DEPTH = 16;
+    private static final int DEFAULT_THROW_GRAVITY_THOUSANDTHS = 50;
+    private static final int DEFAULT_LIFETIME_MARGIN = 60;
+    private static final int DEFAULT_LIFETIME_MAX = 1500;
+    private static final int DEFAULT_DEBRIS_BASE = 20;
+    private static final int DEFAULT_DEBRIS_PER_SIZE = 15;
+    private static final int DEFAULT_SHATTER_VFX_TICKS = 20;
+    /** The arc the volley's own clock is measured against, for a drop nobody tuned. */
+    public static final double DEFAULT_THROW_GRAVITY = DEFAULT_THROW_GRAVITY_THOUSANDTHS / 1000.0D;
 
     /**
      * The block by name, which is the one that survives a modpack change.
@@ -130,6 +146,21 @@ public class EntityBossBoulder extends Projectile {
     /** Not persisted: a boulder outliving a world reload just loses its potions. */
     private final BossEffectSet effects = new BossEffectSet();
 
+    // What the boss wrote on this stone when it launched it, read off it once. Persistent
+    // data rather than save keys of this class: NeoForge carries it through a reload, and it
+    // is there before the launch is worked out, which is what the lifetime is measured from.
+    private double stepHeight = DEFAULT_STEP_HEIGHT_TENTHS / 10.0D;
+    private double maxFallSpeed = DEFAULT_FALL_SPEED_TENTHS / 10.0D;
+    private double maxPitDepth = DEFAULT_PIT_DEPTH;
+    private double throwGravity = DEFAULT_THROW_GRAVITY;
+    private int lifetimeMarginTicks = DEFAULT_LIFETIME_MARGIN;
+    private int lifetimeMaxTicks = DEFAULT_LIFETIME_MAX;
+    private int debrisBase = DEFAULT_DEBRIS_BASE;
+    private int debrisPerSize = DEFAULT_DEBRIS_PER_SIZE;
+    private int shatterVfxTicks = DEFAULT_SHATTER_VFX_TICKS;
+    /** With no id of its own, the break sound of the block this stone is made of. */
+    private final BossSoundCue breakSound = new BossSoundCue("", 2.0F, 0.7F);
+
     /** Everyone already clipped this flight, so a slow roll cannot grind one victim down. */
     private final Set<Integer> struckIds = new HashSet<>();
     /** Downward speed: the roll's fall between ledges, or the arc's vertical half. */
@@ -158,6 +189,41 @@ public class EntityBossBoulder extends Projectile {
         return block == null || block.defaultBlockState().isAir() ? null : block.defaultBlockState();
     }
 
+    /**
+     * Reads the numbers and the noise the boss wrote on this stone when it launched it.
+     *
+     * <p>Called from the launch and from the load rather than lazily on the first tick: the
+     * lifetime budget is worked out at both of those moments, and a stone that read its
+     * margin a tick too late would already have been given the wrong one.</p>
+     */
+    private void readTuning() {
+        CompoundTag data = PersistentDataUtil.read(this);
+        stepHeight = BossProjectileTuning.read(data, BossProjectileTuning.STEP_HEIGHT,
+                DEFAULT_STEP_HEIGHT_TENTHS, 0, BossBoulderSettings.MAX_STEP_HEIGHT) / 10.0D;
+        maxFallSpeed = BossProjectileTuning.read(data, BossProjectileTuning.MAX_FALL_SPEED,
+                DEFAULT_FALL_SPEED_TENTHS, BossBoulderSettings.MIN_FALL_SPEED,
+                BossBoulderSettings.MAX_FALL_SPEED) / 10.0D;
+        maxPitDepth = BossProjectileTuning.read(data, BossProjectileTuning.MAX_PIT_DEPTH,
+                DEFAULT_PIT_DEPTH, BossBoulderSettings.MIN_PIT_DEPTH,
+                BossBoulderSettings.MAX_PIT_DEPTH);
+        throwGravity = BossProjectileTuning.read(data, BossProjectileTuning.THROW_GRAVITY,
+                DEFAULT_THROW_GRAVITY_THOUSANDTHS, BossBoulderSettings.MIN_THROW_GRAVITY,
+                BossBoulderSettings.MAX_THROW_GRAVITY) / 1000.0D;
+        lifetimeMarginTicks = BossProjectileTuning.read(data, BossProjectileTuning.LIFETIME_MARGIN,
+                DEFAULT_LIFETIME_MARGIN, 0, BossBoulderSettings.MAX_LIFETIME_MARGIN);
+        lifetimeMaxTicks = BossProjectileTuning.read(data, BossProjectileTuning.LIFETIME_MAX,
+                DEFAULT_LIFETIME_MAX, BossBoulderSettings.MIN_LIFETIME_MAX,
+                BossBoulderSettings.MAX_LIFETIME_MAX);
+        debrisBase = BossProjectileTuning.read(data, BossProjectileTuning.DEBRIS_BASE,
+                DEFAULT_DEBRIS_BASE, 0, BossBoulderSettings.MAX_DEBRIS);
+        debrisPerSize = BossProjectileTuning.read(data, BossProjectileTuning.DEBRIS_PER_SIZE,
+                DEFAULT_DEBRIS_PER_SIZE, 0, BossBoulderSettings.MAX_DEBRIS);
+        shatterVfxTicks = BossProjectileTuning.read(data, BossProjectileTuning.SHATTER_VFX_TICKS,
+                DEFAULT_SHATTER_VFX_TICKS, BossBoulderSettings.MIN_SHATTER_VFX_TICKS,
+                BossBoulderSettings.MAX_SHATTER_VFX_TICKS);
+        breakSound.readFromNBT(data, BossProjectileTuning.BREAK_SOUND);
+    }
+
     public void configure(BlockState block, String lookStyle, int scaleTenths, int damage,
                           int knockback, boolean stops, int shatterRadiusBlocks,
                           int shatterDamageAmount, String vfxStyle, BossEffectSet effectSet) {
@@ -176,6 +242,7 @@ public class EntityBossBoulder extends Projectile {
 
     /** Sends the boulder rolling flat along {@code axis} for at most {@code rangeBlocks}. */
     public void launchRoll(Vec3 axis, int speedTenths, double rangeBlocks) {
+        readTuning();
         mode = MODE_ROLL;
         aim(axis, speedTenths, rangeBlocks);
         setDeltaMovement(direction.scale(speed));
@@ -187,12 +254,13 @@ public class EntityBossBoulder extends Projectile {
      * flat ground; whatever it meets earlier breaks it there instead.
      */
     public void launchThrow(Vec3 axis, int speedTenths, double rangeBlocks) {
+        readTuning();
         mode = MODE_THROW;
         aim(axis, speedTenths, rangeBlocks);
         int flightTicks = Math.max(2, Mth.ceil(range / speed));
-        // Discrete ballistics: the arc loses THROW_GRAVITY each tick, so this starting rise
+        // Discrete ballistics: the arc loses its gravity each tick, so this starting rise
         // is what brings it back to the launch height after exactly flightTicks steps.
-        verticalSpeed = THROW_GRAVITY * (flightTicks - 1) / 2.0D;
+        verticalSpeed = throwGravity * (flightTicks - 1) / 2.0D;
         setDeltaMovement(direction.x * speed, verticalSpeed, direction.z * speed);
         maxAgeTicks = travelBudgetTicks();
     }
@@ -203,6 +271,7 @@ public class EntityBossBoulder extends Projectile {
      * breaks it, and it breaks the same way a throw does.
      */
     public void launchFall(double heightBlocks) {
+        readTuning();
         mode = MODE_FALL;
         range = Math.max(heightBlocks, 1.0D);
         // From rest, so the drop takes exactly the fallTicks the mark on the floor below is
@@ -216,20 +285,27 @@ public class EntityBossBoulder extends Projectile {
      * How many ticks a stone dropped from rest needs to fall {@code height} blocks.
      *
      * <p>Solved against the discrete fall {@link #tickThrow} really runs - it moves by the
-     * current speed and only then loses {@link #THROW_GRAVITY}, so after n ticks it has
-     * covered {@code g * n * (n - 1) / 2}. The scheduler burns its mark for exactly this,
-     * which is why the two must not each have their own idea of the answer.</p>
+     * current speed and only then loses its gravity, so after n ticks it has covered
+     * {@code g * n * (n - 1) / 2}. The scheduler burns its mark for exactly this, which is
+     * why the two must not each have their own idea of the answer.</p>
      */
     public static int fallTicks(double height) {
+        return fallTicks(height, DEFAULT_THROW_GRAVITY);
+    }
+
+    /** The same for a stone falling under a gravity of its own. */
+    public static int fallTicks(double height, double gravity) {
         double blocks = Math.max(height, 0.0D);
-        int ticks = Mth.ceil((1.0D + Math.sqrt(1.0D + 8.0D * blocks / THROW_GRAVITY)) / 2.0D);
+        double pull = Math.max(gravity, 1.0E-4D);
+        int ticks = Mth.ceil((1.0D + Math.sqrt(1.0D + 8.0D * blocks / pull)) / 2.0D);
         return Mth.clamp(ticks, 1, 400);
     }
 
     private void aim(Vec3 axis, int speedTenths, double rangeBlocks) {
         Vec3 flat = new Vec3(axis.x, 0.0D, axis.z);
         direction = flat.lengthSqr() < 1.0E-6D ? new Vec3(0.0D, 0.0D, 1.0D) : flat.normalize();
-        speed = Mth.clamp(speedTenths, 1, 20) / 10.0D;
+        speed = Mth.clamp(speedTenths, BossBoulderSettings.MIN_SPEED,
+                BossBoulderSettings.MAX_SPEED) / 10.0D;
         range = Math.max(rangeBlocks, 1.0D);
         float yaw = (float) (Mth.atan2(direction.z, direction.x) * Mth.RAD_TO_DEG) - 90.0F;
         setYRot(yaw);
@@ -245,9 +321,11 @@ public class EntityBossBoulder extends Projectile {
         // A drop has no corridor to measure itself against, so its budget comes off the fall
         // instead - with the same slack, for a stone that finds a hole under its mark.
         if (mode == MODE_FALL) {
-            return Mth.clamp(fallTicks(range) * 3 + 60, 60, 1500);
+            return Mth.clamp(fallTicks(range, throwGravity) * 3 + lifetimeMarginTicks,
+                    BossBoulderSettings.MIN_LIFETIME_MAX, lifetimeMaxTicks);
         }
-        return Mth.clamp(Mth.ceil(range / speed) * 2 + 60, 60, 1500);
+        return Mth.clamp(Mth.ceil(range / speed) * 2 + lifetimeMarginTicks,
+                BossBoulderSettings.MIN_LIFETIME_MAX, lifetimeMaxTicks);
     }
 
     public BlockState getBlockState() {
@@ -335,7 +413,7 @@ public class EntityBossBoulder extends Projectile {
 
     private void tickRoll(EntityNPCInterface boss) {
         boolean wasAirborne = verticalSpeed > 0.0D;
-        verticalSpeed = Math.min(verticalSpeed + ROLL_GRAVITY, MAX_FALL_SPEED);
+        verticalSpeed = Math.min(verticalSpeed + ROLL_GRAVITY, maxFallSpeed);
         // Sub-sliced so neither axis ever moves further than a block is thick in one
         // resolution step - a fast stone must break on a thin wall, not blink through it.
         int slices = Math.max(1, Math.max(Mth.ceil(speed / COLLISION_SLICE),
@@ -349,7 +427,7 @@ public class EntityBossBoulder extends Projectile {
         for (int i = 0; i < slices; i++) {
             AABB moved = box.move(direction.x * sliceLength, 0.0D, direction.z * sliceLength);
             if (!level().noCollision(this, moved)) {
-                AABB stepped = moved.move(0.0D, STEP_HEIGHT, 0.0D);
+                AABB stepped = moved.move(0.0D, stepHeight, 0.0D);
                 // Only a grounded boulder climbs; one mid-fall meeting an edge has hit a
                 // wall, and so has one whose stair is capped by more blocks above.
                 if (wasAirborne || !level().noCollision(this, stepped)) {
@@ -373,7 +451,7 @@ public class EntityBossBoulder extends Projectile {
                 if (fell < fallSlice) {
                     fallSlice = 0.0D;
                     landed = true;
-                } else if (fallenDepth > MAX_PIT_DEPTH) {
+                } else if (fallenDepth > maxPitDepth) {
                     // A hole this deep is not part of any arena floor: the boulder is gone,
                     // not rolling, and must not keep ticking its way down for ever.
                     settleAt(moved);
@@ -461,7 +539,7 @@ public class EntityBossBoulder extends Projectile {
         }
         setPos(to.x, to.y, to.z);
         traveled += Math.sqrt(motion.x * motion.x + motion.z * motion.z);
-        setDeltaMovement(motion.x, motion.y - THROW_GRAVITY, motion.z);
+        setDeltaMovement(motion.x, motion.y - throwGravity, motion.z);
         // Thrown over the arena's edge: nothing below will ever stop it.
         if (getY() < level().getMinBuildHeight() - 16) {
             vanish();
@@ -532,8 +610,8 @@ public class EntityBossBoulder extends Projectile {
             return;
         }
         BlockState state = getBlockState();
-        server.playSound(null, centre.x, centre.y, centre.z,
-                state.getSoundType().getBreakSound(), SoundSource.HOSTILE, 2.0F, 0.7F);
+        breakSound.play(server, centre.x, centre.y, centre.z, SoundSource.HOSTILE,
+                state.getSoundType().getBreakSound(), 0.7F);
         spawnDebris(server, centre);
         if (shatterRadius > 0) {
             double radiusSquared = (double) shatterRadius * shatterRadius;
@@ -544,7 +622,7 @@ public class EntityBossBoulder extends Projectile {
                 BossAbilityDamageUtil.hit(victim, abilityKind(), boss, shatterDamage,
                         null, 0, 0.0D, 0.0D);
             }
-            BossAreaVfxScheduler.schedule(server, centre, vfx, shatterRadius, 20, false,
+            BossAreaVfxScheduler.schedule(server, centre, vfx, shatterRadius, shatterVfxTicks, false,
                     BossWaveTuning.of(getOwner(), vfx));
         }
         discard();
@@ -562,7 +640,8 @@ public class EntityBossBoulder extends Projectile {
         double size = diameter();
         server.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, getBlockState()),
                 centre.x, centre.y + size * 0.5D, centre.z,
-                (int) (20 + size * 15), size * 0.4D, size * 0.4D, size * 0.4D, 0.1D);
+                (int) (debrisBase + size * debrisPerSize),
+                size * 0.4D, size * 0.4D, size * 0.4D, 0.1D);
     }
 
     @Override
@@ -627,6 +706,9 @@ public class EntityBossBoulder extends Projectile {
         shatterDamage = Math.max(tag.getInt(SHATTER_DAMAGE_KEY), 0);
         vfx = AreaVfxStyles.normalize(tag.getString(VFX_KEY));
         effects.readFromNBT(tag, "Effects");
+        // Persistent data is restored before this runs, so the budget is worked out on the
+        // numbers this stone was launched with rather than on the old literals.
+        readTuning();
         maxAgeTicks = travelBudgetTicks();
     }
 }

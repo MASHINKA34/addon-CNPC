@@ -32,6 +32,13 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  *
  * <p>Volume and pitch are kept in tenths, the way every other fractional setting in the boss
  * is, so the GUI can edit them as whole numbers.</p>
+ *
+ * <p>A cue born with an empty id is one whose sound is not a registry id at all - the block a
+ * stone is made of, the style a cord is drawn in. It is still a cue, with its own switch and
+ * its own volume, and {@link #play(ServerLevel, double, double, double, SoundSource,
+ * SoundEvent, float)} is how the caller hands it the sound and the pitch it was standing in
+ * for. Typing an id into one takes it over; clearing the field again gives the caller its
+ * sound back.</p>
  */
 public final class BossSoundCue {
 
@@ -131,7 +138,8 @@ public final class BossSoundCue {
      * word is a boss nobody can debug - so the fallback is loud once per id and quiet after.</p>
      */
     public String resolvedId() {
-        if (registry.test(soundId)) {
+        // Nothing to look up and nothing to complain about: the caller owns this one.
+        if (isOwnSound(soundId) || registry.test(soundId)) {
             return soundId;
         }
         if (WARNED.add(soundId)) {
@@ -149,6 +157,31 @@ public final class BossSoundCue {
     /** Plays the cue at a spot in the world, or nothing at all when it is switched off. */
     public void play(ServerLevel level, double x, double y, double z, SoundSource source) {
         play(level, x, y, z, source, 0.0F);
+    }
+
+    /**
+     * Plays the cue, or the call it stands in for while it names no sound of its own.
+     *
+     * <p>The one way to sound a cue whose default id is empty: the block's own break, the
+     * cord style's own voice. Both the event and the pitch come from the caller then, because
+     * neither is a number the cue could have been born holding - the volume is the cue's
+     * either way, so a builder can quieten a stone without picking a sound for it.</p>
+     *
+     * @param fallback      the sound the call used to name, or null for no sound at all
+     * @param fallbackPitch and the pitch it named with it
+     */
+    public void play(ServerLevel level, double x, double y, double z, SoundSource source,
+                     SoundEvent fallback, float fallbackPitch) {
+        if (!enabled || level == null) {
+            return;
+        }
+        boolean own = isOwnSound(resolvedId());
+        SoundEvent sound = own ? fallback : resolve();
+        if (sound == null) {
+            return;
+        }
+        level.playSound(null, x, y, z, sound, source, volumeValue(),
+                own ? fallbackPitch : pitchValue());
     }
 
     /**
@@ -184,9 +217,14 @@ public final class BossSoundCue {
         pitch = value(tag, prefix + "Pitch", defaultPitch, MIN_PITCH, MAX_PITCH);
     }
 
+    /** Whether this id is the empty one that means "whatever the caller would have played". */
+    public static boolean isOwnSound(String id) {
+        return id == null || id.trim().isEmpty();
+    }
+
     /** Whether the game knows this id, for the editor to refuse a typo while it is on screen. */
     public static boolean isKnownSound(String id) {
-        return registry.test(id);
+        return isOwnSound(id) || registry.test(id);
     }
 
     /** Every registered sound id, for the picker. */

@@ -15,6 +15,11 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossBoulderRainSettings {
 
+    /** Both in tenths of a block, the way the mark and the headroom are measured. */
+    public static final int MIN_MARK = 1;
+    public static final int MAX_MARK = 100;
+    public static final int MAX_MIN_DROP = 100;
+
     private boolean boulderRainEnabled;
     private String boulderRainAnimation = "";
     private int boulderRainActionDelayTicks = 16;
@@ -38,6 +43,12 @@ public final class BossBoulderRainSettings {
     private int boulderRainShatterRadius = 2;
     private int boulderRainShatterDamage = 4;
     private String boulderRainVfx = AreaVfxStyles.NONE;
+    /** Tenths of a block: the smallest circle a stone with no shards still burns. */
+    private int rainMinMarkRadius = 10;
+    /** Tenths of a block of headroom below which a point is not worth dropping into. */
+    private int rainMinDropBlocks = 10;
+    /** Empty id: the mark is heard as the block the stones are made of. */
+    private final BossSoundCue rainMarkSound = new BossSoundCue("", 1.2F, 0.5F);
     private final BossEffectSet boulderRainEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot boulderRainCastSpot = new BossCastSpot();
@@ -101,7 +112,9 @@ public final class BossBoulderRainSettings {
 
     public int getScale() { return boulderRainScale; }
 
-    public void setScale(int value) { boulderRainScale = Mth.clamp(value, 5, 40); }
+    public void setScale(int value) {
+        boulderRainScale = Mth.clamp(value, BossBoulderSettings.MIN_SCALE, BossBoulderSettings.MAX_SCALE);
+    }
 
     public int getDamage() { return boulderRainDamage; }
 
@@ -132,6 +145,27 @@ public final class BossBoulderRainSettings {
     /** Whether there is a block to make the stones of, whatever the switch says: all a chained start still needs. */
     public boolean isConfigured() { return !boulderRainBlock.isEmpty(); }
 
+    /** Tenths of a block: 10 is the one block circle every drop was always announced with. */
+    public int getMinMarkRadiusTenths() { return rainMinMarkRadius; }
+
+    public void setMinMarkRadiusTenths(int value) {
+        rainMinMarkRadius = Mth.clamp(value, MIN_MARK, MAX_MARK);
+    }
+
+    public double getMinMarkRadius() { return rainMinMarkRadius / 10.0D; }
+
+    /** Tenths of a block: a roof closer than this leaves nothing worth calling a drop. */
+    public int getMinDropTenths() { return rainMinDropBlocks; }
+
+    public void setMinDropTenths(int value) {
+        rainMinDropBlocks = Mth.clamp(value, 0, MAX_MIN_DROP);
+    }
+
+    public double getMinDrop() { return rainMinDropBlocks / 10.0D; }
+
+    /** With no id of its own, the place sound of the block the stones are made of. */
+    public BossSoundCue getMarkSound() { return rainMarkSound; }
+
     public BossEffectSet getEffects() { return boulderRainEffects; }
 
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
@@ -155,6 +189,9 @@ public final class BossBoulderRainSettings {
         tag.putInt("BoulderRainShatterRadius", boulderRainShatterRadius);
         tag.putInt("BoulderRainShatterDamage", boulderRainShatterDamage);
         tag.putString("BoulderRainVfx", boulderRainVfx);
+        tag.putInt("BoulderRainMinMark", rainMinMarkRadius);
+        tag.putInt("BoulderRainMinDrop", rainMinDropBlocks);
+        rainMarkSound.writeToNBT(tag, "BoulderRainMarkSound");
         tag.put("BoulderRainEffects", boulderRainEffects.writeToNBT());
         boulderRainCastSpot.writeToNBT(tag, "BoulderRain");
     }
@@ -173,12 +210,18 @@ public final class BossBoulderRainSettings {
         boulderRainBlock = tag.contains("BoulderRainBlock")
                 ? clean(tag.getString("BoulderRainBlock")) : "minecraft:stone";
         boulderRainStyle = BoulderStyles.normalize(tag.getString("BoulderRainStyle"));
-        boulderRainScale = value(tag, "BoulderRainScale", 12, 5, 40);
+        boulderRainScale = value(tag, "BoulderRainScale", 12,
+                BossBoulderSettings.MIN_SCALE, BossBoulderSettings.MAX_SCALE);
         boulderRainDamage = value(tag, "BoulderRainDamage", 10, 0, 1000);
         boulderRainKnockback = value(tag, "BoulderRainKnockback", 2, 0, 10);
         boulderRainShatterRadius = value(tag, "BoulderRainShatterRadius", 2, 0, 16);
         boulderRainShatterDamage = value(tag, "BoulderRainShatterDamage", 4, 0, 1000);
         boulderRainVfx = AreaVfxStyles.normalize(tag.getString("BoulderRainVfx"));
+        // A boss saved before these were settings carries neither, and rains on the numbers
+        // that used to be literals in the scheduler.
+        rainMinMarkRadius = value(tag, "BoulderRainMinMark", 10, MIN_MARK, MAX_MARK);
+        rainMinDropBlocks = value(tag, "BoulderRainMinDrop", 10, 0, MAX_MIN_DROP);
+        rainMarkSound.readFromNBT(tag, "BoulderRainMarkSound");
         boulderRainEffects.readFromNBT(tag, "BoulderRainEffects");
         boulderRainCastSpot.readFromNBT(tag, "BoulderRain");
     }

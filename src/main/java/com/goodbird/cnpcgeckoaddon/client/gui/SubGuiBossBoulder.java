@@ -30,6 +30,7 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
     private static final int COOLDOWN_FIELD = 15;
     private static final int VFX_STYLE_BUTTON = 16;
     private static final int LOOK_BUTTON = 17;
+    private static final int TUNING_BUTTON = 18;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
@@ -49,7 +50,9 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 352;
+        // One row taller than the panel it used to be: the way into the roll's own
+        // physics sits under the hints, above the buttons.
+        imageHeight = 376;
         closeOnEsc = true;
     }
 
@@ -121,9 +124,11 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.boulder_hint", guiTop + 290);
         addWrappedHint(40, "cnpcgeckoaddon.boss.boulder_style_hint", hintY);
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 328, 120, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 328, 236, 20,
+                "cnpcgeckoaddon.boss.boulder_tuning"));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 352, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 328, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 352, 60, 20);
     }
 
     private int lookIndex() {
@@ -188,6 +193,9 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.boulder().getEffects(), "cnpcgeckoaddon.boss.effects_boulder"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossBoulderTuning(phase.boulder()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.boulder().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == STOPS_BUTTON) {

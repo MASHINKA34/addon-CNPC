@@ -6,6 +6,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
+import com.goodbird.cnpcgeckoaddon.utils.BossProjectileTuning;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
@@ -117,7 +118,9 @@ final class BossBoulderRuntime {
                 phase.boulder().isStopsOnHit(), phase.boulder().getShatterRadius(),
                 boss.rageUp(phase.boulder().getShatterDamage()), phase.boulder().getVfx(),
                 phase.boulder().getEffects());
-        double offset = npc.getBbWidth() * 0.5D + phase.boulder().getScale() / 20.0D + 0.25D;
+        tune(boulder, phase);
+        double offset = npc.getBbWidth() * 0.5D + phase.boulder().getScale() / 20.0D
+                + phase.boulder().getMuzzleOffset();
         boolean rolls = phase.boulder().getMode() == BossPhaseData.BOULDER_MODE_ROLL;
         boulder.setPos(npc.getX() + axis.x * offset,
                 rolls ? npc.getY() + 0.1D : npc.getY() + npc.getBbHeight() * 0.6D,
@@ -133,8 +136,38 @@ final class BossBoulderRuntime {
         if (!level.addFreshEntity(boulder)) {
             return;
         }
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(),
-                block.getSoundType().getPlaceSound(), SoundSource.HOSTILE, 1.5F, 0.6F);
+        phase.boulder().getThrowSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
+                SoundSource.HOSTILE, block.getSoundType().getPlaceSound(), 0.6F);
+    }
+
+    /**
+     * Writes onto the stone what it is to do once it is on its own.
+     *
+     * <p>Before the launch, because the lifetime budget is worked out there and the stone has
+     * to have its margin by then. The volley's stones are deliberately not tuned this way: the
+     * rain has no physics settings of its own, so its drops keep the old literals.</p>
+     */
+    private static void tune(EntityBossBoulder boulder, BossPhaseData phase) {
+        BossProjectileTuning.put(boulder, BossProjectileTuning.STEP_HEIGHT,
+                phase.boulder().getStepHeightTenths());
+        BossProjectileTuning.put(boulder, BossProjectileTuning.MAX_FALL_SPEED,
+                phase.boulder().getMaxFallSpeedTenths());
+        BossProjectileTuning.put(boulder, BossProjectileTuning.MAX_PIT_DEPTH,
+                phase.boulder().getMaxPitDepth());
+        BossProjectileTuning.put(boulder, BossProjectileTuning.THROW_GRAVITY,
+                phase.boulder().getThrowGravityThousandths());
+        BossProjectileTuning.put(boulder, BossProjectileTuning.LIFETIME_MARGIN,
+                phase.boulder().getLifetimeMarginTicks());
+        BossProjectileTuning.put(boulder, BossProjectileTuning.LIFETIME_MAX,
+                phase.boulder().getLifetimeMaxTicks());
+        BossProjectileTuning.put(boulder, BossProjectileTuning.DEBRIS_BASE,
+                phase.boulder().getDebrisBase());
+        BossProjectileTuning.put(boulder, BossProjectileTuning.DEBRIS_PER_SIZE,
+                phase.boulder().getDebrisPerSize());
+        BossProjectileTuning.put(boulder, BossProjectileTuning.SHATTER_VFX_TICKS,
+                phase.boulder().getShatterVfxTicks());
+        phase.boulder().getBreakSound().writeToNBT(boulder.getPersistentData(),
+                BossProjectileTuning.BREAK_SOUND);
     }
 
     /**

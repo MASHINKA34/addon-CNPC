@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
@@ -55,12 +56,8 @@ public final class BossBoulderRainScheduler {
     /** Beyond this nobody can see the mark, so it burns down without costing anything. */
     /** How often the mark is repainted. Every other tick reads as a steady shape. */
     private static final int MARK_INTERVAL_TICKS = 2;
-    /** Smallest mark a stone with no shards still gets, so every drop is announced. */
-    private static final double MIN_MARK_RADIUS = 1.0D;
     /** Tries at finding floor for one stone before the volley gives that stone up. */
     private static final int PLACEMENT_ATTEMPTS = 4;
-    /** A roof this close leaves nothing worth calling a drop, so the point is skipped. */
-    private static final double MIN_DROP_BLOCKS = 1.0D;
 
     /** One stone: the point it is coming down on, and everything it will hit with. */
     private static final class Pending {
@@ -79,6 +76,10 @@ public final class BossBoulderRainScheduler {
         private final int shatterRadius;
         private final int shatterDamage;
         private final String vfx;
+        /** The smallest circle this stone burns, from the settings the cast was made under. */
+        private final double minMarkRadius;
+        /** The noise the mark makes, copied so a phase change under the volley cannot move it. */
+        private final BossSoundCue markSound;
         private final BossEffectSet effects;
         /** How the boss was drawing its warnings when the volley was cast. */
         private final BossTelegraphPaint.Settings telegraph;
@@ -89,6 +90,7 @@ public final class BossBoulderRainScheduler {
         private Pending(ResourceKey<Level> dimension, EntityNPCInterface boss, Vec3 pos,
                         double spawnY, BlockState block, String style, int scale, int damage,
                         int knockback, int shatterRadius, int shatterDamage, String vfx,
+                        double minMarkRadius, BossSoundCue markSound,
                         BossEffectSet effects, BossTelegraphPaint.Settings telegraph,
                         long dropsAt, long landsAt) {
             this.dimension = dimension;
@@ -103,6 +105,8 @@ public final class BossBoulderRainScheduler {
             this.shatterRadius = shatterRadius;
             this.shatterDamage = shatterDamage;
             this.vfx = vfx;
+            this.minMarkRadius = minMarkRadius;
+            this.markSound = markSound;
             this.effects = effects;
             this.telegraph = telegraph;
             this.dropsAt = dropsAt;
@@ -118,7 +122,7 @@ public final class BossBoulderRainScheduler {
 
         /** How wide a circle this stone burns on the floor: what its landing really covers. */
         private double markRadius() {
-            return Math.max(Math.max(shatterRadius, scale / 20.0D), MIN_MARK_RADIUS);
+            return Math.max(Math.max(shatterRadius, scale / 20.0D), minMarkRadius);
         }
     }
 
@@ -146,7 +150,8 @@ public final class BossBoulderRainScheduler {
             if (point == null) {
                 continue;
             }
-            double spawnY = spawnHeight(level, point, phase.boulderRain().getFallHeight(), diameter);
+            double spawnY = spawnHeight(level, point, phase.boulderRain().getFallHeight(), diameter,
+                    phase.boulderRain().getMinDrop());
             if (Double.isNaN(spawnY)) {
                 continue;
             }
@@ -157,6 +162,7 @@ public final class BossBoulderRainScheduler {
             PENDING.add(new Pending(level.dimension(), boss, point, spawnY, block,
                     phase.boulderRain().getStyle(), phase.boulderRain().getScale(), damage, knockback,
                     phase.boulderRain().getShatterRadius(), shatterDamage, phase.boulderRain().getVfx(),
+                    phase.boulderRain().getMinMarkRadius(), phase.boulderRain().getMarkSound().copy(),
                     phase.boulderRain().getEffects(), BossTelegraphPaint.Settings.of(boss),
                     dropsAt, landsAt));
             scheduled++;
@@ -234,8 +240,8 @@ public final class BossBoulderRainScheduler {
         }
         // Played down on the mark rather than up at the stone: the one who needs to hear it
         // is standing underneath.
-        level.playSound(null, pending.pos.x, pending.pos.y, pending.pos.z,
-                pending.block.getSoundType().getPlaceSound(), SoundSource.HOSTILE, 1.2F, 0.5F);
+        pending.markSound.play(level, pending.pos.x, pending.pos.y, pending.pos.z,
+                SoundSource.HOSTILE, pending.block.getSoundType().getPlaceSound(), 0.5F);
     }
 
     /** Paints the circle the stone is about to come down in, and the grit shaken off it. */
@@ -284,9 +290,11 @@ public final class BossBoulderRainScheduler {
      * fall under it at all takes the point out of the volley: a mark nothing can reach would
      * be a lie about where the danger is.</p>
      *
+     * @param minDrop the headroom below which the point is left out of the volley
      * @return the spawn height, or NaN when this point has no headroom worth dropping into
      */
-    private static double spawnHeight(ServerLevel level, Vec3 floor, int wanted, double diameter) {
+    private static double spawnHeight(ServerLevel level, Vec3 floor, int wanted, double diameter,
+                                      double minDrop) {
         int limit = wanted + Mth.ceil(diameter);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(
                 Mth.floor(floor.x), Mth.floor(floor.y), Mth.floor(floor.z));
@@ -302,7 +310,7 @@ public final class BossBoulderRainScheduler {
             headroom++;
             pos.move(Direction.UP);
         }
-        if (headroom < MIN_DROP_BLOCKS + diameter) {
+        if (headroom < minDrop + diameter) {
             // Not a height at all: a world floor sits below zero often enough that no real
             // coordinate can be borrowed as the "nowhere to fall" answer.
             return Double.NaN;

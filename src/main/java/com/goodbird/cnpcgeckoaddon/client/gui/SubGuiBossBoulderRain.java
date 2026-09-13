@@ -29,6 +29,7 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
     private static final int ACTION_DELAY_FIELD = 15;
     private static final int COOLDOWN_FIELD = 16;
     private static final int VFX_STYLE_BUTTON = 17;
+    private static final int TUNING_BUTTON = 18;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
@@ -50,7 +51,7 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
         imageWidth = 256;
         // The ring, the volley, the stone and what it does on landing are four sets of
         // numbers, and a builder tuning the height against the interval reads both at once.
-        imageHeight = 322;
+        imageHeight = 346;
         closeOnEsc = true;
     }
 
@@ -113,9 +114,11 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
                 VFX_STYLE_LABELS, vfxStyleIndex()));
 
         addWrappedHint(31, "cnpcgeckoaddon.boss.boulder_rain_hint", guiTop + 274);
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 296, 120, 20,
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 296, 236, 20,
+                "cnpcgeckoaddon.boss.boulder_rain_tuning"));
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 320, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 296, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 320, 60, 20);
     }
 
     private int lookIndex() {
@@ -181,6 +184,9 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
             applyFields();
             setSubGui(new SubGuiBossEffectList(phase.boulderRain().getEffects(),
                     "cnpcgeckoaddon.boss.effects_boulder_rain"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossBoulderRainTuning(phase.boulderRain()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.boulderRain().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == VFX_STYLE_BUTTON) {

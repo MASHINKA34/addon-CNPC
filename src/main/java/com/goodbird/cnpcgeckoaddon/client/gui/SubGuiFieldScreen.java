@@ -85,9 +85,15 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
                 }));
     }
 
+    /**
+     * What a cue button reads. A cue that names no sound of its own is one the caller still
+     * owns - the block a stone is made of, the style a cord is drawn in - and a button reading
+     * "Throw: " with nothing after it would look broken rather than deliberate.
+     */
     private static String cueLabel(String labelKey, boolean enabled, String id) {
-        return I18n.get(labelKey) + ": "
-                + (enabled ? id : I18n.get("cnpcgeckoaddon.cue.off"));
+        String state = !enabled ? I18n.get("cnpcgeckoaddon.cue.off")
+                : id.isEmpty() ? I18n.get("cnpcgeckoaddon.cue.own") : id;
+        return I18n.get(labelKey) + ": " + state;
     }
 
     @Override
