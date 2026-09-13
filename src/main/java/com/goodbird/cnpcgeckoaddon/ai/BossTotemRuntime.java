@@ -44,10 +44,6 @@ final class BossTotemRuntime {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
-    private static final int RETRY_INTERVAL_TICKS = 20;
-    private static final int LINK_DURATION_TICKS = 200;
-    private static final int LINK_REFRESH_TICKS = 160;
-
     private static final class TotemRuntime {
         private UUID entityId;
         private long nextRespawnAt = NOT_SCHEDULED;
@@ -105,7 +101,7 @@ final class BossTotemRuntime {
         }
 
         if (gameTime >= nextStructuralReconcileAt) {
-            nextStructuralReconcileAt = gameTime + RETRY_INTERVAL_TICKS;
+            nextStructuralReconcileAt = gameTime + data.tuning().totemRetryIntervalTicks();
             reconcileStructure(level, gameTime, data);
             adoptLoaded(level, gameTime, data);
         }
@@ -268,7 +264,7 @@ final class BossTotemRuntime {
         Entity spawned = spawn(level, entry, anchor);
         runtime = slots.computeIfAbsent(slotId, ignored -> new TotemRuntime(null));
         if (spawned == null) {
-            runtime.nextRespawnAt = gameTime + RETRY_INTERVAL_TICKS;
+            runtime.nextRespawnAt = gameTime + data.tuning().totemRetryIntervalTicks();
             return;
         }
         runtime.entityId = spawned.getUUID();
@@ -282,14 +278,18 @@ final class BossTotemRuntime {
     Entity spawn(ServerLevel level, BossTotemEntry entry, Vec3 anchor) {
         int slotId = entry.getSlotId();
         BlockPos pos = BlockPos.containing(anchor);
+        // The box the totem has to fit in where it is put: a clone taller or wider than the
+        // stock one needs the boss told about it, or it can never be stood anywhere.
+        double height = boss.tuning().totemFitHeight();
+        double halfWidth = boss.tuning().totemFitHalfWidth();
         if (!level.getWorldBorder().isWithinBounds(pos)
                 || anchor.y < level.getMinBuildHeight()
-                || anchor.y + 1.8D >= level.getMaxBuildHeight()) {
+                || anchor.y + height >= level.getMaxBuildHeight()) {
             warnBlocked(slotId, "outside the world border or build height");
             return null;
         }
-        AABB box = new AABB(anchor.x - 0.3D, anchor.y, anchor.z - 0.3D,
-                anchor.x + 0.3D, anchor.y + 1.8D, anchor.z + 0.3D);
+        AABB box = new AABB(anchor.x - halfWidth, anchor.y, anchor.z - halfWidth,
+                anchor.x + halfWidth, anchor.y + height, anchor.z + halfWidth);
         if (!level.noCollision(box)) {
             warnBlocked(slotId, "spawn box is occupied");
             return null;
@@ -505,8 +505,8 @@ final class BossTotemRuntime {
         if (!force && gameTime < runtime.nextLinkSyncAt) {
             return;
         }
-        runtime.nextLinkSyncAt = gameTime + LINK_REFRESH_TICKS;
-        PacketSyncBossLink packet = linkPacket(data, entry, totem, LINK_DURATION_TICKS);
+        runtime.nextLinkSyncAt = gameTime + data.tuning().totemLinkRefreshTicks();
+        PacketSyncBossLink packet = linkPacket(data, entry, totem, data.tuning().totemLinkDurationTicks());
         // Either endpoint can enter a player's tracking range first. Duplicate delivery is
         // harmless because the client replaces the same keyed link.
         NetworkWrapper.sendToTracking(npc, packet);
@@ -664,7 +664,7 @@ final class BossTotemRuntime {
             if (entry.isEnabled() && !entry.getCloneName().isEmpty()
                     && isUsable(totem, entry.getSlotId())) {
                 NetworkWrapper.send(player, linkPacket(data, entry, totem,
-                        LINK_DURATION_TICKS));
+                        data.tuning().totemLinkDurationTicks()));
             }
         }
     }

@@ -3,7 +3,6 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
@@ -60,8 +59,8 @@ final class BossTeleportUtil {
                             Vec3 destination, boolean sound, String what) {
         try {
             if (sound) {
-                level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ENDERMAN_TELEPORT,
-                        SoundSource.HOSTILE, 1.0F, 1.0F);
+                boss.tuning().teleportSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
+                        SoundSource.HOSTILE);
             }
             npc.teleportTo(destination.x, destination.y, destination.z);
             npc.fallDistance = 0.0F;
@@ -72,8 +71,8 @@ final class BossTeleportUtil {
             boss.rememberCurrentPosition();
             npc.gameEvent(GameEvent.TELEPORT);
             if (sound) {
-                level.playSound(null, destination.x, destination.y, destination.z, SoundEvents.ENDERMAN_TELEPORT,
-                        SoundSource.HOSTILE, 1.0F, 1.0F);
+                boss.tuning().teleportSound().play(level, destination.x, destination.y, destination.z,
+                        SoundSource.HOSTILE);
             }
             return true;
         } catch (Throwable error) {

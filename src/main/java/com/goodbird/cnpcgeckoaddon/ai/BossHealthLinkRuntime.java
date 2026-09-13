@@ -1,11 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import noppes.npcs.entity.EntityNPCInterface;
 
@@ -48,8 +46,6 @@ final class BossHealthLinkRuntime {
     }
 
     private static final int TICKS_PER_SECOND = 20;
-    /** The countdown's red: the one line in the action bar that says the clock is on the party. */
-    private static final int DOWNED_COLOR = 0xFF6A5A;
 
     /**
      * Set while the link itself is moving health about or killing, so that what it causes is not
@@ -117,8 +113,8 @@ final class BossHealthLinkRuntime {
             }
             case GET_UP -> getUp(level, data);
             case WAIT -> {
-                if (announcesOn(downedAt, gameTime)) {
-                    announce(level, gameTime, partners);
+                if (announcesOn(downedAt, gameTime, data.tuning().healthLinkAnnounceIntervalTicks())) {
+                    announce(level, data, gameTime, partners);
                 }
             }
         }
@@ -213,11 +209,11 @@ final class BossHealthLinkRuntime {
         // The stagger's interrupt: the wind-up is dropped and comes back round once the boss is up.
         boss.interruptForBarrierStun(downedUntil);
         boss.playAnimation(data.getHealthLinkDownedAnimation());
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.RAVAGER_STUNNED,
-                SoundSource.HOSTILE, 1.2F, 0.7F);
-        level.sendParticles(ParticleTypes.SOUL, npc.getX(), npc.getY(0.5D), npc.getZ(), 24,
+        data.tuning().healthLinkDownedSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
+                SoundSource.HOSTILE);
+        data.tuning().healthLinkDownedParticles().emit(level, npc.getX(), npc.getY(0.5D), npc.getZ(),
                 npc.getBbWidth() * 0.5D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.5D, 0.02D);
-        announce(level, gameTime, partners);
+        announce(level, data, gameTime, partners);
         return true;
     }
 
@@ -227,9 +223,9 @@ final class BossHealthLinkRuntime {
         float health = reviveHealth(npc.getMaxHealth(), data.getHealthLinkRevivePercent());
         npc.setHealth(Math.max(npc.getHealth(), health));
         boss.playAnimation(data.getHealthLinkReviveAnimation());
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.TOTEM_USE,
-                SoundSource.HOSTILE, 1.0F, 1.0F);
-        level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, npc.getX(), npc.getY(0.6D), npc.getZ(), 40,
+        data.tuning().healthLinkReviveSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
+                SoundSource.HOSTILE);
+        data.tuning().healthLinkReviveParticles().emit(level, npc.getX(), npc.getY(0.6D), npc.getZ(),
                 npc.getBbWidth() * 0.5D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.5D, 0.3D);
     }
 
@@ -239,10 +235,12 @@ final class BossHealthLinkRuntime {
      *
      * <p>The numbers go in through %s, the one placeholder vanilla's translation formatter takes.</p>
      */
-    private void announce(ServerLevel level, long gameTime, List<TeleportPathController> partners) {
+    private void announce(ServerLevel level, TeleportPathData data, long gameTime,
+                          List<TeleportPathController> partners) {
+        int color = data.tuning().healthLinkDownedColor();
         Component line = Component.translatable("cnpcgeckoaddon.boss.health_link_downed", npc.getName(),
                         secondsLeft(downedUntil, gameTime))
-                .withStyle(style -> style.withColor(DOWNED_COLOR));
+                .withStyle(style -> style.withColor(color));
         Set<ServerPlayer> audience = new LinkedHashSet<>();
         addAudience(level, boss, audience);
         for (TeleportPathController partner : partners) {
@@ -497,9 +495,12 @@ final class BossHealthLinkRuntime {
         return damage >= health;
     }
 
-    /** What a killing blow is cut to when it lays a boss down: all of its health but the last point. */
-    static float downedDamage(float health) {
-        return Math.max(0.0F, health - 1.0F);
+    /**
+     * What a killing blow is cut to when it lays a boss down: all of its health but the
+     * {@code guardHealth} the boss is left standing on.
+     */
+    static float downedDamage(float health, float guardHealth) {
+        return Math.max(0.0F, health - guardHealth);
     }
 
     /** Whether a killing blow lays the boss down: only while it has partners, and one of them stands. */
@@ -541,8 +542,11 @@ final class BossHealthLinkRuntime {
         return (int) Math.max(1L, (downedUntil - gameTime + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND);
     }
 
-    /** Whether the countdown is told on this tick: the tick the boss went down, and once a second after. */
-    static boolean announcesOn(long downedAt, long gameTime) {
-        return (gameTime - downedAt) % TICKS_PER_SECOND == 0L;
+    /**
+     * Whether the countdown is told on this tick: the tick the boss went down, and every
+     * {@code intervalTicks} after it.
+     */
+    static boolean announcesOn(long downedAt, long gameTime, int intervalTicks) {
+        return intervalTicks <= 0 || (gameTime - downedAt) % intervalTicks == 0L;
     }
 }

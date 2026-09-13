@@ -136,9 +136,12 @@ class BossHealthLinkTest {
                 "a boss with no partner in reach just dies - the link needs somebody to wait for");
         assertFalse(BossHealthLinkRuntime.downsOnLethalHit(2, true),
                 "the last one standing dies on the hit, and takes the ones lying down with it");
-        assertEquals(29.0F, BossHealthLinkRuntime.downedDamage(30.0F), EPSILON, "the cut hit leaves one health");
-        assertEquals(0.0F, BossHealthLinkRuntime.downedDamage(0.5F),
+        assertEquals(29.0F, BossHealthLinkRuntime.downedDamage(30.0F, 1.0F), EPSILON,
+                "the cut hit leaves the guard's worth of health");
+        assertEquals(0.0F, BossHealthLinkRuntime.downedDamage(0.5F, 1.0F),
                 "a boss already under one health is left on what it has, never healed by the cut");
+        assertEquals(25.0F, BossHealthLinkRuntime.downedDamage(30.0F, 5.0F), EPSILON,
+                "a boss told to lie down on five is left on five");
     }
 
     @Test
@@ -187,9 +190,11 @@ class BossHealthLinkTest {
         assertEquals(10, BossHealthLinkRuntime.secondsLeft(200L, 1L), "nineteen and a half seconds read as ten");
         assertEquals(1, BossHealthLinkRuntime.secondsLeft(200L, 199L), "the last tick reads as one, not none");
         assertEquals(1, BossHealthLinkRuntime.secondsLeft(200L, 200L));
-        assertTrue(BossHealthLinkRuntime.announcesOn(37L, 37L), "told on the tick the boss goes down");
-        assertFalse(BossHealthLinkRuntime.announcesOn(37L, 38L));
-        assertTrue(BossHealthLinkRuntime.announcesOn(37L, 57L));
+        assertTrue(BossHealthLinkRuntime.announcesOn(37L, 37L, 20), "told on the tick the boss goes down");
+        assertFalse(BossHealthLinkRuntime.announcesOn(37L, 38L, 20));
+        assertTrue(BossHealthLinkRuntime.announcesOn(37L, 57L, 20));
+        assertTrue(BossHealthLinkRuntime.announcesOn(37L, 42L, 5), "a shorter interval is told oftener");
+        assertFalse(BossHealthLinkRuntime.announcesOn(37L, 42L, 20));
     }
 
     private static TeleportPathData linked(String group, int mode) {

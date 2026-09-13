@@ -10,6 +10,7 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 
@@ -21,16 +22,36 @@ import java.util.function.Predicate;
 
 public final class PendingBossChestStore extends SavedData {
     private static final String NAME = "cnpcgeckoaddon_pending_boss_chests";
+
+    /** What a chest saved before the search was a setting was looked for with. */
+    private static final int DEFAULT_SEARCH_RADIUS = 2;
+    private static final int DEFAULT_SEARCH_HEIGHT = 2;
+    private static final int DEFAULT_MAX_DROP_HEIGHT = 8;
     private static final Factory<PendingBossChestStore> FACTORY =
             new Factory<>(PendingBossChestStore::new, PendingBossChestStore::load);
 
+    /**
+     * One chest waiting to be placed.
+     *
+     * <p>{@code searchRadius}, {@code searchHeight} and {@code maxDropHeight} are the boss'
+     * own, taken at the death: by the time the chest is placed the boss is gone and there is
+     * nobody left to ask. An entry saved before they were settings reads them back as the
+     * numbers every chest used to be placed with.</p>
+     */
     public record Pending(UUID bossId, BlockPos deathPos, BlockPos origin, boolean exact,
                           Direction facing, long spawnAt, String blockId, String styleId,
-                          String lootTableId, Component name, int lifetimeTicks, List<ItemStack> items) {
+                          String lootTableId, Component name, int lifetimeTicks,
+                          int searchRadius, int searchHeight, int maxDropHeight,
+                          List<ItemStack> items) {
     }
 
     private final List<Pending> entries = new ArrayList<>();
     private final TickQueue<Pending> queue = new TickQueue<>("boss loot chests", 16);
+
+    /** One of the placement numbers off a saved entry, clamped the way the setting is. */
+    private static int placement(CompoundTag entry, String key, int fallback) {
+        return entry.contains(key) ? Mth.clamp(entry.getInt(key), 0, 64) : fallback;
+    }
 
     public static PendingBossChestStore get(ServerLevel level) {
         return level.getDataStorage().computeIfAbsent(FACTORY, NAME);
@@ -87,7 +108,10 @@ public final class PendingBossChestStore extends SavedData {
                     entry.getBoolean("Exact"), Direction.from3DDataValue(entry.getByte("Facing")),
                     entry.getLong("SpawnAt"), entry.getString("Block"), entry.getString("Style"),
                     entry.getString("LootTable"), name == null ? Component.empty() : name,
-                    entry.getInt("Lifetime"), items);
+                    entry.getInt("Lifetime"),
+                    placement(entry, "SearchRadius", DEFAULT_SEARCH_RADIUS),
+                    placement(entry, "SearchHeight", DEFAULT_SEARCH_HEIGHT),
+                    placement(entry, "MaxDropHeight", DEFAULT_MAX_DROP_HEIGHT), items);
             store.entries.add(pending);
             store.queue.add(pending);
         }
@@ -110,6 +134,9 @@ public final class PendingBossChestStore extends SavedData {
             entry.putString("LootTable", pending.lootTableId());
             entry.putString("Name", Component.Serializer.toJson(pending.name(), registries));
             entry.putInt("Lifetime", pending.lifetimeTicks());
+            entry.putInt("SearchRadius", pending.searchRadius());
+            entry.putInt("SearchHeight", pending.searchHeight());
+            entry.putInt("MaxDropHeight", pending.maxDropHeight());
             ListTag items = new ListTag();
             for (ItemStack stack : pending.items()) {
                 if (!stack.isEmpty()) {

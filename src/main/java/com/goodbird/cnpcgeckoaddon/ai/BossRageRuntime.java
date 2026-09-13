@@ -1,13 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import net.minecraft.core.Holder;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -106,11 +105,11 @@ final class BossRageRuntime {
         applyAttributes(multiplier());
         boss.playAnimation(data.getRageAnimation());
         boss.lockActionsUntil(gameTime + data.getRageLockTicks());
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ENDER_DRAGON_GROWL,
-                SoundSource.HOSTILE, 2.0F, 0.7F);
-        level.sendParticles(ParticleTypes.ANGRY_VILLAGER, npc.getX(), npc.getY(0.9D), npc.getZ(), 40,
+        BossTuningSettings tuning = data.tuning();
+        tuning.rageSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+        tuning.rageParticles().emit(level, npc.getX(), npc.getY(0.9D), npc.getZ(),
                 npc.getBbWidth() * 0.8D, npc.getBbHeight() * 0.5D, npc.getBbWidth() * 0.8D, 0.1D);
-        level.sendParticles(ParticleTypes.LARGE_SMOKE, npc.getX(), npc.getY(0.4D), npc.getZ(), 30,
+        tuning.rageSmoke().emit(level, npc.getX(), npc.getY(0.4D), npc.getZ(),
                 npc.getBbWidth() * 0.7D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.7D, 0.02D);
     }
 

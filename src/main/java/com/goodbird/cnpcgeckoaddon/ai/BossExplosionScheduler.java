@@ -1,11 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
@@ -37,8 +37,13 @@ public final class BossExplosionScheduler {
      */
     private static final int MAX_PER_TICK = 16;
 
+    /**
+     * {@code sound} and {@code particlePercent} are the dying boss' own, taken at the death:
+     * the blast goes off from the level tick, by which time there is nobody left to ask.
+     */
     private record Pending(ResourceKey<Level> dimension, Entity source, Vec3 pos, long fireAt,
-                           int mode, float power, boolean fire) {
+                           int mode, float power, boolean fire, BossSoundCue sound,
+                           int particlePercent) {
     }
 
     private static final TickQueue<Pending> PENDING = new TickQueue<>("boss explosions", MAX_PER_TICK);
@@ -49,7 +54,8 @@ public final class BossExplosionScheduler {
     public static void schedule(ServerLevel level, Entity boss, TeleportPathData data) {
         Pending pending = new Pending(level.dimension(), boss, boss.position(),
                 level.getGameTime() + data.getExplosionDelayTicks(),
-                data.getExplosionMode(), data.getExplosionPower(), data.isExplosionFire());
+                data.getExplosionMode(), data.getExplosionPower(), data.isExplosionFire(),
+                data.tuning().explosionSound().copy(), data.tuning().explosionParticlePercent());
         if (data.getExplosionDelayTicks() <= 0) {
             // Undelayed still means "in this death event", exactly as it always has - but only
             // while no other blast is already running. One that is has just killed this boss,
@@ -84,11 +90,13 @@ public final class BossExplosionScheduler {
         if (pending.mode() == TeleportPathData.EXPLOSION_MODE_EFFECT) {
             // Pure spectacle: the same visuals and sound a real blast produces, but the
             // boss cannot take the party down with it.
-            level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, pos.x, pos.y + 0.5D, pos.z,
-                    Math.max(1, Math.round(pending.power() / 2.0F)),
-                    pending.power() * 0.25D, pending.power() * 0.25D, pending.power() * 0.25D, 0.0D);
-            level.playSound(null, pos.x, pos.y, pos.z, SoundEvents.GENERIC_EXPLODE,
-                    SoundSource.HOSTILE, 4.0F, 0.9F + level.getRandom().nextFloat() * 0.2F);
+            int particles = Math.round(pending.power() / 2.0F) * pending.particlePercent() / 100;
+            if (particles > 0) {
+                level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, pos.x, pos.y + 0.5D, pos.z,
+                        Math.max(1, particles),
+                        pending.power() * 0.25D, pending.power() * 0.25D, pending.power() * 0.25D, 0.0D);
+            }
+            pending.sound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE, 0.2F);
             return;
         }
 

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /** Persistent ownership markers kept separate from ordinary summoned minions. */
 public final class BossTotemUtil {
@@ -55,6 +56,25 @@ public final class BossTotemUtil {
 
     public static int slotId(Entity entity) {
         return PersistentDataUtil.getInt(entity, TOTEM_SLOT_KEY);
+    }
+
+    /**
+     * The boss this totem belongs to, or null while that boss is nowhere loaded.
+     *
+     * <p>For the code that has the totem and needs something off its owner - how far the
+     * breakdown line carries, say. Everything on the hot path reads the totem's own markers
+     * instead, exactly so it never has to go looking for an owner.</p>
+     */
+    public static Entity ownerOf(ServerLevel level, Entity totem) {
+        String owner = PersistentDataUtil.getString(totem, TOTEM_OWNER_KEY);
+        if (owner.isEmpty()) {
+            return null;
+        }
+        try {
+            return level.getEntity(UUID.fromString(owner));
+        } catch (IllegalArgumentException malformed) {
+            return null;
+        }
     }
 
     /**

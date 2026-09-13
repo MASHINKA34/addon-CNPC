@@ -17,7 +17,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -1098,9 +1097,9 @@ public final class TeleportPathController {
         if (!claimBlockFeedback(level.getGameTime())) {
             return;
         }
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.SHIELD_BLOCK,
-                SoundSource.HOSTILE, 0.8F, 0.9F + npc.getRandom().nextFloat() * 0.2F);
-        level.sendParticles(ParticleTypes.ENCHANT, npc.getX(), npc.getY(0.6D), npc.getZ(), 8,
+        BossTuningSettings tuning = tuning();
+        tuning.totemHitSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE, 0.2F);
+        tuning.totemHitParticles().emit(level, npc.getX(), npc.getY(0.6D), npc.getZ(),
                 npc.getBbWidth() * 0.6D, npc.getBbHeight() * 0.4D, npc.getBbWidth() * 0.6D, 0.05D);
     }
 
@@ -1112,8 +1111,8 @@ public final class TeleportPathController {
         if (!claimBlockFeedback(level.getGameTime())) {
             return;
         }
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE,
-                SoundSource.HOSTILE, 1.0F, 1.2F + npc.getRandom().nextFloat() * 0.15F);
+        tuning().totemLinkSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
+                SoundSource.HOSTILE, 0.15F);
 
         Entity linked = totems.firstLoadedAlive(level);
         Vec3 from = npc.position().add(0.0D, npc.getBbHeight() * 0.6D, 0.0D);
@@ -2140,11 +2139,11 @@ public final class TeleportPathController {
         barrierRuntime.expose(until, percent);
         interruptForBarrierStun(until);
         playAnimation(animation);
-        level.playSound(null, npc.getX(), npc.getY(), npc.getZ(), SoundEvents.ZOMBIE_ATTACK_IRON_DOOR,
-                SoundSource.HOSTILE, 1.2F, 0.6F);
+        BossTuningSettings tuning = tuning();
+        tuning.blockedHitSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         // Stars round the head: the stun is on the boss, so it is drawn on the boss.
-        level.sendParticles(ParticleTypes.CRIT, npc.getX(), npc.getY() + npc.getBbHeight() + 0.2D, npc.getZ(),
-                20, npc.getBbWidth() * 0.4D, 0.15D, npc.getBbWidth() * 0.4D, 0.1D);
+        tuning.blockedHitParticles().emit(level, npc.getX(), npc.getY() + npc.getBbHeight() + 0.2D,
+                npc.getZ(), npc.getBbWidth() * 0.4D, 0.15D, npc.getBbWidth() * 0.4D, 0.1D);
         barrierRuntime.announceExposed(level);
     }
 

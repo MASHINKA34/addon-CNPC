@@ -62,23 +62,16 @@ public final class BossChestScheduler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
-    /** How far around the death spot a replaceable block is looked for, horizontally. */
-    private static final int SEARCH_RADIUS = 2;
-    /** ...and vertically. */
-    private static final int SEARCH_HEIGHT = 2;
-    /** How far down a boss that died in mid-air looks for something to stand a chest on. */
-    private static final int MAX_DROP_HEIGHT = 8;
     /**
      * A position with nothing underneath is only used when nothing better is in range, so
      * the penalty has to outweigh every distance the search can produce.
      */
     private static final double NO_SUPPORT_PENALTY = 1000.0D;
-    /** How long drops wait for a chest to claim them before they are thrown away. */
-    private static final int STAGED_DROPS_TIMEOUT = 100;
     private record DropOwner(ResourceKey<Level> dimension, UUID bossId) {
     }
 
-    private record StagedDrops(long stagedAt, BlockPos deathPos, List<ItemStack> items) {
+    /** {@code timeoutTicks} is the dying boss' own: how long these wait for a chest to claim them. */
+    private record StagedDrops(long stagedAt, BlockPos deathPos, int timeoutTicks, List<ItemStack> items) {
     }
 
     /**
@@ -100,7 +93,7 @@ public final class BossChestScheduler {
         if (data.isExplosionEnabled()) {
             // A boss that blows up on top of its own chest takes the loot with it, so the
             // chest always waits until after the blast no matter how it was configured.
-            delay = Math.max(delay, data.getExplosionDelayTicks() + 2L);
+            delay = Math.max(delay, data.getExplosionDelayTicks() + data.tuning().chestAfterExplosionTicks());
         }
 
         Component name = data.getChestName().isEmpty()
@@ -110,7 +103,8 @@ public final class BossChestScheduler {
                 data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_FIXED,
                 chestFacing(boss, killer), level.getGameTime() + delay, data.getChestBlock(),
                 data.getChestStyle(), data.getChestLootTable(), name, data.getChestLifetimeTicks(),
-                new ArrayList<>());
+                data.tuning().chestSearchRadius(), data.tuning().chestSearchHeight(),
+                data.tuning().chestMaxDropHeight(), new ArrayList<>());
 
         StagedDrops staged = STAGED_DROPS.remove(new DropOwner(level.dimension(), boss.getUUID()));
         if (staged != null) {
@@ -151,6 +145,13 @@ public final class BossChestScheduler {
      * chest has been scheduled yet or not.
      */
     public static void takeDrops(ServerLevel level, UUID bossId, BlockPos deathPos, List<ItemStack> drops) {
+        takeDrops(level, bossId, deathPos, drops,
+                BossTuningUtil.defaults().chestStagedDropsTimeoutTicks());
+    }
+
+    /** The same, told how long the dying boss lets its drops wait for a chest. */
+    public static void takeDrops(ServerLevel level, UUID bossId, BlockPos deathPos,
+                                 List<ItemStack> drops, int timeoutTicks) {
         if (drops.isEmpty()) {
             return;
         }
@@ -158,7 +159,8 @@ public final class BossChestScheduler {
             return;
         }
         StagedDrops staged = STAGED_DROPS.computeIfAbsent(new DropOwner(level.dimension(), bossId),
-                key -> new StagedDrops(level.getGameTime(), deathPos.immutable(), new ArrayList<>()));
+                key -> new StagedDrops(level.getGameTime(), deathPos.immutable(), timeoutTicks,
+                        new ArrayList<>()));
         staged.items().addAll(drops);
     }
 
@@ -192,7 +194,7 @@ public final class BossChestScheduler {
         // in silence, because a real loss here would otherwise look like nothing at all.
         // Swept before any chest is placed, so a death set off by the placement can still stage.
         STAGED_DROPS.entrySet().removeIf(entry -> entry.getKey().dimension().equals(level.dimension())
-                && gameTime - entry.getValue().stagedAt() > STAGED_DROPS_TIMEOUT
+                && gameTime - entry.getValue().stagedAt() > entry.getValue().timeoutTicks()
                 && reportAbandoned(entry.getValue()));
 
         PendingBossChestStore.get(level).drain(
@@ -219,7 +221,7 @@ public final class BossChestScheduler {
     }
 
     private static void place(ServerLevel level, Pending pending) {
-        BlockPos pos = pending.exact() ? pending.origin() : findPlacement(level, pending.origin());
+        BlockPos pos = pending.exact() ? pending.origin() : findPlacement(level, pending);
         if (pos == null || !level.isInWorldBounds(pos) || !level.getWorldBorder().isWithinBounds(pos)
                 || !level.isLoaded(pos)) {
             LOGGER.warn("No room for a boss loot chest at {}: nothing there can hold a block",
@@ -298,14 +300,16 @@ public final class BossChestScheduler {
      *
      * @return null when the boss died somewhere nothing can be placed at all
      */
-    private static BlockPos findPlacement(ServerLevel level, BlockPos deathPos) {
-        BlockPos origin = descendToSupport(level, deathPos);
+    private static BlockPos findPlacement(ServerLevel level, Pending pending) {
+        BlockPos origin = descendToSupport(level, pending.origin(), pending.maxDropHeight());
         BlockPos best = null;
         double bestScore = Double.MAX_VALUE;
+        int height = pending.searchHeight();
+        int radius = pending.searchRadius();
         // Bottom up, so two spots the same distance away settle for the lower one.
-        for (int dy = -SEARCH_HEIGHT; dy <= SEARCH_HEIGHT; dy++) {
-            for (int dx = -SEARCH_RADIUS; dx <= SEARCH_RADIUS; dx++) {
-                for (int dz = -SEARCH_RADIUS; dz <= SEARCH_RADIUS; dz++) {
+        for (int dy = -height; dy <= height; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
                     BlockPos pos = origin.offset(dx, dy, dz);
                     if (!canPlace(level, pos)) {
                         continue;
@@ -322,11 +326,11 @@ public final class BossChestScheduler {
     }
 
     /** A boss killed in mid-air leaves its chest on the first floor below it. */
-    private static BlockPos descendToSupport(ServerLevel level, BlockPos origin) {
+    private static BlockPos descendToSupport(ServerLevel level, BlockPos origin, int maxDropHeight) {
         if (!canPlace(level, origin) || hasSupport(level, origin)) {
             return origin;
         }
-        for (int i = 1; i <= MAX_DROP_HEIGHT; i++) {
+        for (int i = 1; i <= maxDropHeight; i++) {
             BlockPos pos = origin.below(i);
             if (!level.isInWorldBounds(pos) || !canPlace(level, pos)) {
                 // Whatever is down here is solid enough to stand the chest on top of.

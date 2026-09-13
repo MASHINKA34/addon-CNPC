@@ -37,8 +37,6 @@ import java.util.stream.Collectors;
 public final class NpcDamageInfoManager {
     private static final Set<UUID> ENABLED = new HashSet<>();
 
-    /** How far from a bouncing totem a breakdown listener may stand and still be told, in blocks. */
-    private static final double TOTEM_REPORT_RANGE = 48.0D;
 
     private NpcDamageInfoManager() {
     }
@@ -180,9 +178,12 @@ public final class NpcDamageInfoManager {
         }
         Entity totem = event.getEntity();
         if (totem.level() instanceof ServerLevel level) {
+            // How far the line carries is the owning boss' own setting; a totem whose boss is
+            // in an unloaded chunk keeps the range every totem used to have.
+            double range = BossTuningUtil.of(BossTotemUtil.ownerOf(level, totem)).totemReportRange();
             for (ServerPlayer player : level.players()) {
                 if (!result.contains(player) && ENABLED.contains(player.getUUID())
-                        && player.distanceToSqr(totem) <= TOTEM_REPORT_RANGE * TOTEM_REPORT_RANGE) {
+                        && player.distanceToSqr(totem) <= range * range) {
                     result.add(player);
                 }
             }

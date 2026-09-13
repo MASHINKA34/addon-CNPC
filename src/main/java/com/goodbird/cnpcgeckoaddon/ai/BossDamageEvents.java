@@ -400,7 +400,8 @@ public final class BossDamageEvents {
         if (event.getSource().getEntity() instanceof ServerPlayer player) {
             trackParticipant(npc, player);
         }
-        event.setNewDamage(BossHealthLinkRuntime.downedDamage(npc.getHealth()));
+        event.setNewDamage(BossHealthLinkRuntime.downedDamage(npc.getHealth(),
+                controller.settings().tuning().lethalGuardHealth()));
     }
 
     /** Leaves a boss standing on one health for as long as its lethal-guard totems do. */
@@ -415,7 +416,8 @@ public final class BossDamageEvents {
                 || controller.getTotemProtectionMode() != TeleportPathData.TOTEM_PROTECTION_LETHAL_GUARD) {
             return;
         }
-        float maximumDamage = Math.max(0.0F, npc.getHealth() - 1.0F);
+        float maximumDamage = Math.max(0.0F,
+                npc.getHealth() - controller.settings().tuning().lethalGuardHealth());
         if (event.getNewDamage() <= maximumDamage) {
             return;
         }
