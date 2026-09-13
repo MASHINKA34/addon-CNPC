@@ -1961,7 +1961,12 @@ public final class TeleportPathController {
     void interruptForBarrierStun(long windowEndsAt) {
         // A boss that cannot walk is not on its way anywhere; the hold, if any, stays with the pin.
         castSpots.abortTravel();
-        dash.clear();
+        if (dash.isRunning()) {
+            // The stagger is what ends the run, so the run hands on to nothing: a follow-up chained
+            // after the dash was owed to a dash that got where it was going.
+            combo.forget(BossAbility.DASH);
+            dash.clear();
+        }
         // The follow-up waiting to start goes the way the wind-up does, walk to its spot and all:
         // the stagger breaks the chain it lands in. An effect still running keeps its claim, and
         // a follow-up it hands on during the stagger waits the stagger out.

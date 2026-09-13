@@ -74,6 +74,28 @@ class BossComboChainTest {
     }
 
     @Test
+    @DisplayName("an effect cut short gives up its claim, and only its own")
+    void aForgottenClaimHandsOnNothing() {
+        BossComboChain chain = new BossComboChain();
+        BossPhaseData phase = new BossPhaseData();
+        phase.setComboFollowUp(BossAbilityKind.DASH, BossAbilityKind.LEAP);
+        phase.setComboFollowUp(BossAbilityKind.BEAM, BossAbilityKind.GRAVITY);
+        chain.watch(BossAbility.DASH, 1, phase);
+        chain.watch(BossAbility.BEAM, 1, phase);
+
+        // A dash a stun stopped: its end is not the end its chain was waiting for.
+        chain.forget(BossAbility.DASH);
+        assertEquals(List.of(BossAbility.BEAM), chain.watchedAbilities(), "the sweep still running keeps its claim");
+        assertFalse(chain.finish(BossAbility.DASH, phase, 30L), "a forgotten dash arms nothing when it is seen to be over");
+        assertFalse(chain.hasPending());
+        assertTrue(chain.finish(BossAbility.BEAM, phase, 40L));
+        assertEquals(BossAbility.GRAVITY, chain.next());
+
+        chain.forget(BossAbility.HOOK);
+        assertEquals(BossAbility.GRAVITY, chain.next(), "forgetting an ability nobody watched touches nothing waiting");
+    }
+
+    @Test
     @DisplayName("a newer follow-up takes the place of the one still waiting")
     void aNewerFollowUpReplacesTheWaitingOne() {
         BossComboChain chain = new BossComboChain();

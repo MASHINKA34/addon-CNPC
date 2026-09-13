@@ -305,7 +305,13 @@ public final class BossDamageEvents {
         }
         float before = event.getAmount();
         if (controller.isBarrierUp()) {
-            float absorbed = controller.absorbIntoBarrier(before,
+            // A boss staggered under its own shield - a dash into a wall while it stands - pays
+            // the stagger's share into the shield, the way it would out of its health: the shield
+            // is that health standing still. Under the barrier alone a window never opens while
+            // a shield is up, so this changes nothing for it.
+            float incoming = controller.isBarrierExposed()
+                    ? before * controller.barrierExposedPercent() / 100.0F : before;
+            float absorbed = controller.absorbIntoBarrier(incoming,
                     event.getSource().is(DamageTypeTags.BYPASSES_COOLDOWN));
             // Cancelling means LivingDamageEvent.Post never runs, so whoever swung still has
             // to be signed up for the fight here.

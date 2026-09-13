@@ -75,6 +75,14 @@ final class BossComboChain {
         return !watched.isEmpty();
     }
 
+    /**
+     * Drops one ability's claim on its follow-up, for an effect that was cut short rather than
+     * run out: its end is no moment the chain was waiting for.
+     */
+    void forget(BossAbility ability) {
+        watched.remove(ability);
+    }
+
     /** The abilities still owed a follow-up, copied so the caller can finish them while it walks. */
     List<BossAbility> watchedAbilities() {
         return List.copyOf(watched.keySet());

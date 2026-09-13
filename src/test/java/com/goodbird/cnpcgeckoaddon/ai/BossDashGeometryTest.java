@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -87,6 +89,19 @@ class BossDashGeometryTest {
     }
 
     @Test
+    @DisplayName("nobody behind the start of the lane is met, however close to the boss' back")
+    void nothingBehindTheStartIsMet() {
+        // The first stretch runs from the start; a player pressed against the boss' back is
+        // within two bodies' reach of it, and still not in its path.
+        assertFalse(EAST.covers(0.0D, 0.8D, 0.6D, 64.0D, 67.0D, -0.5D, 0.0D, 64.0D, 65.8D),
+                "hugging the boss' back when it sets off is not standing in the lane");
+        assertTrue(EAST.covers(0.0D, 0.8D, 0.6D, 64.0D, 67.0D, 0.1D, 0.0D, 64.0D, 65.8D),
+                "inside the boss' front half at the start is in the lane");
+        // Further down the lane the reach back is the run's own ground, covered by the last stretch.
+        assertTrue(EAST.covers(3.0D, 3.8D, 0.6D, 64.0D, 67.0D, 2.5D, 0.0D, 64.0D, 65.8D));
+    }
+
+    @Test
     @DisplayName("the lane's width is what the warning drew, not the boss' own body")
     void theWidthIsTheLane() {
         assertTrue(EAST.covers(0.0D, 1.0D, 0.6D, 64.0D, 67.0D, 0.5D, 1.0D, 64.0D, 65.8D),
@@ -117,49 +132,52 @@ class BossDashGeometryTest {
     }
 
     @Test
-    @DisplayName("a run straight through a chain crosses it where it passes")
+    @DisplayName("a run straight through a chain crosses it where both of them pass")
     void aRunThroughAChainCrossesIt() {
         // Running east from 0 to 2, through a chain strung north to south at x = 1.
-        assertEquals(0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D), EPSILON);
-        assertEquals(0.25D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, -0.5D, 1.0D, 1.5D), EPSILON,
-                "the fraction is measured along the chain, from its first end");
+        assertCrossing(0.5D, 0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D));
+        assertCrossing(0.5D, 0.25D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, -0.5D, 1.0D, 1.5D));
+        assertCrossing(0.25D, 0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 4.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D));
         // Diagonal both ways, crossing at (1, 1).
-        assertEquals(0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 2.0D, 0.0D, 2.0D, 2.0D, 0.0D), EPSILON);
+        assertCrossing(0.5D, 0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 2.0D, 0.0D, 2.0D, 2.0D, 0.0D));
     }
 
     @Test
-    @DisplayName("which way the run or the chain is walked does not change whether they cross")
+    @DisplayName("which way the run or the chain is walked only turns its own fraction round")
     void crossingDoesNotDependOnDirection() {
-        assertEquals(0.5D, BossDashRuntime.crossing(2.0D, 0.0D, 0.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D), EPSILON,
-                "running west through the same chain");
-        assertEquals(0.75D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, 1.5D, 1.0D, -0.5D), EPSILON,
-                "the chain walked from its other end");
+        assertCrossing(0.5D, 0.5D, BossDashRuntime.crossing(2.0D, 0.0D, 0.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D));
+        assertCrossing(0.75D, 0.5D, BossDashRuntime.crossing(4.0D, 0.0D, 0.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D));
+        assertCrossing(0.5D, 0.75D, BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 1.0D, 1.5D, 1.0D, -0.5D));
     }
 
     @Test
     @DisplayName("a run that stops short of a chain, or passes its end, does not cross it")
     void shortOrPastTheEndDoesNotCross() {
-        assertTrue(Double.isNaN(BossDashRuntime.crossing(0.0D, 0.0D, 0.9D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D)),
+        assertNull(BossDashRuntime.crossing(0.0D, 0.0D, 0.9D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D),
                 "stopped a tenth of a block before the chain");
-        assertTrue(Double.isNaN(BossDashRuntime.crossing(1.1D, 0.0D, 3.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D)),
+        assertNull(BossDashRuntime.crossing(1.1D, 0.0D, 3.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D),
                 "the stretch started past it: that was the last tick");
-        assertTrue(Double.isNaN(BossDashRuntime.crossing(0.0D, 2.0D, 2.0D, 2.0D, 1.0D, -1.0D, 1.0D, 1.0D)),
+        assertNull(BossDashRuntime.crossing(0.0D, 2.0D, 2.0D, 2.0D, 1.0D, -1.0D, 1.0D, 1.0D),
                 "running by beyond the end of the chain, past the victim holding it");
     }
 
     @Test
     @DisplayName("touching the chain counts; running along it or standing still does not")
     void endsCountParallelDoesNot() {
-        assertEquals(0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 1.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D), EPSILON,
-                "a run that stops exactly on the chain has met it");
-        assertEquals(1.0D, BossDashRuntime.crossing(0.0D, 1.0D, 2.0D, 1.0D, 1.0D, -1.0D, 1.0D, 1.0D), EPSILON,
-                "clipping the very end of it counts too");
-        assertTrue(Double.isNaN(BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 0.0D, 0.5D, 2.0D, 0.5D)),
+        assertCrossing(1.0D, 0.5D, BossDashRuntime.crossing(0.0D, 0.0D, 1.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D));
+        assertCrossing(0.5D, 1.0D, BossDashRuntime.crossing(0.0D, 1.0D, 2.0D, 1.0D, 1.0D, -1.0D, 1.0D, 1.0D));
+        assertNull(BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, 0.0D, 0.5D, 2.0D, 0.5D),
                 "a run beside a chain and parallel to it never crosses it");
-        assertTrue(Double.isNaN(BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, -1.0D, 0.0D, 3.0D, 0.0D)),
+        assertNull(BossDashRuntime.crossing(0.0D, 0.0D, 2.0D, 0.0D, -1.0D, 0.0D, 3.0D, 0.0D),
                 "nor does one running right along it");
-        assertTrue(Double.isNaN(BossDashRuntime.crossing(1.0D, 0.0D, 1.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D)),
+        assertNull(BossDashRuntime.crossing(1.0D, 0.0D, 1.0D, 0.0D, 1.0D, -1.0D, 1.0D, 1.0D),
                 "a tick without movement crosses nothing, even standing on the chain");
+    }
+
+    private static void assertCrossing(double run, double chain, BossDashRuntime.Crossing crossing) {
+        assertNotNull(crossing, "the run and the chain should cross");
+        assertEquals(run, crossing.run(), EPSILON, "how far along the stretch run they cross");
+        assertEquals(chain, crossing.chain(), EPSILON, "how far along the chain they cross");
     }
 
     @Test
