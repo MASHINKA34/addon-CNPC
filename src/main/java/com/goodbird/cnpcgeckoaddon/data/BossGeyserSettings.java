@@ -15,6 +15,13 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  */
 public final class BossGeyserSettings {
 
+    /** The eruption's wave, its column and its boil, each in the unit its label names. */
+    public static final int MIN_VFX_TICKS = 1;
+    public static final int MAX_VFX_TICKS = 200;
+    public static final int MAX_COLUMN_PER_RADIUS = 50;
+    public static final int MAX_COLUMN_HEIGHT = 400;
+    public static final int MAX_BOIL_SPEED = 100;
+
     private boolean geyserEnabled;
     private String geyserAnimation = "";
     private int geyserActionDelayTicks = 12;
@@ -35,6 +42,18 @@ public final class BossGeyserSettings {
     private int geyserFluidLifetimeTicks = 60;
     private String geyserVfx = AreaVfxStyles.NONE;
     private boolean geyserBlockWave;
+    /** How long the wave that runs out of the eruption is drawn for. */
+    private int geyserVfxTicks = 20;
+    /** Tenths of a block the column climbs per block of radius, and the ends it is held between. */
+    private int geyserColumnPerRadius = 15;
+    private int geyserColumnMin = 30;
+    private int geyserColumnMax = 120;
+    /** Hundredths of a block a tick the boil at the middle spits, from lit to the last tick. */
+    private int geyserBoilMin = 2;
+    private int geyserBoilMax = 12;
+    private final BossSoundCue geyserLitSound = new BossSoundCue("minecraft:block.lava.pop", 1.6F, 0.5F);
+    private final BossSoundCue geyserEruptSound =
+            new BossSoundCue("minecraft:block.lava.extinguish", 3.0F, 0.5F);
     private final BossEffectSet geyserEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot geyserCastSpot = new BossCastSpot();
@@ -116,6 +135,52 @@ public final class BossGeyserSettings {
 
     public void setBlockWave(boolean value) { geyserBlockWave = value; }
 
+    /** Ticks the eruption's wave runs for. */
+    public int getVfxTicks() { return geyserVfxTicks; }
+
+    public void setVfxTicks(int value) {
+        geyserVfxTicks = Mth.clamp(value, MIN_VFX_TICKS, MAX_VFX_TICKS);
+    }
+
+    /** Tenths of a block of column per block of radius. */
+    public int getColumnPerRadiusTenths() { return geyserColumnPerRadius; }
+
+    public void setColumnPerRadiusTenths(int value) {
+        geyserColumnPerRadius = Mth.clamp(value, 0, MAX_COLUMN_PER_RADIUS);
+    }
+
+    /** The ends the column is held between, in tenths of a block. */
+    public int getColumnMinTenths() { return geyserColumnMin; }
+
+    public void setColumnMinTenths(int value) {
+        geyserColumnMin = Mth.clamp(value, 0, MAX_COLUMN_HEIGHT);
+    }
+
+    public int getColumnMaxTenths() { return geyserColumnMax; }
+
+    public void setColumnMaxTenths(int value) {
+        geyserColumnMax = Mth.clamp(value, 0, MAX_COLUMN_HEIGHT);
+    }
+
+    /** Hundredths of a block a tick the boil spits on the tick the fuse was lit. */
+    public int getBoilMinHundredths() { return geyserBoilMin; }
+
+    public void setBoilMinHundredths(int value) {
+        geyserBoilMin = Mth.clamp(value, 0, MAX_BOIL_SPEED);
+    }
+
+    /** And on its last tick, which is how the mark says how long is left. */
+    public int getBoilMaxHundredths() { return geyserBoilMax; }
+
+    public void setBoilMaxHundredths(int value) {
+        geyserBoilMax = Mth.clamp(value, 0, MAX_BOIL_SPEED);
+    }
+
+    /** The hiss as the ground opens. */
+    public BossSoundCue getLitSound() { return geyserLitSound; }
+
+    public BossSoundCue getEruptSound() { return geyserEruptSound; }
+
     /** Whether the eruption pools anything, i.e. whether the fluid id is worth resolving. */
     public boolean leavesGeyserFluid() { return !geyserFluid.isEmpty(); }
 
@@ -143,6 +208,14 @@ public final class BossGeyserSettings {
         tag.putString("GeyserVfx", geyserVfx);
         tag.putBoolean("GeyserBlockWave", geyserBlockWave);
         tag.put("GeyserEffects", geyserEffects.writeToNBT());
+        tag.putInt("GeyserVfxTicks", geyserVfxTicks);
+        tag.putInt("GeyserColumnPerRadius", geyserColumnPerRadius);
+        tag.putInt("GeyserColumnMin", geyserColumnMin);
+        tag.putInt("GeyserColumnMax", geyserColumnMax);
+        tag.putInt("GeyserBoilMin", geyserBoilMin);
+        tag.putInt("GeyserBoilMax", geyserBoilMax);
+        geyserLitSound.writeToNBT(tag, "GeyserLitSound");
+        geyserEruptSound.writeToNBT(tag, "GeyserEruptSound");
         geyserCastSpot.writeToNBT(tag, "Geyser");
     }
 
@@ -167,6 +240,14 @@ public final class BossGeyserSettings {
         geyserVfx = AreaVfxStyles.normalize(tag.getString("GeyserVfx"));
         geyserBlockWave = tag.getBoolean("GeyserBlockWave");
         geyserEffects.readFromNBT(tag, "GeyserEffects");
+        geyserVfxTicks = value(tag, "GeyserVfxTicks", 20, MIN_VFX_TICKS, MAX_VFX_TICKS);
+        geyserColumnPerRadius = value(tag, "GeyserColumnPerRadius", 15, 0, MAX_COLUMN_PER_RADIUS);
+        geyserColumnMin = value(tag, "GeyserColumnMin", 30, 0, MAX_COLUMN_HEIGHT);
+        geyserColumnMax = value(tag, "GeyserColumnMax", 120, 0, MAX_COLUMN_HEIGHT);
+        geyserBoilMin = value(tag, "GeyserBoilMin", 2, 0, MAX_BOIL_SPEED);
+        geyserBoilMax = value(tag, "GeyserBoilMax", 12, 0, MAX_BOIL_SPEED);
+        geyserLitSound.readFromNBT(tag, "GeyserLitSound");
+        geyserEruptSound.readFromNBT(tag, "GeyserEruptSound");
         geyserCastSpot.readFromNBT(tag, "Geyser");
     }
 }

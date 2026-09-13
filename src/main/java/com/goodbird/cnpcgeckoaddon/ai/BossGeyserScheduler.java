@@ -2,7 +2,9 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossGeyserSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
@@ -12,7 +14,6 @@ import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -55,22 +56,59 @@ public final class BossGeyserScheduler {
     /** Beyond this nobody can see the mark, so the fuse burns down without costing anything. */
     /** How often the mark is repainted. Every other tick reads as a steady shape. */
     private static final int MARK_INTERVAL_TICKS = 2;
-    /** How long the eruption's wave runs for; the geyser has no length setting of its own. */
-    private static final int VFX_DURATION_TICKS = 20;
-    /**
-     * Ceiling on the puddle, whatever the eruption's own radius is. The circle is what the
-     * geyser hits; the puddle is what it leaves lying about afterwards, and a sixteen block
-     * disc of lava is arena vandalism even when it does clean up after itself.
-     */
-    private static final int MAX_FLUID_RADIUS = 4;
-    /** Spacing between the column's emits, and the height it climbs to per block of radius. */
+    /** Spacing between the column's emits; how high it climbs is the ability's to say. */
     private static final double COLUMN_SPACING = 0.5D;
-    private static final double COLUMN_HEIGHT_PER_RADIUS = 1.5D;
-    private static final double MIN_COLUMN_HEIGHT = 3.0D;
-    private static final double MAX_COLUMN_HEIGHT = 12.0D;
-    /** How hard the boil at the centre spits, from the moment it is lit to the last tick. */
-    private static final double MIN_BOIL_SPEED = 0.02D;
-    private static final double MAX_BOIL_SPEED = 0.12D;
+
+    /**
+     * How an eruption looks and sounds, taken off the settings on the tick the fuse was lit.
+     *
+     * <p>Frozen with the rest of the cast for the reason the damage is: the mark is a promise
+     * made the moment it is drawn, and a builder editing the ability while it burns must not
+     * change what the party is already answering. Split out of {@link Pending} so it can be
+     * taken without a world to light a fuse in.</p>
+     */
+    static final class Look {
+        private final int vfxTicks;
+        private final int columnPerRadius;
+        private final int columnMin;
+        private final int columnMax;
+        private final double boilMin;
+        private final double boilMax;
+        private final BossSoundCue eruptSound;
+
+        private Look(BossGeyserSettings geyser) {
+            vfxTicks = geyser.getVfxTicks();
+            columnPerRadius = geyser.getColumnPerRadiusTenths();
+            columnMin = geyser.getColumnMinTenths();
+            columnMax = geyser.getColumnMaxTenths();
+            boilMin = geyser.getBoilMinHundredths() / 100.0D;
+            boilMax = geyser.getBoilMaxHundredths() / 100.0D;
+            eruptSound = geyser.getEruptSound().copy();
+        }
+
+        int vfxTicks() {
+            return vfxTicks;
+        }
+
+        /** How tall the column comes up over a circle of this radius; nought draws none at all. */
+        double columnHeight(double radius) {
+            return Mth.clamp(radius * columnPerRadius / 10.0D, columnMin / 10.0D, columnMax / 10.0D);
+        }
+
+        /** How hard the boil spits this far into the fuse. */
+        double boilSpeed(double burned) {
+            return Mth.lerp(burned, boilMin, boilMax);
+        }
+
+        BossSoundCue eruptSound() {
+            return eruptSound;
+        }
+    }
+
+    /** What this eruption will look and sound like, whatever the builder does next. */
+    static Look look(BossGeyserSettings geyser) {
+        return new Look(geyser);
+    }
 
     /** One geyser, mid-fuse. */
     private static final class Pending {
@@ -89,6 +127,8 @@ public final class BossGeyserScheduler {
         /** How the boss was drawing its warnings when this was lit; see BossTelegraphPaint. */
         private final BossTelegraphPaint.Settings telegraph;
         private final boolean blockWave;
+        /** How it looks and sounds, taken off the settings on the same tick. */
+        private final Look look;
         /** null when the eruption leaves nothing behind. */
         private final BlockState fluid;
         private final int fluidLifetimeTicks;
@@ -100,7 +140,7 @@ public final class BossGeyserScheduler {
         private Pending(ResourceKey<Level> dimension, EntityNPCInterface boss, int followId,
                         double radius, int damage, int launch, BossEffectSet effects, String vfx,
                         BossWaveTuning wave, BossTelegraphPaint.Settings telegraph,
-                        boolean blockWave, BlockState fluid,
+                        boolean blockWave, Look look, BlockState fluid,
                         int fluidLifetimeTicks, long litAt, long eruptsAt, Vec3 pos) {
             this.dimension = dimension;
             this.boss = boss;
@@ -113,6 +153,7 @@ public final class BossGeyserScheduler {
             this.wave = wave;
             this.telegraph = telegraph;
             this.blockWave = blockWave;
+            this.look = look;
             this.fluid = fluid;
             this.fluidLifetimeTicks = fluidLifetimeTicks;
             this.litAt = litAt;
@@ -146,12 +187,11 @@ public final class BossGeyserScheduler {
                 phase.geyser().getRadius(), damage, launch, phase.geyser().getEffects(),
                 phase.geyser().getVfx(), BossWaveTuning.of(boss, phase.geyser().getVfx()),
                 BossTelegraphPaint.Settings.of(boss),
-                phase.geyser().isBlockWave(), fluid,
+                phase.geyser().isBlockWave(), look(phase.geyser()), fluid,
                 phase.geyser().getFluidLifetimeTicks(), gameTime,
                 gameTime + phase.geyser().getFuseTicks(), point));
         // One hiss as the ground opens, for the player who is not looking down.
-        level.playSound(null, point.x, point.y, point.z, SoundEvents.LAVA_POP,
-                SoundSource.HOSTILE, 1.6F, 0.5F);
+        phase.geyser().getLitSound().play(level, point.x, point.y, point.z, SoundSource.HOSTILE);
         return true;
     }
 
@@ -243,7 +283,7 @@ public final class BossGeyserScheduler {
         BossTelegraphUtil.ring(level, pending.pos, pending.radius,
                 BossTelegraphPaint.of(pending.telegraph, pending.boss,
                         BossTelegraphPaint.CHANNEL_GEYSER, BossAbilityKind.GEYSER, (float) burned));
-        double speed = Mth.lerp(burned, MIN_BOIL_SPEED, MAX_BOIL_SPEED);
+        double speed = pending.look.boilSpeed(burned);
         level.sendParticles(ParticleTypes.BUBBLE_POP, pending.pos.x, pending.pos.y + 0.2D,
                 pending.pos.z, 3, 0.25D, 0.05D, 0.25D, speed);
         level.sendParticles(ParticleTypes.SMOKE, pending.pos.x, pending.pos.y + 0.3D,
@@ -260,11 +300,10 @@ public final class BossGeyserScheduler {
         Vec3 pos = pending.pos;
         // Both started before the hits, so what a player sees leaves at the same moment the
         // damage lands rather than a tick behind it.
-        BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius, VFX_DURATION_TICKS,
-                pending.blockWave, pending.wave);
+        BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius,
+                pending.look.vfxTicks(), pending.blockWave, pending.wave);
         drawColumn(level, pending);
-        level.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LAVA_EXTINGUISH,
-                SoundSource.HOSTILE, 3.0F, 0.5F);
+        pending.look.eruptSound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
 
         for (LivingEntity victim : victims(level, pending)) {
             // The launch is this eruption's knockback rather than something on top of it, so
@@ -319,9 +358,10 @@ public final class BossGeyserScheduler {
         if (level.getNearestPlayer(pos.x, pos.y, pos.z, BossTelegraphUtil.audienceRange(pending.boss), false) == null) {
             return;
         }
-        double height = Mth.clamp(pending.radius * COLUMN_HEIGHT_PER_RADIUS,
-                MIN_COLUMN_HEIGHT, MAX_COLUMN_HEIGHT);
-        int steps = (int) Math.round(height / COLUMN_SPACING);
+        // A column of no height is an eruption drawn without one, the way a particle count
+        // of nought is no particles: the puff of what it throws below is a separate thing.
+        double height = pending.look.columnHeight(pending.radius);
+        int steps = height <= 0.0D ? -1 : (int) Math.round(height / COLUMN_SPACING);
         for (int step = 0; step <= steps; step++) {
             double y = pos.y + step * COLUMN_SPACING;
             level.sendParticles(ParticleTypes.CLOUD, pos.x, y, pos.z, 2, 0.2D, 0.1D, 0.2D, 0.08D);
@@ -344,6 +384,10 @@ public final class BossGeyserScheduler {
      *
      * <p>A flat disc for the reason the fluid spit's puddle is one, and through the same
      * store, so the arena comes out of the fight exactly as it went in.</p>
+     *
+     * <p>As wide as the circle the eruption hit, and no wider. It used to be quietly held to
+     * four blocks whatever the screen said, which made every radius above that a setting that
+     * lied about what it did.</p>
      */
     private static void pool(ServerLevel level, Pending pending) {
         if (pending.fluid == null) {
@@ -351,7 +395,7 @@ public final class BossGeyserScheduler {
         }
         TemporaryFluidStore store = TemporaryFluidStore.get(level);
         BlockPos centre = BlockPos.containing(pending.pos);
-        int radius = Math.min((int) pending.radius, MAX_FLUID_RADIUS);
+        int radius = (int) pending.radius;
         for (int x = -radius; x <= radius; x++) {
             for (int z = -radius; z <= radius; z++) {
                 if (x * x + z * z > radius * radius) {

@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossGeyserSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformSettings;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * platform would simply blink at a rate the party did not start with.</p>
  */
 class BossZoneCastSnapshotTest {
+
+    private static final double EPSILON = 1.0E-9D;
 
     @Test
     @DisplayName("a platform is lit with the look the settings had on that tick")
@@ -71,5 +74,55 @@ class BossZoneCastSnapshotTest {
         BossPlatformScheduler.Look look = BossPlatformScheduler.look(platform);
         assertEquals(1, look.pops(0.25D), "the smallest platform still reads as going off");
         assertEquals(24, look.pops(10_000.0D), "and the biggest is still held to the cap");
+    }
+
+    @Test
+    @DisplayName("a geyser is lit with the look the settings had on that tick")
+    void theGeyserTakesItsLookOnTheCast() {
+        BossGeyserSettings geyser = new BossGeyserSettings();
+        geyser.setVfxTicks(44);
+        geyser.setColumnPerRadiusTenths(20);
+        geyser.setColumnMinTenths(10);
+        geyser.setColumnMaxTenths(80);
+        geyser.setBoilMinHundredths(5);
+        geyser.setBoilMaxHundredths(25);
+        geyser.getEruptSound().setEnabled(false);
+
+        BossGeyserScheduler.Look look = BossGeyserScheduler.look(geyser);
+        assertEquals(44, look.vfxTicks());
+        assertEquals(6.0D, look.columnHeight(3.0D), EPSILON);
+        assertEquals(1.0D, look.columnHeight(0.1D), EPSILON, "held up to the floor");
+        assertEquals(8.0D, look.columnHeight(16.0D), EPSILON, "and down to the ceiling");
+        assertEquals(0.05D, look.boilSpeed(0.0D), EPSILON);
+        assertEquals(0.25D, look.boilSpeed(1.0D), EPSILON);
+        assertFalse(look.eruptSound().isEnabled());
+    }
+
+    @Test
+    @DisplayName("editing the geyser after the fuse was lit leaves the burning one alone")
+    void theGeyserLookDoesNotFollowLaterEdits() {
+        BossGeyserSettings geyser = new BossGeyserSettings();
+        BossGeyserScheduler.Look look = BossGeyserScheduler.look(geyser);
+
+        geyser.setVfxTicks(200);
+        geyser.setColumnMinTenths(0);
+        geyser.setColumnMaxTenths(0);
+        geyser.getEruptSound().setEnabled(false);
+
+        assertEquals(20, look.vfxTicks());
+        // Three blocks of radius at a block and a half each is four and a half, the old number.
+        assertEquals(4.5D, look.columnHeight(3.0D), EPSILON);
+        assertEquals(0.02D, look.boilSpeed(0.0D), EPSILON);
+        assertEquals(0.12D, look.boilSpeed(1.0D), EPSILON);
+        assertTrue(look.eruptSound().isEnabled());
+    }
+
+    @Test
+    @DisplayName("a geyser held to no column at either end draws none")
+    void aColumnOfNoughtIsNoColumnAtAll() {
+        BossGeyserSettings geyser = new BossGeyserSettings();
+        geyser.setColumnMinTenths(0);
+        geyser.setColumnMaxTenths(0);
+        assertEquals(0.0D, BossGeyserScheduler.look(geyser).columnHeight(16.0D), EPSILON);
     }
 }
