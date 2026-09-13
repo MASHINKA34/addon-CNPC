@@ -54,6 +54,9 @@ public final class BossSchedulerEvents {
         if (BossBeamScheduler.hasPending()) {
             BossBeamScheduler.tick(level);
         }
+        if (BossPlatformScheduler.hasPending()) {
+            BossPlatformScheduler.tick(level);
+        }
         if (BossCaptureManager.hasPending()) {
             BossCaptureManager.tick(level);
         }
@@ -79,6 +82,7 @@ public final class BossSchedulerEvents {
             BossBoulderRainScheduler.clear(level);
             BossGravityScheduler.clear(level);
             BossBeamScheduler.clear(level);
+            BossPlatformScheduler.clear(level);
             BossCloneRespawnGuard.clear(level);
             BossMinionUtil.clearPending(level);
             BossCaptureManager.clearLevel(level);

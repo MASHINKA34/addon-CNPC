@@ -134,6 +134,14 @@ class BossAbilityTableTest {
                     phase -> phase.cone().setEnabled(true),
                     (phase, ticks) -> phase.cone().setCooldownTicks(ticks),
                     phase -> phase.cone().castSpot())),
+            Map.entry(BossAbility.PLATFORM, new Wiring(
+                    phase -> {
+                        phase.platform().setEnabled(true);
+                        // Platforms with none to set alight are not an ability yet.
+                        phase.platform().getZones().add();
+                    },
+                    (phase, ticks) -> phase.platform().setCooldownTicks(ticks),
+                    phase -> phase.platform().castSpot())),
             Map.entry(BossAbility.SUMMON, new Wiring(
                     phase -> {
                         phase.summon().setEnabled(true);
@@ -155,6 +163,8 @@ class BossAbilityTableTest {
                     phase -> phase.boulderRain().setBlock("")),
             BossAbility.COCOON, new Setup(phase -> phase.cocoon().setCloneName("cocoon"),
                     phase -> phase.cocoon().setCloneName("")),
+            BossAbility.PLATFORM, new Setup(phase -> phase.platform().getZones().add(),
+                    phase -> phase.platform().getZones().clear()),
             BossAbility.SUMMON, new Setup(phase -> phase.summon().setCloneName("minion"),
                     phase -> phase.summon().setCloneName(""))));
 

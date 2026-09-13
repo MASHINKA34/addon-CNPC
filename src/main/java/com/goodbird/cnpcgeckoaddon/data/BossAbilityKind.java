@@ -121,7 +121,8 @@ public final class BossAbilityKind {
 
     /**
      * The abilities whose effect outlives the cast, in the order they are offered: the only
-     * ones a boss can be told to see through before it starts anything else.
+     * ones a boss can be told to see through before it starts anything else. The platforms are
+     * one of them: their fuse, and the smoulder after it, burn on long after the wind-up lands.
      *
      * <p>The leap is absent because its flight already keeps the boss busy until it lands,
      * the dash because its run does the same until it stops, the cone strike because a series
@@ -129,7 +130,7 @@ public final class BossAbilityKind {
      * switch does the same job for the chase.</p>
      */
     public static final int[] LASTING_ABILITIES = {
-            HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON
+            HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON, PLATFORM
     };
 
     /** Every bit {@link #LASTING_ABILITIES} owns; any other bit in a finish mask is never read. */
@@ -143,7 +144,7 @@ public final class BossAbilityKind {
      */
     public static final int[] COMBO_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, SUMMON, LEAP, LINE, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON, DASH, CONE
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON, DASH, CONE, PLATFORM
     };
 
     /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */

@@ -104,7 +104,8 @@ class BossFinishMaskTest {
     void theLastingListIsWrittenOutOnPurpose() {
         assertEquals(Set.of(BossAbilityKind.HOOK, BossAbilityKind.CAPTURE, BossAbilityKind.GEYSER,
                         BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER, BossAbilityKind.GRAVITY,
-                        BossAbilityKind.MARK, BossAbilityKind.BEAM, BossAbilityKind.COCOON), lasting());
+                        BossAbilityKind.MARK, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
+                        BossAbilityKind.PLATFORM), lasting());
         assertEquals(BossAbilityKind.LASTING_ABILITIES.length, lasting().size(), "an ability is listed twice");
         // The gate looks for marked abilities on the rotation, so one with no row there would
         // show a button on the screen and never be waited for.

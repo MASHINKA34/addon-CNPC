@@ -360,6 +360,21 @@ class BossPlatformSettingsTest {
     }
 
     @Test
+    @DisplayName("an old boss sees no platform out before it starts the next thing")
+    void theFinishBitStartsClear() {
+        CompoundTag tag = new BossPhaseData().writeToNBT();
+        tag.putInt("FinishMask", BossAbilityKind.LASTING_ALL & ~(1 << BossAbilityKind.PLATFORM));
+        BossPhaseData old = new BossPhaseData();
+        old.readFromNBT(tag);
+        assertFalse(old.waitsForFinish(BossAbilityKind.PLATFORM), "a mask saved before the platforms never marked them");
+        assertTrue(old.waitsForFinish(BossAbilityKind.GEYSER), "and the bits it did mark are kept");
+        old.setWaitsForFinish(BossAbilityKind.PLATFORM, true);
+        BossPhaseData reread = new BossPhaseData();
+        reread.readFromNBT(old.writeToNBT());
+        assertTrue(reread.waitsForFinish(BossAbilityKind.PLATFORM), "the platforms' own bit is saved once it is marked");
+    }
+
+    @Test
     @DisplayName("a boss that warned for everything warns for the platforms; one that chose keeps its choice")
     void theWarningBitIsMigrated() {
         int beforePlatform = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ((1 << BossAbilityKind.PLATFORM) - 1);
@@ -406,6 +421,9 @@ class BossPlatformSettingsTest {
         assertTrue(contains(BossAbilityKind.IMMUNITY_ABILITIES, BossAbilityKind.PLATFORM), "an npc can be immune to them");
         assertTrue(contains(BossPhaseData.CAST_ROOT_ABILITIES, BossAbilityKind.PLATFORM), "the wind-up can be rooted");
         assertTrue(contains(TeleportPathData.TELEGRAPH_ABILITIES, BossAbilityKind.PLATFORM), "the wind-up warns");
+        assertTrue(contains(BossAbilityKind.COMBO_ABILITIES, BossAbilityKind.PLATFORM), "the platforms can be chained");
+        assertTrue(contains(BossAbilityKind.LASTING_ABILITIES, BossAbilityKind.PLATFORM),
+                "the fuse outlives the cast, so a phase can be told to see it out");
         assertEquals(BossAbilityKind.CONE + 1, BossAbilityKind.PLATFORM, "a new kind is appended, never slotted in");
         assertEquals(BossPhaseData.PLATFORM_PICK_LABELS.length, BossPhaseData.PLATFORM_PICK_ALL_BUT_ONE + 1,
                 "every pick mode has a name on the screen");

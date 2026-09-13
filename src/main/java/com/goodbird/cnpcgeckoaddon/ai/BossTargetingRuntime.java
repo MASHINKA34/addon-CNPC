@@ -353,6 +353,21 @@ final class BossTargetingRuntime {
         return arenaVictims(level, centre, range, BossAbilityKind.COVER);
     }
 
+    /**
+     * Everyone standing on a platform, by the arena hazard's rule for its box: the platforms are
+     * a problem set to the party, so players have to belong to this fight, npcs come in by the
+     * kind the boss aims its abilities at, and anyone hidden by their own totems is passed over.
+     */
+    List<LivingEntity> platformVictims(ServerLevel level, AABB box) {
+        TeleportPathData data = boss.settings();
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive() && box.contains(target.position())
+                        && (!(target instanceof Player player) || boss.isEncounterParticipant(player))
+                        && matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target)
+                        && isAbilityTarget(target, BossAbilityKind.PLATFORM));
+    }
+
     boolean isBoulderVictim(LivingEntity target, int ability) {
         return target != npc && target.isAlive()
                 && matchesAbilityTargetKind(target, boss.settings())

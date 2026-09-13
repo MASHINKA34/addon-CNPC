@@ -42,11 +42,12 @@ final class BossTelegraphRuntime {
     private final BossLeapRuntime leap;
     private final BossDashRuntime dash;
     private final BossConeRuntime cone;
+    private final BossPlatformRuntime platform;
     private final BossMinionSpawnRuntime minionSpawns;
 
     BossTelegraphRuntime(TeleportPathController boss, EntityNPCInterface npc, BossCoverRuntime coverRuntime,
                          BossHuntRuntime huntRuntime, BossLeapRuntime leap, BossDashRuntime dash,
-                         BossConeRuntime cone, BossMinionSpawnRuntime minionSpawns) {
+                         BossConeRuntime cone, BossPlatformRuntime platform, BossMinionSpawnRuntime minionSpawns) {
         this.boss = boss;
         this.npc = npc;
         this.coverRuntime = coverRuntime;
@@ -54,6 +55,7 @@ final class BossTelegraphRuntime {
         this.leap = leap;
         this.dash = dash;
         this.cone = cone;
+        this.platform = platform;
         this.minionSpawns = minionSpawns;
     }
 
@@ -152,6 +154,9 @@ final class BossTelegraphRuntime {
                 int bright = phase.cone().getPointIntervalTicks() == 0 ? axes.size() : 1;
                 drawConeSectors(level, phase, axes, bright, dust, BossTelegraphUtil.fadedDust(ability));
             }
+            // The outline of every platform the cast sets alight, the arena hazard's box; the fuse
+            // after the wind-up flashes the same outline whatever the warnings say.
+            case PLATFORM -> platform.drawCommitted(level, dust);
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
                     phase.meleeAttack().getRange(), npc.getYRot(), TELEGRAPH_MELEE_HALF_ANGLE, dust);
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE, HUNT ->

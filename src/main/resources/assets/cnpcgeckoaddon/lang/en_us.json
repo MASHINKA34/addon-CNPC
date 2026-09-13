@@ -505,6 +505,7 @@
   "cnpcgeckoaddon.boss.platform_pick.target": "The target's",
   "cnpcgeckoaddon.boss.platform_pick.cycle": "In turn",
   "cnpcgeckoaddon.boss.platform_pick.all_but_one": "All but one",
+  "cnpcgeckoaddon.boss.platform_countdown": "%s in %s",
   "cnpcgeckoaddon.boss.cast_move_settings": "Movement while casting...",
   "cnpcgeckoaddon.boss.cast_move_title": "Movement while casting",
   "cnpcgeckoaddon.boss.cast_move_rooted": "Stands still",

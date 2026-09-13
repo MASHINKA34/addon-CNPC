@@ -109,6 +109,8 @@ public final class TeleportPathController {
                     controller.dash.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.CONE, (controller, level, data, phase, gameTime) ->
                     controller.cone.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.PLATFORM, (controller, level, data, phase, gameTime) ->
+                    controller.platform.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.tryStart(level, data, phase, gameTime))));
 
@@ -172,6 +174,8 @@ public final class TeleportPathController {
                     controller.dash.perform(level, data, phase, gameTime)),
             Map.entry(BossAbility.CONE, (controller, level, data, phase, gameTime) ->
                     controller.cone.perform(level, data, phase, gameTime)),
+            Map.entry(BossAbility.PLATFORM, (controller, level, data, phase, gameTime) ->
+                    controller.platform.perform(level, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.perform(level, phase)),
             Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
@@ -284,6 +288,8 @@ public final class TeleportPathController {
     private final BossMinionSpawnRuntime minionSpawns;
     /** The fan of a hit laid toward a victim, along the gaze or at the builder's points. */
     private final BossConeRuntime cone;
+    /** Which of the builder's platforms a cast sets alight, and the turn they are taken in. */
+    private final BossPlatformRuntime platform;
     /** The walk over the teleport path: which point is next, and when. */
     private final BossPathRuntime path;
     /** The shell the boss closes round a victim, and the guard posted beside it. */
@@ -394,6 +400,7 @@ public final class TeleportPathController {
         this.dash = new BossDashRuntime(this, npc);
         this.minionSpawns = new BossMinionSpawnRuntime(this, npc);
         this.cone = new BossConeRuntime(this, npc, minionSpawns);
+        this.platform = new BossPlatformRuntime(this, npc);
         this.path = new BossPathRuntime(this, npc);
         this.cocoon = new BossCocoonRuntime(this, npc);
         this.capture = new BossCaptureRuntime(this, npc);
@@ -410,7 +417,7 @@ public final class TeleportPathController {
         this.meleeAttack = new BossMeleeAttackRuntime(this, npc);
         this.summonRuntime = new BossSummonRuntime(this, npc);
         this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, dash, cone,
-                minionSpawns);
+                platform, minionSpawns);
         this.castSpots = new BossCastSpotRuntime(this, npc);
         INSTANCES.add(this);
     }
@@ -1115,6 +1122,7 @@ public final class TeleportPathController {
         // Restore the base maximum before reset healing decides whether to fill it.
         clearCombatRuntime(data, data.isResetHeal());
         minionSpawns.clearCursor();
+        platform.clearCursor();
 
         if (data.isClearMinionsOnReset()) {
             BossMinionUtil.clear(level, npc, data.getMinionRemovalMode());
@@ -1841,6 +1849,7 @@ public final class TeleportPathController {
             case LEAP -> leap.isAirborne();
             case DASH -> dash.isRunning();
             case CONE -> cone.isSequencing();
+            case PLATFORM -> BossPlatformScheduler.hasPending(npc);
             case GEYSER -> BossGeyserScheduler.hasPending(npc);
             case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
             case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
@@ -2191,6 +2200,9 @@ public final class TeleportPathController {
             // A cone at a target is the swing at somebody: out of its reach, the way out of a
             // swing's, is a dodge. Along the gaze or at points it promised a sector instead.
             case CONE -> cone.stillValid(target, phase);
+            // The platforms were picked when the warning went up, and nobody is aimed at: jumping
+            // off the one that burns is the dodge, and it is judged when the fuse runs out.
+            case PLATFORM -> true;
             // And the rain is not aimed at anybody at all: the ring is centred on the boss
             // and lands on ground, so there is nobody in particular who could have left it.
             case BOULDER_RAIN -> true;
@@ -2373,6 +2385,10 @@ public final class TeleportPathController {
         return targeting.coverVictims(level, centre, range);
     }
 
+    List<LivingEntity> platformVictims(ServerLevel level, AABB box) {
+        return targeting.platformVictims(level, box);
+    }
+
     public boolean isBoulderVictim(LivingEntity target, int ability) {
         return targeting.isBoulderVictim(target, ability);
     }
@@ -2424,6 +2440,7 @@ public final class TeleportPathController {
         committedAxis = null;
         committedYaw = 0.0F;
         coverRuntime.clear();
+        platform.clear();
         leap.forgetPlanIfGrounded();
     }
 
@@ -2447,9 +2464,11 @@ public final class TeleportPathController {
         // A chase does not outlive the phase, the fight or the boss that started it, and
         // every one of those ends up here. Nor does a sweep, nor a run: unlike a leap's flight
         // a dash is the boss' own legs, and it stops where it is. A series of cones is the boss'
-        // own swings, and the ones still to come are never swung.
+        // own swings, and the ones still to come are never swung. Nor do the platforms it set
+        // alight, which the end of a fight and a death put out through here as well.
         huntRuntime.end();
         BossBeamScheduler.clearBoss(npc);
+        BossPlatformScheduler.clearBoss(npc);
         dash.clear();
         cone.clear();
     }
@@ -2467,6 +2486,7 @@ public final class TeleportPathController {
         targeting.reset();
         totems.clearRuntime();
         minionSpawns.clear();
+        platform.clearCursor();
         cocoon.clear();
         geyser.clear();
         boulder.clear();
