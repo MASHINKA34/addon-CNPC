@@ -23,6 +23,36 @@ public class NpcCarryData {
     public static final int DEFAULT_THROW_KNOCKBACK = 2;
     public static final int MAX_THROW_COOLDOWN_TICKS = 1200;
     public static final int DEFAULT_THROW_COOLDOWN_TICKS = 20;
+    /** Tenths of a block in front of the carrier's eyes, before the npc's own width. */
+    public static final int MIN_CARRY_DISTANCE = 5;
+    public static final int MAX_CARRY_DISTANCE = 60;
+    public static final int DEFAULT_CARRY_DISTANCE = 20;
+    /** Hundredths of a block under eye level, so the npc is not sat on the crosshair. */
+    public static final int MAX_CARRY_DROP = 150;
+    public static final int DEFAULT_CARRY_DROP = 35;
+    public static final int MIN_PLACE_REACH = 1;
+    public static final int MAX_PLACE_REACH = 32;
+    public static final int DEFAULT_PLACE_REACH = 6;
+    /**
+     * The preview ring's two colours as 0xRRGGBB.
+     *
+     * <p>The ring used to be drawn from floats - 0.35/0.95/0.45 and 0.95/0.25/0.25 - and a hex
+     * colour is eight bits a channel, so these are those floats to the nearest step of the
+     * scale a builder can actually type. The difference is under half a step and invisible.</p>
+     */
+    public static final int DEFAULT_PREVIEW_FREE_COLOR = 0x59F273;
+    public static final int DEFAULT_PREVIEW_BLOCKED_COLOR = 0xF24040;
+    public static final int MAX_COLOR = 0xFFFFFF;
+    /** Thousandths of a block per tick per tick, the way the boulder's own gravity is kept. */
+    public static final int MIN_THROW_GRAVITY = 5;
+    public static final int MAX_THROW_GRAVITY = 300;
+    public static final int DEFAULT_THROW_GRAVITY = 50;
+    /** Hundredths added to the look's y before it is normalised, so a level throw still lobs. */
+    public static final int MAX_THROW_LIFT = 100;
+    public static final int DEFAULT_THROW_LIFT = 12;
+    public static final int MIN_THROW_MAX_FLIGHT_TICKS = 20;
+    public static final int MAX_THROW_MAX_FLIGHT_TICKS = 600;
+    public static final int DEFAULT_THROW_MAX_FLIGHT_TICKS = 100;
 
     private static final String CARRYABLE_KEY = "GeckoNpcCarryable";
     private static final String SNEAK_KEY = "GeckoNpcCarrySneak";
@@ -39,6 +69,14 @@ public class NpcCarryData {
     private static final String THROW_SELF_DAMAGE_KEY = "GeckoNpcCarryThrowSelfDamage";
     private static final String THROW_BOMB_KEY = "GeckoNpcCarryThrowBomb";
     private static final String THROW_COOLDOWN_KEY = "GeckoNpcCarryThrowCooldown";
+    private static final String CARRY_DISTANCE_KEY = "GeckoNpcCarryDistance";
+    private static final String CARRY_DROP_KEY = "GeckoNpcCarryDrop";
+    private static final String PLACE_REACH_KEY = "GeckoNpcCarryPlaceReach";
+    private static final String PREVIEW_FREE_KEY = "GeckoNpcCarryPreviewFree";
+    private static final String PREVIEW_BLOCKED_KEY = "GeckoNpcCarryPreviewBlocked";
+    private static final String THROW_GRAVITY_KEY = "GeckoNpcCarryThrowGravity";
+    private static final String THROW_LIFT_KEY = "GeckoNpcCarryThrowLift";
+    private static final String THROW_MAX_FLIGHT_KEY = "GeckoNpcCarryThrowMaxFlight";
 
     private boolean carryable;
     private boolean requireSneak = true;
@@ -55,6 +93,14 @@ public class NpcCarryData {
     private int throwSelfDamage;
     private boolean throwDiesOnImpact;
     private int throwCooldownTicks = DEFAULT_THROW_COOLDOWN_TICKS;
+    private int carryDistanceTenths = DEFAULT_CARRY_DISTANCE;
+    private int carryDropHundredths = DEFAULT_CARRY_DROP;
+    private int placeReach = DEFAULT_PLACE_REACH;
+    private int previewFreeColor = DEFAULT_PREVIEW_FREE_COLOR;
+    private int previewBlockedColor = DEFAULT_PREVIEW_BLOCKED_COLOR;
+    private int throwGravityThousandths = DEFAULT_THROW_GRAVITY;
+    private int throwLiftHundredths = DEFAULT_THROW_LIFT;
+    private int throwMaxFlightTicks = DEFAULT_THROW_MAX_FLIGHT_TICKS;
 
     public CompoundTag writeToNBT(CompoundTag tag) {
         tag.putBoolean(CARRYABLE_KEY, carryable);
@@ -72,6 +118,14 @@ public class NpcCarryData {
         tag.putInt(THROW_SELF_DAMAGE_KEY, throwSelfDamage);
         tag.putBoolean(THROW_BOMB_KEY, throwDiesOnImpact);
         tag.putInt(THROW_COOLDOWN_KEY, throwCooldownTicks);
+        tag.putInt(CARRY_DISTANCE_KEY, carryDistanceTenths);
+        tag.putInt(CARRY_DROP_KEY, carryDropHundredths);
+        tag.putInt(PLACE_REACH_KEY, placeReach);
+        tag.putInt(PREVIEW_FREE_KEY, previewFreeColor);
+        tag.putInt(PREVIEW_BLOCKED_KEY, previewBlockedColor);
+        tag.putInt(THROW_GRAVITY_KEY, throwGravityThousandths);
+        tag.putInt(THROW_LIFT_KEY, throwLiftHundredths);
+        tag.putInt(THROW_MAX_FLIGHT_KEY, throwMaxFlightTicks);
         return tag;
     }
 
@@ -102,6 +156,17 @@ public class NpcCarryData {
         throwDiesOnImpact = tag.getBoolean(THROW_BOMB_KEY);
         throwCooldownTicks = readInt(tag, THROW_COOLDOWN_KEY, DEFAULT_THROW_COOLDOWN_TICKS,
                 0, MAX_THROW_COOLDOWN_TICKS);
+        carryDistanceTenths = readInt(tag, CARRY_DISTANCE_KEY, DEFAULT_CARRY_DISTANCE,
+                MIN_CARRY_DISTANCE, MAX_CARRY_DISTANCE);
+        carryDropHundredths = readInt(tag, CARRY_DROP_KEY, DEFAULT_CARRY_DROP, 0, MAX_CARRY_DROP);
+        placeReach = readInt(tag, PLACE_REACH_KEY, DEFAULT_PLACE_REACH, MIN_PLACE_REACH, MAX_PLACE_REACH);
+        previewFreeColor = readInt(tag, PREVIEW_FREE_KEY, DEFAULT_PREVIEW_FREE_COLOR, 0, MAX_COLOR);
+        previewBlockedColor = readInt(tag, PREVIEW_BLOCKED_KEY, DEFAULT_PREVIEW_BLOCKED_COLOR, 0, MAX_COLOR);
+        throwGravityThousandths = readInt(tag, THROW_GRAVITY_KEY, DEFAULT_THROW_GRAVITY,
+                MIN_THROW_GRAVITY, MAX_THROW_GRAVITY);
+        throwLiftHundredths = readInt(tag, THROW_LIFT_KEY, DEFAULT_THROW_LIFT, 0, MAX_THROW_LIFT);
+        throwMaxFlightTicks = readInt(tag, THROW_MAX_FLIGHT_KEY, DEFAULT_THROW_MAX_FLIGHT_TICKS,
+                MIN_THROW_MAX_FLIGHT_TICKS, MAX_THROW_MAX_FLIGHT_TICKS);
     }
 
     /** The default for a key an older world never wrote, and the clamp for one it did. */
@@ -236,5 +301,78 @@ public class NpcCarryData {
 
     public void setThrowCooldownTicks(int throwCooldownTicks) {
         this.throwCooldownTicks = Mth.clamp(throwCooldownTicks, 0, MAX_THROW_COOLDOWN_TICKS);
+    }
+
+    /** How far in front of the carrier's eyes the npc floats, in tenths of a block. */
+    public int getCarryDistanceTenths() {
+        return carryDistanceTenths;
+    }
+
+    public void setCarryDistanceTenths(int carryDistanceTenths) {
+        this.carryDistanceTenths = Mth.clamp(carryDistanceTenths, MIN_CARRY_DISTANCE, MAX_CARRY_DISTANCE);
+    }
+
+    /** How far under eye level it is held, in hundredths of a block. */
+    public int getCarryDropHundredths() {
+        return carryDropHundredths;
+    }
+
+    public void setCarryDropHundredths(int carryDropHundredths) {
+        this.carryDropHundredths = Mth.clamp(carryDropHundredths, 0, MAX_CARRY_DROP);
+    }
+
+    /** How far the carrier's aim reaches when looking for a spot to put the npc down. */
+    public int getPlaceReach() {
+        return placeReach;
+    }
+
+    public void setPlaceReach(int placeReach) {
+        this.placeReach = Mth.clamp(placeReach, MIN_PLACE_REACH, MAX_PLACE_REACH);
+    }
+
+    /** The placement ring's colour where the npc fits, as 0xRRGGBB. */
+    public int getPreviewFreeColor() {
+        return previewFreeColor;
+    }
+
+    public void setPreviewFreeColor(int previewFreeColor) {
+        this.previewFreeColor = Mth.clamp(previewFreeColor, 0, MAX_COLOR);
+    }
+
+    /** And where it does not. */
+    public int getPreviewBlockedColor() {
+        return previewBlockedColor;
+    }
+
+    public void setPreviewBlockedColor(int previewBlockedColor) {
+        this.previewBlockedColor = Mth.clamp(previewBlockedColor, 0, MAX_COLOR);
+    }
+
+    /** What a thrown npc loses of its upward speed each tick, in thousandths of a block. */
+    public int getThrowGravityThousandths() {
+        return throwGravityThousandths;
+    }
+
+    public void setThrowGravityThousandths(int throwGravityThousandths) {
+        this.throwGravityThousandths = Mth.clamp(throwGravityThousandths, MIN_THROW_GRAVITY, MAX_THROW_GRAVITY);
+    }
+
+    /** How much a throw aimed level still lobs, in hundredths added to the look. */
+    public int getThrowLiftHundredths() {
+        return throwLiftHundredths;
+    }
+
+    public void setThrowLiftHundredths(int throwLiftHundredths) {
+        this.throwLiftHundredths = Mth.clamp(throwLiftHundredths, 0, MAX_THROW_LIFT);
+    }
+
+    /** A flight that has met nothing by then is put down where it is. */
+    public int getThrowMaxFlightTicks() {
+        return throwMaxFlightTicks;
+    }
+
+    public void setThrowMaxFlightTicks(int throwMaxFlightTicks) {
+        this.throwMaxFlightTicks = Mth.clamp(throwMaxFlightTicks,
+                MIN_THROW_MAX_FLIGHT_TICKS, MAX_THROW_MAX_FLIGHT_TICKS);
     }
 }

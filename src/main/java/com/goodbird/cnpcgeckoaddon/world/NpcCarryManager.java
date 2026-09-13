@@ -61,16 +61,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * is in the air.</p>
  */
 public final class NpcCarryManager {
-    /** How far in front of the carrier's eyes the npc floats, before its own width. */
-    private static final double CARRY_DISTANCE = 2.0D;
-    /** Held a little under eye level so it does not sit on top of the crosshair. */
-    private static final double CARRY_DROP = 0.35D;
-    private static final double PLACE_REACH = 6.0D;
     private static final int PREVIEW_INTERVAL = 4;
     private static final int PREVIEW_POINTS = 12;
     private static final double PREVIEW_RADIUS = 0.6D;
-    private static final Vector3f PREVIEW_FREE = new Vector3f(0.35F, 0.95F, 0.45F);
-    private static final Vector3f PREVIEW_BLOCKED = new Vector3f(0.95F, 0.25F, 0.25F);
     /** One fixed id, so picking up a second npc replaces the slowdown instead of stacking. */
     private static final ResourceLocation SLOWNESS_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "npc_carry_slowness");
@@ -80,11 +73,6 @@ public final class NpcCarryManager {
      * figure.
      */
     private static final double COLLISION_SLICE = 0.4D;
-    private static final double THROW_GRAVITY = 0.05D;
-    /** Added to the look before it is normalised, so a level throw still lobs a little. */
-    private static final double THROW_LIFT = 0.12D;
-    /** A flight that has met nothing by then is put down where it is. */
-    private static final int MAX_FLIGHT_TICKS = 100;
 
     private static final Set<UUID> CARRY_MODE = new HashSet<>();
     private static final Map<UUID, CarryRuntime> BY_PLAYER = new HashMap<>();
@@ -122,6 +110,14 @@ public final class NpcCarryManager {
         private final boolean throwBomb;
         /** Game time from which a throw is allowed: the pickup plus the npc's own pause. */
         private final long throwReadyAt;
+        private final double carryDistance;
+        private final double carryDrop;
+        private final double placeReach;
+        private final Vector3f previewFree;
+        private final Vector3f previewBlocked;
+        private final double throwGravity;
+        private final double throwLift;
+        private final int maxFlightTicks;
 
         private CarryRuntime(ServerPlayer player, EntityNPCInterface npc, boolean builderTool) {
             this.playerId = player.getUUID();
@@ -153,6 +149,18 @@ public final class NpcCarryManager {
             this.throwSelfDamage = settings.getThrowSelfDamage();
             this.throwBomb = settings.isThrowDiesOnImpact();
             this.throwReadyAt = npc.level().getGameTime() + settings.getThrowCooldownTicks();
+            // The shape of the carry is read here with the rest of it, and for the same
+            // reason: an npc pulled twice as far out in front halfway through a carry is a
+            // carry that ends somewhere its own rules never let it reach. The builder tool
+            // takes these as they are - they cost its user nothing to obey.
+            this.carryDistance = settings.getCarryDistanceTenths() / 10.0D;
+            this.carryDrop = settings.getCarryDropHundredths() / 100.0D;
+            this.placeReach = settings.getPlaceReach();
+            this.previewFree = colorOf(settings.getPreviewFreeColor());
+            this.previewBlocked = colorOf(settings.getPreviewBlockedColor());
+            this.throwGravity = settings.getThrowGravityThousandths() / 1000.0D;
+            this.throwLift = settings.getThrowLiftHundredths() / 100.0D;
+            this.maxFlightTicks = settings.getThrowMaxFlightTicks();
         }
 
         /** @return true when the carrier has taken the npc too far from where it was picked up */
@@ -168,6 +176,12 @@ public final class NpcCarryManager {
          */
         private BlockPos homeFor(Vec3 point) {
             return updatesHome ? BlockPos.containing(point) : null;
+        }
+
+        /** One 0xRRGGBB setting as the three channels the dust particle is built from. */
+        private static Vector3f colorOf(int rgb) {
+            return new Vector3f((rgb >> 16 & 0xFF) / 255.0F, (rgb >> 8 & 0xFF) / 255.0F,
+                    (rgb & 0xFF) / 255.0F);
         }
     }
 
@@ -296,7 +310,7 @@ public final class NpcCarryManager {
             npc.setInvulnerable(true);
         }
         applySlowness(player, carry);
-        hold(player, npc);
+        hold(carry, player, npc);
         player.displayClientMessage(
                 Component.translatable("cnpcgeckoaddon.carry.picked", npc.getName()), true);
         return true;
@@ -318,7 +332,7 @@ public final class NpcCarryManager {
             forget(carry, held);
             return false;
         }
-        Placement placement = aimedPlacement(level, player, npc);
+        Placement placement = aimedPlacement(level, carry, player, npc);
         if (!placement.fits()) {
             player.displayClientMessage(Component.translatable("cnpcgeckoaddon.carry.blocked"), true);
             return true;
@@ -366,7 +380,7 @@ public final class NpcCarryManager {
             return true;
         }
         Vec3 look = player.getLookAngle();
-        Vec3 velocity = new Vec3(look.x, look.y + THROW_LIFT, look.z).normalize()
+        Vec3 velocity = new Vec3(look.x, look.y + carry.throwLift, look.z).normalize()
                 .scale(carry.throwSpeed / 10.0D);
         // Off the hands but still this npc's carry: the flags it borrowed and the busy mark
         // it wears are handed back by the landing, and BY_NPC is what keeps both honest.
@@ -389,7 +403,7 @@ public final class NpcCarryManager {
         if (carry == null || !carry.throwable || !(player.level() instanceof ServerLevel level)) {
             return false;
         }
-        return aimRay(level, player).getType() != HitResult.Type.BLOCK && throwFromAim(player);
+        return aimRay(level, carry, player).getType() != HitResult.Type.BLOCK && throwFromAim(player);
     }
 
     /** An item click that reached no block on the client: a throw, else the old placement. */
@@ -520,9 +534,9 @@ public final class NpcCarryManager {
                 drop(level, carry, npc, player, "cnpcgeckoaddon.carry.too_far");
                 continue;
             }
-            hold(player, npc);
+            hold(carry, player, npc);
             if (showRing) {
-                showPlacementRing(level, player, npc);
+                showPlacementRing(level, carry, player, npc);
             }
         }
     }
@@ -547,7 +561,7 @@ public final class NpcCarryManager {
                 land(level, carry, npc, null, npc.position());
                 continue;
             }
-            if (++flight.age > MAX_FLIGHT_TICKS) {
+            if (++flight.age > carry.maxFlightTicks) {
                 land(level, carry, npc, thrower, npc.position());
                 continue;
             }
@@ -556,8 +570,8 @@ public final class NpcCarryManager {
     }
 
     /** Pins the npc in front of the carrier for one tick. */
-    private static void hold(ServerPlayer player, EntityNPCInterface npc) {
-        Vec3 anchor = carryAnchor(player, npc);
+    private static void hold(CarryRuntime carry, ServerPlayer player, EntityNPCInterface npc) {
+        Vec3 anchor = carryAnchor(carry, player, npc);
         pin(npc, anchor.x, anchor.y, anchor.z, player.getYRot());
     }
 
@@ -579,13 +593,13 @@ public final class NpcCarryManager {
         npc.hasImpulse = true;
     }
 
-    private static Vec3 carryAnchor(ServerPlayer player, EntityNPCInterface npc) {
+    private static Vec3 carryAnchor(CarryRuntime carry, ServerPlayer player, EntityNPCInterface npc) {
         // Half the npc's own width on top of the fixed distance keeps a wide boss clear of
         // the carrier instead of standing inside them.
-        double distance = CARRY_DISTANCE + npc.getBbWidth() * 0.5D;
+        double distance = carry.carryDistance + npc.getBbWidth() * 0.5D;
         Vec3 center = player.getEyePosition()
                 .add(player.getLookAngle().scale(distance))
-                .subtract(0.0D, CARRY_DROP, 0.0D);
+                .subtract(0.0D, carry.carryDrop, 0.0D);
         return new Vec3(center.x, center.y - npc.getBbHeight() * 0.5D, center.z);
     }
 
@@ -595,8 +609,9 @@ public final class NpcCarryManager {
      * <p>The landing point snaps to the middle and the top of the block the ray stopped in,
      * which is what makes a row of placed npcs line up with the room around them.</p>
      */
-    private static Placement aimedPlacement(ServerLevel level, ServerPlayer player, EntityNPCInterface npc) {
-        BlockHitResult hit = aimRay(level, player);
+    private static Placement aimedPlacement(ServerLevel level, CarryRuntime carry, ServerPlayer player,
+                                            EntityNPCInterface npc) {
+        BlockHitResult hit = aimRay(level, carry, player);
         if (hit.getType() != HitResult.Type.BLOCK) {
             // A miss ends where the reach does, which is where the ring is drawn.
             return new Placement(hit.getLocation(), false);
@@ -614,9 +629,9 @@ public final class NpcCarryManager {
     }
 
     /** The carrier's aim, as far as a placement reaches. */
-    private static BlockHitResult aimRay(ServerLevel level, ServerPlayer player) {
+    private static BlockHitResult aimRay(ServerLevel level, CarryRuntime carry, ServerPlayer player) {
         Vec3 eye = player.getEyePosition();
-        Vec3 far = eye.add(player.getLookAngle().scale(PLACE_REACH));
+        Vec3 far = eye.add(player.getLookAngle().scale(carry.placeReach));
         return level.clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER,
                 ClipContext.Fluid.NONE, player));
     }
@@ -644,10 +659,11 @@ public final class NpcCarryManager {
     }
 
     /** A ring on the ground where the npc would land, so nobody has to place one blind. */
-    private static void showPlacementRing(ServerLevel level, ServerPlayer player, EntityNPCInterface npc) {
-        Placement placement = aimedPlacement(level, player, npc);
+    private static void showPlacementRing(ServerLevel level, CarryRuntime carry, ServerPlayer player,
+                                          EntityNPCInterface npc) {
+        Placement placement = aimedPlacement(level, carry, player, npc);
         DustParticleOptions dust = new DustParticleOptions(
-                placement.fits() ? PREVIEW_FREE : PREVIEW_BLOCKED, 1.0F);
+                placement.fits() ? carry.previewFree : carry.previewBlocked, 1.0F);
         double radius = Math.max(PREVIEW_RADIUS, npc.getBbWidth() * 0.5D);
         for (int step = 0; step < PREVIEW_POINTS; step++) {
             double angle = step * Mth.TWO_PI / PREVIEW_POINTS;
@@ -692,7 +708,7 @@ public final class NpcCarryManager {
             return;
         }
         pin(npc, point.x, point.y, point.z, flight.yaw);
-        flight.velocity = motion.subtract(0.0D, THROW_GRAVITY, 0.0D);
+        flight.velocity = motion.subtract(0.0D, flight.carry.throwGravity, 0.0D);
     }
 
     /** The feet of a box, which is where an npc stands. */

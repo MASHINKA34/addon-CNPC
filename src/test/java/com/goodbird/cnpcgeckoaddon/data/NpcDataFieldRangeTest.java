@@ -78,6 +78,18 @@ class NpcDataFieldRangeTest {
         bounds.put("GeckoNpcCarryThrowKnockback", new Bound(0.0D, NpcCarryData.MAX_THROW_KNOCKBACK));
         bounds.put("GeckoNpcCarryThrowSelfDamage", new Bound(0.0D, NpcCarryData.MAX_THROW_DAMAGE));
         bounds.put("GeckoNpcCarryThrowCooldown", new Bound(0.0D, NpcCarryData.MAX_THROW_COOLDOWN_TICKS));
+        bounds.put("GeckoNpcCarryDistance",
+                new Bound(NpcCarryData.MIN_CARRY_DISTANCE, NpcCarryData.MAX_CARRY_DISTANCE));
+        bounds.put("GeckoNpcCarryDrop", new Bound(0.0D, NpcCarryData.MAX_CARRY_DROP));
+        bounds.put("GeckoNpcCarryPlaceReach",
+                new Bound(NpcCarryData.MIN_PLACE_REACH, NpcCarryData.MAX_PLACE_REACH));
+        bounds.put("GeckoNpcCarryPreviewFree", new Bound(0.0D, NpcCarryData.MAX_COLOR));
+        bounds.put("GeckoNpcCarryPreviewBlocked", new Bound(0.0D, NpcCarryData.MAX_COLOR));
+        bounds.put("GeckoNpcCarryThrowGravity",
+                new Bound(NpcCarryData.MIN_THROW_GRAVITY, NpcCarryData.MAX_THROW_GRAVITY));
+        bounds.put("GeckoNpcCarryThrowLift", new Bound(0.0D, NpcCarryData.MAX_THROW_LIFT));
+        bounds.put("GeckoNpcCarryThrowMaxFlight", new Bound(NpcCarryData.MIN_THROW_MAX_FLIGHT_TICKS,
+                NpcCarryData.MAX_THROW_MAX_FLIGHT_TICKS));
         bounds.put("GeckoNpcLaunchCoordMode", new Bound(NpcLaunchPadData.COORDINATE_NPC_OFFSET,
                 NpcLaunchPadData.COORDINATE_ABSOLUTE));
         bounds.put("GeckoNpcLaunchX", new Bound(-NpcLaunchPadData.MAX_COORDINATE, NpcLaunchPadData.MAX_COORDINATE));

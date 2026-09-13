@@ -35,6 +35,25 @@ class NpcTuningDefaultsTest {
         assertParticles(pad.getExpireParticles(), "minecraft:poof", 8);
     }
 
+    /**
+     * The colours are the old floats rounded onto the 0-255 scale a hex field can hold:
+     * 0.35/0.95/0.45 and 0.95/0.25/0.25, each channel to the nearest step.
+     */
+    @Test
+    @DisplayName("a fresh carry is yesterday's constants")
+    void carryDefaultsAreTheOldConstants() {
+        NpcCarryData carry = new NpcCarryData();
+
+        assertEquals(20, carry.getCarryDistanceTenths(), "CARRY_DISTANCE was 2.0 blocks");
+        assertEquals(35, carry.getCarryDropHundredths(), "CARRY_DROP was 0.35 of a block");
+        assertEquals(6, carry.getPlaceReach(), "PLACE_REACH was 6 blocks");
+        assertEquals(0x59F273, carry.getPreviewFreeColor());
+        assertEquals(0xF24040, carry.getPreviewBlockedColor());
+        assertEquals(50, carry.getThrowGravityThousandths(), "THROW_GRAVITY was 0.05");
+        assertEquals(12, carry.getThrowLiftHundredths(), "THROW_LIFT was 0.12");
+        assertEquals(100, carry.getThrowMaxFlightTicks(), "MAX_FLIGHT_TICKS was 100");
+    }
+
     private static void assertSound(BossSoundCue cue, String id, int volume, int pitch) {
         assertNotNull(cue);
         assertTrue(cue.isEnabled());

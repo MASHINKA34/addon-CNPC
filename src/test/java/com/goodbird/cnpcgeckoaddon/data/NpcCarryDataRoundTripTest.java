@@ -73,6 +73,14 @@ class NpcCarryDataRoundTripTest {
         first.setThrowSelfDamage(15);
         first.setThrowDiesOnImpact(true);
         first.setThrowCooldownTicks(90);
+        first.setCarryDistanceTenths(40);
+        first.setCarryDropHundredths(0);
+        first.setPlaceReach(2);
+        first.setPreviewFreeColor(0x1122FF);
+        first.setPreviewBlockedColor(0x000000);
+        first.setThrowGravityThousandths(200);
+        first.setThrowLiftHundredths(0);
+        first.setThrowMaxFlightTicks(20);
 
         CompoundTag once = first.writeToNBT(new CompoundTag());
         NpcCarryData reread = new NpcCarryData();
@@ -87,6 +95,14 @@ class NpcCarryDataRoundTripTest {
         assertEquals(15, reread.getThrowSelfDamage());
         assertTrue(reread.isThrowDiesOnImpact());
         assertEquals(90, reread.getThrowCooldownTicks());
+        assertEquals(40, reread.getCarryDistanceTenths());
+        assertEquals(0, reread.getCarryDropHundredths());
+        assertEquals(2, reread.getPlaceReach());
+        assertEquals(0x1122FF, reread.getPreviewFreeColor());
+        assertEquals(0x000000, reread.getPreviewBlockedColor());
+        assertEquals(200, reread.getThrowGravityThousandths());
+        assertEquals(0, reread.getThrowLiftHundredths());
+        assertEquals(20, reread.getThrowMaxFlightTicks());
     }
 
     @Test
@@ -113,6 +129,9 @@ class NpcCarryDataRoundTripTest {
         assertEquals(0, reread.getThrowSelfDamage());
         assertFalse(reread.isThrowDiesOnImpact());
         assertEquals(NpcCarryData.DEFAULT_THROW_COOLDOWN_TICKS, reread.getThrowCooldownTicks());
+        assertEquals(NpcCarryData.DEFAULT_THROW_GRAVITY, reread.getThrowGravityThousandths());
+        assertEquals(NpcCarryData.DEFAULT_THROW_LIFT, reread.getThrowLiftHundredths());
+        assertEquals(NpcCarryData.DEFAULT_THROW_MAX_FLIGHT_TICKS, reread.getThrowMaxFlightTicks());
         assertTrue(reread.isCarryable(), "the old carry settings must read back untouched");
         assertFalse(reread.isRequireSneak());
         assertEquals(45, reread.getSlownessPercent());
