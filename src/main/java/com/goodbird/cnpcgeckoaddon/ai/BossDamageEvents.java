@@ -415,14 +415,14 @@ public final class BossDamageEvents {
     }
 
     /**
-     * A boss is not hurt by the arc it threw itself along.
+     * A boss is not hurt by the arc it threw itself along, nor by the ledge it charged off.
      *
      * <p>The controller wipes the fall distance every tick of a leap, so what is left here
      * is at most one tick of drop - but a jump down off a ledge still crosses vanilla's
      * three block threshold, and dying to your own signature move is not a mechanic.</p>
      *
-     * <p>Only a leap in flight is covered: a boss that walks off a ledge on its own falls
-     * exactly as it always did.</p>
+     * <p>Only a leap in flight and a dash - its run, and the drop off the end of one - are
+     * covered: a boss that walks off a ledge on its own falls exactly as it always did.</p>
      */
     private static void cancelOwnLeapFall(LivingFallEvent event) {
         if (!(event.getEntity() instanceof EntityNPCInterface npc)
@@ -430,7 +430,7 @@ public final class BossDamageEvents {
             return;
         }
         TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
-        if (controller != null && controller.isLeaping()) {
+        if (controller != null && (controller.isLeaping() || controller.isDashing())) {
             event.setCanceled(true);
         }
     }

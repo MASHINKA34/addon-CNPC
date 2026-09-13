@@ -207,6 +207,8 @@ public final class TeleportPathController {
     private static final int TELEGRAPH_DODGE_RETRY_TICKS = 40;
     /** Yaw eased onto a wound-up line strike's axis per tick; the hit itself snaps the rest. */
     private static final float LINE_FACE_TURN_DEGREES_PER_TICK = 15.0F;
+    /** How far down its lane a running boss looks; only sets the gaze, never a reach. */
+    private static final double DASH_LOOK_DISTANCE = 8.0D;
     private static final int MINION_ALIVE_SCAN_INTERVAL_TICKS = 5;
     private static final Set<TeleportPathController> INSTANCES =
             Collections.newSetFromMap(new WeakHashMap<>());
@@ -488,7 +490,7 @@ public final class TeleportPathController {
         // long: the pin is the stun. And a boss holding the cast spot it went to is pinned
         // the same way, for as long as the spot's stay rule keeps it there.
         if ((data.isStationary() || totems.isHolding() || isBarrierStunned() || castSpots.isHolding())
-                && !leap.isAirborne()) {
+                && !leap.isAirborne() && !dash.isRunning()) {
             keepStationary();
         } else if (castRootActive) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
@@ -497,6 +499,7 @@ public final class TeleportPathController {
         } else {
             // A leap owns the boss' position while it is in the air - the pin would drag it
             // straight back to the take-off spot - so it follows the flight to the landing.
+            // A dash owns it the same way for as long as it runs, and is pinned where it stops.
             rememberCurrentPosition();
         }
         hook.tick(level, gameTime);
@@ -513,6 +516,8 @@ public final class TeleportPathController {
         // Above the combat-only return and the busy gate on purpose: a leap already in the
         // air has to come down and land even if the boss loses its target mid flight.
         leap.tick(level, data, gameTime);
+        // For the leap's reason: a run already under way has to stop somewhere, target or not.
+        dash.tick(level, data, gameTime);
         // Right after the touchdown that tick may have caught, and above every gate: a leap ends
         // when it lands, and an effect that runs out under a lock or a wind-up still ended then.
         tickComboWatch(phase, gameTime);
@@ -981,6 +986,14 @@ public final class TeleportPathController {
     /** Whether a leap is in the air right now. Read by the fall damage handler. */
     public boolean isLeaping() {
         return active && leap.isAirborne();
+    }
+
+    /**
+     * Whether a fall the boss takes right now belongs to its dash: mid run, or dropping off the
+     * end of one. Read by the fall damage handler.
+     */
+    public boolean isDashing() {
+        return active && dash.guardsOwnFall();
     }
 
     /** Whether the boss is in an immune phase right now. Read by the damage handler and the HUD. */
@@ -1578,6 +1591,12 @@ public final class TeleportPathController {
      * @return true when the wind-up owns the rotation this tick
      */
     private boolean faceCommittedAxis(TeleportPathData data) {
+        // A run under way faces down its own lane, whoever the target is: the boss charges
+        // forward, not sideways after somebody it is about to run past.
+        if (dash.isRunning()) {
+            turnTowardAxis(dash.axis(), DASH_LOOK_DISTANCE, 360.0F);
+            return true;
+        }
         if (pendingAction != BossAbility.LINE_ATTACK && pendingAction != BossAbility.BOULDER
                 && pendingAction != BossAbility.DASH) {
             return false;
@@ -1782,6 +1801,7 @@ public final class TeleportPathController {
             case HOOK -> hook.isPulling();
             case CAPTURE -> BossCaptureManager.hasCaptureForBoss(npc.getUUID());
             case LEAP -> leap.isAirborne();
+            case DASH -> dash.isRunning();
             case GEYSER -> BossGeyserScheduler.hasPending(npc);
             case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
             case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
@@ -2347,9 +2367,11 @@ public final class TeleportPathController {
         forcedAbility = BossAbility.NONE;
         forcedScheduleBefore = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and
-        // every one of those ends up here. Nor does a sweep.
+        // every one of those ends up here. Nor does a sweep, nor a run: unlike a leap's flight
+        // a dash is the boss' own legs, and it stops where it is.
         huntRuntime.end();
         BossBeamScheduler.clearBoss(npc);
+        dash.clear();
     }
 
     private void reset() {

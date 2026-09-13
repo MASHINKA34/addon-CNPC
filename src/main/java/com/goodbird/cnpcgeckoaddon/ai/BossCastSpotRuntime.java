@@ -105,12 +105,13 @@ final class BossCastSpotRuntime {
     }
 
     /**
-     * Whether the hold keeps this ability from starting at all: the two that would carry
+     * Whether the hold keeps this ability from starting at all: the three that would carry
      * the boss off the spot it is holding. Everything else may start from the spot, or set
      * off for a spot of its own.
      */
     boolean blocks(BossAbility ability) {
-        return isHolding() && (ability == BossAbility.LEAP || ability == BossAbility.HUNT);
+        return isHolding() && (ability == BossAbility.LEAP || ability == BossAbility.HUNT
+                || ability == BossAbility.DASH);
     }
 
     /**
@@ -253,9 +254,10 @@ final class BossCastSpotRuntime {
         if (hold != Hold.WINDUP || action != occupied) {
             return;
         }
-        // A leap or a hunt is the boss leaving its spot: the push and the chase are the
-        // ability, and a hold that outlived them would cancel what the boss went there for.
-        if (action == BossAbility.LEAP || action == BossAbility.HUNT) {
+        // A leap, a hunt or a dash is the boss leaving its spot: the push, the chase and the
+        // run are the ability, and a hold that outlived them would cancel what the boss went
+        // there for.
+        if (action == BossAbility.LEAP || action == BossAbility.HUNT || action == BossAbility.DASH) {
             release();
             return;
         }
