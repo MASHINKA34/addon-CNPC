@@ -638,10 +638,14 @@ public class EntityBossBoulder extends Projectile {
 
     private void spawnDebris(ServerLevel server, Vec3 centre) {
         double size = diameter();
-        server.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, getBlockState()),
-                centre.x, centre.y + size * 0.5D, centre.z,
-                (int) (debrisBase + size * debrisPerSize),
-                size * 0.4D, size * 0.4D, size * 0.4D, 0.1D);
+        int count = (int) (debrisBase + size * debrisPerSize);
+        // Guarded rather than clamped: vanilla reads a count of zero as "one particle, shoved
+        // along the spread", so a builder who asked for no debris would get exactly one.
+        if (count > 0) {
+            server.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, getBlockState()),
+                    centre.x, centre.y + size * 0.5D, centre.z, count,
+                    size * 0.4D, size * 0.4D, size * 0.4D, 0.1D);
+        }
     }
 
     @Override

@@ -205,10 +205,14 @@ public class EntityFluidSpit extends ThrowableProjectile {
                 }
             }
         }
-        serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, fluid),
-                center.getX() + 0.5D, center.getY() + 0.5D, center.getZ() + 0.5D,
-                splashBase + radius * splashPerRadius,
-                0.3D + radius * 0.2D, 0.2D, 0.3D + radius * 0.2D, 0.05D);
+        int splash = splashBase + radius * splashPerRadius;
+        // Guarded rather than clamped: vanilla reads a count of zero as "one particle, shoved
+        // along the spread", so a builder who asked for no splash would get exactly one.
+        if (splash > 0) {
+            serverLevel.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, fluid),
+                    center.getX() + 0.5D, center.getY() + 0.5D, center.getZ() + 0.5D, splash,
+                    0.3D + radius * 0.2D, 0.2D, 0.3D + radius * 0.2D, 0.05D);
+        }
     }
 
     @Override
