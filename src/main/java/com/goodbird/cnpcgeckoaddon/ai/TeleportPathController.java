@@ -362,6 +362,14 @@ public final class TeleportPathController {
     private final List<Integer> pendingExtraTargets = new ArrayList<>();
     private BossAbility pendingAction = BossAbility.NONE;
     private long pendingActionAt = NOT_SCHEDULED;
+    /**
+     * The tick the boss committed to what it is winding up.
+     *
+     * <p>Only the warning reads it, and only to say how far through the wind-up it is: a mark
+     * that fades, floods or draws itself has to know where between the commitment and the hit
+     * it stands, and the moment it landed on is nowhere else.</p>
+     */
+    private long pendingActionStartedAt = NOT_SCHEDULED;
     private int pendingTargetId = -1;
     /**
      * Game time the wind-up animation starts at. Until then the boss is only warning: the
@@ -2169,6 +2177,7 @@ public final class TeleportPathController {
             return;
         }
         pendingActionAt = gameTime + pendingLeadTicks + actionDelay;
+        pendingActionStartedAt = gameTime;
         if (pendingLeadTicks > 0) {
             // The animation is deliberately left standing: it is cut to the length of the
             // wind-up, and stretching it over the warning would leave the swing playing
@@ -2182,13 +2191,13 @@ public final class TeleportPathController {
         // Painted here as well as on the clock, so the mark is up on the very tick the boss
         // commits rather than a tick into a wind-up that may only last a handful.
         if (npc.level() instanceof ServerLevel level) {
-            telegraphs.paint(level, data, castPreview());
+            telegraphs.paint(level, data, gameTime, castPreview());
         }
     }
 
     private BossTelegraphRuntime.Cast castPreview() {
-        return new BossTelegraphRuntime.Cast(pendingAction, pendingActionAt, pendingTargetId,
-                pendingExtraTargets, committedAxis, committedYaw);
+        return new BossTelegraphRuntime.Cast(pendingAction, pendingActionAt, pendingActionStartedAt,
+                pendingTargetId, pendingExtraTargets, committedAxis, committedYaw);
     }
 
     /**
@@ -2490,6 +2499,7 @@ public final class TeleportPathController {
     private void clearPendingAction() {
         pendingAction = BossAbility.NONE;
         pendingActionAt = NOT_SCHEDULED;
+        pendingActionStartedAt = NOT_SCHEDULED;
         pendingWarningEndsAt = NOT_SCHEDULED;
         pendingAnimation = "";
         pendingLeadTicks = 0;

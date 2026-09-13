@@ -6,7 +6,6 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -183,15 +182,17 @@ final class BossCoverRuntime {
      * Every shelter of the strike being wound up: a ring on the floor, and a post of the
      * same dust over its centre so it can be found from across the arena.
      */
-    void drawShelters(ServerLevel level, DustParticleOptions dust) {
+    void drawShelters(ServerLevel level, BossTelegraphPaint paint) {
         CoverCast strike = cast;
         if (strike == null) {
             return;
         }
         for (Vec3 shelter : strike.shelters()) {
-            BossTelegraphUtil.ring(level, shelter, strike.shelterRadius(), dust);
+            BossTelegraphUtil.ring(level, shelter, strike.shelterRadius(), paint);
+            // The post over the middle is not a shape on the floor and stays dust: what it is
+            // for is being seen over somebody's head from across the arena.
             for (int step = 0; step < SHELTER_POST_HEIGHT; step++) {
-                level.sendParticles(dust, shelter.x, shelter.y + 0.5D + step, shelter.z, 1,
+                level.sendParticles(paint.dust(), shelter.x, shelter.y + 0.5D + step, shelter.z, 1,
                         0.0D, 0.0D, 0.0D, 0.0D);
             }
         }

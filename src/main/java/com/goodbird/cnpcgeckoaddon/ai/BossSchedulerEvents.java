@@ -69,6 +69,12 @@ public final class BossSchedulerEvents {
         if (BossFireTracker.hasPending()) {
             BossFireTracker.tick(level);
         }
+        // Last of all, and deliberately so: every warning drawn this tick - by the schedulers
+        // above and by the bosses that ticked before them - goes out as one frame per boss,
+        // so the shapes of a tick never flicker against each other.
+        if (BossTelegraphFrames.hasPending()) {
+            BossTelegraphFrames.tick(level);
+        }
     }
 
     @SubscribeEvent
@@ -89,6 +95,7 @@ public final class BossSchedulerEvents {
             BossTetherManager.clearLevel(level);
             BossCocoonManager.clearLevel(level);
             BossFireTracker.clearLevel(level);
+            BossTelegraphFrames.clear(level);
             BossOwnedEntityIndex.invalidate();
             TeleportPathController.shutdownLevel(level);
         }

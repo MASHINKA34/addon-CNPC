@@ -5,7 +5,6 @@ import com.goodbird.cnpcgeckoaddon.data.BossPlatformSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformZone;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -131,9 +130,10 @@ final class BossPlatformRuntime {
     }
 
     /** The outlines of the platforms the cast being wound up sets alight, for its warning. */
-    void drawCommitted(ServerLevel level, DustParticleOptions dust) {
+    void drawCommitted(ServerLevel level, BossTelegraphPaint paint) {
         for (AABB box : committed) {
-            BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ, floorY(box, npc.getY()), dust);
+            BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ,
+                    floorY(box, npc.getY()), paint);
         }
     }
 

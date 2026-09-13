@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
+import com.goodbird.cnpcgeckoaddon.utils.TelegraphShape;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
@@ -124,6 +125,92 @@ public final class BossTelegraphUtil {
     public static DustParticleOptions dustOf(int rgb) {
         return new DustParticleOptions(new Vector3f(
                 (rgb >> 16 & 0xFF) / 255.0F, (rgb >> 8 & 0xFF) / 255.0F, (rgb & 0xFF) / 255.0F), 1.0F);
+    }
+
+    /**
+     * The same shapes, drawn the way the boss was told to draw them.
+     *
+     * <p>Each one is the old call when the warning is dust, and the figure itself - its
+     * middle and its radius, its corners, its axis - handed to {@link BossTelegraphFrames}
+     * when it is a band. Nothing in between: the points of a band are cut on the client,
+     * where the floor under each of them is known.</p>
+     */
+    public static void ring(ServerLevel level, Vec3 centre, double radius, BossTelegraphPaint paint) {
+        if (!paint.lines()) {
+            ring(level, centre, radius, paint.dust());
+            return;
+        }
+        BossTelegraphFrames.add(level, paint, TelegraphShape.ring(centre, radius, paint.rgb(), false));
+    }
+
+    /** An edge read exactly rather than merely noticed; one figure either way. */
+    public static void edgeRing(ServerLevel level, Vec3 centre, double radius, BossTelegraphPaint paint) {
+        if (!paint.lines()) {
+            edgeRing(level, centre, radius, paint.dust());
+            return;
+        }
+        BossTelegraphFrames.add(level, paint, TelegraphShape.ring(centre, radius, paint.rgb(), false));
+    }
+
+    public static void rectangle(ServerLevel level, double minX, double minZ, double maxX,
+                                 double maxZ, double y, BossTelegraphPaint paint) {
+        if (!paint.lines()) {
+            rectangle(level, minX, minZ, maxX, maxZ, y, paint.dust());
+            return;
+        }
+        BossTelegraphFrames.add(level, paint,
+                TelegraphShape.rectangle(minX, minZ, maxX, maxZ, y, paint.rgb(), false));
+    }
+
+    public static void arc(ServerLevel level, Vec3 centre, double radius, float yaw,
+                           double halfAngle, BossTelegraphPaint paint) {
+        if (!paint.lines()) {
+            arc(level, centre, radius, yaw, halfAngle, paint.dust());
+            return;
+        }
+        BossTelegraphFrames.add(level, paint,
+                TelegraphShape.arc(centre, radius, yaw, halfAngle, paint.rgb(), false));
+    }
+
+    public static void sector(ServerLevel level, Vec3 centre, double radius, float yaw,
+                              double halfAngle, BossTelegraphPaint paint) {
+        if (!paint.lines()) {
+            sector(level, centre, radius, yaw, halfAngle, paint.dust());
+            return;
+        }
+        BossTelegraphFrames.add(level, paint,
+                TelegraphShape.sector(centre, radius, yaw, halfAngle, paint.rgb(), false));
+    }
+
+    /** The fan of a cone that lands after the one being swung: the same figure, told to fade. */
+    public static void fadedSector(ServerLevel level, Vec3 centre, double radius, float yaw,
+                                   double halfAngle, BossTelegraphPaint paint) {
+        if (!paint.lines()) {
+            fadedSector(level, centre, radius, yaw, halfAngle, paint.fadedDust());
+            return;
+        }
+        BossTelegraphFrames.add(level, paint,
+                TelegraphShape.sector(centre, radius, yaw, halfAngle, paint.rgb(), true));
+    }
+
+    /** The lane and its softer bands, which the figure carries rather than a second colour. */
+    public static void corridor(ServerLevel level, Vec3 origin, Vec3 axis, double length,
+                                double width, double sideWidth, BossTelegraphPaint paint) {
+        if (!paint.lines()) {
+            corridor(level, origin, axis, length, width, sideWidth, paint.dust(), paint.fadedDust());
+            return;
+        }
+        BossTelegraphFrames.add(level, paint,
+                TelegraphShape.corridor(origin, axis, length, width, sideWidth, paint.rgb(), false));
+    }
+
+    /** The run from the boss to whatever it picked out; the one figure that is not on the floor. */
+    public static void line(ServerLevel level, Vec3 from, Vec3 to, BossTelegraphPaint paint) {
+        if (!paint.lines()) {
+            line(level, from, to, paint.dust());
+            return;
+        }
+        BossTelegraphFrames.add(level, paint, TelegraphShape.link(from, to, paint.rgb(), false));
     }
 
     /** A full circle lying on the floor, walked the way the area attack's wave is. */
