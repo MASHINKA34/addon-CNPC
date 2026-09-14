@@ -27,6 +27,20 @@ public abstract class ScrollableSubGui extends GuiBasic {
     /** The panel's middle, whose rows are all identical, so one slab of it tiles to any height. */
     private static final int PANEL_BODY = PANEL_HEIGHT - PANEL_CAP * 2;
 
+    /** How wide the scrollbar is. */
+    private static final int BAR_WIDTH = 6;
+
+    /**
+     * How far in from the panel's right edge the bar sits: over the panel's border, and clear of
+     * the widest row any screen lays out. Inside the panel rather than beside it, because a
+     * grey strip on the dimmed world beside the panel was not read as part of the screen at all,
+     * and the button at the foot of the tallest screen went unfound for it.
+     */
+    private static final int BAR_INSET = 8;
+
+    /** How tall the arrow under the bar is, pointing at the rows still below the window. */
+    private static final int ARROW_HEIGHT = 4;
+
     private int scrollOffset;
     private boolean draggingScrollbar;
     private double dragOffset;
@@ -56,6 +70,11 @@ public abstract class ScrollableSubGui extends GuiBasic {
 
     private int thumbTop() {
         return MARGIN + (viewportHeight() - thumbHeight()) * scrollOffset / maxScroll();
+    }
+
+    /** The bar's left edge, just inside the panel's right border. */
+    private int barLeft() {
+        return guiLeft + imageWidth - BAR_INSET;
     }
 
     private void scrollTo(int offset) {
@@ -88,8 +107,8 @@ public abstract class ScrollableSubGui extends GuiBasic {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int left = guiLeft + imageWidth + 2;
-        if (!hasSubGui() && maxScroll() > 0 && button == 0 && mouseX >= left && mouseX < left + 6
+        int left = barLeft();
+        if (!hasSubGui() && maxScroll() > 0 && button == 0 && mouseX >= left && mouseX < left + BAR_WIDTH
                 && mouseY >= MARGIN && mouseY < height - MARGIN) {
             draggingScrollbar = true;
             dragOffset = mouseY >= thumbTop() && mouseY < thumbTop() + thumbHeight()
@@ -169,9 +188,24 @@ public abstract class ScrollableSubGui extends GuiBasic {
             super.render(graphics, mouseX, mouseY, partialTick);
         }
         if (!hasSubGui() && maxScroll() > 0) {
-            int left = guiLeft + imageWidth + 2;
-            graphics.fill(left, MARGIN, left + 6, height - MARGIN, 0xFF303030);
-            graphics.fill(left, thumbTop(), left + 6, thumbTop() + thumbHeight(), 0xFFB0B0B0);
+            // Over the widgets, since it is drawn after them; the bar's column is clear of them.
+            int left = barLeft();
+            graphics.fill(left, MARGIN, left + BAR_WIDTH, height - MARGIN, 0xFF303030);
+            graphics.fill(left, thumbTop(), left + BAR_WIDTH, thumbTop() + thumbHeight(), 0xFFB0B0B0);
+            if (scrollOffset < maxScroll()) {
+                drawDownArrow(graphics, left, height - MARGIN + 1);
+            }
+        }
+    }
+
+    /**
+     * A small arrow in the bottom margin under the bar, shown while there are rows below the
+     * window: the bar alone says the same, and was not read.
+     */
+    private static void drawDownArrow(GuiGraphics graphics, int left, int top) {
+        for (int row = 0; row < ARROW_HEIGHT; row++) {
+            // Each row a pixel narrower on either side than the one above, down to a point.
+            graphics.fill(left - 1 + row, top + row, left + BAR_WIDTH + 1 - row, top + row + 1, 0xFFB0B0B0);
         }
     }
 

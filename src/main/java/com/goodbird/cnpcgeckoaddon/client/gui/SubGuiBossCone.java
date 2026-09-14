@@ -36,10 +36,12 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
     private static final int FLASH_ARCS_FIELD = 18;
     private static final int SNAP_FIELD = 19;
     private static final int SWING_CUE_BUTTON = 20;
+    private static final int TUNING_BUTTON = 21;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final int TITLE_LABEL = 30;
     private static final int HINT_LABEL = 40;
+    private static final int SERIES_HINT_LABEL = 50;
     /** Where the second lines of wrapped row labels are counted from. */
     private static final int WRAPPED_LABEL = 80;
 
@@ -68,6 +70,7 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
     private static final int BOTTOM_MARGIN = 8;
 
     private static final String HINT = "cnpcgeckoaddon.boss.cone_hint";
+    private static final String SERIES_HINT = "cnpcgeckoaddon.boss.cone_series_hint";
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -125,6 +128,14 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
                 BossPhaseData.CONE_IMPULSE_LABELS, cone.getImpulseMode());
         y = single(place, IMPULSE_STRENGTH_FIELD, "cnpcgeckoaddon.boss.cone_impulse_strength", y,
                 cone.getImpulseStrength(), 0, BossConeSettings.MAX_IMPULSE_STRENGTH, 2);
+        // The potions right under the damage and the push, with the rest of what the hit does:
+        // at the foot of the tallest screen in the addon the button sat below the window at the
+        // larger GUI scales, and the only sign of it was a scrollbar nobody found.
+        if (place) {
+            addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + LABEL_X, guiTop + y,
+                    RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.effects_settings"));
+        }
+        y += ROW;
         y = toggle(place, FACE_AXIS_BUTTON, "cnpcgeckoaddon.boss.line_face_axis", y, cone.isFaceAxis());
 
         // Only a cone aimed at points has a series to order, count and pace, and points to edit.
@@ -151,16 +162,27 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
                     cone.getSwingSound());
         }
         y += ROW;
+        if (place) {
+            addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y,
+                    RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.cone_tuning"));
+        }
+        y += ROW;
 
         y += HINT_GAP;
         if (place) {
             addWrappedHint(HINT_LABEL, HINT, guiTop + y);
             updateTargetMode();
         }
-        y += wrappedHintHeight(HINT) + BUTTONS_GAP;
+        y += wrappedHintHeight(HINT);
+        // What a series costs the boss, under the hint, only while there is a series to cost it.
+        if (cone.getAimMode() == BossPhaseData.CONE_AIM_POINTS) {
+            if (place) {
+                addWrappedHint(SERIES_HINT_LABEL, SERIES_HINT, guiTop + y);
+            }
+            y += wrappedHintHeight(SERIES_HINT);
+        }
+        y += BUTTONS_GAP;
         if (place) {
-            addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + LABEL_X, guiTop + y, 120, CONTROL_HEIGHT,
-                    "cnpcgeckoaddon.boss.effects_settings"));
             addDoneButton(guiLeft + 182, guiTop + y, 60, CONTROL_HEIGHT);
         }
         return y + CONTROL_HEIGHT + BOTTOM_MARGIN;
@@ -258,6 +280,9 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
         if (button.id == EFFECTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossEffectList(cone.getEffects(), "cnpcgeckoaddon.boss.effects_cone"));
+        } else if (button.id == TUNING_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossConeTuning(cone));
         } else if (button.id == POINTS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossConeAimList(npc, phase, phaseIndex));
