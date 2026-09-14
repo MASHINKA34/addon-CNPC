@@ -2153,9 +2153,10 @@ public final class TeleportPathController {
         }
         if (cone.isSequencing()) {
             // A staggered boss swings nothing: the rest of a series goes, and for the dash's reason
-            // it hands on to no follow-up.
+            // it hands on to no follow-up. Its cooldown counts from here: a cast cut short is
+            // still a cast, and the stun's end must not find the cone ready.
             combo.forget(BossAbility.CONE);
-            cone.clear();
+            cone.interrupt(settings(), npc.level() instanceof ServerLevel level ? level.getGameTime() : 0L);
         }
         // The follow-up waiting to start goes the way the wind-up does, walk to its spot and all:
         // the stagger breaks the chain it lands in. An effect still running keeps its claim, and

@@ -94,6 +94,37 @@ class BossConeStartTest {
     }
 
     @Test
+    @DisplayName("counted from the wind-up the cooldown is stamped at the start; from the last cone, at the end")
+    void theCooldownCountsFromWhereThePhaseSays() {
+        // The old rule: a wind-up of twelve ticks and a cooldown of a hundred and sixty, stamped
+        // as the cast begins, so a series longer than the cooldown ends with the cone ready.
+        long fromStart = BossConeRuntime.scheduleAtStart(BossPhaseData.CONE_COOLDOWN_FROM_START, 100L, 12, 160);
+        assertEquals(272L, fromStart, "the wind-up, then the cooldown");
+        assertEquals(272L, BossConeRuntime.scheduleAtEnd(BossPhaseData.CONE_COOLDOWN_FROM_START, 400L, 160, fromStart),
+                "the end of the series changes nothing");
+
+        // From the last cone: the start keeps the cast from being started twice and no more, and
+        // the last cone, three hundred ticks later, is what the cooldown is counted from.
+        long fromEnd = BossConeRuntime.scheduleAtStart(BossPhaseData.CONE_COOLDOWN_FROM_END, 100L, 12, 160);
+        assertEquals(113L, fromEnd, "one tick past the wind-up");
+        assertEquals(560L, BossConeRuntime.scheduleAtEnd(BossPhaseData.CONE_COOLDOWN_FROM_END, 400L, 160, fromEnd),
+                "the whole cooldown from the last cone");
+    }
+
+    @Test
+    @DisplayName("a cast cut short counts its cooldown from the interruption, and never sooner than it already would")
+    void anInterruptedCastStillCostsItsCooldown() {
+        assertEquals(410L, BossConeRuntime.scheduleAfterInterrupt(250L, 160, 113L),
+                "from the last cone: the provisional stamp is long past, so the stagger stamps the cooldown");
+        assertEquals(410L, BossConeRuntime.scheduleAfterInterrupt(250L, 160, 272L),
+                "from the wind-up: the cast counts again from the interruption");
+        assertEquals(500L, BossConeRuntime.scheduleAfterInterrupt(250L, 160, 500L),
+                "a schedule already further out is left alone");
+        assertEquals(410L, BossConeRuntime.scheduleAfterInterrupt(250L, 160, TeleportPathController.NOT_SCHEDULED),
+                "an unarmed clock is armed");
+    }
+
+    @Test
     @DisplayName("the warning's end calls nothing off by default, the fan under one rule, the reach under the other")
     void eachDodgeRuleAsksItsOwnQuestion() {
         for (boolean anyoneInFan : new boolean[]{true, false}) {

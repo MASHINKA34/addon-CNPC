@@ -24,6 +24,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
 
+import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
+
 
 /**
  * The cone strike: a wind-up with its sector marked, then a hit over the whole fan at once -
@@ -56,8 +58,10 @@ final class BossConeRuntime {
     private final List<Vec3> planned = new ArrayList<>();
     /** The points a series under way has still to strike, or null between series. */
     private Series<Vec3> series;
-    /** Phase the series started in: what its cones hit for belongs to the settings that launched it. */
+    /** Phase the cast started in: what its cones hit for, and what its cooldown counts from, belong to the settings that launched it. */
     private int phaseIndex = -1;
+    /** Game time a cast ended on its wind-up's own tick, until its cooldown has been stamped from it. */
+    private long endedAt = NOT_SCHEDULED;
 
     BossConeRuntime(TeleportPathController boss, EntityNPCInterface npc, BossMinionSpawnRuntime minionSpawns) {
         this.boss = boss;
@@ -108,9 +112,28 @@ final class BossConeRuntime {
         boss.beginAction(BossAbility.CONE, cone.getAnimation(), cone.getActionDelayTicks(), gameTime, target,
                 data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.CONE, gameTime + cone.getActionDelayTicks()
-                + boss.rageDown(cone.getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtStart(cone.getCooldownFrom(), gameTime,
+                cone.getActionDelayTicks(), boss.rageDown(cone.getCooldownTicks())));
         return true;
+    }
+
+    /**
+     * When the cone may next start, stamped as the cast begins: the whole cooldown past the
+     * wind-up when it counts from there; when it counts from the last cone, only far enough
+     * past the wind-up not to be started twice, the stamp proper waiting for that cone.
+     */
+    static long scheduleAtStart(int cooldownFrom, long gameTime, int actionDelay, int cooldown) {
+        return gameTime + actionDelay + (cooldownFrom == BossPhaseData.CONE_COOLDOWN_FROM_END ? 1 : cooldown);
+    }
+
+    /** The same at the cast's end: the cooldown from here when it counts from here, else what the schedule holds. */
+    static long scheduleAtEnd(int cooldownFrom, long endedAt, int cooldown, long current) {
+        return cooldownFrom == BossPhaseData.CONE_COOLDOWN_FROM_END ? endedAt + cooldown : current;
+    }
+
+    /** The same for a cast cut short: the cooldown from the interruption, never sooner than the schedule already says. */
+    static long scheduleAfterInterrupt(long interruptedAt, int cooldown, long current) {
+        return Math.max(current, interruptedAt + cooldown);
     }
 
     /**
@@ -239,29 +262,36 @@ final class BossConeRuntime {
     void perform(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         List<Vec3> points = List.copyOf(planned);
         planned.clear();
+        Vec3 committed = boss.committedAxis();
+        if (points.isEmpty() && committed == null) {
+            // A wind-up with neither an axis nor a point to swing along should not happen - a
+            // cast at points is not set up without one - and a silent exit would spend the
+            // cooldown on it: another look shortly, and a line for whoever is watching the log.
+            LOGGER.debug("Cone strike of NPC {} ended its wind-up with nothing to swing along; looking again in {} ticks",
+                    npc.getName().getString(), boss.retryTicks());
+            boss.setAbilityScheduleAt(BossAbility.CONE, gameTime + boss.retryTicks());
+            return;
+        }
+        // Which phase the cast belongs to is noted before anything lands: what its cones hit for,
+        // and what its cooldown is counted from, belong to the settings that launched it. Noted
+        // before rather than after for the same reason the series is: a hit can set off a script
+        // that staggers or resets the boss, and whatever that ends has to find the cast to end.
+        phaseIndex = boss.currentPhaseIndex();
         if (points.isEmpty()) {
-            Vec3 committed = boss.committedAxis();
-            if (committed == null) {
-                // A wind-up with neither an axis nor a point to swing along should not happen - a
-                // cast at points is not set up without one - and a silent exit would spend the
-                // cooldown on it: another look shortly, and a line for whoever is watching the log.
-                LOGGER.debug("Cone strike of NPC {} ended its wind-up with nothing to swing along; looking again in {} ticks",
-                        npc.getName().getString(), boss.retryTicks());
-                boss.setAbilityScheduleAt(BossAbility.CONE, gameTime + boss.retryTicks());
-                return;
-            }
+            // The only cone of the cast lands now, so the cast ends on this tick.
+            endedAt = gameTime;
             strike(level, data, phase, List.of(committed));
             return;
         }
         Series<Vec3> started = new Series<>(points, phase.cone().getPointIntervalTicks(), gameTime);
         List<Vec3> first = started.due(gameTime);
-        // Under way before the first cone lands rather than after: a hit can set off a script that
-        // staggers or resets the boss, and whatever that ends has to find the series to end.
         if (!started.isOver()) {
             series = started;
-            phaseIndex = boss.currentPhaseIndex();
             // Nothing else starts from this tick on until the last cone has landed.
             boss.holdBusyUntil(gameTime + 1);
+        } else {
+            // Every cone lands together, so the cast ends on this tick, the single cone's way.
+            endedAt = gameTime;
         }
         strike(level, data, phase, axesToward(first));
     }
@@ -274,6 +304,19 @@ final class BossConeRuntime {
      * gate shut itself, so it has to be ticked before that gate turns everything else away.</p>
      */
     void tick(ServerLevel level, TeleportPathData data, long gameTime) {
+        if (endedAt != NOT_SCHEDULED) {
+            // A cast that ended on its wind-up's tick has its cooldown stamped on the tick after:
+            // on the wind-up's own tick the controller pays the warning's lead back into whatever
+            // the schedule holds, and a stamp put down there would come out longer by the lead.
+            BossPhaseData ended = phaseOf(data);
+            if (ended != null) {
+                stampCooldownFromEnd(ended.cone(), endedAt);
+            }
+            endedAt = NOT_SCHEDULED;
+            if (series == null) {
+                phaseIndex = -1;
+            }
+        }
         if (series == null) {
             return;
         }
@@ -281,7 +324,7 @@ final class BossConeRuntime {
         BossPhaseData phase = phaseOf(data);
         if (phase == null) {
             // Its phase was deleted from under it, and what the rest would hit for with it.
-            finish(gameTime);
+            finish(null, gameTime);
             return;
         }
         List<Vec3> due = series.due(gameTime);
@@ -291,14 +334,40 @@ final class BossConeRuntime {
         // Asked again rather than trusted: a hit can set off a script that kills or resets the
         // boss, and that clears the series under it.
         if (series != null && series.isOver()) {
-            finish(gameTime);
+            finish(phase, gameTime);
         }
     }
 
-    /** The end every series but a called-off one comes to: the usual pause after a cast. */
-    private void finish(long gameTime) {
+    /**
+     * The end every series but a cut-short one comes to: the cooldown, when the phase counts it
+     * from the last cone, and the usual pause after a cast.
+     */
+    private void finish(BossPhaseData phase, long gameTime) {
+        if (phase != null) {
+            stampCooldownFromEnd(phase.cone(), gameTime);
+        }
         clear();
         boss.holdBusyUntil(gameTime + boss.postActionLockTicks());
+    }
+
+    private void stampCooldownFromEnd(BossConeSettings cone, long endedAt) {
+        boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtEnd(cone.getCooldownFrom(), endedAt,
+                boss.rageDown(cone.getCooldownTicks()), boss.abilityScheduleAt(BossAbility.CONE)));
+    }
+
+    /**
+     * Ends a cast cut short - a stagger - and counts the cooldown from here whichever way the
+     * phase counts it: an interrupted cast is still a cast, and a boss swinging again the moment
+     * its stun lifted would have paid nothing for it. A reset, a phase change and a death end a
+     * cast through {@link #clear()} instead, since they wipe every clock and arm it afresh.
+     */
+    void interrupt(TeleportPathData data, long gameTime) {
+        BossPhaseData phase = phaseOf(data);
+        if (phase != null) {
+            boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAfterInterrupt(gameTime,
+                    boss.rageDown(phase.cone().getCooldownTicks()), boss.abilityScheduleAt(BossAbility.CONE)));
+        }
+        clear();
     }
 
     /**
@@ -443,15 +512,18 @@ final class BossConeRuntime {
     }
 
     /**
-     * Drops the points a wind-up was aimed at and whatever is left of a series.
+     * Drops the points a wind-up was aimed at, whatever is left of a series, and a cooldown still
+     * waiting to be stamped.
      *
-     * <p>Idempotent and the one road out: the last cone, a phase change, a reset, a death and a
-     * stagger all end a series here, so none of them can leave the boss held busy for good.</p>
+     * <p>Idempotent and the one road out: the last cone, a phase change, a reset and a death all
+     * end a series here, and a stagger through {@link #interrupt}, so none of them can leave the
+     * boss held busy for good.</p>
      */
     void clear() {
         planned.clear();
         series = null;
         phaseIndex = -1;
+        endedAt = NOT_SCHEDULED;
     }
 
     /** The phase a series belongs to, so a phase that disappears mid series cannot rewrite its hits. */
