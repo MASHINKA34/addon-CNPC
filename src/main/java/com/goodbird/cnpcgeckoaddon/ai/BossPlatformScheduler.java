@@ -34,7 +34,11 @@ import java.util.UUID;
  * <p>The whole mechanic is that fuse. A player who sees the outline under their feet has until
  * the countdown ends to jump to another platform, which is why the outline is drawn whatever
  * the warning settings say - an invisible fuse is not a mechanic, it is a trap - and why it
- * flashes the way the arena hazard's edge does before it opens, and burns steady once it has.</p>
+ * flashes the way the arena hazard's edge does before it opens, and burns steady once it has.
+ * The outline alone was found to read as a faint dotted line from ten blocks off, so a lit
+ * platform also burns over its whole floor, thicker towards the bang, raises a pillar of fire
+ * in each corner, flashes as it goes and smokes while it smoulders - every part of it a
+ * setting, and all of it off at densities and pillars of nought.</p>
  *
  * <p>The wait cannot be run off the ability that lit it: the boss goes back to its rotation the
  * moment the cast lands. Everything a platform needs is therefore snapshotted here - the
@@ -65,6 +69,10 @@ public final class BossPlatformScheduler {
     static final double PILLAR_INSET = 0.5D;
     /** One pillar particle for every this much of its height. */
     static final double PILLAR_STEP = 0.5D;
+    /** How fast the smoke over a smoulder is sent up, in blocks a tick: a drift, not a jet. */
+    private static final double SMOKE_RISE = 0.04D;
+    /** How far the smoulder's pillars drop once the platform has gone off: half of the fuse's. */
+    private static final double SMOULDER_PILLAR_SHARE = 0.5D;
 
     /**
      * How a platform flashes, bangs and sounds, taken off the settings on the tick the fuse was
@@ -429,9 +437,14 @@ public final class BossPlatformScheduler {
             return false;
         }
         if (gameTime % controller.telegraphIntervalTicks() == 0L && hasAudience(level, pending)) {
-            // Steady from here on, and a flame now and then inside it: the platform is still burning.
+            // Steady from here on: the outline no longer blinks, embers and as much smoke over
+            // the whole floor say the platform is still burning, and the pillars drop to half
+            // so a smoulder reads as less than a fuse and not as another one.
             outline(level, controller, pending, BossTelegraphPaint.NO_END, true);
-            scatter(level, pending, pending.look.outlineParticles(), 1);
+            int points = pending.look.smoulderPoints(floorArea(pending.box));
+            scatter(level, pending, pending.look.outlineParticles(), points);
+            scatter(level, pending, pending.look.smokeParticles(), points, SMOKE_RISE);
+            pillars(level, pending, pending.look.pillarHeight() * SMOULDER_PILLAR_SHARE);
         }
         return true;
     }
@@ -456,6 +469,12 @@ public final class BossPlatformScheduler {
             // not a shape on the floor and stays the dust it always was.
             outline(level, controller, pending, BossTelegraphPaint.NO_END, true);
             scatter(level, pending, pending.look.blastParticles(), pending.look.pops(floorArea(box)));
+            // One flash a block over the middle of the floor, so the bang is seen from across
+            // the arena and not only heard; a floor that is not there gets it at the outline's height.
+            BlockPos floor = BossFloorUtil.findFloor(level, ground.x, ground.y, ground.z);
+            double flashY = (floor == null ? ground.y : floor.getY() + 1.0D) + 1.0D;
+            pending.look.blastFlash().emitDust(level, ground.x, flashY, ground.z, 0.0D, 0.0D, 0.0D, 0.0D,
+                    BossAbilityKind.PLATFORM);
         }
         pending.look.blastSound().play(level, ground.x, ground.y, ground.z, SoundSource.HOSTILE);
 
@@ -568,19 +587,33 @@ public final class BossPlatformScheduler {
     }
 
     /**
-     * A few particles at random spots on the platform's floor, found the way its outline finds
-     * it, so they come up out of the platform rather than hanging in the air over a gap in it.
+     * Particles at random spots on the platform's floor, found the way its outline finds it, so
+     * they come up out of the platform rather than hanging in the air over a gap in it.
      */
     private static void scatter(ServerLevel level, Pending pending, BossParticleCue cue, int points) {
+        scatter(level, pending, cue, points, 0.0D);
+    }
+
+    /**
+     * The same, each one sent up at {@code rise} blocks a tick; nought is the puff left where it
+     * was put, which is what a flame wants and smoke does not.
+     */
+    private static void scatter(ServerLevel level, Pending pending, BossParticleCue cue, int points,
+                                double rise) {
         AABB box = pending.box;
         RandomSource random = level.getRandom();
         for (int i = 0; i < points; i++) {
             double x = box.minX + random.nextDouble() * box.getXsize();
             double z = box.minZ + random.nextDouble() * box.getZsize();
             BlockPos floor = BossFloorUtil.findFloor(level, x, pending.floorY, z);
-            if (floor != null) {
-                cue.emitDust(level, x, floor.getY() + 1.05D, z, 0.0D, 0.0D, 0.0D, 0.0D,
-                        BossAbilityKind.PLATFORM);
+            if (floor == null) {
+                continue;
+            }
+            double y = floor.getY() + 1.05D;
+            if (rise > 0.0D) {
+                cue.emitRising(level, x, y, z, rise, BossAbilityKind.PLATFORM);
+            } else {
+                cue.emitDust(level, x, y, z, 0.0D, 0.0D, 0.0D, 0.0D, BossAbilityKind.PLATFORM);
             }
         }
     }

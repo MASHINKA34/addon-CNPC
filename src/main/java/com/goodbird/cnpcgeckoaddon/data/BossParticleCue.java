@@ -136,6 +136,27 @@ public final class BossParticleCue {
     }
 
     /**
+     * The same, every particle sent off straight up at {@code rise} blocks a tick rather than
+     * scattered at random: the smoke that has to drift up off a smoulder.
+     *
+     * <p>Vanilla only takes an exact velocity for a count of nought, and hands a count above
+     * that a random one, so the cue's count is spent one packet at a time here. A handful of
+     * smoke is a handful of packets and no more; it is the only way to get the direction.</p>
+     */
+    public void emitRising(ServerLevel level, double x, double y, double z, double rise, int ability) {
+        if (!enabled || level == null || count <= 0) {
+            return;
+        }
+        ParticleOptions options = resolve(ability);
+        if (options == null) {
+            return;
+        }
+        for (int i = 0; i < count; i++) {
+            level.sendParticles(options, x, y, z, 0, 0.0D, 1.0D, 0.0D, rise);
+        }
+    }
+
+    /**
      * The same again, from a caller whose dust is not an ability's colour.
      *
      * <p>The barrier is drawn in the boss bar's accent rather than in any ability's colour, so
