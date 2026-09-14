@@ -1,9 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossConeAimPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossConeSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
@@ -14,10 +16,13 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 
 
 /**
@@ -35,6 +40,8 @@ import java.util.List;
  * down mid series leaves the rest of it unstruck.</p>
  */
 final class BossConeRuntime {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** Closer than this (squared, flat) somebody stands inside the boss and has no direction of their own. */
     private static final double CENTRE_EPSILON = 1.0E-6D;
@@ -78,8 +85,7 @@ final class BossConeRuntime {
         LivingEntity target = null;
         Vec3 axis;
         if (cone.getAimMode() == BossPhaseData.CONE_AIM_TARGET) {
-            target = boss.selectAbilityTarget(level, cone.getTargetMode(), cone.getLength(),
-                    candidate -> isValidTarget(candidate, phase));
+            target = pickTarget(level, phase);
             axis = target == null ? null : axisToward(target.position());
         } else if (cone.getAimMode() == BossPhaseData.CONE_AIM_POINTS) {
             planned.addAll(pickPoints(cone));
@@ -87,9 +93,13 @@ final class BossConeRuntime {
         } else {
             axis = boss.facingAxis();
         }
-        // Nobody to aim at, no point switched on, or nobody in any of the cones: no reason to
-        // swing, the strike would land on bare floor and spend a whole cooldown doing it.
-        if (axis == null || victimsIn(level, data, cone, npc.position(), axesFor(axis)).isEmpty()) {
+        // Nobody to aim at, or no point switched on: nothing to swing along until the next look.
+        // A cone along the gaze or at points may also be told to wait for somebody to stand in
+        // it, so it does not land on bare floor and spend a whole cooldown doing it; a cone aimed
+        // at somebody has them in it and never waits. The fan is scanned only when that counts.
+        boolean anyoneInFan = axis != null && waitsForVictim(cone.getAimMode(), cone.isNeedsVictim())
+                && !victimsIn(level, data, cone, npc.position(), axesFor(axis)).isEmpty();
+        if (!startsCast(cone.getAimMode(), axis != null, cone.isNeedsVictim(), anyoneInFan)) {
             planned.clear();
             boss.setAbilityScheduleAt(BossAbility.CONE, gameTime + boss.retryTicks());
             return false;
@@ -104,13 +114,13 @@ final class BossConeRuntime {
     }
 
     /**
-     * Whether one candidate is worth aiming a cone at.
-     *
-     * <p>Measured flat and against the same height band the cone itself uses, the line strike's
-     * way, so the sector laid down toward whoever this picks really does cover them.</p>
+     * Whether one candidate is worth aiming a cone at: somebody the cone may hit at all, standing
+     * where a cone laid toward them would cover them - measured flat and against the same height
+     * band the strike uses, the line strike's way, so the sector laid down toward whoever this
+     * picks really does cover them.
      */
     boolean isValidTarget(LivingEntity target, BossPhaseData phase) {
-        if (target == null || !target.isAlive() || !boss.isAbilityTarget(target, BossAbilityKind.CONE)) {
+        if (!mayHit(target, boss.settings())) {
             return false;
         }
         if (Math.abs(target.getY() - npc.getY()) > phase.cone().getHeight()) {
@@ -120,6 +130,55 @@ final class BossConeRuntime {
         double dz = target.getZ() - npc.getZ();
         double length = phase.cone().getLength();
         return dx * dx + dz * dz <= length * length;
+    }
+
+    /**
+     * Whoever the cone is aimed at: the phase's pick, and when that is the npc's own target and
+     * the cone may not hit them, the nearest it may.
+     *
+     * <p>The main target is whoever the npc is fighting, which says nothing about whether this
+     * cone may land on them: an npc of a kind the boss aims no ability at, one immune to cones,
+     * or one hidden behind its totems used to refuse the cast on every look, for ever, with the
+     * players beside them never swung at.</p>
+     */
+    private LivingEntity pickTarget(ServerLevel level, BossPhaseData phase) {
+        BossConeSettings cone = phase.cone();
+        Predicate<LivingEntity> canHit = candidate -> isValidTarget(candidate, phase);
+        LivingEntity picked = boss.selectAbilityTarget(level, cone.getTargetMode(), cone.getLength(), canHit);
+        if (picked == null && fallsBackToNearest(cone.getTargetMode())) {
+            picked = boss.selectAbilityTarget(level, BossTargetMode.NEAREST, cone.getLength(), canHit);
+        }
+        return picked;
+    }
+
+    /**
+     * Whether a target mode that found nobody is asked again for the nearest: only the main
+     * target's, which looked at one entity; the searching modes already looked at everyone.
+     */
+    static boolean fallsBackToNearest(int targetMode) {
+        return targetMode == BossTargetMode.MAIN;
+    }
+
+    /** Whether a cast with this aim waits for somebody in its fan: never one aimed at somebody, who is in it. */
+    static boolean waitsForVictim(int aimMode, boolean needsVictim) {
+        return needsVictim && aimMode != BossPhaseData.CONE_AIM_TARGET;
+    }
+
+    /** Whether a cast starts: with something to aim along, and with somebody in the fan when its aim waits for one. */
+    static boolean startsCast(int aimMode, boolean aimed, boolean needsVictim, boolean anyoneInFan) {
+        return aimed && (!waitsForVictim(aimMode, needsVictim) || anyoneInFan);
+    }
+
+    /**
+     * Who may be hit at all: the rule every area hit shares - an immune npc, an ally, a boss
+     * hidden by its totems and a kind this boss aims no ability at are all left alone - asked
+     * in one place for the pick, the wait and the strike, so the three cannot disagree about it.
+     */
+    private boolean mayHit(LivingEntity target, TeleportPathData data) {
+        return target != null && target != npc && target.isAlive()
+                && boss.isAbilityTarget(target, BossAbilityKind.CONE)
+                && boss.matchesAbilityTargetKind(target, data)
+                && !BossMechanicUtil.hiddenByTotems(target);
     }
 
     /**
@@ -182,9 +241,16 @@ final class BossConeRuntime {
         planned.clear();
         if (points.isEmpty()) {
             Vec3 committed = boss.committedAxis();
-            if (committed != null) {
-                strike(level, data, phase, List.of(committed));
+            if (committed == null) {
+                // A wind-up with neither an axis nor a point to swing along should not happen - a
+                // cast at points is not set up without one - and a silent exit would spend the
+                // cooldown on it: another look shortly, and a line for whoever is watching the log.
+                LOGGER.debug("Cone strike of NPC {} ended its wind-up with nothing to swing along; looking again in {} ticks",
+                        npc.getName().getString(), boss.retryTicks());
+                boss.setAbilityScheduleAt(BossAbility.CONE, gameTime + boss.retryTicks());
+                return;
             }
+            strike(level, data, phase, List.of(committed));
             return;
         }
         Series<Vec3> started = new Series<>(points, phase.cone().getPointIntervalTicks(), gameTime);
@@ -319,12 +385,11 @@ final class BossConeRuntime {
     }
 
     /**
-     * Everyone the cones laid from {@code origin} along {@code axes} currently cover.
+     * Everyone the cones laid from {@code origin} along {@code axes} currently cover, of those
+     * the cone may hit at all.
      *
      * <p>The box round the whole reach is only a pre-filter, the line strike's way, and the shape
-     * itself is decided per candidate. Who may be hit at all is the rule every area hit shares -
-     * an immune npc, an ally, a boss hidden by its totems and a kind this boss does not aim its
-     * abilities at are all left alone - so a cone and a gravity field cannot disagree about it.</p>
+     * itself is decided per candidate.</p>
      */
     private List<LivingEntity> victimsIn(ServerLevel level, TeleportPathData data, BossConeSettings cone,
                                          Vec3 origin, List<Vec3> axes) {
@@ -333,11 +398,8 @@ final class BossConeRuntime {
         }
         double reach = cone.getLength() + 1.0D;
         AABB box = new AABB(origin, origin).inflate(reach, cone.getHeight() + 1.0D, reach);
-        return level.getEntitiesOfClass(LivingEntity.class, box, target -> target != npc && target.isAlive()
-                && boss.isAbilityTarget(target, BossAbilityKind.CONE)
-                && boss.matchesAbilityTargetKind(target, data)
-                && !BossMechanicUtil.hiddenByTotems(target)
-                && inAnySector(origin, axes, cone, target));
+        return level.getEntitiesOfClass(LivingEntity.class, box,
+                target -> mayHit(target, data) && inAnySector(origin, axes, cone, target));
     }
 
     private static boolean inAnySector(Vec3 origin, List<Vec3> axes, BossConeSettings cone, LivingEntity target) {

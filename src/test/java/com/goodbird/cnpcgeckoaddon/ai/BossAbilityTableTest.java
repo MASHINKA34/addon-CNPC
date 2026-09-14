@@ -163,6 +163,12 @@ class BossAbilityTableTest {
                     phase -> phase.boulderRain().setBlock("")),
             BossAbility.COCOON, new Setup(phase -> phase.cocoon().setCloneName("cocoon"),
                     phase -> phase.cocoon().setCloneName("")),
+            // A cone at points with none switched on is not an ability yet; the other aims need nothing.
+            BossAbility.CONE, new Setup(phase -> phase.cone().getPoints().add(),
+                    phase -> {
+                        phase.cone().setAimMode(BossPhaseData.CONE_AIM_POINTS);
+                        phase.cone().getPoints().clear();
+                    }),
             BossAbility.PLATFORM, new Setup(phase -> phase.platform().getZones().add(),
                     phase -> phase.platform().getZones().clear()),
             BossAbility.SUMMON, new Setup(phase -> phase.summon().setCloneName("minion"),

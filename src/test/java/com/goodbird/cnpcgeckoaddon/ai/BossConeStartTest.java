@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossConeSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,74 @@ class BossConeStartTest {
 
     private static final Vec3 ORIGIN = new Vec3(0.0D, 64.0D, 0.0D);
     private static final Vec3 EAST = new Vec3(1.0D, 0.0D, 0.0D);
+
+    private static final int[] AIMS = {
+            BossPhaseData.CONE_AIM_TARGET, BossPhaseData.CONE_AIM_FACING, BossPhaseData.CONE_AIM_POINTS
+    };
+
+    @Test
+    @DisplayName("a cone at somebody starts on the pick alone; along the gaze or at points it waits for the fan only when told to")
+    void theStartMatrix() {
+        for (int aim : AIMS) {
+            for (boolean aimed : new boolean[]{true, false}) {
+                for (boolean needsVictim : new boolean[]{true, false}) {
+                    for (boolean anyoneInFan : new boolean[]{true, false}) {
+                        boolean expected = aimed
+                                && (aim == BossPhaseData.CONE_AIM_TARGET || !needsVictim || anyoneInFan);
+                        assertEquals(expected, BossConeRuntime.startsCast(aim, aimed, needsVictim, anyoneInFan),
+                                "aim " + aim + " aimed " + aimed + " waits " + needsVictim + " fan " + anyoneInFan);
+                    }
+                }
+            }
+        }
+        assertFalse(BossConeRuntime.startsCast(BossPhaseData.CONE_AIM_TARGET, false, false, true),
+                "nobody to aim at is nobody to swing at, whoever else stands in the fan");
+        assertTrue(BossConeRuntime.startsCast(BossPhaseData.CONE_AIM_TARGET, true, true, false),
+                "a cone aimed at somebody has them in it, so the wait is never asked of it");
+        assertTrue(BossConeRuntime.startsCast(BossPhaseData.CONE_AIM_FACING, true, false, false),
+                "along the gaze it swings on its cooldown, fan empty or not");
+        assertFalse(BossConeRuntime.startsCast(BossPhaseData.CONE_AIM_FACING, true, true, false),
+                "unless it was told to wait for somebody");
+        assertFalse(BossConeRuntime.startsCast(BossPhaseData.CONE_AIM_POINTS, false, false, true),
+                "no point switched on is nothing to swing along");
+        assertFalse(BossConeRuntime.waitsForVictim(BossPhaseData.CONE_AIM_TARGET, true));
+        assertTrue(BossConeRuntime.waitsForVictim(BossPhaseData.CONE_AIM_POINTS, true));
+    }
+
+    @Test
+    @DisplayName("only the main target, found unfit, is passed over for the nearest; a search that found nobody is not repeated")
+    void theMainTargetFallsBackToTheNearest() {
+        assertTrue(BossConeRuntime.fallsBackToNearest(BossTargetMode.MAIN),
+                "a main target of a kind the cone may not hit used to refuse the cast for ever");
+        assertFalse(BossConeRuntime.fallsBackToNearest(BossTargetMode.NEAREST));
+        assertFalse(BossConeRuntime.fallsBackToNearest(BossTargetMode.FARTHEST));
+        assertFalse(BossConeRuntime.fallsBackToNearest(BossTargetMode.RANDOM));
+    }
+
+    @Test
+    @DisplayName("a cone at points with none switched on is not set up, so neither the rotation nor a chain casts it")
+    void pointsWithoutAPointAreNotSetUp() {
+        BossPhaseData phase = new BossPhaseData();
+        BossConeSettings cone = phase.cone();
+        cone.setEnabled(true);
+        assertTrue(cone.isConfigured(), "at a target there is nothing to fill in");
+        assertTrue(BossAbility.CONE.isEnabledIn(phase));
+        cone.setAimMode(BossPhaseData.CONE_AIM_FACING);
+        assertTrue(cone.isConfigured(), "nor along the gaze");
+        cone.setAimMode(BossPhaseData.CONE_AIM_POINTS);
+        assertFalse(cone.isConfigured(), "at points with no point at all");
+        assertFalse(BossAbility.CONE.isEnabledIn(phase),
+                "switched on with nothing to swing along it stays off the rotation rather than refusing every look");
+        assertFalse(BossAbility.CONE.isConfiguredIn(phase), "and a chain cannot force it either");
+        cone.getPoints().add().setEnabled(false);
+        assertFalse(cone.isConfigured(), "a point switched off is no point");
+        cone.getPoints().add();
+        assertTrue(cone.isConfigured());
+        assertTrue(BossAbility.CONE.isEnabledIn(phase));
+        cone.setEnabled(false);
+        assertTrue(BossAbility.CONE.isConfiguredIn(phase), "set up with the switch off is what a chain casts");
+        assertFalse(BossAbility.CONE.isEnabledIn(phase));
+    }
 
     @Test
     @DisplayName("the warning's end calls nothing off by default, the fan under one rule, the reach under the other")
