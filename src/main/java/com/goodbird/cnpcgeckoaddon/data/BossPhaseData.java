@@ -386,6 +386,9 @@ public final class BossPhaseData {
     /** The longest wait between an ability ending and its follow-up starting: a minute. */
     public static final int MAX_COMBO_DELAY = 1200;
 
+    /** The longest hold after an ability the phase sees through: a minute, like the chain delay. */
+    public static final int MAX_FINISH_HOLD = 1200;
+
     /** Health percentage at which this phase takes over. Phase 1 is pinned to 100. */
     private int startHealthPercent = 100;
     private String appearanceAnimation = "";
@@ -398,6 +401,13 @@ public final class BossPhaseData {
      * only ever waited out its wind-ups.
      */
     private int finishMask;
+    /**
+     * How many ticks after each marked ability has done its work the boss goes on finishing
+     * it, one slot per {@link BossAbilityKind}: counted from the cast for an instant ability,
+     * from the end of the effect for a lasting one. Nothing by default: a marked lasting
+     * ability waits for its effect alone, as it did before the hold existed.
+     */
+    private final int[] finishHoldTicks = new int[BossAbilityKind.COUNT];
     /**
      * The ability each ability hands straight on to when it ends, one slot per
      * {@link BossAbilityKind}, or {@link #NO_COMBO}. Empty by default: the rotation alone
@@ -621,6 +631,21 @@ public final class BossPhaseData {
         return ability >= 0 && ability < Integer.SIZE && (BossAbilityKind.FINISH_ALL & 1 << ability) != 0;
     }
 
+    /**
+     * Ticks the boss goes on finishing this ability after it has done its work, starting
+     * nothing else. Read only while the ability is marked: an unmarked ability's number is
+     * kept for when it is marked again, and means nothing until then.
+     */
+    public int finishHoldTicks(int ability) {
+        return isFinishAbility(ability) ? finishHoldTicks[ability] : 0;
+    }
+
+    public void setFinishHoldTicks(int ability, int ticks) {
+        if (isFinishAbility(ability)) {
+            finishHoldTicks[ability] = Mth.clamp(ticks, 0, MAX_FINISH_HOLD);
+        }
+    }
+
     /** The ability this one hands straight on to when it ends, or {@link #NO_COMBO}. */
     public int comboFollowUp(int ability) {
         return isComboAbility(ability) ? comboFollowUp[ability] : NO_COMBO;
@@ -706,6 +731,7 @@ public final class BossPhaseData {
         // Copied: an int array tag keeps the very array it is handed, and these go on being edited.
         tag.putIntArray("ComboFollowUp", Arrays.copyOf(comboFollowUp, comboFollowUp.length));
         tag.putIntArray("ComboDelay", Arrays.copyOf(comboDelay, comboDelay.length));
+        tag.putIntArray("FinishHold", Arrays.copyOf(finishHoldTicks, finishHoldTicks.length));
         areaAttack.writeToNBT(tag);
         barrier.writeToNBT(tag);
         beam.writeToNBT(tag);
@@ -809,6 +835,13 @@ public final class BossPhaseData {
                     ? validFollowUp(ability, followUps[ability]) : NO_COMBO;
             comboDelay[ability] = owned && ability < delays.length
                     ? Mth.clamp(delays[ability], 0, MAX_COMBO_DELAY) : 0;
+        }
+        // The holds the same way: a tag from before they existed has no array and holds
+        // nothing, which is the wait every marked ability kept until then.
+        int[] holds = tag.getIntArray("FinishHold");
+        for (int ability = 0; ability < BossAbilityKind.COUNT; ability++) {
+            finishHoldTicks[ability] = isFinishAbility(ability) && ability < holds.length
+                    ? Mth.clamp(holds[ability], 0, MAX_FINISH_HOLD) : 0;
         }
         areaAttack.readFromNBT(tag);
         barrier.readFromNBT(tag);

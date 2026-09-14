@@ -315,6 +315,8 @@ public final class TeleportPathController {
     private final BossCastSpotRuntime castSpots;
     /** Which abilities are owed a follow-up when they end, and the follow-up waiting to start. */
     private final BossComboChain combo = new BossComboChain();
+    /** The hold the phase keeps after each ability it sees through, counted from the ability's end. */
+    private final BossFinishHold finishHold = new BossFinishHold();
     /**
      * The follow-up being started right now, or NONE: the one ability whose starter may skip its
      * switch. Held from the chain's attempt until the ability winds up - through the walk to its
@@ -500,6 +502,10 @@ public final class TeleportPathController {
         if (tickHomeLeash(level, gameTime, data)) {
             return;
         }
+        // Before the cast spot's stay reads the table: an effect that ran out since the last
+        // tick - the schedulers and the managers tick after the entities do - has its hold
+        // started here, so a stay kept "while it lasts" is kept through the hold as well.
+        tickFinishHold(data.getPhase(currentPhase), gameTime);
         tickCastRoot(gameTime);
         castSpots.tickHold(gameTime, pendingAction);
         // Held and rooted are read in this order, not merged: the root has to keep its own
@@ -542,6 +548,9 @@ public final class TeleportPathController {
         dash.tick(level, data, gameTime);
         // And a series of cones, which holds the busy gate below shut until its last cone lands.
         cone.tick(level, data, gameTime);
+        // Again, for the flight, the run and the series that may just have ended: the chains
+        // right below have to see the hold on the tick the effect ended, not one tick late.
+        tickFinishHold(phase, gameTime);
         // Right after the touchdown that tick may have caught, and above every gate: a leap ends
         // when it lands, and an effect that runs out under a lock or a wind-up still ended then.
         tickComboWatch(phase, gameTime);
@@ -1921,16 +1930,27 @@ public final class TeleportPathController {
     }
 
     /**
-     * Whether the effect this ability left behind on its last cast is still going.
+     * Whether this ability is still going from its last cast: the effect it left behind, or
+     * the hold the phase keeps after it.
      *
-     * <p>One table for everyone who asks, so they cannot disagree about when an effect is
+     * <p>One table for everyone who asks, so they cannot disagree about when an ability is
      * over: a cast spot's "while it lasts" stay, its journey, which does not set off for a
-     * cast whose last effect is still running, the finish gate, and the chains, which hand on
-     * to a follow-up the moment this turns false. The instant ones - a
-     * slam, a shot, a swing, a corridor, a rolled stone, the take-cover strike, a summon -
-     * leave nothing behind that the boss is still doing, so they are never running.</p>
+     * cast whose last one is still running, the finish gate, and the chains, which hand on
+     * to a follow-up the moment this turns false. The hold is in the table rather than in the
+     * gate alone so that all three see it: a follow-up starts after it, a stay outlasts it.</p>
      */
     boolean isAbilityRunning(BossAbility ability, long gameTime) {
+        return isEffectRunning(ability, gameTime) || finishHold.isHolding(ability, gameTime);
+    }
+
+    /**
+     * Whether the effect this ability left behind on its last cast is still going, the hold
+     * after it aside: what the hold's own watch is measured against, and what the status line
+     * tells apart from it. The instant ones - a slam, a shot, a swing, a corridor, a rolled
+     * stone, the take-cover strike, a summon - leave nothing behind that the boss is still
+     * doing, so they are never running.
+     */
+    private boolean isEffectRunning(BossAbility ability, long gameTime) {
         return switch (ability) {
             case HOOK -> hook.isPulling();
             case CAPTURE -> BossCaptureManager.hasCaptureForBoss(npc.getUUID());
@@ -1981,8 +2001,27 @@ public final class TeleportPathController {
     }
 
     /**
-     * The ability whose effect this phase is still seeing out, or NONE when the boss is free
-     * to start the next thing.
+     * Looks at every ability the phase sees through, and starts the hold after one whose
+     * effect is over since the last look.
+     *
+     * <p>Twice a tick, since effects end in two places: before the cast spot's stay reads the
+     * table, for the effects the schedulers and the managers ended after the last tick, and
+     * again after the flight, the run and the series have had their tick, for the three that
+     * end there. Either way whoever asks next sees the hold on the tick the effect ended.</p>
+     */
+    private void tickFinishHold(BossPhaseData phase, long gameTime) {
+        for (BossAbility ability : BossAbility.ROTATION) {
+            int kind = ability.kind();
+            // The bit first: it is free, and most phases mark nothing at all. An ability with
+            // no hold to start is not watched either, so the sweep stays as cheap as the gate.
+            boolean watched = phase.waitsForFinish(kind) && phase.finishHoldTicks(kind) > 0;
+            finishHold.observe(ability, watched && isEffectRunning(ability, gameTime), phase, gameTime);
+        }
+    }
+
+    /**
+     * The ability this phase is still seeing out - its effect, or the hold after it - or NONE
+     * when the boss is free to start the next thing.
      *
      * <p>Only holds new starts back: the effect is never cut short from here, so a phase
      * change, a reset or a death still end it the way they always did.</p>
@@ -2420,6 +2459,9 @@ public final class TeleportPathController {
         if (performer != null) {
             performer.perform(this, level, data, phase, gameTime);
         }
+        // The hold after an instant ability counts from here, there being nothing else to count
+        // it from; a lasting one's is counted again from the end of its effect, if it has one.
+        finishHold.onPerformed(pendingAction, phase, gameTime);
     }
 
     /**
@@ -2549,6 +2591,9 @@ public final class TeleportPathController {
         // The chains go with them: a follow-up owed to a phase that is over, a fight that ended
         // or a boss that died is owed to nobody, and an effect still running hands on nothing.
         combo.clear();
+        // And the holds: nobody is owed the finishing of a fight that is over, and the effects
+        // ended below are not seen over. A combat reset comes through here too.
+        finishHold.clear();
         forcedAbility = BossAbility.NONE;
         forcedScheduleBefore = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and

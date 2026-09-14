@@ -494,6 +494,7 @@ class BossPhaseKeyFormatTest {
             "DashWallSoundSound",
             "DashWallSoundVolume",
             "DashWidth",
+            "FinishHold",
             "FinishMask",
             "FluidAimTurn",
             "FluidArcLift",
