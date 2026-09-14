@@ -79,10 +79,18 @@ abstract class SubGuiBossAbilityTuning extends SubGuiFieldScreen {
         return at;
     }
 
-    private static String hintText() {
+    /**
+     * The line under the rows. "The defaults are the old behaviour" for every page but the
+     * one whose defaults deliberately are not, which says instead how to get it back.
+     */
+    protected String hintKey() {
+        return HINT;
+    }
+
+    private String hintText() {
         // Not I18n.get: it runs the text through String.format, which a hint holding a per
         // cent sign would not survive.
-        return Component.translatable(HINT).getString();
+        return Component.translatable(hintKey()).getString();
     }
 
     private int hintY() {
