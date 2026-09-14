@@ -189,8 +189,17 @@ public final class BossTelegraphUtil {
 
     public static void rectangle(ServerLevel level, double minX, double minZ, double maxX,
                                  double maxZ, double y, BossTelegraphPaint paint) {
+        rectangle(level, minX, minZ, maxX, maxZ, y, paint, EDGE_EMIT_SPACING);
+    }
+
+    /**
+     * The same box dotted as closely as the caller asks, for a platform whose outline has to
+     * read from across the arena. A band ignores the spacing: the client draws it whole.
+     */
+    public static void rectangle(ServerLevel level, double minX, double minZ, double maxX,
+                                 double maxZ, double y, BossTelegraphPaint paint, double spacing) {
         if (!paint.lines()) {
-            rectangle(level, minX, minZ, maxX, maxZ, y, paint.dust());
+            rectangle(level, minX, minZ, maxX, maxZ, y, paint.dust(), spacing);
             return;
         }
         BossTelegraphFrames.add(level, paint,
@@ -276,25 +285,38 @@ public final class BossTelegraphUtil {
      */
     public static void rectangle(ServerLevel level, double minX, double minZ, double maxX, double maxZ,
                                  double y, DustParticleOptions dust) {
+        rectangle(level, minX, minZ, maxX, maxZ, y, dust, EDGE_EMIT_SPACING);
+    }
+
+    /** The same box, its edges walked at the caller's own spacing rather than the hazard's. */
+    public static void rectangle(ServerLevel level, double minX, double minZ, double maxX, double maxZ,
+                                 double y, DustParticleOptions dust, double spacing) {
         Vec3 origin = new Vec3(minX, y, minZ);
         double width = maxX - minX;
         double depth = maxZ - minZ;
-        edgeRun(level, origin, dust, 0.0D, 0.0D, width, 0.0D);
-        edgeRun(level, origin, dust, width, 0.0D, width, depth);
-        edgeRun(level, origin, dust, width, depth, 0.0D, depth);
-        edgeRun(level, origin, dust, 0.0D, depth, 0.0D, 0.0D);
+        edgeRun(level, origin, dust, spacing, 0.0D, 0.0D, width, 0.0D);
+        edgeRun(level, origin, dust, spacing, width, 0.0D, width, depth);
+        edgeRun(level, origin, dust, spacing, width, depth, 0.0D, depth);
+        edgeRun(level, origin, dust, spacing, 0.0D, depth, 0.0D, 0.0D);
     }
 
     /** One side of a rectangle, from one corner up to but not including the next. */
-    private static void edgeRun(ServerLevel level, Vec3 origin, DustParticleOptions dust,
+    private static void edgeRun(ServerLevel level, Vec3 origin, DustParticleOptions dust, double spacing,
                                 double fromX, double fromZ, double toX, double toZ) {
         double stepX = toX - fromX;
         double stepZ = toZ - fromZ;
-        double length = Math.sqrt(stepX * stepX + stepZ * stepZ);
-        int points = Mth.clamp((int) Math.round(length / EDGE_EMIT_SPACING), 1, MAX_EDGE_POINTS);
+        int points = edgePoints(Math.sqrt(stepX * stepX + stepZ * stepZ), spacing);
         for (int i = 0; i < points; i++) {
             emitOnFloor(level, origin, fromX + stepX * i / points, fromZ + stepZ * i / points, dust);
         }
+    }
+
+    /**
+     * How many points one edge of {@code length} gets at {@code spacing}: at least its first
+     * corner, and never more than the edge ceiling however long or closely dotted it is.
+     */
+    static int edgePoints(double length, double spacing) {
+        return Mth.clamp((int) Math.round(length / spacing), 1, MAX_EDGE_POINTS);
     }
 
     /**

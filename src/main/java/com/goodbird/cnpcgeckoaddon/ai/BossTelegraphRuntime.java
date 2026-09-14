@@ -165,7 +165,7 @@ final class BossTelegraphRuntime {
             }
             // The outline of every platform the cast sets alight, the arena hazard's box; the fuse
             // after the wind-up flashes the same outline whatever the warnings say.
-            case PLATFORM -> platform.drawCommitted(level, paint);
+            case PLATFORM -> platform.drawCommitted(level, paint, phase.platform().edgeSpacing());
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
                     phase.meleeAttack().getRange(), npc.getYRot(),
                     data.tuning().telegraphMeleeHalfAngle(), paint);

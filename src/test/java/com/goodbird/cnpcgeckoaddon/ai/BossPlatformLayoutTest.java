@@ -57,6 +57,24 @@ class BossPlatformLayoutTest {
     }
 
     @Test
+    @DisplayName("an outline dotted every half block has twice the points of one dotted every block")
+    void aCloserOutlineHasMorePoints() {
+        assertEquals(8, BossTelegraphUtil.edgePoints(8.0D, 1.0D), "the spacing the hazard's edge walks at");
+        assertEquals(16, BossTelegraphUtil.edgePoints(8.0D, 0.5D), "the platforms' default");
+        assertEquals(32, BossTelegraphUtil.edgePoints(8.0D, 0.25D), "as close as the editor lets them");
+        assertEquals(4, BossTelegraphUtil.edgePoints(8.0D, 2.0D), "and as sparse");
+        // The whole box is four such edges, each keeping its first corner and leaving its last.
+        assertEquals(2 * 4 * BossTelegraphUtil.edgePoints(8.0D, 1.0D), 4 * BossTelegraphUtil.edgePoints(8.0D, 0.5D));
+    }
+
+    @Test
+    @DisplayName("an edge keeps its first corner however short, and its ceiling however long")
+    void anEdgeHasAFloorAndACeiling() {
+        assertEquals(1, BossTelegraphUtil.edgePoints(0.2D, 1.0D), "a corner is still a corner");
+        assertEquals(256, BossTelegraphUtil.edgePoints(300.0D, 0.25D), "held at the edge ceiling");
+    }
+
+    @Test
     @DisplayName("the pillars stand half a block inside the four corners, walked the way the outline is")
     void thePillarsStandInsideTheCorners() {
         Vec3[] corners = BossPlatformScheduler.pillarCorners(EIGHT_BY_EIGHT, 64.0D);

@@ -407,8 +407,16 @@ public final class BossPlatformScheduler {
             }
             if (gameTime % controller.telegraphIntervalTicks() == 0L
                     && hasAudience(level, pending)) {
-                outline(level, controller, pending, fuseProgress(pending, gameTime),
+                float progress = fuseProgress(pending, gameTime);
+                outline(level, controller, pending, progress,
                         (gameTime / pending.look.blinkTicks()) % 2L == 0L);
+                // The fire over the floor and the pillars in the corners burn steady through the
+                // flash: only the outline blinks, so the platform never vanishes whole for half of
+                // every flash, and the fire thickens towards the bang so the party can read how
+                // long is left without the countdown.
+                scatter(level, pending, pending.look.fuseParticles(),
+                        pending.look.fusePoints(floorArea(pending.box), progress));
+                pillars(level, pending, pending.look.pillarHeight());
             }
             return true;
         }
@@ -447,8 +455,7 @@ public final class BossPlatformScheduler {
             // does not blink out of existence for the tick of the bang. The flare itself is
             // not a shape on the floor and stays the dust it always was.
             outline(level, controller, pending, BossTelegraphPaint.NO_END, true);
-            scatter(level, pending, pending.look.blastParticles(),
-                    pending.look.pops(box.getXsize() * box.getZsize()));
+            scatter(level, pending, pending.look.blastParticles(), pending.look.pops(floorArea(box)));
         }
         pending.look.blastSound().play(level, ground.x, ground.y, ground.z, SoundSource.HOSTILE);
 
@@ -516,7 +523,41 @@ public final class BossPlatformScheduler {
             return;
         }
         AABB box = pending.box;
-        BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ, pending.floorY, paint);
+        BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ, pending.floorY, paint,
+                pending.look.edgeSpacing());
+    }
+
+    /** The floor of a platform in square blocks, which its fill, its smoulder and its pops are counted off. */
+    private static double floorArea(AABB box) {
+        return box.getXsize() * box.getZsize();
+    }
+
+    /**
+     * The pillar in each corner of the platform, one particle every half block from the floor
+     * under that corner up to {@code height}.
+     *
+     * <p>The vertical the outline and the fill have not got: from across the arena a flat mark
+     * is a thin line at the horizon, and four columns of fire are what say "that one" at a
+     * glance. A corner with no floor under it gets no pillar rather than one hanging in the
+     * air, the same rule the fill and the outline follow.</p>
+     */
+    private static void pillars(ServerLevel level, Pending pending, double height) {
+        double[] heights = pillarHeights(height);
+        if (heights.length == 0) {
+            return;
+        }
+        BossParticleCue cue = pending.look.pillarParticles();
+        for (Vec3 corner : pillarCorners(pending.box, pending.floorY)) {
+            BlockPos floor = BossFloorUtil.findFloor(level, corner.x, corner.y, corner.z);
+            if (floor == null) {
+                continue;
+            }
+            double base = floor.getY() + 1.0D;
+            for (double lift : heights) {
+                cue.emitDust(level, corner.x, base + lift, corner.z, 0.0D, 0.0D, 0.0D, 0.0D,
+                        BossAbilityKind.PLATFORM);
+            }
+        }
     }
 
     /** How far the fuse has burned, from the tick it was lit to the tick the platform goes. */

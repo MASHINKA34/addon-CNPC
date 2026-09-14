@@ -127,11 +127,18 @@ final class BossPlatformRuntime {
         }
     }
 
-    /** The outlines of the platforms the cast being wound up sets alight, for its warning. */
-    void drawCommitted(ServerLevel level, BossTelegraphPaint paint) {
+    /**
+     * The outlines of the platforms the cast being wound up sets alight, for its warning.
+     *
+     * <p>Dotted as closely as the fuse will dot them, and nothing inside: the wind-up shows
+     * which boxes were picked, and the fire is the fuse's to show.</p>
+     *
+     * @param spacing blocks between two points of each outline
+     */
+    void drawCommitted(ServerLevel level, BossTelegraphPaint paint, double spacing) {
         for (AABB box : committed) {
             BossTelegraphUtil.rectangle(level, box.minX, box.minZ, box.maxX, box.maxZ,
-                    floorY(box, npc.getY()), paint);
+                    floorY(box, npc.getY()), paint, spacing);
         }
     }
 
