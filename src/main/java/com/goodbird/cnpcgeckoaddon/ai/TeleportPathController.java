@@ -1329,11 +1329,20 @@ public final class TeleportPathController {
         return castSpots.status(gameTime);
     }
 
-    /** Read-only status used by the boss diagnostic command: the same question the gate asks. */
+    /**
+     * Read-only status used by the boss diagnostic command: the same question the gate asks,
+     * and whether it is the effect or the hold after it that the boss is seeing out.
+     */
     public String finishStatus(long gameTime) {
         BossPhaseData phase = activePhase();
         BossAbility awaited = phase == null ? BossAbility.NONE : awaitedFinish(phase, gameTime);
-        return awaited == BossAbility.NONE ? "Finish: free" : "Finish: waiting for " + awaited;
+        if (awaited == BossAbility.NONE) {
+            return "Finish: free";
+        }
+        if (isEffectRunning(awaited, gameTime)) {
+            return "Finish: waiting for " + awaited;
+        }
+        return "Finish: holding " + awaited + " (" + finishHold.remainingTicks(awaited, gameTime) + ")";
     }
 
     /** Read-only status used by the boss diagnostic command. */
