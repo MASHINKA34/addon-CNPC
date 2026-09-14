@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Pins the cone's flash, its landing turn and its swing to the literals they replaced. */
@@ -40,6 +41,30 @@ class BossConeTuningDefaultsTest {
         assertEquals(3, reloaded.cone().getFlashArcs());
         assertEquals(360, reloaded.cone().getSnapDegrees());
         assertEquals("minecraft:entity.player.attack.sweep", reloaded.cone().getSwingSound().getSoundId());
+    }
+
+    /**
+     * The one place the cone's defaults are deliberately not yesterday's: a dodge by reach and a
+     * cooldown from the wind-up are what made the cone swing so rarely. A default drifting back
+     * to the old rule here would put every boss back to that without a word.
+     */
+    @Test
+    @DisplayName("a fresh cone, and an old save, take the new start, dodge and cooldown rules")
+    void theStartRulesAreNewOnPurpose() {
+        BossConeSettings fresh = new BossConeSettings();
+        assertEquals(BossPhaseData.CONE_DODGE_NEVER, fresh.getDodgeMode(), "the warning's end calls nothing off");
+        assertFalse(fresh.isNeedsVictim(), "a cone along the gaze swings on its cooldown, fan empty or not");
+        assertEquals(BossPhaseData.CONE_COOLDOWN_FROM_END, fresh.getCooldownFrom(), "the cooldown counts from the last cone");
+
+        CompoundTag old = new BossPhaseData().writeToNBT();
+        for (String key : List.of("ConeDodge", "ConeNeedsVictim", "ConeCooldownFrom")) {
+            old.remove(key);
+        }
+        BossPhaseData reloaded = new BossPhaseData();
+        reloaded.readFromNBT(old);
+        assertEquals(BossPhaseData.CONE_DODGE_NEVER, reloaded.cone().getDodgeMode());
+        assertFalse(reloaded.cone().isNeedsVictim());
+        assertEquals(BossPhaseData.CONE_COOLDOWN_FROM_END, reloaded.cone().getCooldownFrom());
     }
 
     @Test

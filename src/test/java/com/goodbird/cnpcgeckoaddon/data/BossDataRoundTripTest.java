@@ -282,6 +282,9 @@ class BossDataRoundTripTest {
         phase.cone().setPointOrder(BossPhaseData.CONE_ORDER_RANDOM);
         phase.cone().setPointCount(2);
         phase.cone().setPointIntervalTicks(0);
+        phase.cone().setDodgeMode(BossPhaseData.CONE_DODGE_RANGE);
+        phase.cone().setNeedsVictim(true);
+        phase.cone().setCooldownFrom(BossPhaseData.CONE_COOLDOWN_FROM_START);
         phase.cone().getPoints().add().setPosition(4, 0, -6);
         BossConeAimPoint fixedPoint = phase.cone().getPoints().add();
         fixedPoint.setCoordinateMode(BossConeAimPoint.COORDINATE_FIXED);

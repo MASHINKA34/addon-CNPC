@@ -58,6 +58,20 @@ public final class BossConeSettings {
     private int coneSnapDegrees = 360;
     private final BossSoundCue coneSwingSound =
             new BossSoundCue("minecraft:entity.player.attack.sweep", 1.5F, 0.6F);
+    /**
+     * Whether the warning's end may call the cone off, and by what rule. Never by default: the
+     * sector was promised on the floor, and a target that merely ran past the cone's length
+     * used to cancel a swing the boss then stood rooted through, which read as a boss that
+     * rarely swings at all.
+     */
+    private int coneDodgeMode = BossPhaseData.CONE_DODGE_NEVER;
+    /**
+     * Whether a cone along the gaze or at points waits for somebody to stand in it before it is
+     * swung; a cone at a target never waits, since whoever it is aimed at is in it.
+     */
+    private boolean coneNeedsVictim;
+    /** Whether the cooldown counts from the wind-up or from the last cone of the cast. */
+    private int coneCooldownFrom = BossPhaseData.CONE_COOLDOWN_FROM_END;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot coneCastSpot = new BossCastSpot();
 
@@ -166,6 +180,38 @@ public final class BossConeSettings {
 
     public BossSoundCue getSwingSound() { return coneSwingSound; }
 
+    /** Whether the warning's end may call the cone off: never, with the fan empty, or with the target out of reach. */
+    public int getDodgeMode() { return coneDodgeMode; }
+
+    public void setDodgeMode(int value) {
+        coneDodgeMode = Mth.clamp(value, BossPhaseData.CONE_DODGE_NEVER, BossPhaseData.CONE_DODGE_RANGE);
+    }
+
+    /** Whether a cone along the gaze or at points is only swung with somebody in it. */
+    public boolean isNeedsVictim() { return coneNeedsVictim; }
+
+    public void setNeedsVictim(boolean value) { coneNeedsVictim = value; }
+
+    /** Whether the cooldown counts from the wind-up or from the last cone of the cast. */
+    public int getCooldownFrom() { return coneCooldownFrom; }
+
+    public void setCooldownFrom(int value) {
+        coneCooldownFrom = Mth.clamp(value, BossPhaseData.CONE_COOLDOWN_FROM_START,
+                BossPhaseData.CONE_COOLDOWN_FROM_END);
+    }
+
+    /**
+     * Whether the cast has what it cannot be swung without: a cone at points needs a point
+     * switched on, and the other two aims need nothing beyond their numbers. It is what a
+     * follow-up still needs once it has skipped the switch, the platforms' way.
+     */
+    public boolean isConfigured() {
+        return coneAimMode != BossPhaseData.CONE_AIM_POINTS || conePoints.hasEnabled();
+    }
+
+    /** Switched on with something to swing at, which is what puts the cone on the rotation. */
+    public boolean canCast() { return coneEnabled && isConfigured(); }
+
     public BossCastSpot castSpot() { return coneCastSpot; }
 
     void writeToNBT(CompoundTag tag) {
@@ -190,6 +236,9 @@ public final class BossConeSettings {
         tag.putInt("ConeFlashArcs", coneFlashArcs);
         tag.putInt("ConeSnap", coneSnapDegrees);
         coneSwingSound.writeToNBT(tag, "ConeSwingSound");
+        tag.putInt("ConeDodge", coneDodgeMode);
+        tag.putBoolean("ConeNeedsVictim", coneNeedsVictim);
+        tag.putInt("ConeCooldownFrom", coneCooldownFrom);
         coneCastSpot.writeToNBT(tag, "Cone");
     }
 
@@ -221,6 +270,14 @@ public final class BossConeSettings {
         coneFlashArcs = value(tag, "ConeFlashArcs", 3, 0, MAX_FLASH_ARCS);
         coneSnapDegrees = value(tag, "ConeSnap", 360, MIN_SNAP_DEGREES, MAX_SNAP_DEGREES);
         coneSwingSound.readFromNBT(tag, "ConeSwingSound");
+        // A boss saved before these were settings gets the new rules on purpose: a dodge by
+        // reach and a cooldown from the wind-up are what made its cone swing so rarely, and
+        // both are still here to choose.
+        coneDodgeMode = value(tag, "ConeDodge", BossPhaseData.CONE_DODGE_NEVER,
+                BossPhaseData.CONE_DODGE_NEVER, BossPhaseData.CONE_DODGE_RANGE);
+        coneNeedsVictim = tag.getBoolean("ConeNeedsVictim");
+        coneCooldownFrom = value(tag, "ConeCooldownFrom", BossPhaseData.CONE_COOLDOWN_FROM_END,
+                BossPhaseData.CONE_COOLDOWN_FROM_START, BossPhaseData.CONE_COOLDOWN_FROM_END);
         coneCastSpot.readFromNBT(tag, "Cone");
     }
 }

@@ -47,7 +47,10 @@ class BossConeSettingsTest {
             Map.entry("ConePointCount", new Bound(0, 16)),
             Map.entry("ConePointIntervalTicks", new Bound(0, 200)),
             Map.entry("ConeFlashArcs", new Bound(0, 8)),
-            Map.entry("ConeSnap", new Bound(10, 360)));
+            Map.entry("ConeSnap", new Bound(10, 360)),
+            Map.entry("ConeDodge", new Bound(BossPhaseData.CONE_DODGE_NEVER, BossPhaseData.CONE_DODGE_RANGE)),
+            Map.entry("ConeCooldownFrom", new Bound(BossPhaseData.CONE_COOLDOWN_FROM_START,
+                    BossPhaseData.CONE_COOLDOWN_FROM_END)));
 
     @Test
     @DisplayName("a boss saved before the cone reads it back switched off, at its defaults")
@@ -93,6 +96,10 @@ class BossConeSettingsTest {
         assertEquals(10, cone.getPointIntervalTicks());
         assertFalse(cone.castSpot().isSet(), "an old boss swings from wherever it stands");
         assertFalse(cone.getEffects().isAnyEnabled());
+        // The new rules on purpose, not the old ones: see BossConeTuningDefaultsTest.
+        assertEquals(BossPhaseData.CONE_DODGE_NEVER, cone.getDodgeMode(), "an old boss is no longer dodged by reach");
+        assertFalse(cone.isNeedsVictim(), "an old boss swings along its gaze whether or not somebody stands there");
+        assertEquals(BossPhaseData.CONE_COOLDOWN_FROM_END, cone.getCooldownFrom(), "an old boss counts from its last cone");
     }
 
     @Test
@@ -143,6 +150,8 @@ class BossConeSettingsTest {
         cone.setPointOrder(3);
         cone.setPointCount(40);
         cone.setPointIntervalTicks(-1);
+        cone.setDodgeMode(9);
+        cone.setCooldownFrom(-1);
         assertEquals(10, cone.getAngle(), "a sector narrower than a line strike is not a cone");
         assertEquals(64, cone.getLength());
         assertEquals(1, cone.getHeight());
@@ -153,6 +162,8 @@ class BossConeSettingsTest {
         assertEquals(BossPhaseData.CONE_ORDER_RANDOM, cone.getPointOrder());
         assertEquals(BossConeAimList.MAX_ENTRIES, cone.getPointCount(), "a cast never strikes more points than a list holds");
         assertEquals(0, cone.getPointIntervalTicks());
+        assertEquals(BossPhaseData.CONE_DODGE_RANGE, cone.getDodgeMode());
+        assertEquals(BossPhaseData.CONE_COOLDOWN_FROM_START, cone.getCooldownFrom());
     }
 
     @Test
@@ -176,6 +187,9 @@ class BossConeSettingsTest {
         cone.setPointOrder(BossPhaseData.CONE_ORDER_RANDOM);
         cone.setPointCount(2);
         cone.setPointIntervalTicks(25);
+        cone.setDodgeMode(BossPhaseData.CONE_DODGE_SECTOR);
+        cone.setNeedsVictim(true);
+        cone.setCooldownFrom(BossPhaseData.CONE_COOLDOWN_FROM_START);
         cone.getEffects().get(1).setEnabled(true);
         cone.getPoints().add().setPosition(-3, 1, 8);
         BossConeAimPoint fixed = cone.getPoints().add();
@@ -188,6 +202,9 @@ class BossConeSettingsTest {
         BossPhaseData reread = new BossPhaseData();
         reread.readFromNBT(once);
         assertEquals(once, reread.writeToNBT(), "write -> read -> write should reproduce the cone exactly");
+        assertEquals(BossPhaseData.CONE_DODGE_SECTOR, reread.cone().getDodgeMode());
+        assertTrue(reread.cone().isNeedsVictim());
+        assertEquals(BossPhaseData.CONE_COOLDOWN_FROM_START, reread.cone().getCooldownFrom());
         BossConeAimList points = reread.cone().getPoints();
         assertEquals(2, points.size());
         assertEquals(-3, points.get(0).getX());

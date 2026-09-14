@@ -330,6 +330,32 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.cone_order.random"
     };
 
+    /** The warning's end never calls a cone off: the sector it promised is the sector it lands, the line strike's rule. */
+    public static final int CONE_DODGE_NEVER = 0;
+
+    /** ...calls it off when nobody it may hit is left in the sector it promised. */
+    public static final int CONE_DODGE_SECTOR = 1;
+
+    /** ...calls it off when its target got further away than the cone reaches, sector or not: the rule the cone started with. */
+    public static final int CONE_DODGE_RANGE = 2;
+
+    public static final String[] CONE_DODGE_LABELS = {
+            "cnpcgeckoaddon.boss.cone_dodge.never",
+            "cnpcgeckoaddon.boss.cone_dodge.sector",
+            "cnpcgeckoaddon.boss.cone_dodge.range"
+    };
+
+    /** The cone's cooldown runs from the wind-up, however long the series after it: the rule the cone started with. */
+    public static final int CONE_COOLDOWN_FROM_START = 0;
+
+    /** The cone's cooldown runs from the last cone of the cast. */
+    public static final int CONE_COOLDOWN_FROM_END = 1;
+
+    public static final String[] CONE_COOLDOWN_FROM_LABELS = {
+            "cnpcgeckoaddon.boss.cone_cooldown_from.start",
+            "cnpcgeckoaddon.boss.cone_cooldown_from.end"
+    };
+
     /** One platform goes, drawn by the platforms' weights. */
     public static final int PLATFORM_PICK_RANDOM = 0;
 
