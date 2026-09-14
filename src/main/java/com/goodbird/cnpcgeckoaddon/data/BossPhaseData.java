@@ -393,8 +393,9 @@ public final class BossPhaseData {
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
     private int castRootMask = CAST_ROOT_ALL;
     /**
-     * Which lasting abilities this phase sees through before it starts anything else, one bit
-     * per {@link BossAbilityKind}. Off by default: the boss only ever waited out its wind-ups.
+     * Which abilities this phase sees through before it starts anything else - their effect,
+     * and the hold after it - one bit per {@link BossAbilityKind}. Off by default: the boss
+     * only ever waited out its wind-ups.
      */
     private int finishMask;
     /**
@@ -601,23 +602,23 @@ public final class BossPhaseData {
     }
 
     /**
-     * Whether the boss lets this ability's effect run out before it starts anything else:
-     * another ability, a hop along its path, a walk to a cast spot.
+     * Whether the boss lets this ability run out - its effect, and the hold after it - before
+     * it starts anything else: another ability, a hop along its path, a walk to a cast spot.
      */
     public boolean waitsForFinish(int ability) {
-        return isLasting(ability) && (finishMask & 1 << ability) != 0;
+        return isFinishAbility(ability) && (finishMask & 1 << ability) != 0;
     }
 
     public void setWaitsForFinish(int ability, boolean value) {
-        if (!isLasting(ability)) {
+        if (!isFinishAbility(ability)) {
             return;
         }
         finishMask = value ? finishMask | 1 << ability : finishMask & ~(1 << ability);
     }
 
-    /** Whether this ability has a bit in the finish mask: only one whose effect outlives its cast. */
-    private static boolean isLasting(int ability) {
-        return ability >= 0 && ability < Integer.SIZE && (BossAbilityKind.LASTING_ALL & 1 << ability) != 0;
+    /** Whether this ability has a bit in the finish mask: only one the rotation casts. */
+    private static boolean isFinishAbility(int ability) {
+        return ability >= 0 && ability < Integer.SIZE && (BossAbilityKind.FINISH_ALL & 1 << ability) != 0;
     }
 
     /** The ability this one hands straight on to when it ends, or {@link #NO_COMBO}. */
@@ -793,8 +794,10 @@ public final class BossPhaseData {
             castRootMask |= 1 << BossAbilityKind.PLATFORM;
         }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
-        // existed never waited for an effect to end, and must not start freezing mid fight.
-        finishMask = tag.getInt("FinishMask") & BossAbilityKind.LASTING_ALL;
+        // existed never waited for an effect to end, and must not start freezing mid fight. A
+        // save from when only the lasting abilities could be marked holds zeros in every other
+        // bit by construction, so it reads back exactly as it was.
+        finishMask = tag.getInt("FinishMask") & BossAbilityKind.FINISH_ALL;
         // A tag from before the chains has neither array and reads as no chains at all. A saved
         // array is laid over the slots rather than trusted: one from a build that knew fewer
         // abilities is short, one from a newer build long, and either may point anywhere.

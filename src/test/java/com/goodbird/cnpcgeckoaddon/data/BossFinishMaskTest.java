@@ -14,8 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The per-phase choice of which lasting abilities the boss sees out before it starts anything
- * else.
+ * The per-phase choice of which abilities the boss sees out before it starts anything else.
  *
  * <p>The gate reads it every tick and fails quietly either way: a bit that loads onto an old
  * boss freezes it for the length of every effect it casts, and a bit that sticks to an
@@ -30,7 +29,7 @@ class BossFinishMaskTest {
     void anOldSaveWaitsForNothing() {
         BossPhaseData phase = new BossPhaseData();
         assertEquals(0, phase.writeToNBT().getInt(KEY), "a fresh phase should wait for nothing");
-        for (int ability : BossAbilityKind.LASTING_ABILITIES) {
+        for (int ability : BossAbilityKind.FINISH_ABILITIES) {
             phase.setWaitsForFinish(ability, true);
         }
         CompoundTag tag = phase.writeToNBT();
@@ -47,45 +46,41 @@ class BossFinishMaskTest {
     }
 
     @Test
-    @DisplayName("a saved bit outside the lasting list is dropped on load")
+    @DisplayName("a saved bit outside the rotation is dropped on load")
     void bitsOutsideTheListAreDroppedOnLoad() {
         CompoundTag tag = new BossPhaseData().writeToNBT();
         tag.putInt(KEY, -1);
 
         BossPhaseData reread = new BossPhaseData();
         reread.readFromNBT(tag);
-        assertEquals(BossAbilityKind.LASTING_ALL, reread.writeToNBT().getInt(KEY),
-                "only the lasting abilities' bits should survive a mask with every bit set");
-        Set<Integer> lasting = lasting();
+        assertEquals(BossAbilityKind.FINISH_ALL, reread.writeToNBT().getInt(KEY),
+                "only the rotation's bits should survive a mask with every bit set");
+        Set<Integer> finish = finish();
         for (int ability = 0; ability < BossAbilityKind.COUNT; ability++) {
-            assertEquals(lasting.contains(ability), reread.waitsForFinish(ability),
+            assertEquals(finish.contains(ability), reread.waitsForFinish(ability),
                     "ability " + ability + " read back wrong from a mask with every bit set");
         }
     }
 
     @Test
-    @DisplayName("an ability whose effect ends with its cast cannot be marked")
+    @DisplayName("an ability the rotation never casts cannot be marked")
     void abilitiesOutsideTheListTakeNoBit() {
         BossPhaseData phase = new BossPhaseData();
-        Set<Integer> lasting = lasting();
-        for (int ability = 0; ability < BossAbilityKind.COUNT; ability++) {
-            if (!lasting.contains(ability)) {
-                phase.setWaitsForFinish(ability, true);
-            }
-        }
+        phase.setWaitsForFinish(BossAbilityKind.BLAST, true);
+        phase.setWaitsForFinish(BossAbilityKind.HAZARD, true);
         // Past the int, a shift wraps round: 36 would land on the hook's bit without the guard.
         phase.setWaitsForFinish(-1, true);
         phase.setWaitsForFinish(Integer.SIZE + BossAbilityKind.HOOK, true);
         assertEquals(0, phase.writeToNBT().getInt(KEY));
-        assertFalse(phase.waitsForFinish(BossAbilityKind.LEAP), "the leap's flight already holds the boss");
-        assertFalse(phase.waitsForFinish(BossAbilityKind.HUNT), "the hunt has its own silence switch");
+        assertFalse(phase.waitsForFinish(BossAbilityKind.BLAST), "the death blast is never cast");
+        assertFalse(phase.waitsForFinish(BossAbilityKind.HAZARD), "nor is the arena hazard");
         assertFalse(phase.waitsForFinish(Integer.SIZE + BossAbilityKind.HOOK));
     }
 
     @Test
-    @DisplayName("each lasting ability's bit comes back from the save on its own")
-    void everyLastingBitRoundTripsAlone() {
-        for (int marked : BossAbilityKind.LASTING_ABILITIES) {
+    @DisplayName("each rotation ability's bit comes back from the save on its own")
+    void everyFinishBitRoundTripsAlone() {
+        for (int marked : BossAbilityKind.FINISH_ABILITIES) {
             BossPhaseData saved = new BossPhaseData();
             saved.setWaitsForFinish(marked, true);
             BossPhaseData reread = new BossPhaseData();
@@ -100,17 +95,25 @@ class BossFinishMaskTest {
     }
 
     @Test
-    @DisplayName("the lasting list is exactly the abilities whose effect outlives the cast")
-    void theLastingListIsWrittenOutOnPurpose() {
+    @DisplayName("the finish list is the rotation, and the lasting list is the part of it with an effect")
+    void theListsAreWrittenOutOnPurpose() {
+        // The gate looks for marked abilities on the rotation, so one with no row there would
+        // show a button on the screen and never be waited for.
+        Set<Integer> rotation = BossAbility.ROTATION.stream().map(BossAbility::kind).collect(Collectors.toSet());
+        assertEquals(rotation, finish(), "the finish list and the rotation disagree");
+        assertEquals(BossAbilityKind.FINISH_ABILITIES.length, finish().size(), "an ability is listed twice");
+        assertEquals(BossAbilityKind.COMBO_ALL, BossAbilityKind.FINISH_ALL, "the finish list is the chain list again");
         assertEquals(Set.of(BossAbilityKind.HOOK, BossAbilityKind.CAPTURE, BossAbilityKind.GEYSER,
                         BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER, BossAbilityKind.GRAVITY,
                         BossAbilityKind.MARK, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
                         BossAbilityKind.PLATFORM), lasting());
         assertEquals(BossAbilityKind.LASTING_ABILITIES.length, lasting().size(), "an ability is listed twice");
-        // The gate looks for marked abilities on the rotation, so one with no row there would
-        // show a button on the screen and never be waited for.
-        Set<Integer> rotation = BossAbility.ROTATION.stream().map(BossAbility::kind).collect(Collectors.toSet());
-        assertTrue(rotation.containsAll(lasting()), "a lasting ability is not on the rotation: " + lasting());
+        assertTrue(finish().containsAll(lasting()), "a lasting ability is off the finish list: " + lasting());
+        assertEquals(BossAbilityKind.LASTING_ALL, BossAbilityKind.LASTING_ALL & BossAbilityKind.FINISH_ALL);
+    }
+
+    private static Set<Integer> finish() {
+        return Arrays.stream(BossAbilityKind.FINISH_ABILITIES).boxed().collect(Collectors.toSet());
     }
 
     private static Set<Integer> lasting() {

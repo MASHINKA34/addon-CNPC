@@ -1,5 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
+import java.util.Arrays;
+
 /**
  * The one list of boss abilities every per-ability mask indexes into.
  *
@@ -120,20 +122,23 @@ public final class BossAbilityKind {
     };
 
     /**
-     * The abilities whose effect outlives the cast, in the order they are offered: the only
-     * ones a boss can be told to see through before it starts anything else. The platforms are
-     * one of them: their fuse, and the smoulder after it, burn on long after the wind-up lands.
+     * The abilities whose effect outlives the cast, in the order they are offered: the ones a
+     * boss told to see them through has something to wait for, whether or not a hold follows.
+     * The platforms are one of them: their fuse, and the smoulder after it, burn on long after
+     * the wind-up lands.
      *
      * <p>The leap is absent because its flight already keeps the boss busy until it lands,
      * the dash because its run does the same until it stops, the cone strike because a series
      * over its points does the same until its last cone, and the hunt because its own silence
-     * switch does the same job for the chase.</p>
+     * switch does the same job for the chase. Kept as the record of who leaves something
+     * behind: the finish screen fills a hold in for everyone else, since marking them without
+     * one would wait for nothing.</p>
      */
     public static final int[] LASTING_ABILITIES = {
             HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON, PLATFORM
     };
 
-    /** Every bit {@link #LASTING_ABILITIES} owns; any other bit in a finish mask is never read. */
+    /** Every bit {@link #LASTING_ABILITIES} owns: the marked abilities whose wait is an effect rather than a hold. */
     public static final int LASTING_ALL = maskOf(LASTING_ABILITIES);
 
     /**
@@ -149,6 +154,21 @@ public final class BossAbilityKind {
 
     /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */
     public static final int COMBO_ALL = maskOf(COMBO_ABILITIES);
+
+    /**
+     * The abilities a phase can be told to see through before it starts anything else: every
+     * one the rotation casts, which is the chain list again.
+     *
+     * <p>Wider than {@link #LASTING_ABILITIES} on purpose. An instant ability leaves no effect
+     * to wait for, but the server never knows how long its swing's animation runs - that lives
+     * in the client's assets - so the builder says how many ticks the boss is still busy with
+     * it, and that hold is the whole wait. The death blast and the arena hazard are absent for
+     * the chains' reason: neither is cast, so neither has an end to see through.</p>
+     */
+    public static final int[] FINISH_ABILITIES = Arrays.copyOf(COMBO_ABILITIES, COMBO_ABILITIES.length);
+
+    /** Every bit {@link #FINISH_ABILITIES} owns; any other bit in a finish mask is never read. */
+    public static final int FINISH_ALL = maskOf(FINISH_ABILITIES);
 
     private static int maskOf(int[] abilities) {
         int mask = 0;
