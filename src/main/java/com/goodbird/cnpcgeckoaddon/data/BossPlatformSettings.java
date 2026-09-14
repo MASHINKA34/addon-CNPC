@@ -37,6 +37,12 @@ public final class BossPlatformSettings {
     public static final int MAX_FLARE = 200;
     public static final int MIN_FLARE_AREA = 5;
     public static final int MAX_FLARE_AREA = 400;
+    /** The look of the fill, the pillars and the smoulder, in the units their labels name. */
+    public static final int MIN_EDGE_SPACING = 25;
+    public static final int MAX_EDGE_SPACING = 200;
+    public static final int MAX_FILL_DENSITY = 60;
+    public static final int MAX_FUSE_RAMP = 500;
+    public static final int MAX_PILLAR_HEIGHT = 80;
 
     private boolean platformEnabled;
     private String platformAnimation = "";
@@ -66,6 +72,27 @@ public final class BossPlatformSettings {
     private final BossParticleCue platformOutlineParticles = new BossParticleCue("minecraft:flame", 1);
     private final BossParticleCue platformBlastParticles = new BossParticleCue("minecraft:lava", 1);
     private final BossSoundCue platformBlastSound = new BossSoundCue("minecraft:entity.generic.explode", 2.0F, 0.9F);
+    /**
+     * Hundredths of a block between two points of the outline. Half a block reads as a line
+     * from across the arena where the whole block the hazard's edge walks at read as dots.
+     *
+     * <p>These, the fill, the pillars and the smoulder below are the one deliberate break with
+     * "an old save burns as it used to": the old look was found to be all but invisible, so
+     * an old boss gets the new look too. Only the picture moves - its damage, fuse, shove and
+     * noises are exactly what they were - and the sparse look is back at densities of nought.</p>
+     */
+    private int platformEdgeSpacing = 50;
+    /** Fill particles per ten square blocks on each repaint of the fuse, and how much more by its end. */
+    private int platformFuseFillDensity = 6;
+    private int platformFuseRampPercent = 200;
+    private final BossParticleCue platformFuseParticles = new BossParticleCue("minecraft:flame", 1);
+    /** Tenths of a block the pillar in each corner rises to; nought is no pillars. */
+    private int platformPillarHeight = 20;
+    private final BossParticleCue platformPillarParticles = new BossParticleCue("minecraft:soul_fire_flame", 1);
+    /** Smoulder particles per ten square blocks on each repaint of a platform that went off. */
+    private int platformSmoulderDensity = 4;
+    private final BossParticleCue platformSmokeParticles = new BossParticleCue("minecraft:smoke", 1);
+    private final BossParticleCue platformBlastFlash = new BossParticleCue("minecraft:explosion_emitter", 1);
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot platformCastSpot = new BossCastSpot();
 
@@ -179,13 +206,66 @@ public final class BossPlatformSettings {
     /** The hiss as the fuse catches. */
     public BossSoundCue getLitSound() { return platformLitSound; }
 
-    /** The flame inside a platform that is already burning. */
+    /** The smoulder: the flame inside a platform that has already gone off. */
     public BossParticleCue getOutlineParticles() { return platformOutlineParticles; }
 
     /** The pops thrown up as the platform goes off, one puff per pop. */
     public BossParticleCue getBlastParticles() { return platformBlastParticles; }
 
     public BossSoundCue getBlastSound() { return platformBlastSound; }
+
+    /** Hundredths of a block between two points of the outline. */
+    public int getEdgeSpacing() { return platformEdgeSpacing; }
+
+    public void setEdgeSpacing(int value) {
+        platformEdgeSpacing = Mth.clamp(value, MIN_EDGE_SPACING, MAX_EDGE_SPACING);
+    }
+
+    /** The same in blocks, the number the outline is walked with. */
+    public double edgeSpacing() { return platformEdgeSpacing / 100.0D; }
+
+    /** Fill particles per ten square blocks on each repaint of the fuse; nought is no fill. */
+    public int getFuseFillDensity() { return platformFuseFillDensity; }
+
+    public void setFuseFillDensity(int value) {
+        platformFuseFillDensity = Mth.clamp(value, 0, MAX_FILL_DENSITY);
+    }
+
+    /** How much thicker the fill is by the end of the fuse than at its start, in per cent. */
+    public int getFuseRampPercent() { return platformFuseRampPercent; }
+
+    public void setFuseRampPercent(int value) {
+        platformFuseRampPercent = Mth.clamp(value, 0, MAX_FUSE_RAMP);
+    }
+
+    /** The fire over the floor while the fuse burns. */
+    public BossParticleCue getFuseParticles() { return platformFuseParticles; }
+
+    /** Tenths of a block the pillar in each corner rises to; nought is no pillars. */
+    public int getPillarHeight() { return platformPillarHeight; }
+
+    public void setPillarHeight(int value) {
+        platformPillarHeight = Mth.clamp(value, 0, MAX_PILLAR_HEIGHT);
+    }
+
+    /** The same in blocks. */
+    public double pillarHeight() { return platformPillarHeight / 10.0D; }
+
+    /** One of these every half block up each pillar. */
+    public BossParticleCue getPillarParticles() { return platformPillarParticles; }
+
+    /** Smoulder particles per ten square blocks on each repaint after the platform went off. */
+    public int getSmoulderDensity() { return platformSmoulderDensity; }
+
+    public void setSmoulderDensity(int value) {
+        platformSmoulderDensity = Mth.clamp(value, 0, MAX_FILL_DENSITY);
+    }
+
+    /** The smoke that drifts up off the smoulder, as many as the smoulder itself. */
+    public BossParticleCue getSmokeParticles() { return platformSmokeParticles; }
+
+    /** The one flash in the middle of the platform as it goes off. */
+    public BossParticleCue getBlastFlash() { return platformBlastFlash; }
 
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return platformCastSpot; }
@@ -213,6 +293,15 @@ public final class BossPlatformSettings {
         platformOutlineParticles.writeToNBT(tag, "PlatformOutline");
         platformBlastParticles.writeToNBT(tag, "PlatformBlastParticles");
         platformBlastSound.writeToNBT(tag, "PlatformBlast");
+        tag.putInt("PlatformEdgeSpacing", platformEdgeSpacing);
+        tag.putInt("PlatformFuseFill", platformFuseFillDensity);
+        tag.putInt("PlatformFuseRamp", platformFuseRampPercent);
+        platformFuseParticles.writeToNBT(tag, "PlatformFuse");
+        tag.putInt("PlatformPillarHeight", platformPillarHeight);
+        platformPillarParticles.writeToNBT(tag, "PlatformPillarCue");
+        tag.putInt("PlatformSmoulder", platformSmoulderDensity);
+        platformSmokeParticles.writeToNBT(tag, "PlatformSmoke");
+        platformBlastFlash.writeToNBT(tag, "PlatformFlash");
         platformCastSpot.writeToNBT(tag, "Platform");
     }
 
@@ -242,6 +331,15 @@ public final class BossPlatformSettings {
         platformOutlineParticles.readFromNBT(tag, "PlatformOutline");
         platformBlastParticles.readFromNBT(tag, "PlatformBlastParticles");
         platformBlastSound.readFromNBT(tag, "PlatformBlast");
+        platformEdgeSpacing = value(tag, "PlatformEdgeSpacing", 50, MIN_EDGE_SPACING, MAX_EDGE_SPACING);
+        platformFuseFillDensity = value(tag, "PlatformFuseFill", 6, 0, MAX_FILL_DENSITY);
+        platformFuseRampPercent = value(tag, "PlatformFuseRamp", 200, 0, MAX_FUSE_RAMP);
+        platformFuseParticles.readFromNBT(tag, "PlatformFuse");
+        platformPillarHeight = value(tag, "PlatformPillarHeight", 20, 0, MAX_PILLAR_HEIGHT);
+        platformPillarParticles.readFromNBT(tag, "PlatformPillarCue");
+        platformSmoulderDensity = value(tag, "PlatformSmoulder", 4, 0, MAX_FILL_DENSITY);
+        platformSmokeParticles.readFromNBT(tag, "PlatformSmoke");
+        platformBlastFlash.readFromNBT(tag, "PlatformFlash");
         platformCastSpot.readFromNBT(tag, "Platform");
     }
 }

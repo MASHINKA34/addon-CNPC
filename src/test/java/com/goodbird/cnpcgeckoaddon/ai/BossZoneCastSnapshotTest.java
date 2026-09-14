@@ -34,6 +34,15 @@ class BossZoneCastSnapshotTest {
         platform.getBlastSound().setVolume(3);
         platform.getBlastParticles().setCount(5);
         platform.getOutlineParticles().setEnabled(false);
+        platform.setEdgeSpacing(100);
+        platform.setFuseFillDensity(10);
+        platform.setFuseRampPercent(100);
+        platform.setPillarHeight(35);
+        platform.setSmoulderDensity(5);
+        platform.getFuseParticles().setParticleId("minecraft:soul_fire_flame");
+        platform.getPillarParticles().setCount(2);
+        platform.getSmokeParticles().setEnabled(false);
+        platform.getBlastFlash().setCount(3);
 
         BossPlatformScheduler.Look look = BossPlatformScheduler.look(platform);
         assertEquals(9, look.blinkTicks());
@@ -43,6 +52,16 @@ class BossZoneCastSnapshotTest {
         assertEquals(3, look.blastSound().getVolume());
         assertEquals(5, look.blastParticles().getCount());
         assertFalse(look.outlineParticles().isEnabled());
+        assertEquals(1.0D, look.edgeSpacing(), EPSILON);
+        // Ten per ten square blocks over sixteen of them is sixteen, twice that by the end.
+        assertEquals(16, look.fusePoints(16.0D, 0.0F));
+        assertEquals(32, look.fusePoints(16.0D, 1.0F));
+        assertEquals(8, look.smoulderPoints(16.0D));
+        assertEquals(3.5D, look.pillarHeight(), EPSILON);
+        assertEquals("minecraft:soul_fire_flame", look.fuseParticles().getParticleId());
+        assertEquals(2, look.pillarParticles().getCount());
+        assertFalse(look.smokeParticles().isEnabled());
+        assertEquals(3, look.blastFlash().getCount());
     }
 
     @Test
@@ -56,12 +75,31 @@ class BossZoneCastSnapshotTest {
         platform.setFlareMax(0);
         platform.getBlastSound().setEnabled(false);
         platform.getBlastParticles().setCount(0);
+        platform.setEdgeSpacing(200);
+        platform.setFuseFillDensity(0);
+        platform.setFuseRampPercent(0);
+        platform.setPillarHeight(0);
+        platform.setSmoulderDensity(0);
+        platform.getFuseParticles().setEnabled(false);
+        platform.getPillarParticles().setCount(0);
+        platform.getSmokeParticles().setCount(0);
+        platform.getBlastFlash().setEnabled(false);
 
         assertEquals(4, look.blinkTicks());
         assertEquals(20, look.countdownIntervalTicks());
         assertEquals(4, look.pops(16.0D), "four square blocks a pop is what it was cast with");
         assertTrue(look.blastSound().isEnabled());
         assertEquals(1, look.blastParticles().getCount());
+        assertEquals(0.5D, look.edgeSpacing(), EPSILON);
+        // Six per ten square blocks over sixty-four of them, and three times that at the end.
+        assertEquals(38, look.fusePoints(64.0D, 0.0F));
+        assertEquals(115, look.fusePoints(64.0D, 1.0F));
+        assertEquals(26, look.smoulderPoints(64.0D));
+        assertEquals(2.0D, look.pillarHeight(), EPSILON);
+        assertTrue(look.fuseParticles().isEnabled());
+        assertEquals(1, look.pillarParticles().getCount());
+        assertEquals(1, look.smokeParticles().getCount());
+        assertTrue(look.blastFlash().isEnabled());
     }
 
     @Test

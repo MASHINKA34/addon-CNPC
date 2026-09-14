@@ -55,6 +55,18 @@ public final class BossPlatformScheduler {
     private static final int MAX_PER_TICK = 64;
 
     /**
+     * Ceiling on the fill or the smoulder one repaint of one platform sows, so a sixteen by
+     * sixteen floor does not spit hundreds a tick; past it the density is simply held.
+     */
+    static final int MAX_FILL_POINTS = 128;
+    /** The same for the four pillars together, held by spacing them out rather than cutting them short. */
+    static final int MAX_PILLAR_POINTS = 64;
+    /** How far inside its corners a platform's pillars stand, so they rise out of the floor and not off its rim. */
+    static final double PILLAR_INSET = 0.5D;
+    /** One pillar particle for every this much of its height. */
+    static final double PILLAR_STEP = 0.5D;
+
+    /**
      * How a platform flashes, bangs and sounds, taken off the settings on the tick the fuse was
      * lit.
      *
@@ -70,6 +82,15 @@ public final class BossPlatformScheduler {
         private final BossParticleCue outlineParticles;
         private final BossParticleCue blastParticles;
         private final BossSoundCue blastSound;
+        private final double edgeSpacing;
+        private final int fuseFillDensity;
+        private final int fuseRampPercent;
+        private final BossParticleCue fuseParticles;
+        private final double pillarHeight;
+        private final BossParticleCue pillarParticles;
+        private final int smoulderDensity;
+        private final BossParticleCue smokeParticles;
+        private final BossParticleCue blastFlash;
 
         private Look(BossPlatformSettings platform) {
             blinkTicks = platform.getBlinkTicks();
@@ -79,6 +100,15 @@ public final class BossPlatformScheduler {
             outlineParticles = platform.getOutlineParticles().copy();
             blastParticles = platform.getBlastParticles().copy();
             blastSound = platform.getBlastSound().copy();
+            edgeSpacing = platform.edgeSpacing();
+            fuseFillDensity = platform.getFuseFillDensity();
+            fuseRampPercent = platform.getFuseRampPercent();
+            fuseParticles = platform.getFuseParticles().copy();
+            pillarHeight = platform.pillarHeight();
+            pillarParticles = platform.getPillarParticles().copy();
+            smoulderDensity = platform.getSmoulderDensity();
+            smokeParticles = platform.getSmokeParticles().copy();
+            blastFlash = platform.getBlastFlash().copy();
         }
 
         int blinkTicks() {
@@ -112,11 +142,92 @@ public final class BossPlatformScheduler {
         BossSoundCue blastSound() {
             return blastSound;
         }
+
+        /** Blocks between two points of the outline. */
+        double edgeSpacing() {
+            return edgeSpacing;
+        }
+
+        /** How much fire this much floor gets on one repaint of the fuse, this far into it. */
+        int fusePoints(double area, float progress) {
+            return fillPoints(fuseFillDensity, area, fuseRampPercent, progress);
+        }
+
+        /** How much smoulder - and as much smoke - it gets on one repaint after it went off. */
+        int smoulderPoints(double area) {
+            return fillPoints(smoulderDensity, area, 0, 0.0F);
+        }
+
+        BossParticleCue fuseParticles() {
+            return fuseParticles;
+        }
+
+        /** How high the pillars in the corners rise while the fuse burns, in blocks. */
+        double pillarHeight() {
+            return pillarHeight;
+        }
+
+        BossParticleCue pillarParticles() {
+            return pillarParticles;
+        }
+
+        BossParticleCue smokeParticles() {
+            return smokeParticles;
+        }
+
+        BossParticleCue blastFlash() {
+            return blastFlash;
+        }
     }
 
     /** What this platform will look and sound like, whatever the builder does next. */
     static Look look(BossPlatformSettings platform) {
         return new Look(platform);
+    }
+
+    /**
+     * How many particles a floor of {@code area} square blocks gets on one repaint: {@code density}
+     * per ten of them, grown by {@code rampPercent} over the fuse, and held under the ceiling.
+     *
+     * <p>Rounded rather than cut, so a small platform at a low density still gets its one or
+     * two; {@link BossTelegraphPaint#NO_END} and anything else off the fuse counts as its start.</p>
+     */
+    static int fillPoints(int density, double area, int rampPercent, float progress) {
+        double grown = 1.0D + rampPercent / 100.0D * Mth.clamp(progress, 0.0F, 1.0F);
+        return Mth.clamp((int) Math.round(density * area / 10.0D * grown), 0, MAX_FILL_POINTS);
+    }
+
+    /**
+     * Where the four pillars stand: the corners of the box, each {@link #PILLAR_INSET} in on
+     * both sides, in the order the outline walks them. A box too narrow for the inset folds them
+     * onto one another rather than putting them outside it.
+     */
+    static Vec3[] pillarCorners(AABB box, double y) {
+        double west = Math.min(box.minX + PILLAR_INSET, box.getCenter().x);
+        double east = Math.max(box.maxX - PILLAR_INSET, box.getCenter().x);
+        double north = Math.min(box.minZ + PILLAR_INSET, box.getCenter().z);
+        double south = Math.max(box.maxZ - PILLAR_INSET, box.getCenter().z);
+        return new Vec3[]{
+                new Vec3(west, y, north), new Vec3(east, y, north),
+                new Vec3(east, y, south), new Vec3(west, y, south)};
+    }
+
+    /**
+     * How high above the floor each particle of one pillar sits: one every {@link #PILLAR_STEP}
+     * up to {@code height}, the topmost on it, and nothing at all for no height. Held to a
+     * quarter of {@link #MAX_PILLAR_POINTS} by spacing them out, so a pillar keeps its height
+     * and loses only its density.
+     */
+    static double[] pillarHeights(double height) {
+        if (height <= 0.0D) {
+            return new double[0];
+        }
+        int steps = Mth.clamp((int) Math.round(height / PILLAR_STEP), 1, MAX_PILLAR_POINTS / 4);
+        double[] heights = new double[steps];
+        for (int i = 0; i < steps; i++) {
+            heights[i] = height * (i + 1) / steps;
+        }
+        return heights;
     }
 
     /**

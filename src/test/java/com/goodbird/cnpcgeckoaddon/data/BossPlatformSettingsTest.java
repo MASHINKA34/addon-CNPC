@@ -45,14 +45,38 @@ class BossPlatformSettingsTest {
             Map.entry("PlatformBlink", new Bound(1, 40)),
             Map.entry("PlatformCountdownInterval", new Bound(5, 200)),
             Map.entry("PlatformFlareMax", new Bound(0, 200)),
-            Map.entry("PlatformFlareArea", new Bound(5, 400)));
+            Map.entry("PlatformFlareArea", new Bound(5, 400)),
+            Map.entry("PlatformEdgeSpacing", new Bound(25, 200)),
+            Map.entry("PlatformFuseFill", new Bound(0, 60)),
+            Map.entry("PlatformFuseRamp", new Bound(0, 500)),
+            Map.entry("PlatformPillarHeight", new Bound(0, 80)),
+            Map.entry("PlatformSmoulder", new Bound(0, 60)));
 
     /**
      * The cues' own prefixes. Their numbers are a volume, a pitch and a count, whose ranges
      * belong to the cue rather than to the platform, and are pinned by the cue's own test.
      */
     private static final List<String> CUE_PREFIXES = List.of(
-            "PlatformLit", "PlatformOutline", "PlatformBlast");
+            "PlatformLit", "PlatformOutline", "PlatformBlast", "PlatformBlastParticles", "PlatformFuse",
+            "PlatformPillarCue", "PlatformSmoke", "PlatformFlash");
+
+    /**
+     * The numbers a cue writes under its prefix, and nothing else: the fuse cue sits under
+     * {@code PlatformFuse}, which the fuse's own ticks, fill and ramp begin with too, so a
+     * prefix alone would wave those three through unbounded.
+     */
+    private static final List<String> CUE_NUMBER_SUFFIXES = List.of("Count", "Volume", "Pitch");
+
+    private static boolean isCueNumber(String key) {
+        for (String prefix : CUE_PREFIXES) {
+            for (String suffix : CUE_NUMBER_SUFFIXES) {
+                if (key.equals(prefix + suffix)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     /** A zone's own numbers, the same way: the list writes one compound per zone. */
     private static final Map<String, Bound> ZONE_BOUNDS = Map.ofEntries(
@@ -135,7 +159,7 @@ class BossPlatformSettingsTest {
         // The spot's numbers belong to the cast spot, which has bounds and tests of its own.
         Set<String> numbers = tag.getAllKeys().stream()
                 .filter(key -> key.startsWith("Platform") && !key.startsWith("PlatformSpot"))
-                .filter(key -> CUE_PREFIXES.stream().noneMatch(key::startsWith))
+                .filter(key -> !isCueNumber(key))
                 .filter(key -> tag.get(key) instanceof IntTag)
                 .collect(Collectors.toCollection(TreeSet::new));
         assertEquals(new TreeSet<>(BOUNDS.keySet()), numbers,
@@ -182,6 +206,11 @@ class BossPlatformSettingsTest {
         platform.setLingerTicks(-20);
         platform.setLingerIntervalTicks(0);
         platform.setVfx("no such wave");
+        platform.setEdgeSpacing(0);
+        platform.setFuseFillDensity(-1);
+        platform.setFuseRampPercent(9999);
+        platform.setPillarHeight(500);
+        platform.setSmoulderDensity(61);
         assertEquals(0, platform.getActionDelayTicks());
         assertEquals(1, platform.getCooldownTicks());
         assertEquals(BossPhaseData.PLATFORM_PICK_ALL_BUT_ONE, platform.getPickMode());
@@ -192,6 +221,13 @@ class BossPlatformSettingsTest {
         assertEquals(0, platform.getLingerTicks());
         assertEquals(1, platform.getLingerIntervalTicks(), "a dose every zero ticks would never end");
         assertEquals(AreaVfxStyles.NONE, platform.getVfx());
+        assertEquals(25, platform.getEdgeSpacing(), "an outline of no spacing is a point per nothing");
+        assertEquals(0.25D, platform.edgeSpacing(), 1.0E-9D);
+        assertEquals(0, platform.getFuseFillDensity());
+        assertEquals(500, platform.getFuseRampPercent());
+        assertEquals(80, platform.getPillarHeight());
+        assertEquals(8.0D, platform.pillarHeight(), 1.0E-9D);
+        assertEquals(60, platform.getSmoulderDensity());
 
         BossPlatformZone zone = new BossPlatformZoneList().add();
         zone.setWeight(0);
