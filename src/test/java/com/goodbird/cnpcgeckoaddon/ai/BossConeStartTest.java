@@ -158,7 +158,7 @@ class BossConeStartTest {
         double radians = Math.toRadians(degrees);
         double x = ORIGIN.x + Math.cos(radians) * distance;
         double z = ORIGIN.z + Math.sin(radians) * distance;
-        boolean inFan = BossConeRuntime.inSector(ORIGIN, EAST, 60, 10, 3, x, ORIGIN.y, z);
+        boolean inFan = BossConeRuntime.inSector(ORIGIN, EAST, 60, 10, 3, x, z, ORIGIN.y, ORIGIN.y + 1.8D);
         boolean inReach = distance <= 10.0D;
         assertEquals(never, BossConeRuntime.survivesWarning(BossPhaseData.CONE_DODGE_NEVER, inFan, inReach), where);
         assertEquals(sector, BossConeRuntime.survivesWarning(BossPhaseData.CONE_DODGE_SECTOR, inFan, inReach), where);

@@ -146,7 +146,7 @@ final class BossConeRuntime {
         if (!mayHit(target, boss.settings())) {
             return false;
         }
-        if (Math.abs(target.getY() - npc.getY()) > phase.cone().getHeight()) {
+        if (!inHeightBand(npc.getY(), phase.cone().getHeight(), target.getY(), target.getY() + target.getBbHeight())) {
             return false;
         }
         double dx = target.getX() - npc.getX();
@@ -474,7 +474,7 @@ final class BossConeRuntime {
     private static boolean inAnySector(Vec3 origin, List<Vec3> axes, BossConeSettings cone, LivingEntity target) {
         for (Vec3 axis : axes) {
             if (inSector(origin, axis, cone.getAngle(), cone.getLength(), cone.getHeight(),
-                    target.getX(), target.getY(), target.getZ())) {
+                    target.getX(), target.getZ(), target.getY(), target.getY() + target.getBbHeight())) {
                 return true;
             }
         }
@@ -482,17 +482,18 @@ final class BossConeRuntime {
     }
 
     /**
-     * Whether a spot is inside a cone laid from {@code origin} along the flat unit {@code axis}:
-     * no further off the axis, seen from the boss, than half of {@code angle} degrees; no further
-     * out than {@code length}, measured flat; and no more than {@code height} above or below the
-     * boss' feet. Every edge counts as inside.
+     * Whether a body standing at {@code x, z} from {@code feet} up to {@code head} is inside a
+     * cone laid from {@code origin} along the flat unit {@code axis}: no further off the axis,
+     * seen from the boss, than half of {@code angle} degrees; no further out than {@code length},
+     * measured flat; and reaching into the band {@code height} above and below the boss' feet.
+     * Every edge counts as inside.
      *
      * <p>Somebody standing inside the boss has no direction to be judged by, and counts as in
      * the cone: nobody gets clear of a swing by hugging whoever swings it.</p>
      */
     static boolean inSector(Vec3 origin, Vec3 axis, double angle, double length, double height,
-                            double x, double y, double z) {
-        if (Math.abs(y - origin.y) > height + EDGE_EPSILON) {
+                            double x, double z, double feet, double head) {
+        if (!inHeightBand(origin.y, height, feet, head)) {
             return false;
         }
         double dx = x - origin.x;
@@ -509,6 +510,16 @@ final class BossConeRuntime {
         // far away it is, is the cosine of how far off the axis it stands.
         double along = dx * axis.x + dz * axis.z;
         return along >= Math.sqrt(distanceSqr) * Math.cos(Math.toRadians(angle * 0.5D)) - EDGE_EPSILON;
+    }
+
+    /**
+     * Whether a body from {@code feet} up to {@code head} reaches into the band {@code height}
+     * above and below {@code originY}. Judged by the body rather than by the feet, the dash's
+     * rule: a player on a step, or on a ledge below with their head level with the boss' feet,
+     * is hit rather than spared by a height of one. Either edge counts as inside.
+     */
+    static boolean inHeightBand(double originY, double height, double feet, double head) {
+        return head >= originY - height - EDGE_EPSILON && feet <= originY + height + EDGE_EPSILON;
     }
 
     /**

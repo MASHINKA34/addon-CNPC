@@ -21,13 +21,19 @@ class BossConeGeometryTest {
     private static final Vec3 ORIGIN = new Vec3(10.0D, 64.0D, -5.0D);
     /** Looking east. */
     private static final Vec3 EAST = new Vec3(1.0D, 0.0D, 0.0D);
+    /** How tall the body judged below stands: a player's. */
+    private static final double BODY = 1.8D;
 
-    /** Where a spot {@code distance} out and {@code degrees} off the east axis stands, seen from the origin. */
+    /**
+     * Whether a body {@code distance} out and {@code degrees} off the east axis, its feet
+     * {@code rise} above the origin, stands in the cone.
+     */
     private static boolean inEastCone(double angle, double length, double height,
                                       double distance, double degrees, double rise) {
         double radians = Math.toRadians(degrees);
+        double feet = ORIGIN.y + rise;
         return BossConeRuntime.inSector(ORIGIN, EAST, angle, length, height,
-                ORIGIN.x + Math.cos(radians) * distance, ORIGIN.y + rise, ORIGIN.z + Math.sin(radians) * distance);
+                ORIGIN.x + Math.cos(radians) * distance, ORIGIN.z + Math.sin(radians) * distance, feet, feet + BODY);
     }
 
     @Test
@@ -52,17 +58,34 @@ class BossConeGeometryTest {
         assertFalse(inEastCone(60, 10, 3, 11.0D, 0.0D, 0.0D), "eleven blocks out of a ten block cone is clear");
         // At the edge of the angle the reach is still the full length, not the axis' projection of it.
         assertTrue(inEastCone(60, 10, 3, 10.0D, 30.0D, 0.0D), "the corner of the fan is inside it");
-        // A spot three up and ten out is ten away on the floor plan, so height does not eat into the length.
+        // A body three up and ten out is ten away on the floor plan, so height does not eat into the length.
         assertTrue(inEastCone(60, 10, 3, 10.0D, 0.0D, 3.0D));
     }
 
     @Test
-    @DisplayName("the height band reaches as far above the boss as below it, the edge included")
+    @DisplayName("the height band reaches as far above the boss as below it, and a body reaching into it is in it")
     void theHeightBandIsBothWays() {
-        assertTrue(inEastCone(60, 10, 3, 5.0D, 0.0D, 3.0D), "exactly the height above is in the cone");
-        assertTrue(inEastCone(60, 10, 3, 5.0D, 0.0D, -3.0D), "exactly the height below is in the cone");
+        assertTrue(inEastCone(60, 10, 3, 5.0D, 0.0D, 3.0D), "feet exactly the height above are in the cone");
+        assertTrue(inEastCone(60, 10, 3, 5.0D, 0.0D, -3.0D), "feet exactly the height below are in the cone");
         assertFalse(inEastCone(60, 10, 3, 5.0D, 0.0D, 3.1D), "a balcony above the band is clear");
-        assertFalse(inEastCone(60, 10, 3, 5.0D, 0.0D, -3.5D), "a pit below the band is clear");
+        assertTrue(inEastCone(60, 10, 3, 5.0D, 0.0D, -3.5D), "a pit the head still pokes out of into the band is not");
+        assertFalse(inEastCone(60, 10, 3, 5.0D, 0.0D, -5.0D), "a pit deep enough to swallow the whole body is clear");
+    }
+
+    @Test
+    @DisplayName("a body is judged from its feet to its head, so a step up or a ledge down does not spare it")
+    void theBodyCountsNotTheFeet() {
+        // A height of one, the tightest band there is: what used to spare a player on a step.
+        assertTrue(inEastCone(60, 10, 1, 4.0D, 0.0D, 0.5D), "on a slab");
+        assertTrue(inEastCone(60, 10, 1, 4.0D, 0.0D, 1.0D), "on a step one block up, the feet on the top edge");
+        assertFalse(inEastCone(60, 10, 1, 4.0D, 0.0D, 1.5D), "up on a ledge the whole body is above the band");
+        assertTrue(inEastCone(60, 10, 1, 4.0D, 0.0D, -BODY), "on a ledge below with the head level with the boss' feet");
+        assertTrue(inEastCone(60, 10, 1, 4.0D, 0.0D, -BODY - 1.0D), "one lower still, the head on the bottom edge");
+        assertFalse(inEastCone(60, 10, 1, 4.0D, 0.0D, -BODY - 1.1D), "and below that the whole body is under the band");
+        // The band on its own, apart from any fan: what the target pick reads too.
+        assertTrue(BossConeRuntime.inHeightBand(64.0D, 1.0D, 62.2D, 64.0D));
+        assertFalse(BossConeRuntime.inHeightBand(64.0D, 1.0D, 61.0D, 62.8D));
+        assertFalse(BossConeRuntime.inHeightBand(64.0D, 1.0D, 65.1D, 66.9D));
     }
 
     @Test
@@ -77,9 +100,9 @@ class BossConeGeometryTest {
     @Test
     @DisplayName("somebody standing inside the boss is in its cone, whichever way it faces")
     void theCentreIsInside() {
-        assertTrue(BossConeRuntime.inSector(ORIGIN, EAST, 10, 2, 1, ORIGIN.x, ORIGIN.y, ORIGIN.z));
+        assertTrue(BossConeRuntime.inSector(ORIGIN, EAST, 10, 2, 1, ORIGIN.x, ORIGIN.z, ORIGIN.y, ORIGIN.y + BODY));
         assertTrue(BossConeRuntime.inSector(ORIGIN, new Vec3(0.0D, 0.0D, -1.0D), 10, 2, 1,
-                ORIGIN.x, ORIGIN.y + 0.5D, ORIGIN.z));
+                ORIGIN.x, ORIGIN.z, ORIGIN.y + 0.5D, ORIGIN.y + 0.5D + BODY));
     }
 
     @Test
@@ -103,13 +126,18 @@ class BossConeGeometryTest {
     void theAxisTurnsTheCone() {
         double diagonal = Math.sqrt(0.5D);
         Vec3 southWest = new Vec3(-diagonal, 0.0D, diagonal);
-        assertTrue(BossConeRuntime.inSector(ORIGIN, southWest, 40, 8, 2, ORIGIN.x - 4.0D, ORIGIN.y, ORIGIN.z + 4.0D),
+        assertTrue(inCone(southWest, 40, ORIGIN.x - 4.0D, ORIGIN.z + 4.0D),
                 "four west and four south is straight down a south-west axis");
-        assertFalse(BossConeRuntime.inSector(ORIGIN, southWest, 40, 8, 2, ORIGIN.x + 4.0D, ORIGIN.y, ORIGIN.z + 4.0D),
+        assertFalse(inCone(southWest, 40, ORIGIN.x + 4.0D, ORIGIN.z + 4.0D),
                 "four east and four south is ninety degrees off it");
-        assertFalse(BossConeRuntime.inSector(ORIGIN, southWest, 40, 8, 2, ORIGIN.x - 4.0D, ORIGIN.y, ORIGIN.z),
+        assertFalse(inCone(southWest, 40, ORIGIN.x - 4.0D, ORIGIN.z),
                 "due west is forty-five degrees off a south-west axis, past a forty degree cone's twenty");
-        assertTrue(BossConeRuntime.inSector(ORIGIN, southWest, 90, 8, 2, ORIGIN.x - 4.0D, ORIGIN.y, ORIGIN.z),
+        assertTrue(inCone(southWest, 90, ORIGIN.x - 4.0D, ORIGIN.z),
                 "and exactly on the edge of a ninety degree one");
+    }
+
+    /** Whether a body standing on the origin's floor at {@code x, z} is in an eight block cone of {@code angle} along {@code axis}. */
+    private static boolean inCone(Vec3 axis, double angle, double x, double z) {
+        return BossConeRuntime.inSector(ORIGIN, axis, angle, 8, 2, x, z, ORIGIN.y, ORIGIN.y + BODY);
     }
 }
