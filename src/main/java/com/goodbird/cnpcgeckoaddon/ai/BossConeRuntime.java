@@ -123,12 +123,38 @@ final class BossConeRuntime {
     }
 
     /**
-     * Whether the cone being wound up still has anyone to land on once the warning is over. Only
-     * a cone aimed at a target can be dodged by its target: the gaze and the points promised a
-     * sector, and stepping out of it already is the dodge.
+     * Whether the cone being wound up still has anyone to land on once the warning is over,
+     * by the rule the phase chose.
+     *
+     * <p>The sector was committed to when the warning went up, so by default there is nothing
+     * to call off - the line strike's rule: stepping out of the fan already is the dodge, and
+     * calling the cast off would only bring the same cone back round in two seconds, after the
+     * boss stood rooted through a swing it never made. A phase may instead have the cast called
+     * off when nobody it may hit is left in the promised fan, or - the rule the cone started
+     * with - when its target got further away than the cone reaches, in the fan or not; along
+     * the gaze or at points that last rule has no target to judge and calls nothing off.</p>
      */
-    boolean stillValid(LivingEntity target, BossPhaseData phase) {
-        return phase.cone().getAimMode() != BossPhaseData.CONE_AIM_TARGET || isValidTarget(target, phase);
+    boolean stillValid(ServerLevel level, TeleportPathData data, LivingEntity target, BossPhaseData phase) {
+        BossConeSettings cone = phase.cone();
+        int mode = cone.getDodgeMode();
+        // Each rule's question is asked only under that rule: the fan's is an entity scan.
+        boolean anyoneInFan = mode == BossPhaseData.CONE_DODGE_SECTOR
+                && !victimsIn(level, data, cone, npc.position(), axesFor(boss.committedAxis())).isEmpty();
+        boolean targetInReach = mode == BossPhaseData.CONE_DODGE_RANGE
+                && (cone.getAimMode() != BossPhaseData.CONE_AIM_TARGET || isValidTarget(target, phase));
+        return survivesWarning(mode, anyoneInFan, targetInReach);
+    }
+
+    /**
+     * Whether the warning's end lets the cast go on: always under the first rule, with anyone
+     * left in the promised fan under the second, with the target still in reach under the third.
+     */
+    static boolean survivesWarning(int dodgeMode, boolean anyoneInFan, boolean targetInReach) {
+        return switch (dodgeMode) {
+            case BossPhaseData.CONE_DODGE_SECTOR -> anyoneInFan;
+            case BossPhaseData.CONE_DODGE_RANGE -> targetInReach;
+            default -> true;
+        };
     }
 
     /** The cone the cast being wound up lands first, from where the boss stands now. */

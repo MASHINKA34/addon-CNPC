@@ -2334,9 +2334,10 @@ public final class TeleportPathController {
             // would only bring the same strike back round in two seconds. The dash's lane
             // is the same promise, and its target only ever pointed it.
             case LINE_ATTACK, BOULDER, DASH -> true;
-            // A cone at a target is the swing at somebody: out of its reach, the way out of a
-            // swing's, is a dodge. Along the gaze or at points it promised a sector instead.
-            case CONE -> cone.stillValid(target, phase);
+            // A cone's fan was committed to when the warning went up, the corridor's way, so by
+            // default nothing is called off; the phase may instead have it called off with the
+            // fan empty, or with the target out of reach - the rule the cone started with.
+            case CONE -> cone.stillValid(level, settings(), target, phase);
             // The platforms were picked when the warning went up, and nobody is aimed at: jumping
             // off the one that burns is the dodge, and it is judged when the fuse runs out.
             case PLATFORM -> true;
