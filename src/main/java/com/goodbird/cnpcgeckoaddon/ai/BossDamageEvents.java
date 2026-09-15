@@ -524,9 +524,22 @@ public final class BossDamageEvents {
     @SubscribeEvent
     public static void onLivingFall(final LivingFallEvent event) {
         landGravityThrow(event);
+        landSeismicSlam(event);
         cancelLaunchPadFall(event);
         cancelHurricaneFall(event);
         cancelOwnLeapFall(event);
+    }
+
+    /**
+     * Lands the seismic slam's own hit on whoever it yanked down, the moment they come down,
+     * for the reason the gravity throw's lands here: ahead of vanilla's fall damage, so the two
+     * stack when the phase keeps the fall - and in place of it when the phase forgives it.
+     */
+    private static void landSeismicSlam(LivingFallEvent event) {
+        if (!event.getEntity().level().isClientSide
+                && BossSeismicScheduler.onFall(event.getEntity(), event.getDistance(), event.getDamageMultiplier())) {
+            event.setCanceled(true);
+        }
     }
 
     /**

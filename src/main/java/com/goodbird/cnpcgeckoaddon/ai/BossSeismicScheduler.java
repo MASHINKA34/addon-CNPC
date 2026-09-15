@@ -14,14 +14,20 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Runs the seismic waves: rings of the arena floor round the boss, outlined and then landed
@@ -141,7 +147,44 @@ public final class BossSeismicScheduler {
         }
     }
 
+    /** One victim thrown up by a ring, owed the yank back down a moment later. */
+    private static final class Slam {
+        private final ResourceKey<Level> dimension;
+        private final EntityNPCInterface boss;
+        private final UUID victimId;
+        private final Look look;
+        private final long at;
+
+        private Slam(ResourceKey<Level> dimension, EntityNPCInterface boss, UUID victimId, Look look, long at) {
+            this.dimension = dimension;
+            this.boss = boss;
+            this.victimId = victimId;
+            this.look = look;
+            this.at = at;
+        }
+    }
+
+    /** One slammed victim, still in the air as far as this knows. */
+    private static final class Landing {
+        private final ResourceKey<Level> dimension;
+        private final EntityNPCInterface boss;
+        private final Look look;
+        private final long thrownAt;
+        /** Set once the server has seen them off the floor, so the slam tick itself is not a landing. */
+        private boolean airborne;
+
+        private Landing(ResourceKey<Level> dimension, EntityNPCInterface boss, Look look, long thrownAt) {
+            this.dimension = dimension;
+            this.boss = boss;
+            this.look = look;
+            this.thrownAt = thrownAt;
+        }
+    }
+
     private static final TickQueue<Series> SERIES = new TickQueue<>("boss seismic series", MAX_PER_TICK);
+    /** Ceiling on the slams one tick works on: a ring can throw a party, but not more than this. */
+    private static final TickQueue<Slam> SLAMS = new TickQueue<>("boss seismic slams", 64);
+    private static final Map<UUID, Landing> LANDINGS = new HashMap<>();
 
     private BossSeismicScheduler() {
     }
@@ -182,7 +225,7 @@ public final class BossSeismicScheduler {
     }
 
     public static boolean hasPending() {
-        return !SERIES.isEmpty();
+        return !SERIES.isEmpty() || !SLAMS.isEmpty() || !LANDINGS.isEmpty();
     }
 
     /** Whether this boss has a series running; what a second cast, a chain and a finish hold wait on. */
@@ -209,23 +252,34 @@ public final class BossSeismicScheduler {
         long gameTime = level.getGameTime();
         SERIES.sweep(series -> series.dimension.equals(level.dimension()),
                 series -> tickSeries(level, series, gameTime));
+        SLAMS.sweep(slam -> slam.dimension.equals(level.dimension()),
+                slam -> tickSlam(level, slam, gameTime));
+        tickLandings(level, gameTime);
     }
 
     /** Drops everything still running in a level that is going away. */
     public static void clear(ServerLevel level) {
         SERIES.removeIf(series -> series.dimension.equals(level.dimension()));
+        SLAMS.removeIf(slam -> slam.dimension.equals(level.dimension()));
+        LANDINGS.values().removeIf(landing -> landing.dimension.equals(level.dimension()));
     }
 
     /**
      * Drops the series one boss cast, for its death, the end of its fight and a phase that is
      * over: the rings are the boss doing something, not a fault in the floor, and the arena owes
-     * the party nothing more once the boss has stopped.
+     * the party nothing more once the boss has stopped. The slams it still owed and the landings
+     * it was waiting on go with it: whoever is in the air comes down as they would from any jump.
      */
     public static void clearBoss(EntityNPCInterface boss) {
-        if (SERIES.isEmpty()) {
-            return;
+        if (!SERIES.isEmpty()) {
+            SERIES.removeIf(series -> series.boss == boss);
         }
-        SERIES.removeIf(series -> series.boss == boss);
+        if (!SLAMS.isEmpty()) {
+            SLAMS.removeIf(slam -> slam.boss == boss);
+        }
+        if (!LANDINGS.isEmpty()) {
+            LANDINGS.values().removeIf(landing -> landing.boss == boss);
+        }
     }
 
     /** @return whether this series is still running and belongs back in the queue */
@@ -323,6 +377,123 @@ public final class BossSeismicScheduler {
             look.hitSound.play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
             look.hitParticles.emitDust(level, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
                     victim.getZ(), 0.3D, 0.4D, 0.3D, 0.05D, BossAbilityKind.SEISMIC);
+            if (look.hitMode >= BossSeismicSettings.HIT_LAUNCH) {
+                // The geyser's throw, so a ring and a column go up the same way for the same number.
+                BossGeyserScheduler.launch(victim, look.launch);
+                look.launchSound.play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
+            }
+            if (look.hitMode == BossSeismicSettings.HIT_SLAM) {
+                // One slam owed per victim: a second ring catching them on the way up moves the
+                // yank rather than adding a second one on top of it.
+                UUID victimId = victim.getUUID();
+                SLAMS.removeIf(slam -> slam.victimId.equals(victimId));
+                SLAMS.add(new Slam(level.dimension(), series.boss, victimId, look, gameTime + look.slamDelayTicks));
+            }
+        }
+    }
+
+    /** @return whether this slam is still owed and belongs back in the queue */
+    private static boolean tickSlam(ServerLevel level, Slam slam, long gameTime) {
+        if (gameTime < slam.at) {
+            return true;
+        }
+        LivingEntity victim = level.getEntity(slam.victimId) instanceof LivingEntity found ? found : null;
+        if (victim == null || !victim.isAlive() || victim.isRemoved() || !slam.boss.isAlive() || slam.boss.isRemoved()) {
+            return false;
+        }
+        // Their own run is kept, so somebody thrown while sprinting comes down along the same arc.
+        Vec3 movement = victim instanceof ServerPlayer player ? player.getKnownMovement() : victim.getDeltaMovement();
+        victim.setDeltaMovement(BossSeismicPlan.slamVelocity(movement, slam.look.slamStrength,
+                victim instanceof ServerPlayer));
+        // Players simulate their own movement, so the server has to push the new velocity to
+        // them explicitly. hurtMarked is what makes ServerEntity send it.
+        victim.hurtMarked = true;
+        slam.look.slamSound.play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
+        LANDINGS.put(slam.victimId, new Landing(level.dimension(), slam.boss, slam.look, gameTime));
+        return false;
+    }
+
+    /**
+     * Lands the slam's own hit, from the fall event, before vanilla works out the fall's.
+     *
+     * @param fallDistance     what the fall event says they fell
+     * @param damageMultiplier the fall event's multiplier, for the same sum vanilla is about to do
+     * @return whether vanilla's own fall damage is to be called off: the phase forgave it
+     */
+    public static boolean onFall(LivingEntity victim, float fallDistance, float damageMultiplier) {
+        // The map is server state and the event fires on the client too; on an integrated
+        // server that is the same static map, from another thread.
+        if (victim.level().isClientSide || LANDINGS.isEmpty()) {
+            return false;
+        }
+        Landing landing = LANDINGS.remove(victim.getUUID());
+        if (landing == null) {
+            return false;
+        }
+        boolean fallHurts = landing.look.slamFallDamage && fallHurts(victim, fallDistance, damageMultiplier);
+        land(victim, landing, fallHurts);
+        return !landing.look.slamFallDamage;
+    }
+
+    /** Whether vanilla is about to hurt this fall at all: the sum {@code calculateFallDamage} does, without the rounding. */
+    private static boolean fallHurts(LivingEntity victim, float fallDistance, float damageMultiplier) {
+        if (victim.getType().is(EntityTypeTags.FALL_DAMAGE_IMMUNE)) {
+            return false;
+        }
+        double past = fallDistance - victim.getAttributeValue(Attributes.SAFE_FALL_DISTANCE);
+        return past * damageMultiplier * victim.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER) > 0.0D;
+    }
+
+    /**
+     * The landing itself: the slam's hit, and the fall's own on top of it when the phase keeps
+     * that - the gravity throw's trick, since two hits on one tick are one to vanilla until the
+     * frames the first opened are closed again.
+     */
+    private static void land(LivingEntity victim, Landing landing, boolean fallHurts) {
+        EntityNPCInterface boss = landing.boss;
+        if (!boss.isAlive() || boss.isRemoved() || !(victim.level() instanceof ServerLevel level)) {
+            return;
+        }
+        // No knockback and no potions: the potions went on with the ring, and a landing is a
+        // thud, not a shove.
+        boolean landed = BossAbilityDamageUtil.hit(victim, BossAbilityKind.SEISMIC, boss, landing.look.slamDamage,
+                null, 0, 0.0D, 0.0D);
+        if (landed && fallHurts) {
+            victim.invulnerableTime = 0;
+        }
+        landing.look.slamParticles.emitDust(level, victim.getX(), victim.getY() + 0.2D, victim.getZ(),
+                0.5D, 0.1D, 0.5D, 0.0D, BossAbilityKind.SEISMIC);
+    }
+
+    /**
+     * Landings the fall event never reports: a splash, or an npc set to take no fall damage,
+     * which never reaches the event at all. Watched for from the tick instead - down again
+     * after having been seen off the floor - and forgotten after the phase's wait.
+     */
+    private static void tickLandings(ServerLevel level, long gameTime) {
+        if (LANDINGS.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<UUID, Landing> entry : List.copyOf(LANDINGS.entrySet())) {
+            Landing landing = entry.getValue();
+            if (!landing.dimension.equals(level.dimension())) {
+                continue;
+            }
+            LivingEntity victim = level.getEntity(entry.getKey()) instanceof LivingEntity found ? found : null;
+            if (victim == null || !victim.isAlive() || victim.isRemoved() || !landing.boss.isAlive()
+                    || landing.boss.isRemoved()
+                    || gameTime - landing.thrownAt > landing.look.slamTimeoutTicks) {
+                LANDINGS.remove(entry.getKey(), landing);
+                continue;
+            }
+            boolean down = victim.onGround() || victim.isInWater() || victim.isInLava();
+            if (!down) {
+                landing.airborne = true;
+            } else if (landing.airborne) {
+                LANDINGS.remove(entry.getKey(), landing);
+                // Nothing for the frames trick to do: vanilla is not hurting this one.
+                land(victim, landing, false);
+            }
         }
     }
 
