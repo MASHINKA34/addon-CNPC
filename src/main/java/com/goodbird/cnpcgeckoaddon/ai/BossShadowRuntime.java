@@ -85,9 +85,11 @@ final class BossShadowRuntime {
             return false;
         }
         BossShadowSettings shadow = phase.shadow();
-        if (hasCopies() && !shadow.isFinaleOnRecast()) {
+        boolean standing = !copies.isEmpty();
+        if ((standing && !shadow.isFinaleOnRecast()) || (!standing && !absorbing.isEmpty())) {
             // Copies standing, and nothing this cast could do about them until their time runs
             // out: a second wave on top of the first is exactly what the count is there to stop.
+            // Or copies on their way back in, which no cast may end twice or stand up beside.
             boss.setAbilityScheduleAt(BossAbility.SHADOW, gameTime + boss.retryTicks());
             return false;
         }
@@ -101,11 +103,13 @@ final class BossShadowRuntime {
 
     /** The end of the wind-up: copies stand up, or - with copies already standing - they end. */
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
-        if (hasCopies()) {
+        if (!copies.isEmpty()) {
             finale(level, gameTime);
-            return;
+        } else if (absorbing.isEmpty()) {
+            spawn(level, phase, gameTime);
         }
-        spawn(level, phase, gameTime);
+        // Copies mid beam are left to pay out: the start refuses this cast, and a wind-up that
+        // was already under way when they started ends in nothing rather than in a second wave.
     }
 
     /** The clock on the copies, run every tick of the boss whether or not it is busy. */
@@ -242,8 +246,13 @@ final class BossShadowRuntime {
         stacks.clear();
     }
 
-    /** A phase that is over takes its copies with it, when the phase they were cast in said so. */
+    /**
+     * A phase that is over takes the stacks with it, and its copies too when the phase they
+     * were cast in said so: a copy kept across the change goes on under the settings it was
+     * cast with, and ends under them.
+     */
     void onPhaseChange(ServerLevel level) {
+        stacks.clear();
         if (cast != null && cast.isClearOnPhaseChange()) {
             clear(level);
         }
@@ -451,9 +460,13 @@ final class BossShadowRuntime {
 
     private void forget() {
         copies.clear();
-        cast = null;
-        castAt = NOT_SCHEDULED;
         nextSwapAt = NOT_SCHEDULED;
+        // The settings are held for as long as a copy is still on its way back in: its pay-out
+        // reads the heal, the stack and the puff off them.
+        if (absorbing.isEmpty()) {
+            cast = null;
+            castAt = NOT_SCHEDULED;
+        }
     }
 
     private static void cueAt(ServerLevel level, Entity at, BossSoundCue sound, BossParticleCue particles) {
