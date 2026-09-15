@@ -84,6 +84,8 @@ public enum BossAbility {
             phase -> phase.hurricane().getCooldownTicks(), phase -> phase.hurricane().castSpot()),
     SHADOW(BossAbilityKind.SHADOW, phase -> phase.shadow().isEnabled(),
             phase -> phase.shadow().getCooldownTicks(), phase -> phase.shadow().castSpot()),
+    SEISMIC(BossAbilityKind.SEISMIC, phase -> phase.seismic().isEnabled(),
+            phase -> phase.seismic().getCooldownTicks(), phase -> phase.seismic().castSpot()),
     SUMMON(BossAbilityKind.SUMMON, phase -> phase.summon().canSummon(),
             phase -> phase.summon().isConfigured(),
             phase -> phase.summon().getCooldownTicks(), phase -> phase.summon().castSpot()),

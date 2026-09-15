@@ -418,7 +418,9 @@ public final class BossPhaseData {
      * likewise only holds the wind-up: a series over its points stands still whatever it says.
      * So does the platforms' bit: their fuses burn on wherever the boss walks off to, and the
      * hurricane's: its storms travel on their own once let go. And the shadow copies': the
-     * copies fight on their own feet once they stand.</p>
+     * copies fight on their own feet once they stand. The seismic waves' bit likewise only
+     * holds the wind-up: whether the boss stands still for the series is the ability's own
+     * switch.</p>
      */
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -428,7 +430,7 @@ public final class BossPhaseData {
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
             BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
-            BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW
+            BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW, BossAbilityKind.SEISMIC
     };
 
     /**
@@ -499,6 +501,7 @@ public final class BossPhaseData {
     private final BossMeleeAttackSettings meleeAttack = new BossMeleeAttackSettings();
     private final BossPlatformSettings platform = new BossPlatformSettings();
     private final BossRangedAttackSettings rangedAttack = new BossRangedAttackSettings();
+    private final BossSeismicSettings seismic = new BossSeismicSettings();
     private final BossShadowSettings shadow = new BossShadowSettings();
     private final BossSummonSettings summon = new BossSummonSettings();
     private final BossTeleportSettings teleport = new BossTeleportSettings();
@@ -624,6 +627,11 @@ public final class BossPhaseData {
         return hurricane;
     }
 
+    /** The rings of the floor that hit one after another, and what each does to whoever stands in it. */
+    public BossSeismicSettings seismic() {
+        return seismic;
+    }
+
     /** The copies of the boss itself, what they cast, and how they end. */
     public BossShadowSettings shadow() {
         return shadow;
@@ -669,6 +677,7 @@ public final class BossPhaseData {
             case BossAbilityKind.PLATFORM -> platform.setEnabled(value);
             case BossAbilityKind.HURRICANE -> hurricane.setEnabled(value);
             case BossAbilityKind.SHADOW -> shadow.setEnabled(value);
+            case BossAbilityKind.SEISMIC -> seismic.setEnabled(value);
             default -> {
             }
         }
@@ -866,6 +875,7 @@ public final class BossPhaseData {
         meleeAttack.writeToNBT(tag);
         platform.writeToNBT(tag);
         rangedAttack.writeToNBT(tag);
+        seismic.writeToNBT(tag);
         shadow.writeToNBT(tag);
         summon.writeToNBT(tag);
         teleport.writeToNBT(tag);
@@ -939,6 +949,10 @@ public final class BossPhaseData {
         if (!tag.contains("ShadowEnabled")) {
             castRootMask |= 1 << BossAbilityKind.SHADOW;
         }
+        // And for the seismic waves, whose bit only pins the wind-up: the series has a switch of its own.
+        if (!tag.contains("SeismicEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.SEISMIC;
+        }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight. A
         // save from when only the lasting abilities could be marked holds zeros in every other
@@ -987,6 +1001,7 @@ public final class BossPhaseData {
         meleeAttack.readFromNBT(tag);
         platform.readFromNBT(tag);
         rangedAttack.readFromNBT(tag);
+        seismic.readFromNBT(tag);
         shadow.readFromNBT(tag);
         summon.readFromNBT(tag);
         teleport.readFromNBT(tag);

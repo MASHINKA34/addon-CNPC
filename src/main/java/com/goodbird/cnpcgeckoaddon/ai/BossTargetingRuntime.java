@@ -338,6 +338,34 @@ final class BossTargetingRuntime {
         return arenaVictims(level, centre, radius, BossAbilityKind.GRAVITY);
     }
 
+    /**
+     * Everyone standing in one ring of a seismic series: between {@code inner} and {@code outer}
+     * from the centre, flat - the inner edge in, the outer out - and no further above or below
+     * the centre's floor than {@code height}, or at any height when that is nought.
+     *
+     * <p>The gravity field's rule for who counts, since the rings cover the arena the way the
+     * field does: the kind the boss aims its abilities at, and nobody hidden by their own
+     * totems. Measured flat rather than centre to centre, because a ring is a strip of the
+     * floor and somebody a block up is still standing over it.</p>
+     */
+    List<LivingEntity> seismicVictims(ServerLevel level, Vec3 centre, double inner, double outer, double height) {
+        TeleportPathData data = boss.settings();
+        // The box only has to hold everyone the flat and the height checks could pass: the
+        // whole column over the ring when any height counts.
+        double reachY = height > 0.0D ? height
+                : Math.max(level.getMaxBuildHeight() - centre.y, centre.y - level.getMinBuildHeight());
+        AABB box = new AABB(centre, centre).inflate(outer + 1.0D, reachY, outer + 1.0D);
+        BossSeismicPlan.Ring ring = new BossSeismicPlan.Ring(inner, outer);
+        return level.getEntitiesOfClass(LivingEntity.class, box, target ->
+                target != npc && target.isAlive()
+                        && BossSeismicPlan.inRing(ring, target.getX() - centre.x, target.getZ() - centre.z)
+                        && BossSeismicPlan.withinHeight(centre.y, height, target.getY(),
+                        target.getY() + target.getBbHeight())
+                        && matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target)
+                        && isAbilityTarget(target, BossAbilityKind.SEISMIC));
+    }
+
     List<LivingEntity> beamVictims(ServerLevel level, Vec3 centre, double reach) {
         return arenaVictims(level, centre, reach, BossAbilityKind.BEAM);
     }

@@ -115,6 +115,8 @@ public final class TeleportPathController {
                     controller.hurricane.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SHADOW, (controller, level, data, phase, gameTime) ->
                     controller.shadows.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.SEISMIC, (controller, level, data, phase, gameTime) ->
+                    controller.seismic.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.tryStart(level, data, phase, gameTime))));
 
@@ -184,6 +186,8 @@ public final class TeleportPathController {
                     controller.hurricane.perform(level, phase, gameTime)),
             Map.entry(BossAbility.SHADOW, (controller, level, data, phase, gameTime) ->
                     controller.shadows.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.SEISMIC, (controller, level, data, phase, gameTime) ->
+                    controller.seismic.perform(level, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.perform(level, phase)),
             Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
@@ -301,6 +305,8 @@ public final class TeleportPathController {
     private final BossHurricaneRuntime hurricane;
     /** The copies of the boss itself, their clock and their ending. */
     private final BossShadowRuntime shadows;
+    /** The rings of the floor set off round the boss, and where they set off from. */
+    private final BossSeismicRuntime seismic;
     /** The circle handed to a victim that goes off wherever they take it. */
     private final BossMarkRuntime mark;
     /** The leash tied to the boss, to a spot or between two victims. */
@@ -421,6 +427,7 @@ public final class TeleportPathController {
         this.geyser = new BossGeyserRuntime(this, npc);
         this.hurricane = new BossHurricaneRuntime(this, npc);
         this.shadows = new BossShadowRuntime(this, npc);
+        this.seismic = new BossSeismicRuntime(this, npc);
         this.mark = new BossMarkRuntime(this, npc);
         this.tether = new BossTetherCastRuntime(this, npc);
         this.gravity = new BossGravityCastRuntime(this, npc);
@@ -1541,6 +1548,7 @@ public final class TeleportPathController {
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
         BossPlatformScheduler.clearBoss(npc);
+        BossSeismicScheduler.clearBoss(npc);
         if (npc.level() instanceof ServerLevel level) {
             shadows.clear(level);
         }
@@ -2029,6 +2037,7 @@ public final class TeleportPathController {
             case PLATFORM -> BossPlatformScheduler.hasPending(npc);
             case HURRICANE -> BossHurricaneScheduler.hasPending(npc);
             case SHADOW -> shadows.hasCopies();
+            case SEISMIC -> BossSeismicScheduler.hasPending(npc);
             case GEYSER -> BossGeyserScheduler.hasPending(npc);
             case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
             case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
@@ -2396,8 +2405,9 @@ public final class TeleportPathController {
             // left to call off: walking out of it already is the dodge, and cancelling
             // would only bring the same strike back round in two seconds. The dash's lane
             // is the same promise, and its target only ever pointed it, and so are the paths
-            // the hurricane's storms are about to leave along.
-            case LINE_ATTACK, BOULDER, DASH, HURRICANE -> true;
+            // the hurricane's storms are about to leave along. The seismic rings go round the
+            // boss whoever is there: nobody to lose, so nothing to call off.
+            case LINE_ATTACK, BOULDER, DASH, HURRICANE, SEISMIC -> true;
             // A cone's fan was committed to when the warning went up, the corridor's way, so by
             // default nothing is called off; the phase may instead have it called off with the
             // fan empty, or with the target out of reach - the rule the cone started with.
@@ -2615,6 +2625,16 @@ public final class TeleportPathController {
         return targeting.gravityVictims(level, centre, radius);
     }
 
+    /** Everyone standing in one ring of a seismic series; see BossTargetingRuntime. */
+    List<LivingEntity> seismicVictims(ServerLevel level, Vec3 centre, double inner, double outer, double height) {
+        return targeting.seismicVictims(level, centre, inner, outer, height);
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    public String seismicStatus(long gameTime) {
+        return BossSeismicScheduler.status(npc, gameTime);
+    }
+
     List<LivingEntity> beamVictims(ServerLevel level, Vec3 centre, double reach) {
         return targeting.beamVictims(level, centre, reach);
     }
@@ -2713,8 +2733,10 @@ public final class TeleportPathController {
         // own swings, and the ones still to come are never swung.
         huntRuntime.end();
         BossBeamScheduler.clearBoss(npc);
-        // Nor do the storms: they are the boss' own weather, and stop where it does.
+        // Nor do the storms: they are the boss' own weather, and stop where it does. Nor do the
+        // seismic rings: nothing the boss does interrupts a series, but the fight ending does.
         BossHurricaneScheduler.clearBoss(npc);
+        BossSeismicScheduler.clearBoss(npc);
         dash.clear();
         cone.clear();
     }

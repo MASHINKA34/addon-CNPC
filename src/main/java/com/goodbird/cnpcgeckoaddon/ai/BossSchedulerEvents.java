@@ -37,6 +37,11 @@ public final class BossSchedulerEvents {
         if (BossGeyserScheduler.hasPending()) {
             BossGeyserScheduler.tick(level);
         }
+        // Right after the geyser, whose throw it shares: a ring's launch and a column's go up
+        // the same tick they would have alone.
+        if (BossSeismicScheduler.hasPending()) {
+            BossSeismicScheduler.tick(level);
+        }
         if (BossMarkScheduler.hasPending()) {
             BossMarkScheduler.tick(level);
         }
@@ -89,6 +94,7 @@ public final class BossSchedulerEvents {
             BossChestScheduler.clear(level);
             BossAreaVfxScheduler.clear(level);
             BossGeyserScheduler.clear(level);
+            BossSeismicScheduler.clear(level);
             BossMarkScheduler.clear(level);
             BossBoulderRainScheduler.clear(level);
             BossGravityScheduler.clear(level);

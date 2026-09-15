@@ -26,6 +26,8 @@ public final class BossTelegraphPaint {
     public static final byte CHANNEL_MARK = 4;
     public static final byte CHANNEL_BOULDER_RAIN = 5;
     public static final byte CHANNEL_GRAVITY = 6;
+    /** The rings of a seismic series, outlined before each one hits. */
+    public static final byte CHANNEL_SEISMIC = 7;
 
     /** A warning with nothing to count towards: an open hazard, a platform already alight. */
     public static final float NO_END = -1.0F;

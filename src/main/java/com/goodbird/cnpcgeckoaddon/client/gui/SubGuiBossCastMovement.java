@@ -17,14 +17,15 @@ public final class SubGuiBossCastMovement extends SubGuiFieldScreen {
      * rows since the cone strike: its choice and the leap's placeholder made twenty-one, one
      * more than two columns of ten, so the hints moved down under the eleventh row. The
      * platforms' choice filled the last slot of eleven; the hurricane's and the shadow copies'
-     * choices make twenty-four with the placeholder, two columns of twelve.
+     * choices make twenty-four with the placeholder, two columns of twelve, and the seismic
+     * waves' choice twenty-five, which opens a thirteenth row.
      */
-    private static final int ROWS_PER_COLUMN = 12;
+    private static final int ROWS_PER_COLUMN = 13;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
-    /** Where the hints start: under the twelfth row. */
-    private static final int HINTS_Y = 292;
-    private static final int DONE_Y = 344;
+    /** Where the hints start: under the thirteenth row. */
+    private static final int HINTS_Y = 314;
+    private static final int DONE_Y = 366;
     private static final int HINT_COLOR = 0xA0A0A0;
     private static final int HINT_LINE_HEIGHT = 9;
 

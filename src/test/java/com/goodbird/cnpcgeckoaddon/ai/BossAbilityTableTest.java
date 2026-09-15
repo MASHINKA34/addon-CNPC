@@ -150,6 +150,10 @@ class BossAbilityTableTest {
                     phase -> phase.shadow().setEnabled(true),
                     (phase, ticks) -> phase.shadow().setCooldownTicks(ticks),
                     phase -> phase.shadow().castSpot())),
+            Map.entry(BossAbility.SEISMIC, new Wiring(
+                    phase -> phase.seismic().setEnabled(true),
+                    (phase, ticks) -> phase.seismic().setCooldownTicks(ticks),
+                    phase -> phase.seismic().castSpot())),
             Map.entry(BossAbility.SUMMON, new Wiring(
                     phase -> {
                         phase.summon().setEnabled(true);

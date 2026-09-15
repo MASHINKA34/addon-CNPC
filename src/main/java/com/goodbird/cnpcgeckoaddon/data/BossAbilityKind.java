@@ -82,7 +82,13 @@ public final class BossAbilityKind {
      * being drawn back into it or going off around themselves.
      */
     public static final int SHADOW = 25;
-    public static final int COUNT = 26;
+    /**
+     * Rings of the arena floor round the boss that hit one after another: from the circle
+     * under its feet outward to the edge, or at random radii, each one warned for and then
+     * landed on whoever still stands in it, thrown up and, if the phase says so, slammed down.
+     */
+    public static final int SEISMIC = 26;
+    public static final int COUNT = 27;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -110,7 +116,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.cone",
             "cnpcgeckoaddon.boss.ability.platform",
             "cnpcgeckoaddon.boss.ability.hurricane",
-            "cnpcgeckoaddon.boss.ability.shadow"
+            "cnpcgeckoaddon.boss.ability.shadow",
+            "cnpcgeckoaddon.boss.ability.seismic"
     };
 
     static {
@@ -131,7 +138,7 @@ public final class BossAbilityKind {
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
             BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON, DASH, CONE,
-            PLATFORM, HURRICANE
+            PLATFORM, HURRICANE, SEISMIC
     };
 
     /**
@@ -140,7 +147,8 @@ public final class BossAbilityKind {
      * The platforms are one of them: their fuse, and the smoulder after it, burn on long after
      * the wind-up lands. So is the hurricane: its storms travel the arena for their whole
      * lifetime once the cast has let them go. And so are the shadow copies: they stand and
-     * fight until their time runs out, they are taken back or they are killed.
+     * fight until their time runs out, they are taken back or they are killed. And the seismic
+     * waves: a series of rings runs on the level tick for seconds after the cast that set it off.
      *
      * <p>The leap is absent because its flight already keeps the boss busy until it lands,
      * the dash because its run does the same until it stops, the cone strike because a series
@@ -151,7 +159,7 @@ public final class BossAbilityKind {
      */
     public static final int[] LASTING_ABILITIES = {
             HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON, PLATFORM,
-            HURRICANE, SHADOW
+            HURRICANE, SHADOW, SEISMIC
     };
 
     /** Every bit {@link #LASTING_ABILITIES} owns: the marked abilities whose wait is an effect rather than a hold. */
@@ -166,7 +174,7 @@ public final class BossAbilityKind {
     public static final int[] COMBO_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, SUMMON, LEAP, LINE, GEYSER, BOULDER,
             BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON, DASH, CONE, PLATFORM,
-            HURRICANE, SHADOW
+            HURRICANE, SHADOW, SEISMIC
     };
 
     /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */

@@ -200,7 +200,8 @@ public final class TeleportPathData {
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
             BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
-            BossAbilityKind.BOULDER_RAIN, BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW
+            BossAbilityKind.BOULDER_RAIN, BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW,
+            BossAbilityKind.SEISMIC
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();

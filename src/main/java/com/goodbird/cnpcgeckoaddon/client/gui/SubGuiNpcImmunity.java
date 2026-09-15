@@ -16,14 +16,15 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
 
     /**
      * Two columns, because a dozen rows and two hints do not share one panel comfortably;
-     * twelve rows each since the platforms made it twenty-three.
+     * twelve rows each since the platforms made it twenty-three, thirteen since the seismic
+     * waves made it twenty-five.
      */
-    private static final int ROWS_PER_COLUMN = 12;
+    private static final int ROWS_PER_COLUMN = 13;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
-    /** Where the hints start: under the twelfth row. */
-    private static final int HINTS_Y = 292;
-    private static final int BUTTONS_Y = 342;
+    /** Where the hints start: under the thirteenth row. */
+    private static final int HINTS_Y = 314;
+    private static final int BUTTONS_Y = 364;
 
     private final NpcImmunityData data;
 

@@ -75,6 +75,8 @@ public final class BossAreaVfxScheduler {
         private final ResourceKey<Level> dimension;
         private final Vec3 center;
         private final Shape shape;
+        /** Ring only: where it starts from - the middle for a wave, the inner edge for a band. */
+        private final double startRadius;
         /** Ring only: how far out it ends up spreading. */
         private final double radius;
         /** Corridor only: the flat unit direction its front travels in. */
@@ -96,12 +98,13 @@ public final class BossAreaVfxScheduler {
         private final Set<BlockPos> lifted = new HashSet<>();
         private int tick;
 
-        private Wave(ResourceKey<Level> dimension, Vec3 center, Shape shape, double radius,
-                     Vec3 axis, double length, double width, double sideWidth, String style,
-                     int duration, boolean blockWave, BossWaveTuning tuning) {
+        private Wave(ResourceKey<Level> dimension, Vec3 center, Shape shape, double startRadius,
+                     double radius, Vec3 axis, double length, double width, double sideWidth,
+                     String style, int duration, boolean blockWave, BossWaveTuning tuning) {
             this.dimension = dimension;
             this.center = center;
             this.shape = shape;
+            this.startRadius = startRadius;
             this.radius = radius;
             this.axis = axis;
             this.length = length;
@@ -113,18 +116,18 @@ public final class BossAreaVfxScheduler {
             this.tuning = tuning;
         }
 
-        private static Wave ring(ResourceKey<Level> dimension, Vec3 center, double radius,
-                                 String style, int duration, boolean blockWave,
+        private static Wave ring(ResourceKey<Level> dimension, Vec3 center, double startRadius,
+                                 double radius, String style, int duration, boolean blockWave,
                                  BossWaveTuning tuning) {
-            return new Wave(dimension, center, Shape.RING, radius, null, 0.0D, 0.0D, 0.0D,
-                    style, duration, blockWave, tuning);
+            return new Wave(dimension, center, Shape.RING, startRadius, radius, null, 0.0D, 0.0D,
+                    0.0D, style, duration, blockWave, tuning);
         }
 
         private static Wave corridor(ResourceKey<Level> dimension, Vec3 origin, Vec3 axis,
                                      double length, double width, double sideWidth,
                                      String style, int duration, boolean blockWave,
                                      BossWaveTuning tuning) {
-            return new Wave(dimension, origin, Shape.CORRIDOR, 0.0D, axis, length, width,
+            return new Wave(dimension, origin, Shape.CORRIDOR, 0.0D, 0.0D, axis, length, width,
                     sideWidth, style, duration, blockWave, tuning);
         }
     }
@@ -152,11 +155,22 @@ public final class BossAreaVfxScheduler {
      */
     public static void schedule(ServerLevel level, Vec3 center, String style, double radius,
                                 int duration, boolean blockWave, BossWaveTuning tuning) {
+        scheduleBand(level, center, style, 0.0D, radius, duration, blockWave, tuning);
+    }
+
+    /**
+     * Starts a wave across one band of the floor rather than out from a point: the ring runs
+     * from {@code inner} to {@code outer} round the centre over its ticks, for a ring of a
+     * seismic series that hits a strip of the arena and nothing inside it. A band from nought
+     * is the wave every other ability throws.
+     */
+    public static void scheduleBand(ServerLevel level, Vec3 center, String style, double inner,
+                                    double outer, int duration, boolean blockWave, BossWaveTuning tuning) {
         style = AreaVfxStyles.normalize(style);
         if (!AreaVfxStyles.isVisible(style) && !blockWave) {
             return;
         }
-        WAVES.add(Wave.ring(level.dimension(), center, radius, style, duration, blockWave, tuning));
+        WAVES.add(Wave.ring(level.dimension(), center, inner, outer, style, duration, blockWave, tuning));
         // One shout at the front of the wave. Repeating it every tick would drown the fight.
         playStyleSound(level, center, tuning);
     }
@@ -224,7 +238,7 @@ public final class BossAreaVfxScheduler {
 
     private static void emitRing(ServerLevel level, Wave wave) {
         double progress = (double) wave.tick / wave.duration;
-        double radius = wave.radius * progress;
+        double radius = wave.startRadius + (wave.radius - wave.startRadius) * progress;
         int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / EMIT_SPACING),
                 MIN_RING_POINTS, MAX_RING_POINTS);
         boolean hurricane = AreaVfxStyles.HURRICANE.equals(wave.style);
