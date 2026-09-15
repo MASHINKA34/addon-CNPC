@@ -65,6 +65,24 @@ public final class BossShadowUtil {
     }
 
     /**
+     * Whether {@code other} is on a shadow copy's own side: the boss it was copied from, or
+     * anything else that boss owns - another copy, a summoned minion, a totem. False for
+     * anything that is not a copy, so an ordinary boss reads this as no filter at all.
+     */
+    public static boolean isOwnSide(Entity copy, Entity other) {
+        if (!isShadow(copy)) {
+            return false;
+        }
+        String owner = PersistentDataUtil.getString(copy, BossMinionUtil.MINION_OWNER_KEY);
+        if (owner.isEmpty()) {
+            return false;
+        }
+        return owner.equals(other.getUUID().toString())
+                || owner.equals(PersistentDataUtil.getString(other, BossMinionUtil.MINION_OWNER_KEY))
+                || owner.equals(PersistentDataUtil.getString(other, BossTotemUtil.TOTEM_OWNER_KEY));
+    }
+
+    /**
      * Stands one copy of the boss up on a spot: the boss' own saved data, cut down to what a
      * copy may keep, made into a second npc.
      *

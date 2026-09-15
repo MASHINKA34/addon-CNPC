@@ -45,6 +45,8 @@ public final class BossMinionUtil {
         minion.getPersistentData().remove(MINION_SLOT_KEY);
         // And one saved from a cocoon or its guard: the role would keep it out of the caps.
         BossCocoonUtil.clearRole(minion);
+        // And one that was a shadow copy, for the same reason.
+        BossShadowUtil.clearRole(minion);
         // And one saved from a summoned launch pad: its lifetime ran out long ago, and a new
         // summon starts its own on its first tick.
         minion.getPersistentData().remove(NpcLaunchPadManager.DIES_AT_KEY);
@@ -98,12 +100,14 @@ public final class BossMinionUtil {
      * be anywhere in the world - this walk cannot be boxed in, so it is kept short instead.
      *
      * <p>A cocoon and its guard are minions for ownership's sake and nothing else: neither
-     * was summoned by the wave the caps limit, so neither takes a seat from it.</p>
+     * was summoned by the wave the caps limit, so neither takes a seat from it. Nor does a
+     * shadow copy, which has a count of its own.</p>
      */
     public static int countAlive(ServerLevel level, Entity boss, int cap) {
         int count = 0;
         for (Entity entity : BossOwnedEntityIndex.minionsOf(level, boss)) {
-            if (entity.isAlive() && isMinionOf(entity, boss) && !BossCocoonUtil.hasRole(entity)) {
+            if (entity.isAlive() && isMinionOf(entity, boss) && !BossCocoonUtil.hasRole(entity)
+                    && !BossShadowUtil.isShadow(entity)) {
                 count++;
                 if (count >= cap) {
                     return count;

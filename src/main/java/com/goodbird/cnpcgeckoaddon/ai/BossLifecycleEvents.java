@@ -145,6 +145,13 @@ public final class BossLifecycleEvents {
             event.setCanceled(true);
             return;
         }
+        // A shadow copy in a save is a copy from a fight that died with the server: the boss
+        // keeps its copies in memory alone, so one let back in would be nobody's. Kept out
+        // rather than let in and found later, because its chunk may load long after the boss'.
+        if (event.loadedFromDisk() && BossShadowUtil.isShadow(event.getEntity())) {
+            event.setCanceled(true);
+            return;
+        }
         if (event.loadedFromDisk() && BossMinionUtil.isMinion(event.getEntity())) {
             int removalMode = BossMinionCleanupStore.get(level).pendingRemovalMode(event.getEntity());
             if (removalMode >= 0) {

@@ -399,6 +399,10 @@ final class BossTargetingRuntime {
         if (target instanceof Player player && (player.isCreative() || player.isSpectator())) return false;
         if (BossMinionUtil.isMinionOf(target, npc)) return false;
         if (BossTotemUtil.isTotemOf(target, npc)) return false;
+        // A shadow copy runs this same code with itself as the boss: whatever belongs to the
+        // boss it was copied from - the boss, the other copies, its minions and totems - is
+        // off its list, or a phase that aims abilities at npcs would set the copies on their own.
+        if (BossShadowUtil.isOwnSide(npc, target)) return false;
         return npc.canAttack(target) && !npc.isAlliedTo(target);
     }
 

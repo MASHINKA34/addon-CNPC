@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.command;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.ai.NpcDamageInfoManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossHurricaneScheduler;
+import com.goodbird.cnpcgeckoaddon.ai.BossShadowUtil;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -74,6 +75,11 @@ public class GeckoAddonCommand {
                 if (!data.isEnabled()) {
                     continue;
                 }
+                // A shadow copy is a configured boss too, but not one anybody built: the boss
+                // it was copied from counts its copies on a line of its own.
+                if (BossShadowUtil.isShadow(npc)) {
+                    continue;
+                }
                 found++;
                 if (found > MAX_REPORTED_BOSSES) {
                     continue;
@@ -127,6 +133,8 @@ public class GeckoAddonCommand {
                 String cocoonLine = controller == null ? "Cocoon: ready"
                         : controller.cocoonStatus(level.getGameTime());
                 String hurricaneLine = BossHurricaneScheduler.status(npc);
+                String shadowLine = controller == null ? "Shadows: 0 alive"
+                        : controller.shadowStatus(level.getGameTime());
                 String castSpotLine = controller == null ? "Cast spot: free"
                         : controller.castSpotStatus(level.getGameTime());
                 String finishLine = controller == null ? "Finish: free"
@@ -155,6 +163,7 @@ public class GeckoAddonCommand {
                 source.sendSuccess(() -> Component.literal(beamLine), false);
                 source.sendSuccess(() -> Component.literal(cocoonLine), false);
                 source.sendSuccess(() -> Component.literal(hurricaneLine), false);
+                source.sendSuccess(() -> Component.literal(shadowLine), false);
                 source.sendSuccess(() -> Component.literal(castSpotLine), false);
                 source.sendSuccess(() -> Component.literal(finishLine), false);
                 source.sendSuccess(() -> Component.literal(comboLine), false);
