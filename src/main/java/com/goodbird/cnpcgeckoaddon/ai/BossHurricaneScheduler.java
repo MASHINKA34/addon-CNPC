@@ -13,10 +13,12 @@ import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossSpinState;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -66,6 +68,23 @@ public final class BossHurricaneScheduler {
     /** How long a held player's client is trusted to run the ride on its own before it is told again. */
     private static final int SYNC_INTERVAL_TICKS = 10;
     private static final double POSITION_EPSILON_SQUARED = 1.0E-8D;
+    /** Ceiling on the particles one storm spends a tick, whatever its cues ask for. */
+    private static final int MAX_PARTICLES_PER_TICK = 64;
+    /** How many turns the column's spiral makes from the floor to its top. */
+    private static final double COLUMN_TURNS = 2.0D;
+    /** How long after a thrown victim has come down their landing is still forgiven. */
+    private static final int LANDING_GRACE_TICKS = 40;
+    /** A throw that never lands - into water, off the map - is forgotten after this. */
+    private static final int LANDING_TIMEOUT_TICKS = 600;
+    /**
+     * What the server's own pass over a player takes off the throw before the tracker sends it:
+     * air drag on the sideways half, and drag plus one tick of gravity on the upward half. A
+     * held victim is off the ground, so it is the air's drag and not the floor's. See
+     * BossGravityScheduler for the same sum done for a player on the floor.
+     */
+    private static final double AIR_DRAG = 0.91D;
+    private static final double VERTICAL_DRAG = 0.98D;
+    private static final double GRAVITY = 0.08D;
 
     /**
      * What a storm does and looks like, taken off the settings on the tick it was let go.
@@ -176,6 +195,9 @@ public final class BossHurricaneScheduler {
         boolean headingChanged;
         /** Whoever this storm has picked up, in the order it took them. */
         final List<Held> held = new ArrayList<>();
+        /** Where the column's spiral has turned to, in degrees; turned with the ride's spin. */
+        double columnAngle;
+        long nextLoopAt;
 
         private Storm(ResourceKey<Level> dimension, EntityNPCInterface boss, Look look, Vec3 pos,
                       Vec3 velocity, double remainingPath, long diesAt, Vec3 centre) {
@@ -220,6 +242,21 @@ public final class BossHurricaneScheduler {
         }
     }
 
+    /** A victim thrown out of a storm, until they come down: their landing is the storm's, not a fall. */
+    private static final class Landing {
+        private final ResourceKey<Level> dimension;
+        private final long thrownAt;
+        /** Seen off the floor since the throw; only then does being down again count as landing. */
+        private boolean airborne;
+        /** When they were seen down, or -1 while still in the air. */
+        private long landedAt = -1L;
+
+        private Landing(ResourceKey<Level> dimension, long thrownAt) {
+            this.dimension = dimension;
+            this.thrownAt = thrownAt;
+        }
+    }
+
     /** How a move came out: the storm went, or it met a wall on these axes, or it is over. */
     private record Move(boolean moved, boolean dead, boolean wallX, boolean wallZ) {
         private static final Move MOVED = new Move(true, false, false, false);
@@ -231,6 +268,8 @@ public final class BossHurricaneScheduler {
     private static final Map<UUID, Held> HELD = new HashMap<>();
     /** Whoever was let go lately, and the game time from which a storm may take them again. */
     private static final Map<UUID, Long> GRACE = new HashMap<>();
+    /** Whoever was thrown out and has not come down yet, or came down a moment ago. */
+    private static final Map<UUID, Landing> LANDINGS = new HashMap<>();
 
     private BossHurricaneScheduler() {
     }
@@ -272,6 +311,7 @@ public final class BossHurricaneScheduler {
                 }
             }
         }
+        look.launchSound.play(level, boss.getX(), boss.getY(), boss.getZ(), SoundSource.HOSTILE);
     }
 
     /** The boss' feet on the floor, or its own height when it stands over nothing within reach. */
@@ -281,7 +321,7 @@ public final class BossHurricaneScheduler {
     }
 
     public static boolean hasPending() {
-        return !STORMS.isEmpty();
+        return !STORMS.isEmpty() || !LANDINGS.isEmpty();
     }
 
     /** Whether this boss still has a storm out; what a chain, a finish hold and a cast spot's stay wait on. */
@@ -359,6 +399,7 @@ public final class BossHurricaneScheduler {
         }
         STORMS.sweep(storm -> storm.dimension.equals(level.dimension()),
                 storm -> tickStorm(level, storm, gameTime));
+        tickLandings(level, gameTime);
     }
 
     /** Drops every storm in a level that is going away, and lets go of everyone on them. */
@@ -405,7 +446,79 @@ public final class BossHurricaneScheduler {
         }
         catchVictims(level, storm, gameTime);
         holdVictims(level, storm, gameTime);
+        paint(level, storm, gameTime);
         return true;
+    }
+
+    /** What a player watching sees and hears of a storm: its wind, its column, its foot, its wake. */
+    private static void paint(ServerLevel level, Storm storm, long gameTime) {
+        Look look = storm.look;
+        Vec3 pos = storm.pos;
+        if (gameTime >= storm.nextLoopAt) {
+            storm.nextLoopAt = gameTime + look.loopIntervalTicks;
+            look.loopSound.play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
+        }
+        storm.columnAngle = BossHurricaneHold.advanceAngle(storm.columnAngle, look.spinDegrees);
+        if (level.getNearestPlayer(pos.x, pos.y, pos.z, BossTelegraphUtil.audienceRange(storm.boss), false) == null) {
+            return;
+        }
+        // One budget for the three cues, the column first: whatever a builder asks for, a
+        // typhoon of twelve storms stays inside a packet count a fight can afford.
+        int budget = MAX_PARTICLES_PER_TICK;
+        budget -= drawColumn(level, storm, Math.min(look.columnDensity, budget));
+        budget -= drawBase(level, storm, Math.min(look.baseParticles.getCount(), budget));
+        drawTrail(level, storm, Math.min(look.trailParticles.getCount(), budget));
+    }
+
+    /** The column: particles up a spiral from the floor to the top, a funnel wider as it climbs. */
+    private static int drawColumn(ServerLevel level, Storm storm, int count) {
+        Look look = storm.look;
+        ParticleOptions options = count > 0 && look.columnParticles.isEnabled()
+                ? look.columnParticles.resolve(BossAbilityKind.HURRICANE) : null;
+        if (options == null) {
+            return 0;
+        }
+        Vec3 pos = storm.pos;
+        for (int i = 0; i < count; i++) {
+            double climb = (i + 0.5D) / count;
+            double angle = Math.toRadians(storm.columnAngle + climb * 360.0D * COLUMN_TURNS);
+            double radius = look.radius * (0.3D + 0.7D * climb);
+            // Sent one at a time with a velocity along the spin, so the column reads as turning.
+            level.sendParticles(options, pos.x + Math.cos(angle) * radius, pos.y + climb * look.columnHeight,
+                    pos.z + Math.sin(angle) * radius, 0, -Math.sin(angle), 0.05D, Math.cos(angle), 0.1D);
+        }
+        return count;
+    }
+
+    /** The foot: a ring of the base cue round the eye on the floor, turned with the column. */
+    private static int drawBase(ServerLevel level, Storm storm, int count) {
+        Look look = storm.look;
+        ParticleOptions options = count > 0 && look.baseParticles.isEnabled()
+                ? look.baseParticles.resolve(BossAbilityKind.HURRICANE) : null;
+        if (options == null) {
+            return 0;
+        }
+        Vec3 pos = storm.pos;
+        for (int i = 0; i < count; i++) {
+            double angle = Math.toRadians(storm.columnAngle + 360.0D * i / count);
+            level.sendParticles(options, pos.x + Math.cos(angle) * look.radius, pos.y + 0.1D,
+                    pos.z + Math.sin(angle) * look.radius, 0, 0.0D, 0.0D, 0.0D, 0.0D);
+        }
+        return count;
+    }
+
+    /** The wake: the trail cue a reach behind the eye, along the way it came. */
+    private static int drawTrail(ServerLevel level, Storm storm, int count) {
+        Look look = storm.look;
+        ParticleOptions options = count > 0 && look.trailParticles.isEnabled()
+                ? look.trailParticles.resolve(BossAbilityKind.HURRICANE) : null;
+        Vec3 heading = storm.course.velocity();
+        if (options == null || heading.lengthSqr() < 1.0E-8D) {
+            return 0;
+        }
+        Vec3 behind = storm.pos.subtract(heading.normalize().scale(look.radius));
+        level.sendParticles(options, behind.x, behind.y + 0.3D, behind.z, count, 0.3D, 0.2D, 0.3D, 0.02D);
+        return count;
     }
 
     /**
@@ -611,9 +724,18 @@ public final class BossHurricaneScheduler {
     }
 
     private static void catchVictim(ServerLevel level, Storm storm, LivingEntity victim, long gameTime) {
+        Look look = storm.look;
         Held held = new Held(victim, storm, gameTime);
         HELD.put(held.victimId, held);
         storm.held.add(held);
+        // The potions go on with the catch as well as with every hit, so a storm that hurts for
+        // nothing still leaves its mark the moment it takes somebody.
+        if (look.effects.isAnyEnabled()) {
+            BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.HURRICANE, storm.boss, look.effects);
+        }
+        look.catchSound.play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
+        look.catchParticles.emitDust(level, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
+                victim.getZ(), 0.3D, 0.5D, 0.3D, 0.05D, BossAbilityKind.HURRICANE);
         if (victim instanceof ServerPlayer player) {
             syncState(player, storm, held, gameTime, true);
         }
@@ -626,6 +748,10 @@ public final class BossHurricaneScheduler {
             if (!isRideable(victim, storm)) {
                 // Dead, gone, or no longer somebody a storm may hold: let go without a word.
                 release(level, storm, held, victim, gameTime, false);
+                continue;
+            }
+            if (BossHurricaneHold.isOver(held.endsAt, gameTime)) {
+                release(level, storm, held, victim, gameTime, true);
                 continue;
             }
             hold(level, storm, held, victim, gameTime);
@@ -644,6 +770,17 @@ public final class BossHurricaneScheduler {
      */
     private static void hold(ServerLevel level, Storm storm, Held held, LivingEntity victim, long gameTime) {
         Look look = storm.look;
+        // The hit lands before the pin, so the shove vanilla puts on a hurt entity is wiped by
+        // the pin rather than sent to the client as a tick of knockback the ride then undoes.
+        if (gameTime >= held.nextHitAt) {
+            held.nextHitAt = gameTime + look.damageIntervalTicks;
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.HURRICANE, storm.boss, look.damage, look.effects,
+                    0, 0.0D, 0.0D);
+            if (!victim.isAlive()) {
+                release(level, storm, held, victim, gameTime, false);
+                return;
+            }
+        }
         held.angle = BossHurricaneHold.advanceAngle(held.angle, look.spinDegrees);
         double y = BossHurricaneHold.liftY(held.startY, storm.pos.y + look.liftHeight, held.caughtAt,
                 held.liftEndsAt, gameTime);
@@ -703,14 +840,96 @@ public final class BossHurricaneScheduler {
         if (victim == null) {
             return;
         }
-        // Let go where they are, with the nudge the capture gives so the client sees a drop
-        // begin rather than a body hanging where it was pinned.
-        victim.setDeltaMovement(0.0D, -0.05D, 0.0D);
-        victim.fallDistance = 0.0F;
-        victim.hurtMarked = true;
+        if (throwOut && victim.isAlive()) {
+            throwOut(level, storm, victim, gameTime);
+        } else {
+            // Let go where they are, with the nudge the capture gives so the client sees a drop
+            // begin rather than a body hanging where it was pinned.
+            victim.setDeltaMovement(0.0D, -0.05D, 0.0D);
+            victim.fallDistance = 0.0F;
+            victim.hurtMarked = true;
+        }
         if (victim instanceof ServerPlayer player) {
             player.setKnownMovement(Vec3.ZERO);
             NetworkWrapper.send(player, PacketSyncBossSpinState.released());
+        }
+    }
+
+    /**
+     * The usual way out: thrown clear of the eye, sideways and up, with the landing forgiven
+     * and a grace before any storm may take them again.
+     */
+    private static void throwOut(ServerLevel level, Storm storm, LivingEntity victim, long gameTime) {
+        Look look = storm.look;
+        Vec3 out = new Vec3(victim.getX() - storm.pos.x, 0.0D, victim.getZ() - storm.pos.z);
+        if (out.lengthSqr() < 1.0E-6D) {
+            // Sitting in the eye itself: out along the way the storm is going, or east if it is not.
+            Vec3 heading = storm.course.velocity();
+            out = heading.lengthSqr() < 1.0E-6D ? new Vec3(1.0D, 0.0D, 0.0D) : new Vec3(heading.x, 0.0D, heading.z);
+        }
+        out = out.normalize();
+        Vec3 velocity = victim instanceof ServerPlayer
+                ? new Vec3(out.x * look.throwSide / AIR_DRAG, look.throwUp / VERTICAL_DRAG + GRAVITY,
+                        out.z * look.throwSide / AIR_DRAG)
+                : new Vec3(out.x * look.throwSide, look.throwUp, out.z * look.throwSide);
+        victim.setDeltaMovement(velocity);
+        // Wipes the fall they were already in, so the landing is measured from the top of this
+        // throw - and forgiven anyway, below.
+        victim.fallDistance = 0.0F;
+        // Players simulate their own movement, so the server has to push the new velocity to
+        // them explicitly. hurtMarked is what makes ServerEntity send it.
+        victim.hurtMarked = true;
+        if (level != null) {
+            LANDINGS.put(victim.getUUID(), new Landing(level.dimension(), gameTime));
+            look.releaseSound.play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
+        }
+        if (look.graceTicks > 0) {
+            GRACE.put(victim.getUUID(), BossHurricaneHold.graceUntil(gameTime, look.graceTicks));
+        }
+    }
+
+    /**
+     * Whether this landing is a storm's throw coming down, and so not a fall to be hurt by.
+     *
+     * <p>Called from the fall event. The record is taken out here, so the fall after this one
+     * is the victim's own again.</p>
+     */
+    public static boolean forgiveFall(LivingEntity victim) {
+        // Server state; the fall event fires on the client too, and on an integrated server
+        // that is the same static map from another thread.
+        if (victim.level().isClientSide || LANDINGS.isEmpty()) {
+            return false;
+        }
+        return LANDINGS.remove(victim.getUUID()) != null;
+    }
+
+    /**
+     * Landings the fall event never reports - a splash, a slow slide down a ledge - are watched
+     * for from the tick instead: down again after having been seen off the floor, and forgotten
+     * a little after that, or after long enough whatever happened.
+     */
+    private static void tickLandings(ServerLevel level, long gameTime) {
+        if (LANDINGS.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<UUID, Landing> entry : List.copyOf(LANDINGS.entrySet())) {
+            Landing landing = entry.getValue();
+            if (!landing.dimension.equals(level.dimension())) {
+                continue;
+            }
+            LivingEntity victim = level.getEntity(entry.getKey()) instanceof LivingEntity found ? found : null;
+            if (victim == null || !victim.isAlive() || victim.isRemoved()
+                    || gameTime - landing.thrownAt > LANDING_TIMEOUT_TICKS
+                    || landing.landedAt >= 0L && gameTime - landing.landedAt > LANDING_GRACE_TICKS) {
+                LANDINGS.remove(entry.getKey(), landing);
+                continue;
+            }
+            boolean down = victim.onGround() || victim.isInWater() || victim.isInLava();
+            if (!down) {
+                landing.airborne = true;
+            } else if (landing.airborne && landing.landedAt < 0L) {
+                landing.landedAt = gameTime;
+            }
         }
     }
 

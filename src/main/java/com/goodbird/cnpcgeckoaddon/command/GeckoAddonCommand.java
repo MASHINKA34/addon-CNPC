@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.command;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.ai.NpcDamageInfoManager;
+import com.goodbird.cnpcgeckoaddon.ai.BossHurricaneScheduler;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -125,6 +126,7 @@ public class GeckoAddonCommand {
                         : controller.beamStatus(level.getGameTime());
                 String cocoonLine = controller == null ? "Cocoon: ready"
                         : controller.cocoonStatus(level.getGameTime());
+                String hurricaneLine = BossHurricaneScheduler.status(npc);
                 String castSpotLine = controller == null ? "Cast spot: free"
                         : controller.castSpotStatus(level.getGameTime());
                 String finishLine = controller == null ? "Finish: free"
@@ -152,6 +154,7 @@ public class GeckoAddonCommand {
                 source.sendSuccess(() -> Component.literal(barrierLine), false);
                 source.sendSuccess(() -> Component.literal(beamLine), false);
                 source.sendSuccess(() -> Component.literal(cocoonLine), false);
+                source.sendSuccess(() -> Component.literal(hurricaneLine), false);
                 source.sendSuccess(() -> Component.literal(castSpotLine), false);
                 source.sendSuccess(() -> Component.literal(finishLine), false);
                 source.sendSuccess(() -> Component.literal(comboLine), false);

@@ -512,7 +512,18 @@ public final class BossDamageEvents {
     public static void onLivingFall(final LivingFallEvent event) {
         landGravityThrow(event);
         cancelLaunchPadFall(event);
+        cancelHurricaneFall(event);
         cancelOwnLeapFall(event);
+    }
+
+    /**
+     * A victim a storm threw clear comes down unhurt: the throw is the storm's doing, and the
+     * storm has already taken what it was going to take on the ride.
+     */
+    private static void cancelHurricaneFall(LivingFallEvent event) {
+        if (BossHurricaneScheduler.forgiveFall(event.getEntity())) {
+            event.setCanceled(true);
+        }
     }
 
     /**
