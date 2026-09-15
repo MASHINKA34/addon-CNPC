@@ -71,7 +71,12 @@ public final class BossAbilityKind {
      * still standing on it when the fuse runs out is hit, shoved off and thrown up.
      */
     public static final int PLATFORM = 23;
-    public static final int COUNT = 24;
+    /**
+     * A storm on the arena floor that travels, bounces off walls and keeps whoever it runs into:
+     * lifted, carried round its eye and spun, hit on a clock, then thrown clear.
+     */
+    public static final int HURRICANE = 24;
+    public static final int COUNT = 25;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -97,7 +102,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.cocoon",
             "cnpcgeckoaddon.boss.ability.dash",
             "cnpcgeckoaddon.boss.ability.cone",
-            "cnpcgeckoaddon.boss.ability.platform"
+            "cnpcgeckoaddon.boss.ability.platform",
+            "cnpcgeckoaddon.boss.ability.hurricane"
     };
 
     static {
@@ -118,14 +124,15 @@ public final class BossAbilityKind {
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
             BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON, DASH, CONE,
-            PLATFORM
+            PLATFORM, HURRICANE
     };
 
     /**
      * The abilities whose effect outlives the cast, in the order they are offered: the ones a
      * boss told to see them through has something to wait for, whether or not a hold follows.
      * The platforms are one of them: their fuse, and the smoulder after it, burn on long after
-     * the wind-up lands.
+     * the wind-up lands. So is the hurricane: its storms travel the arena for their whole
+     * lifetime once the cast has let them go.
      *
      * <p>The leap is absent because its flight already keeps the boss busy until it lands,
      * the dash because its run does the same until it stops, the cone strike because a series
@@ -135,7 +142,8 @@ public final class BossAbilityKind {
      * one would wait for nothing.</p>
      */
     public static final int[] LASTING_ABILITIES = {
-            HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON, PLATFORM
+            HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON, PLATFORM,
+            HURRICANE
     };
 
     /** Every bit {@link #LASTING_ABILITIES} owns: the marked abilities whose wait is an effect rather than a hold. */
@@ -149,7 +157,8 @@ public final class BossAbilityKind {
      */
     public static final int[] COMBO_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, SUMMON, LEAP, LINE, GEYSER, BOULDER,
-            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON, DASH, CONE, PLATFORM
+            BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON, DASH, CONE, PLATFORM,
+            HURRICANE
     };
 
     /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */

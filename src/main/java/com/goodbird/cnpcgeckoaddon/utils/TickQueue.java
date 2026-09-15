@@ -112,6 +112,15 @@ public final class TickQueue<T> {
         return found;
     }
 
+    /** How many entries the filter accepts, wherever they currently sit. */
+    public int count(Predicate<? super T> filter) {
+        int count = countOf(entries, filter) + countOf(arrivals, filter) + countOf(pulled, filter);
+        if (current != null && !currentCancelled && filter.test(current)) {
+            count++;
+        }
+        return count;
+    }
+
     /**
      * Takes every entry {@code ready} accepts out of the queue and runs {@code action} on it
      * afterwards, outside the walk.
@@ -211,6 +220,16 @@ public final class TickQueue<T> {
     private void merge() {
         entries.addAll(arrivals);
         arrivals.clear();
+    }
+
+    private int countOf(Iterable<T> source, Predicate<? super T> filter) {
+        int count = 0;
+        for (T entry : source) {
+            if (filter.test(entry)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private T firstOf(Iterable<T> source, Predicate<? super T> filter) {

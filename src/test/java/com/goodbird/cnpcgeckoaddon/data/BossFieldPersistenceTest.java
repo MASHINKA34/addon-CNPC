@@ -111,6 +111,7 @@ class BossFieldPersistenceTest {
                         Map.entry(BossHazardSettings.class, BossPhaseData::hazard),
                         Map.entry(BossHookSettings.class, BossPhaseData::hook),
                         Map.entry(BossHuntSettings.class, BossPhaseData::hunt),
+                        Map.entry(BossHurricaneSettings.class, BossPhaseData::hurricane),
                         Map.entry(BossInvulnerableSettings.class, BossPhaseData::invulnerable),
                         Map.entry(BossLeapSettings.class, BossPhaseData::leap),
                         Map.entry(BossLineAttackSettings.class, BossPhaseData::lineAttack),
@@ -156,6 +157,7 @@ class BossFieldPersistenceTest {
                         Map.entry("Dash", phase -> phase.dash().castSpot()),
                         Map.entry("Cone", phase -> phase.cone().castSpot()),
                         Map.entry("Platform", phase -> phase.platform().castSpot()),
+                        Map.entry("Hurricane", phase -> phase.hurricane().castSpot()),
                         Map.entry("Summon", phase -> phase.summon().castSpot()))
                 .map(entry -> DynamicTest.dynamicTest(entry.getKey() + " cast spot",
                         () -> assertPersisted(BossCastSpot.class, BossFieldPersistenceTest::configuredHost,

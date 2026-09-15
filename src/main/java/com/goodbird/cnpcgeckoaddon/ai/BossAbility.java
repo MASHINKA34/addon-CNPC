@@ -80,6 +80,8 @@ public enum BossAbility {
     PLATFORM(BossAbilityKind.PLATFORM, phase -> phase.platform().canCast(),
             phase -> phase.platform().isConfigured(),
             phase -> phase.platform().getCooldownTicks(), phase -> phase.platform().castSpot()),
+    HURRICANE(BossAbilityKind.HURRICANE, phase -> phase.hurricane().isEnabled(),
+            phase -> phase.hurricane().getCooldownTicks(), phase -> phase.hurricane().castSpot()),
     SUMMON(BossAbilityKind.SUMMON, phase -> phase.summon().canSummon(),
             phase -> phase.summon().isConfigured(),
             phase -> phase.summon().getCooldownTicks(), phase -> phase.summon().castSpot()),

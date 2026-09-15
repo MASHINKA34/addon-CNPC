@@ -51,6 +51,11 @@ public final class BossSchedulerEvents {
         if (BossGravityScheduler.hasPending()) {
             BossGravityScheduler.tick(level);
         }
+        // After the field and before the capture for the same reason: a storm never takes a
+        // captured victim, and the capture's pin is the one that has to land last.
+        if (BossHurricaneScheduler.hasPending()) {
+            BossHurricaneScheduler.tick(level);
+        }
         if (BossBeamScheduler.hasPending()) {
             BossBeamScheduler.tick(level);
         }
@@ -87,6 +92,7 @@ public final class BossSchedulerEvents {
             BossMarkScheduler.clear(level);
             BossBoulderRainScheduler.clear(level);
             BossGravityScheduler.clear(level);
+            BossHurricaneScheduler.clear(level);
             BossBeamScheduler.clear(level);
             BossPlatformScheduler.clear(level);
             BossCloneRespawnGuard.clear(level);

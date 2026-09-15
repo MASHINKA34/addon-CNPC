@@ -110,6 +110,8 @@ public final class TeleportPathController {
                     controller.cone.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.PLATFORM, (controller, level, data, phase, gameTime) ->
                     controller.platform.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.HURRICANE, (controller, level, data, phase, gameTime) ->
+                    controller.hurricane.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.tryStart(level, data, phase, gameTime))));
 
@@ -175,6 +177,8 @@ public final class TeleportPathController {
                     controller.cone.perform(level, data, phase, gameTime)),
             Map.entry(BossAbility.PLATFORM, (controller, level, data, phase, gameTime) ->
                     controller.platform.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.HURRICANE, (controller, level, data, phase, gameTime) ->
+                    controller.hurricane.perform(level, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.perform(level, phase)),
             Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
@@ -288,6 +292,8 @@ public final class TeleportPathController {
     private final BossCaptureRuntime capture;
     /** The fuse under a victim's feet and the column that follows it. */
     private final BossGeyserRuntime geyser;
+    /** The storms let loose on the floor, and where they set off from. */
+    private final BossHurricaneRuntime hurricane;
     /** The circle handed to a victim that goes off wherever they take it. */
     private final BossMarkRuntime mark;
     /** The leash tied to the boss, to a spot or between two victims. */
@@ -406,6 +412,7 @@ public final class TeleportPathController {
         this.cocoon = new BossCocoonRuntime(this, npc);
         this.capture = new BossCaptureRuntime(this, npc);
         this.geyser = new BossGeyserRuntime(this, npc);
+        this.hurricane = new BossHurricaneRuntime(this, npc);
         this.mark = new BossMarkRuntime(this, npc);
         this.tether = new BossTetherCastRuntime(this, npc);
         this.gravity = new BossGravityCastRuntime(this, npc);
@@ -1740,10 +1747,20 @@ public final class TeleportPathController {
             return true;
         }
         if (pendingAction != BossAbility.LINE_ATTACK && pendingAction != BossAbility.BOULDER
-                && pendingAction != BossAbility.DASH && pendingAction != BossAbility.CONE) {
+                && pendingAction != BossAbility.DASH && pendingAction != BossAbility.CONE
+                && pendingAction != BossAbility.HURRICANE) {
             return false;
         }
         BossPhaseData phase = data.getPhase(currentPhase);
+        if (pendingAction == BossAbility.HURRICANE) {
+            // The line strike's eased turn onto the storms' first path; a spiral and a typhoon
+            // spread out from the boss and leave it looking wherever it was.
+            if (committedAxis == null || !phase.hurricane().facesAxis()) {
+                return false;
+            }
+            turnTowardAxis(committedAxis, phase.hurricane().getRange(), tuning().lineFaceTurnDegrees());
+            return true;
+        }
         if (pendingAction == BossAbility.LINE_ATTACK) {
             if (committedAxis == null || !phase.lineAttack().isFaceAxis()) {
                 return false;
@@ -1967,6 +1984,7 @@ public final class TeleportPathController {
             case DASH -> dash.isRunning();
             case CONE -> cone.isSequencing();
             case PLATFORM -> BossPlatformScheduler.hasPending(npc);
+            case HURRICANE -> BossHurricaneScheduler.hasPending(npc);
             case GEYSER -> BossGeyserScheduler.hasPending(npc);
             case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
             case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
@@ -2333,8 +2351,9 @@ public final class TeleportPathController {
             // The corridor was committed to when the warning went up, so there is nothing
             // left to call off: walking out of it already is the dodge, and cancelling
             // would only bring the same strike back round in two seconds. The dash's lane
-            // is the same promise, and its target only ever pointed it.
-            case LINE_ATTACK, BOULDER, DASH -> true;
+            // is the same promise, and its target only ever pointed it, and so are the paths
+            // the hurricane's storms are about to leave along.
+            case LINE_ATTACK, BOULDER, DASH, HURRICANE -> true;
             // A cone's fan was committed to when the warning went up, the corridor's way, so by
             // default nothing is called off; the phase may instead have it called off with the
             // fan empty, or with the target out of reach - the rule the cone started with.
@@ -2613,6 +2632,8 @@ public final class TeleportPathController {
         // own swings, and the ones still to come are never swung.
         huntRuntime.end();
         BossBeamScheduler.clearBoss(npc);
+        // Nor do the storms: they are the boss' own weather, and stop where it does.
+        BossHurricaneScheduler.clearBoss(npc);
         dash.clear();
         cone.clear();
     }

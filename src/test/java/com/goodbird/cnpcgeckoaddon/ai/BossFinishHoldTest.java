@@ -209,7 +209,7 @@ class BossFinishHoldTest {
             phase.setWaitsForFinish(ability.kind(), true);
             assertTrue(phase.waitsForFinish(ability.kind()), ability + " cannot be marked");
         }
-        assertEquals(22, BossAbility.ROTATION.size(), "every ability of the rotation has a row on the screen");
+        assertEquals(23, BossAbility.ROTATION.size(), "every ability of the rotation has a row on the screen");
         assertEquals(BossAbilityKind.FINISH_ALL, phase.writeToNBT().getInt(MASK));
         phase.setWaitsForFinish(BossAbilityKind.BLAST, true);
         phase.setWaitsForFinish(BossAbilityKind.HAZARD, true);

@@ -356,6 +356,35 @@ public final class BossPhaseData {
             "cnpcgeckoaddon.boss.cone_cooldown_from.end"
     };
 
+    /** One storm from the boss along the committed axis. */
+    public static final int HURRICANE_MODE_STRAIGHT = 0;
+    /** Four storms out along the world's axes. */
+    public static final int HURRICANE_MODE_CROSS = 1;
+    /** Four storms out along the diagonals. */
+    public static final int HURRICANE_MODE_DIAGONAL = 2;
+    /** Storms winding outward round the boss. */
+    public static final int HURRICANE_MODE_SPIRAL = 3;
+    /** Storms wandering between random points round the boss. */
+    public static final int HURRICANE_MODE_TYPHOON = 4;
+
+    public static final String[] HURRICANE_MODE_LABELS = {
+            "cnpcgeckoaddon.boss.hurricane_mode.straight",
+            "cnpcgeckoaddon.boss.hurricane_mode.cross",
+            "cnpcgeckoaddon.boss.hurricane_mode.diagonal",
+            "cnpcgeckoaddon.boss.hurricane_mode.spiral",
+            "cnpcgeckoaddon.boss.hurricane_mode.typhoon"
+    };
+
+    /** The straight storm goes at whoever the cast picked. */
+    public static final int HURRICANE_AIM_TARGET = 0;
+    /** The straight storm goes the way the boss is facing, whoever happens to be in the way. */
+    public static final int HURRICANE_AIM_FACING = 1;
+
+    public static final String[] HURRICANE_AIM_LABELS = {
+            "cnpcgeckoaddon.boss.hurricane_aim.target",
+            "cnpcgeckoaddon.boss.hurricane_aim.facing"
+    };
+
     /** One platform goes, drawn by the platforms' weights. */
     public static final int PLATFORM_PICK_RANDOM = 0;
 
@@ -387,7 +416,8 @@ public final class BossPhaseData {
      * the one mover listed: its bit only holds the wind-up, and the run lets go of the pin
      * on its own the moment it starts, the way the leap's push does. The cone strike's bit
      * likewise only holds the wind-up: a series over its points stands still whatever it says.
-     * So does the platforms' bit: their fuses burn on wherever the boss walks off to.</p>
+     * So does the platforms' bit: their fuses burn on wherever the boss walks off to, and the
+     * hurricane's: its storms travel on their own once let go.</p>
      */
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -396,7 +426,8 @@ public final class BossPhaseData {
             BossAbilityKind.BOULDER, BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER,
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
-            BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM
+            BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
+            BossAbilityKind.HURRICANE
     };
 
     /**
@@ -459,6 +490,7 @@ public final class BossPhaseData {
     private final BossHazardSettings hazard = new BossHazardSettings();
     private final BossHookSettings hook = new BossHookSettings();
     private final BossHuntSettings hunt = new BossHuntSettings();
+    private final BossHurricaneSettings hurricane = new BossHurricaneSettings();
     private final BossInvulnerableSettings invulnerable = new BossInvulnerableSettings();
     private final BossLeapSettings leap = new BossLeapSettings();
     private final BossLineAttackSettings lineAttack = new BossLineAttackSettings();
@@ -583,6 +615,11 @@ public final class BossPhaseData {
     /** The projectile the boss throws. */
     public BossRangedAttackSettings rangedAttack() {
         return rangedAttack;
+    }
+
+    /** The storms let loose on the floor, and what they do to whoever they run into. */
+    public BossHurricaneSettings hurricane() {
+        return hurricane;
     }
 
     /** The clones the boss calls for, and where it puts them. */
@@ -774,6 +811,7 @@ public final class BossPhaseData {
         hazard.writeToNBT(tag);
         hook.writeToNBT(tag);
         hunt.writeToNBT(tag);
+        hurricane.writeToNBT(tag);
         invulnerable.writeToNBT(tag);
         leap.writeToNBT(tag);
         lineAttack.writeToNBT(tag);
@@ -845,6 +883,10 @@ public final class BossPhaseData {
         if (!tag.contains("PlatformEnabled")) {
             castRootMask |= 1 << BossAbilityKind.PLATFORM;
         }
+        // And for the hurricane, whose bit only pins the wind-up: the storms travel on their own.
+        if (!tag.contains("HurricaneEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.HURRICANE;
+        }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight. A
         // save from when only the lasting abilities could be marked holds zeros in every other
@@ -885,6 +927,7 @@ public final class BossPhaseData {
         hazard.readFromNBT(tag);
         hook.readFromNBT(tag);
         hunt.readFromNBT(tag);
+        hurricane.readFromNBT(tag);
         invulnerable.readFromNBT(tag);
         leap.readFromNBT(tag);
         lineAttack.readFromNBT(tag);

@@ -142,6 +142,10 @@ class BossAbilityTableTest {
                     },
                     (phase, ticks) -> phase.platform().setCooldownTicks(ticks),
                     phase -> phase.platform().castSpot())),
+            Map.entry(BossAbility.HURRICANE, new Wiring(
+                    phase -> phase.hurricane().setEnabled(true),
+                    (phase, ticks) -> phase.hurricane().setCooldownTicks(ticks),
+                    phase -> phase.hurricane().castSpot())),
             Map.entry(BossAbility.SUMMON, new Wiring(
                     phase -> {
                         phase.summon().setEnabled(true);
