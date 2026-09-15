@@ -6,6 +6,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossShadowSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -49,6 +50,8 @@ final class BossShadowRuntime {
      */
     private BossShadowSettings cast;
     private long castAt = NOT_SCHEDULED;
+    /** When the boss next trades places with a copy; only read while the cast swaps at all. */
+    private long nextSwapAt = NOT_SCHEDULED;
 
     /** A spot a copy is stood up on, and the way it faces there. */
     private record Spot(Vec3 at, float yaw) {
@@ -104,7 +107,54 @@ final class BossShadowRuntime {
                 // Their time is up but the end was promised to the next cast, which never came.
                 vanishAll(level);
             }
+            return;
         }
+        if (cast.isSwapEnabled() && BossShadowSwap.due(gameTime, nextSwapAt)) {
+            // Counted from now whether or not the swap goes: a boss that is busy this time is
+            // not owed a swap the tick it is free, which would be a swap mid-recovery.
+            nextSwapAt = BossShadowSwap.nextSwapAt(gameTime, cast.getSwapIntervalTicks());
+            trySwap(level);
+        }
+    }
+
+    /**
+     * Trades places with one copy, picked at random: position, facing, head, body, pitch,
+     * motion and fall, and nothing else. No sound and no puff on purpose - the swap is the
+     * trick, and a trick that announces itself is none. The targets stay where they are: a
+     * copy that was after somebody goes on after them from where the boss stood.
+     */
+    private void trySwap(ServerLevel level) {
+        List<EntityNPCInterface> alive = aliveCopies(level);
+        if (alive.isEmpty()) {
+            return;
+        }
+        EntityNPCInterface copy = alive.get(BossShadowSwap.pick(npc.getRandom(), alive.size()));
+        TeleportPathController copyController = controllerOf(copy);
+        boolean copyIdle = copyController == null || copyController.isIdleForSwap();
+        if (!BossShadowSwap.allowed(cast.isSwapOnlyIdle(), boss.isIdleForSwap(), copyIdle)) {
+            return;
+        }
+        BossShadowSwap.Pose[] poses = BossShadowSwap.swapped(BossShadowSwap.Pose.of(npc),
+                BossShadowSwap.Pose.of(copy));
+        BossShadowSwap.Pose bossGets = poses[0];
+        BossShadowSwap.Pose copyGets = poses[1];
+        // The boss goes through the shared blink so its stationary pin follows it; a hop that
+        // CustomNPCs vetoes leaves both where they were.
+        if (!BossTeleportUtil.teleport(level, npc, boss, bossGets.position(), false, "shadow swap")) {
+            return;
+        }
+        bossGets.applyTo(npc);
+        copy.teleportTo(copyGets.position().x, copyGets.position().y, copyGets.position().z);
+        copy.getNavigation().stop();
+        copyGets.applyTo(copy);
+        if (copyController != null) {
+            // The copy's own pin, or it would be yanked straight back to where the boss now stands.
+            copyController.rememberCurrentPosition();
+        }
+    }
+
+    private static TeleportPathController controllerOf(EntityNPCInterface copy) {
+        return copy instanceof IBossController holder ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
     }
 
     /** Whether any copy of this boss is standing; what the rotation and the finish gate wait on. */
@@ -136,7 +186,9 @@ final class BossShadowRuntime {
 
     /** Read-only status used by the boss diagnostic command. */
     String status(long gameTime) {
-        return "Shadows: " + copies.size() + " alive";
+        String swap = cast != null && cast.isSwapEnabled() && hasCopies()
+                ? Long.toString(Math.max(0L, nextSwapAt - gameTime)) : "-";
+        return "Shadows: " + copies.size() + " alive, swap in " + swap;
     }
 
     private void finale(ServerLevel level, long gameTime) {
@@ -182,6 +234,7 @@ final class BossShadowRuntime {
         }
         cast = shadow.copy();
         castAt = gameTime;
+        nextSwapAt = BossShadowSwap.nextSwapAt(gameTime, shadow.getSwapIntervalTicks());
     }
 
     /** Spots spread evenly round the boss, each on the floor nearest the boss' own height. */
@@ -248,6 +301,7 @@ final class BossShadowRuntime {
         copies.clear();
         cast = null;
         castAt = NOT_SCHEDULED;
+        nextSwapAt = NOT_SCHEDULED;
     }
 
     private static void cueAt(ServerLevel level, Entity at, BossSoundCue sound, BossParticleCue particles) {

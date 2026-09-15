@@ -2540,6 +2540,18 @@ public final class TeleportPathController {
         return shadows.hasCopies();
     }
 
+    /**
+     * Whether this boss - or a copy, which runs the same controller - is between casts and not
+     * moving under one: no wind-up, no flight, no run, no series, no chase, no journey to a
+     * cast spot, not stunned and not lying down. What a swap with a copy waits for when the
+     * phase says to swap only in the quiet.
+     */
+    boolean isIdleForSwap() {
+        return pendingAction == BossAbility.NONE && !leap.isAirborne() && !dash.isRunning()
+                && !cone.isSequencing() && !huntRuntime.isHunting() && !castSpots.isTravelling()
+                && !isBarrierStunned() && !healthLink.isDowned();
+    }
+
     /** Read-only status used by the boss diagnostic command. */
     public String shadowStatus(long gameTime) {
         return shadows.status(gameTime);
