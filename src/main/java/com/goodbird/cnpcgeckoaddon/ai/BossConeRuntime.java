@@ -385,7 +385,7 @@ final class BossConeRuntime {
         // Purely for show, and started before the hits so the flash goes out at the same moment
         // the damage lands rather than a tick behind it.
         flash(level, origin, axes, cone);
-        int damage = boss.rageUp(cone.getDamage());
+        int damage = boss.damageUp(cone.getDamage());
         int strength = boss.rageUp(cone.getImpulseStrength());
         for (LivingEntity victim : victimsIn(level, data, cone, origin, axes)) {
             // The impulse is this strike's own half rather than something on top of the damage,

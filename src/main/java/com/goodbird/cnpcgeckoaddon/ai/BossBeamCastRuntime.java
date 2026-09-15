@@ -69,7 +69,7 @@ final class BossBeamCastRuntime {
      */
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
         BossBeamScheduler.start(level, npc, phase, boss.committedYaw(),
-                boss.rageUp(phase.beam().getDamage()), boss.rageUp(phase.beam().getKnockback()), gameTime);
+                boss.damageUp(phase.beam().getDamage()), boss.rageUp(phase.beam().getKnockback()), gameTime);
     }
 
     /** Read-only status used by the boss diagnostic command. */

@@ -58,7 +58,7 @@ final class BossRangedAttackRuntime {
         DataRanged ranged = npc.stats.ranged;
         int previousDamage = ranged.getStrength();
         try {
-            ranged.setStrength(boss.rageUp(phase.rangedAttack().getDamage()));
+            ranged.setStrength(boss.damageUp(phase.rangedAttack().getDamage()));
             double distanceSquared = npc.distanceToSqr(target);
             boolean indirect = ranged.getFireType() == 2
                     ? !npc.getSensing().hasLineOfSight(target)

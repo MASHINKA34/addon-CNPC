@@ -5,12 +5,16 @@ import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossShadowSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
+import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
+import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossLink;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -37,6 +41,11 @@ final class BossShadowRuntime {
 
     /** How far below the ring's height the floor may be before a spot on the ring is given up. */
     private static final int RING_FLOOR_SEARCH = 6;
+    /** How long a copy's beam runs before it is drawn in: the moment the boss gets its health and its stack. */
+    private static final int ABSORB_TICKS = 20;
+    /** The absorb beam is drawn as the capture's, at its default width and with no sag. */
+    private static final int ABSORB_BEAM_WIDTH_PERCENT = 100;
+    private static final int ABSORB_BEAM_SAG_PERCENT = 0;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -52,6 +61,14 @@ final class BossShadowRuntime {
     private long castAt = NOT_SCHEDULED;
     /** When the boss next trades places with a copy; only read while the cast swaps at all. */
     private long nextSwapAt = NOT_SCHEDULED;
+    /** The copies being drawn back into the boss right now: each pays out when its beam has run. */
+    private final List<PendingAbsorb> absorbing = new ArrayList<>();
+    /** What the copies taken back left the boss holding; outlives the copies and the cast. */
+    private final BossShadowAbsorb.Stacks stacks = new BossShadowAbsorb.Stacks();
+
+    /** One copy on its way back into the boss, and the tick it pays out on. */
+    private record PendingAbsorb(UUID copy, long at) {
+    }
 
     /** A spot a copy is stood up on, and the way it faces there. */
     private record Spot(Vec3 at, float yaw) {
@@ -96,8 +113,13 @@ final class BossShadowRuntime {
             return;
         }
         prune(level);
+        payOutAbsorbs(level, gameTime);
         if (!hasCopies()) {
             forget();
+            return;
+        }
+        if (copies.isEmpty()) {
+            // Everything left is on its way back in: no clock and no swap for a copy mid beam.
             return;
         }
         if (cast.getLifetimeTicks() > 0 && gameTime >= castAt + cast.getLifetimeTicks()) {
@@ -157,9 +179,43 @@ final class BossShadowRuntime {
         return copy instanceof IBossController holder ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
     }
 
-    /** Whether any copy of this boss is standing; what the rotation and the finish gate wait on. */
+    /** Whether any copy of this boss is standing or being drawn in; what the rotation and the finish gate wait on. */
     boolean hasCopies() {
-        return !copies.isEmpty();
+        return !copies.isEmpty() || !absorbing.isEmpty();
+    }
+
+    /** What the stacks make of a number an ability hits for; the rage has already had its say on it. */
+    int scaleDamage(int value, long gameTime) {
+        return stacks.scale(value, gameTime);
+    }
+
+    /** What the stacks multiply the boss' own swing by right now: one with none held. */
+    double absorbMultiplier(long gameTime) {
+        return stacks.multiplier(gameTime);
+    }
+
+    /**
+     * Makes a boss that took its copies back hit as hard as its stacks say, on the swing it
+     * deals with its own body. The rage's rule: only the boss' own body, never a projectile
+     * and never a hit an ability is landing, since those read the stacks where they read the
+     * rage - a hit scaled there must not be scaled a second time here.
+     *
+     * @return the damage this hit should land for, unchanged when no stacks are held
+     */
+    static float scaleOwnAttack(DamageSource source, float amount) {
+        if (amount <= 0.0F || BossAbilityDamageUtil.isApplyingHit()
+                || BossAbilityDamageUtil.currentAbility() != BossAbilityDamageUtil.NO_ABILITY
+                || !(source.getEntity() instanceof EntityNPCInterface npc)
+                || source.getDirectEntity() != npc
+                || !(npc instanceof IBossController holder)) {
+            return amount;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null) {
+            return amount;
+        }
+        double multiplier = controller.absorbMultiplier();
+        return multiplier <= 1.0D ? amount : (float) (amount * multiplier);
     }
 
     /** How many copies stand right now, as of the last tick's look. */
@@ -172,9 +228,17 @@ final class BossShadowRuntime {
         return cast != null && cast.isHideBossBar() && hasCopies();
     }
 
-    /** Takes every copy away with no finale, for every ending of a fight. */
+    /** Takes every copy away with no finale and drops the stacks, for every ending of a fight. */
     void clear(ServerLevel level) {
+        BossParticleCue puff = cast == null ? null : cast.getVanishParticles();
+        for (PendingAbsorb pending : absorbing) {
+            if (level.getEntity(pending.copy()) instanceof EntityNPCInterface copy && copy.isAlive()) {
+                vanish(level, copy, puff);
+            }
+        }
+        absorbing.clear();
         vanishAll(level);
+        stacks.clear();
     }
 
     /** A phase that is over takes its copies with it, when the phase they were cast in said so. */
@@ -186,13 +250,59 @@ final class BossShadowRuntime {
 
     /** Read-only status used by the boss diagnostic command. */
     String status(long gameTime) {
-        String swap = cast != null && cast.isSwapEnabled() && hasCopies()
+        String swap = cast != null && cast.isSwapEnabled() && !copies.isEmpty()
                 ? Long.toString(Math.max(0L, nextSwapAt - gameTime)) : "-";
-        return "Shadows: " + copies.size() + " alive, swap in " + swap;
+        String held = stacks.count(gameTime) == 0 ? "0"
+                : stacks.count(gameTime) + " (" + stacks.ticksLeft(gameTime) + " ticks left)";
+        return "Shadows: " + copies.size() + " alive, swap in " + swap + ", stacks " + held;
     }
 
     private void finale(ServerLevel level, long gameTime) {
-        vanishAll(level);
+        switch (cast.getFinale()) {
+            case BossShadowSettings.FINALE_ABSORB -> absorbAll(level, gameTime);
+            default -> vanishAll(level);
+        }
+    }
+
+    /**
+     * Starts drawing every standing copy back into the boss: the beam and the cue now, the
+     * health and the stack when the beam has run. A copy killed in between gives nothing.
+     */
+    private void absorbAll(ServerLevel level, long gameTime) {
+        for (EntityNPCInterface copy : aliveCopies(level)) {
+            if (HookCordStyles.isTextured(cast.getAbsorbBeam())) {
+                PacketSyncBossLink beam = new PacketSyncBossLink(PacketSyncBossLink.KIND_CAPTURE, copy.getId(),
+                        npc.getId(), 0, cast.getAbsorbBeam(), ABSORB_TICKS, ABSORB_BEAM_WIDTH_PERCENT,
+                        ABSORB_BEAM_SAG_PERCENT, false);
+                NetworkWrapper.sendToTracking(npc, beam);
+                NetworkWrapper.sendToTracking(copy, beam);
+            }
+            cueAt(level, copy, cast.getAbsorbSound(), cast.getAbsorbParticles());
+            absorbing.add(new PendingAbsorb(copy.getUUID(), gameTime + ABSORB_TICKS));
+        }
+        copies.clear();
+    }
+
+    /** The copies whose beam has run: each heals the boss and adds its stack, then goes. */
+    private void payOutAbsorbs(ServerLevel level, long gameTime) {
+        for (Iterator<PendingAbsorb> it = absorbing.iterator(); it.hasNext(); ) {
+            PendingAbsorb pending = it.next();
+            if (gameTime < pending.at()) {
+                continue;
+            }
+            it.remove();
+            if (!(level.getEntity(pending.copy()) instanceof EntityNPCInterface copy) || !copy.isAlive()) {
+                continue;
+            }
+            // heal() rather than setHealth(): the health link listens for the heal event, and
+            // a partner sharing the boss' pool is owed its share of every copy taken back.
+            float amount = BossShadowAbsorb.healAmount(npc.getMaxHealth(), cast.getAbsorbHealPercent());
+            if (amount > 0.0F) {
+                npc.heal(amount);
+            }
+            stacks.add(gameTime, cast.getAbsorbDamagePercent(), cast.getAbsorbMaxStacks(), cast.getAbsorbBuffTicks());
+            vanish(level, copy, cast.getVanishParticles());
+        }
     }
 
     private void spawn(ServerLevel level, BossPhaseData phase, long gameTime) {

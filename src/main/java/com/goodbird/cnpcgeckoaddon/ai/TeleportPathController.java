@@ -837,6 +837,25 @@ public final class TeleportPathController {
         return rage.multiplier();
     }
 
+    /**
+     * Scales a number an ability hits for: the enrage, and on top of it the stacks the boss
+     * holds from the shadow copies it took back. The one door for damage, where {@link #rageUp}
+     * stays the door for a knockback, a launch or a pull - the stacks are a buff to damage,
+     * not to how far anybody flies.
+     */
+    int damageUp(int value) {
+        return shadows.scaleDamage(rage.up(value), currentGameTime());
+    }
+
+    /** What the copies the boss took back multiply its own swing by; one with none held. */
+    public double absorbMultiplier() {
+        return shadows.absorbMultiplier(currentGameTime());
+    }
+
+    private long currentGameTime() {
+        return npc.level() instanceof ServerLevel level ? level.getGameTime() : 0L;
+    }
+
     /** Everyone this fight is being run against, read-only for the subsystems that address them. */
     Set<UUID> encounterParticipants() {
         return encounterParticipants;

@@ -55,6 +55,6 @@ final class BossGravityCastRuntime {
      * run, not a number the fight may turn down.</p>
      */
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
-        BossGravityScheduler.start(level, npc, phase, boss.rageUp(phase.gravity().getDamage()), gameTime);
+        BossGravityScheduler.start(level, npc, phase, boss.damageUp(phase.gravity().getDamage()), gameTime);
     }
 }

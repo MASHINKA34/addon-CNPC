@@ -196,7 +196,7 @@ final class BossHuntRuntime {
      * exactly as it was, so this is the hunt's own hit and nothing more.</p>
      */
     private void catchPrey(ServerLevel level, Hunt current, LivingEntity prey, long gameTime) {
-        BossAbilityDamageUtil.hit(prey, BossAbilityKind.HUNT, npc, boss.rageUp(current.damage),
+        BossAbilityDamageUtil.hit(prey, BossAbilityKind.HUNT, npc, boss.damageUp(current.damage),
                 current.effects, 0, 0.0D, 0.0D);
         level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.HUNT), prey.getX(),
                 prey.getY() + prey.getBbHeight() * 0.5D, prey.getZ(), 12,

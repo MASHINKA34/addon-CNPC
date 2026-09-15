@@ -86,7 +86,7 @@ final class BossFluidSpitRuntime {
         npc.getLookControl().setLookAt(target, aim, aim);
         EntityFluidSpit spit = new EntityFluidSpit(EntityRegistry.entityFluidSpit, npc, level);
         spit.configure(fluid, phase.fluidSpit().getLifetimeTicks(), phase.fluidSpit().getRadius(),
-                boss.rageUp(phase.fluidSpit().getDamage()));
+                boss.damageUp(phase.fluidSpit().getDamage()));
         // The glob outlives the phase that spat it, so what it is to do in the air goes with
         // it rather than being looked up again when it lands.
         BossProjectileTuning.put(spit, BossProjectileTuning.GRAVITY,

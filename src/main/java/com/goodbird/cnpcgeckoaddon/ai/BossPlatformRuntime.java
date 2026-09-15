@@ -115,7 +115,7 @@ final class BossPlatformRuntime {
             turnCursor.put(turnPhase, turn);
         }
         BossPlatformSettings platform = phase.platform();
-        int damage = boss.rageUp(platform.getDamage());
+        int damage = boss.damageUp(platform.getDamage());
         int knockback = boss.rageUp(platform.getKnockback());
         int launch = boss.rageUp(platform.getLaunch());
         // One countdown per cast: the first platform speaks for all of them.

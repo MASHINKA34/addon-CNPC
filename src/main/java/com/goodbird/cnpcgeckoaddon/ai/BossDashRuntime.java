@@ -331,7 +331,7 @@ final class BossDashRuntime {
         met.sort(Comparator.comparingDouble(target -> lane.along(target.getX(), target.getZ())));
         double first = lane.along(met.getFirst().getX(), met.getFirst().getZ());
         boolean stops = phase.dash().isStopOnHit();
-        int damage = boss.rageUp(phase.dash().getDamage());
+        int damage = boss.damageUp(phase.dash().getDamage());
         int knockback = boss.rageUp(phase.dash().getKnockback());
         for (LivingEntity target : met) {
             if (stops && lane.along(target.getX(), target.getZ()) > first + phase.dash().getContactSlice()) {
@@ -390,7 +390,7 @@ final class BossDashRuntime {
         // Started before the hits so the wave leaves at the same moment the damage lands.
         BossAreaVfxScheduler.schedule(level, impact, phase.dash().getSlamVfx(), radius,
                 phase.dash().getSlamVfxTicks(), false, BossWaveTuning.of(npc, phase.dash().getSlamVfx()));
-        int damage = boss.rageUp(phase.dash().getSlamDamage());
+        int damage = boss.damageUp(phase.dash().getSlamDamage());
         int knockback = boss.rageUp(phase.dash().getSlamKnockback());
         for (LivingEntity target : boss.getTargetsAround(level, impact, radius, BossAbilityKind.DASH)) {
             BossAbilityDamageUtil.hit(target, BossAbilityKind.DASH, npc, damage, phase.dash().getEffects(),

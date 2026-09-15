@@ -347,7 +347,7 @@ final class BossBarrierRuntime {
         } else {
             failed.failCurseSound.play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         }
-        int damage = mode == BossPhaseData.BARRIER_FAIL_DAMAGE ? boss.rageUp(failed.failDamage) : 0;
+        int damage = mode == BossPhaseData.BARRIER_FAIL_DAMAGE ? boss.damageUp(failed.failDamage) : 0;
         for (ServerPlayer player : audience(level)) {
             // The bar's other viewers are watching, not fighting, and somebody who has gone
             // creative or died since they signed in is out of the fight: the party pays.

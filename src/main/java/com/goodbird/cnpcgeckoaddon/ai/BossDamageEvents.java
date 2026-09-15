@@ -54,7 +54,20 @@ public final class BossDamageEvents {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onScaleIncomingDamage(final LivingIncomingDamageEvent event) {
         scaleEnragedBossAttack(event);
+        scaleAbsorbedShadows(event);
         scaleBossFire(event);
+    }
+
+    /**
+     * Makes a boss that drew its shadow copies back in hit as hard as its stacks say, on the
+     * same swing the enrage scales and for the same reason: CustomNPCs reads no attribute for
+     * it. What the abilities hit for goes through the stacks where their settings are read.
+     */
+    private static void scaleAbsorbedShadows(LivingIncomingDamageEvent event) {
+        float scaled = BossShadowRuntime.scaleOwnAttack(event.getSource(), event.getAmount());
+        if (scaled != event.getAmount()) {
+            event.setAmount(scaled);
+        }
     }
 
     /**

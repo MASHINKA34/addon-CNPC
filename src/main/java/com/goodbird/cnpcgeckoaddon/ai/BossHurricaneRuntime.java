@@ -98,7 +98,7 @@ final class BossHurricaneRuntime {
         }
         // The enrage turns up what the storm hits for, not how long it holds: the hold is the
         // window the rest of the party gets to do something about it.
-        int damage = boss.rageUp(phase.hurricane().getDamage());
+        int damage = boss.damageUp(phase.hurricane().getDamage());
         BossHurricaneScheduler.launch(level, npc, phase, axis, damage, gameTime);
     }
 }

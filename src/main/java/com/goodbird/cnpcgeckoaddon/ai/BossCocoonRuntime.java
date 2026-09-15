@@ -134,7 +134,7 @@ final class BossCocoonRuntime {
             // The time limit and the rescue are deliberately left alone by the enrage: they
             // are the room a party gets to answer, not a number the fight may turn down.
             if (!BossCocoonManager.start(level, npc, victim, shell, phase, boss.currentPhaseIndex(),
-                    boss.rageUp(phase.cocoon().getFailDamage()), gameTime)) {
+                    boss.damageUp(phase.cocoon().getFailDamage()), gameTime)) {
                 // Refused - held by somebody else after all, or standing in a wall - so the
                 // shell goes back the way it came, without a death.
                 shell.discard();

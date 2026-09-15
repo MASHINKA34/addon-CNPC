@@ -320,7 +320,7 @@ final class BossLeapRuntime {
         BossAreaVfxScheduler.schedule(level, impact, phase.leap().getVfx(), phase.leap().getImpactRadius(),
                 phase.leap().getVfxTicks(), phase.leap().isBlockWave(),
                 BossWaveTuning.of(npc, phase.leap().getVfx()));
-        int damage = boss.rageUp(phase.leap().getImpactDamage());
+        int damage = boss.damageUp(phase.leap().getImpactDamage());
         for (LivingEntity target : boss.getTargetsAround(level, impact, phase.leap().getImpactRadius(),
                 BossAbilityKind.LEAP)) {
             BossAbilityDamageUtil.hit(target, BossAbilityKind.LEAP, npc, damage,

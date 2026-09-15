@@ -131,7 +131,7 @@ final class BossHookRuntime {
             // No knockback here: what the hook shoves with is the pull below, which runs for
             // as long as the cord holds rather than for one tick.
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.HOOK, npc,
-                    boss.rageUp(phase.hook().getDamage()), phase.hook().getEffects(), 0, 0.0D, 0.0D);
+                    boss.damageUp(phase.hook().getDamage()), phase.hook().getEffects(), 0, 0.0D, 0.0D);
             // Re-hooking someone already being dragged just refreshes their pull.
             activePulls.removeIf(pull -> pull.targetId() == victim.getId());
             activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint,

@@ -83,9 +83,9 @@ final class BossMarkRuntime {
         }
         // The fuse, the radius and the head count are deliberately left alone by the enrage:
         // they are the problem the party is set, not numbers the fight is allowed to turn.
-        int damage = boss.rageUp(phase.mark().getDamage());
-        int failDamage = boss.rageUp(phase.mark().getFailDamage());
-        int selfDamage = boss.rageUp(phase.mark().getSelfDamage());
+        int damage = boss.damageUp(phase.mark().getDamage());
+        int failDamage = boss.damageUp(phase.mark().getFailDamage());
+        int selfDamage = boss.damageUp(phase.mark().getSelfDamage());
         for (LivingEntity victim : victims) {
             if (!BossMarkScheduler.schedule(level, npc, victim, phase, damage, failDamage,
                     selfDamage, gameTime)) {

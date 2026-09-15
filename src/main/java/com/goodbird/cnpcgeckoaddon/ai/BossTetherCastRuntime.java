@@ -92,7 +92,7 @@ final class BossTetherCastRuntime {
         // The break distance and the timer are deliberately left alone by the enrage: they
         // are the window a player gets to run, not a number the fight is allowed to turn down.
         if (BossTetherManager.start(level, npc, victims, phase, boss.currentPhaseIndex(),
-                boss.rageUp(phase.tether().getFailDamage()), gameTime) == 0) {
+                boss.damageUp(phase.tether().getFailDamage()), gameTime) == 0) {
             return;
         }
         for (LivingEntity victim : victims) {

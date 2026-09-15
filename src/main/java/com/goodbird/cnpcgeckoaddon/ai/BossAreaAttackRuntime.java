@@ -51,7 +51,7 @@ final class BossAreaAttackRuntime {
                 BossWaveTuning.of(npc, phase.areaAttack().getVfx()));
         for (LivingEntity target : targets(level, phase)) {
             BossAbilityDamageUtil.hit(target, BossAbilityKind.AREA, npc,
-                    boss.rageUp(phase.areaAttack().getDamage()), phase.areaAttack().getEffects(),
+                    boss.damageUp(phase.areaAttack().getDamage()), phase.areaAttack().getEffects(),
                     boss.rageUp(phase.areaAttack().getKnockback()),
                     npc.getX() - target.getX(), npc.getZ() - target.getZ());
         }

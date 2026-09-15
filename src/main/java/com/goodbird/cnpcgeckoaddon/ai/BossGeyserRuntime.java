@@ -95,7 +95,7 @@ final class BossGeyserRuntime {
         BlockState fluid = fluid(phase);
         // The fuse is deliberately left alone by the enrage: it is the window a player gets
         // to read the mark and step off it, not a number the fight is allowed to turn up.
-        int damage = boss.rageUp(phase.geyser().getDamage());
+        int damage = boss.damageUp(phase.geyser().getDamage());
         int launch = boss.rageUp(phase.geyser().getLaunch());
         for (LivingEntity victim : victims) {
             BossGeyserScheduler.schedule(level, npc, victim, phase, fluid, damage, launch, gameTime);

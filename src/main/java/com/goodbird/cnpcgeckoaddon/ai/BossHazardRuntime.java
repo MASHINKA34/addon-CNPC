@@ -213,7 +213,7 @@ final class BossHazardRuntime {
         hazard.nextHitAt = gameTime + hazard.intervalTicks;
         for (LivingEntity victim : victims(level, hazard, gameTime)) {
             // No knockback: the fire is the ground, and the ground does not shove.
-            BossAbilityDamageUtil.hit(victim, BossAbilityKind.HAZARD, npc, boss.rageUp(hazard.damage),
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.HAZARD, npc, boss.damageUp(hazard.damage),
                     hazard.effects, 0, 0.0D, 0.0D);
         }
     }

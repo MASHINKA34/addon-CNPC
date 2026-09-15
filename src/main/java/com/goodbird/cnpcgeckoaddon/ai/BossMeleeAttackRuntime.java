@@ -58,7 +58,7 @@ final class BossMeleeAttackRuntime {
             npc.swing(InteractionHand.MAIN_HAND);
         }
         BossAbilityDamageUtil.hit(target, BossAbilityKind.MELEE, npc,
-                boss.rageUp(phase.meleeAttack().getDamage()), phase.meleeAttack().getEffects(),
+                boss.damageUp(phase.meleeAttack().getDamage()), phase.meleeAttack().getEffects(),
                 boss.rageUp(phase.meleeAttack().getKnockback()),
                 npc.getX() - target.getX(), npc.getZ() - target.getZ());
     }

@@ -106,7 +106,7 @@ final class BossLineAttackRuntime {
         // the damage lands rather than a tick behind it.
         BossAreaVfxScheduler.scheduleLine(level, origin, axis, phase,
                 BossWaveTuning.of(npc, phase.lineAttack().getVfx()));
-        int damage = boss.rageUp(phase.lineAttack().getDamage());
+        int damage = boss.damageUp(phase.lineAttack().getDamage());
         int sideDamage = sideWaveDamage(damage, phase.lineAttack().getSidePercent());
         int knockback = boss.rageUp(phase.lineAttack().getKnockback());
         for (LivingEntity target : targetsIn(level, origin, axis, phase)) {
