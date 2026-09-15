@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossCaptureManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossCocoonManager;
+import com.goodbird.cnpcgeckoaddon.ai.BossHurricaneScheduler;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
@@ -11,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Rejects captured or cocooned player position packets before vanilla movement validation applies them. */
+/** Rejects captured, cocooned or storm-held player position packets before vanilla movement validation applies them. */
 @Mixin(ServerGamePacketListenerImpl.class)
 public abstract class MixinServerGamePacketListenerImpl {
     @Shadow
@@ -25,7 +26,8 @@ public abstract class MixinServerGamePacketListenerImpl {
     private void cnpcgeckoaddon$lockCapturedPlayer(ServerboundMovePlayerPacket packet,
                                                    CallbackInfo ci) {
         if (BossCaptureManager.handleMovePacket(player, packet)
-                || BossCocoonManager.handleMovePacket(player, packet)) {
+                || BossCocoonManager.handleMovePacket(player, packet)
+                || BossHurricaneScheduler.handleMovePacket(player, packet)) {
             ci.cancel();
         }
     }
