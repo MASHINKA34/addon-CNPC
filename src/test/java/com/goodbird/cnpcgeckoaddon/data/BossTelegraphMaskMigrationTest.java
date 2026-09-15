@@ -159,10 +159,10 @@ class BossTelegraphMaskMigrationTest {
         assertTrue(Arrays.stream(TeleportPathData.TELEGRAPH_ABILITIES)
                         .anyMatch(ability -> ability == BossAbilityKind.BOULDER_RAIN),
                 "the rain has a row on the warning screen");
-        // The rain was appended after the platforms, and the hurricane after it, so its row is
-        // exactly where the saves that know it left it: one before the end.
+        // The rain was appended after the platforms, the hurricane after it and the shadow copies
+        // after that, so its row is exactly where the saves that know it left it: two before the end.
         assertEquals(BossAbilityKind.BOULDER_RAIN,
-                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 2],
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 3],
                 "appended after the platforms, so no existing row moved");
         assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.BOULDER_RAIN),
                 "and a new boss warns for it until its builder says otherwise");
@@ -172,8 +172,8 @@ class BossTelegraphMaskMigrationTest {
     @DisplayName("the hurricane warns too, appended after the rain, and a stamped save fills it in")
     void theHurricaneIsOnTheWarningList() {
         assertEquals(BossAbilityKind.HURRICANE,
-                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 1],
-                "appended, so no existing row moved");
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 2],
+                "appended after the rain, so no existing row moved");
         assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.HURRICANE),
                 "and a new boss warns for it until its builder says otherwise");
         // A save from between the stamp and the hurricane knew everything but the hurricane,
@@ -185,6 +185,25 @@ class BossTelegraphMaskMigrationTest {
         int chosen = known & ~(1 << BossAbilityKind.DASH);
         assertEquals(chosen, rereadStamped(chosen, known).getTelegraphAbilities(),
                 "a choice is kept bit for bit, and the hurricane stays off with it");
+    }
+
+    @Test
+    @DisplayName("the shadow copies warn too, appended after the hurricane, and a stamped save fills them in")
+    void theShadowCopiesAreOnTheWarningList() {
+        assertEquals(BossAbilityKind.SHADOW,
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 1],
+                "appended, so no existing row moved");
+        assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.SHADOW),
+                "and a new boss warns for them until its builder says otherwise");
+        // A save from between the hurricane and the copies knew everything but the copies, and
+        // warned for all of it: the stamp says so, and the copies join the rest.
+        int known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1 << BossAbilityKind.SHADOW);
+        assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES,
+                rereadStamped(known, known).getTelegraphAbilities(),
+                "everything the save knew about was on, so everything is on");
+        int chosen = known & ~(1 << BossAbilityKind.HURRICANE);
+        assertEquals(chosen, rereadStamped(chosen, known).getTelegraphAbilities(),
+                "a choice is kept bit for bit, and the copies stay off with it");
     }
 
     @Test

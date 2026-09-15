@@ -417,7 +417,8 @@ public final class BossPhaseData {
      * on its own the moment it starts, the way the leap's push does. The cone strike's bit
      * likewise only holds the wind-up: a series over its points stands still whatever it says.
      * So does the platforms' bit: their fuses burn on wherever the boss walks off to, and the
-     * hurricane's: its storms travel on their own once let go.</p>
+     * hurricane's: its storms travel on their own once let go. And the shadow copies': the
+     * copies fight on their own feet once they stand.</p>
      */
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -427,7 +428,7 @@ public final class BossPhaseData {
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
             BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
-            BossAbilityKind.HURRICANE
+            BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW
     };
 
     /**
@@ -498,6 +499,7 @@ public final class BossPhaseData {
     private final BossMeleeAttackSettings meleeAttack = new BossMeleeAttackSettings();
     private final BossPlatformSettings platform = new BossPlatformSettings();
     private final BossRangedAttackSettings rangedAttack = new BossRangedAttackSettings();
+    private final BossShadowSettings shadow = new BossShadowSettings();
     private final BossSummonSettings summon = new BossSummonSettings();
     private final BossTeleportSettings teleport = new BossTeleportSettings();
     private final BossTetherSettings tether = new BossTetherSettings();
@@ -622,9 +624,54 @@ public final class BossPhaseData {
         return hurricane;
     }
 
+    /** The copies of the boss itself, what they cast, and how they end. */
+    public BossShadowSettings shadow() {
+        return shadow;
+    }
+
     /** The clones the boss calls for, and where it puts them. */
     public BossSummonSettings summon() {
         return summon;
+    }
+
+    /**
+     * Switches one ability of this phase on or off by its number, for the copy of a phase a
+     * shadow is handed: the mask the builder picked for the copies is applied bit by bit
+     * through here, so a kind the mask does not know is simply left as it was.
+     *
+     * <p>The death blast has no switch on a phase - it is the boss' own explosion, kept on
+     * the boss - so its bit changes nothing here.</p>
+     */
+    public void setAbilityEnabled(int kind, boolean value) {
+        switch (kind) {
+            case BossAbilityKind.AREA -> areaAttack.setEnabled(value);
+            case BossAbilityKind.RANGED -> rangedAttack.setEnabled(value);
+            case BossAbilityKind.MELEE -> meleeAttack.setEnabled(value);
+            case BossAbilityKind.FLUID -> fluidSpit.setEnabled(value);
+            case BossAbilityKind.HOOK -> hook.setEnabled(value);
+            case BossAbilityKind.CAPTURE -> capture.setEnabled(value);
+            case BossAbilityKind.SUMMON -> summon.setEnabled(value);
+            case BossAbilityKind.LEAP -> leap.setEnabled(value);
+            case BossAbilityKind.LINE -> lineAttack.setEnabled(value);
+            case BossAbilityKind.GEYSER -> geyser.setEnabled(value);
+            case BossAbilityKind.BOULDER -> boulder.setEnabled(value);
+            case BossAbilityKind.BOULDER_RAIN -> boulderRain.setEnabled(value);
+            case BossAbilityKind.TETHER -> tether.setEnabled(value);
+            case BossAbilityKind.GRAVITY -> gravity.setEnabled(value);
+            case BossAbilityKind.MARK -> mark.setEnabled(value);
+            case BossAbilityKind.COVER -> cover.setEnabled(value);
+            case BossAbilityKind.HAZARD -> hazard.setEnabled(value);
+            case BossAbilityKind.HUNT -> hunt.setEnabled(value);
+            case BossAbilityKind.BEAM -> beam.setEnabled(value);
+            case BossAbilityKind.COCOON -> cocoon.setEnabled(value);
+            case BossAbilityKind.DASH -> dash.setEnabled(value);
+            case BossAbilityKind.CONE -> cone.setEnabled(value);
+            case BossAbilityKind.PLATFORM -> platform.setEnabled(value);
+            case BossAbilityKind.HURRICANE -> hurricane.setEnabled(value);
+            case BossAbilityKind.SHADOW -> shadow.setEnabled(value);
+            default -> {
+            }
+        }
     }
 
     /** The hop along the path, and how long the boss winds up for it. */
@@ -819,6 +866,7 @@ public final class BossPhaseData {
         meleeAttack.writeToNBT(tag);
         platform.writeToNBT(tag);
         rangedAttack.writeToNBT(tag);
+        shadow.writeToNBT(tag);
         summon.writeToNBT(tag);
         teleport.writeToNBT(tag);
         tether.writeToNBT(tag);
@@ -887,6 +935,10 @@ public final class BossPhaseData {
         if (!tag.contains("HurricaneEnabled")) {
             castRootMask |= 1 << BossAbilityKind.HURRICANE;
         }
+        // And for the shadow copies, whose bit only pins the wind-up: the copies fight on their own.
+        if (!tag.contains("ShadowEnabled")) {
+            castRootMask |= 1 << BossAbilityKind.SHADOW;
+        }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight. A
         // save from when only the lasting abilities could be marked holds zeros in every other
@@ -935,6 +987,7 @@ public final class BossPhaseData {
         meleeAttack.readFromNBT(tag);
         platform.readFromNBT(tag);
         rangedAttack.readFromNBT(tag);
+        shadow.readFromNBT(tag);
         summon.readFromNBT(tag);
         teleport.readFromNBT(tag);
         tether.readFromNBT(tag);

@@ -76,7 +76,13 @@ public final class BossAbilityKind {
      * lifted, carried round its eye and spun, hit on a clock, then thrown clear.
      */
     public static final int HURRICANE = 24;
-    public static final int COUNT = 25;
+    /**
+     * Copies of the boss itself, built from its own saved data: they look and fight like it,
+     * cast only the abilities the phase picked for them, and end by swapping places with it,
+     * being drawn back into it or going off around themselves.
+     */
+    public static final int SHADOW = 25;
+    public static final int COUNT = 26;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -103,7 +109,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.dash",
             "cnpcgeckoaddon.boss.ability.cone",
             "cnpcgeckoaddon.boss.ability.platform",
-            "cnpcgeckoaddon.boss.ability.hurricane"
+            "cnpcgeckoaddon.boss.ability.hurricane",
+            "cnpcgeckoaddon.boss.ability.shadow"
     };
 
     static {
@@ -132,7 +139,8 @@ public final class BossAbilityKind {
      * boss told to see them through has something to wait for, whether or not a hold follows.
      * The platforms are one of them: their fuse, and the smoulder after it, burn on long after
      * the wind-up lands. So is the hurricane: its storms travel the arena for their whole
-     * lifetime once the cast has let them go.
+     * lifetime once the cast has let them go. And so are the shadow copies: they stand and
+     * fight until their time runs out, they are taken back or they are killed.
      *
      * <p>The leap is absent because its flight already keeps the boss busy until it lands,
      * the dash because its run does the same until it stops, the cone strike because a series
@@ -143,7 +151,7 @@ public final class BossAbilityKind {
      */
     public static final int[] LASTING_ABILITIES = {
             HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON, PLATFORM,
-            HURRICANE
+            HURRICANE, SHADOW
     };
 
     /** Every bit {@link #LASTING_ABILITIES} owns: the marked abilities whose wait is an effect rather than a hold. */
@@ -158,7 +166,7 @@ public final class BossAbilityKind {
     public static final int[] COMBO_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, SUMMON, LEAP, LINE, GEYSER, BOULDER,
             BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON, DASH, CONE, PLATFORM,
-            HURRICANE
+            HURRICANE, SHADOW
     };
 
     /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */

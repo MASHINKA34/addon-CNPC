@@ -146,6 +146,10 @@ class BossAbilityTableTest {
                     phase -> phase.hurricane().setEnabled(true),
                     (phase, ticks) -> phase.hurricane().setCooldownTicks(ticks),
                     phase -> phase.hurricane().castSpot())),
+            Map.entry(BossAbility.SHADOW, new Wiring(
+                    phase -> phase.shadow().setEnabled(true),
+                    (phase, ticks) -> phase.shadow().setCooldownTicks(ticks),
+                    phase -> phase.shadow().castSpot())),
             Map.entry(BossAbility.SUMMON, new Wiring(
                     phase -> {
                         phase.summon().setEnabled(true);

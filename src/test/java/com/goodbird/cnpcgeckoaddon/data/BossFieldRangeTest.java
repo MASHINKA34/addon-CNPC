@@ -52,7 +52,7 @@ class BossFieldRangeTest {
             // Bit masks, not magnitudes: every bit past the ability count is simply never read.
             "GeckoBossTelegraphAbilities", "GeckoBossTelegraphAbilitiesKnown",
             "GeckoNpcImmunityAbilities", "TelegraphAbilities",
-            "CastRootMask", "FinishMask");
+            "CastRootMask", "FinishMask", "ShadowAbilities");
 
     @Test
     @DisplayName("every number in a boss save is clamped on the way back in")

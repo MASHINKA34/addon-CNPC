@@ -200,7 +200,7 @@ public final class TeleportPathData {
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
             BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
-            BossAbilityKind.BOULDER_RAIN, BossAbilityKind.HURRICANE
+            BossAbilityKind.BOULDER_RAIN, BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW
     };
     /** Everything warns until a builder switches an ability off. */
     public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -1044,6 +1044,51 @@ public final class TeleportPathData {
 
     public BossPhaseData getPhase(int index) {
         return phases.get(Mth.clamp(index, 0, phases.size() - 1));
+    }
+
+    /**
+     * Cuts a boss' full configuration down to what one of its shadow copies may keep.
+     *
+     * <p>A copy is built out of the boss' own saved data, so it arrives carrying every setting
+     * the boss has - the chest, the death blast, the totems, the phases, all of it - and this
+     * is run on the copy before its first tick, when nothing of that has been armed yet. What
+     * stays is the look and the fight: one phase, a deep copy of the one the copies were cast
+     * in, casting only the abilities of {@code abilityMask}. Whatever would make a copy a boss
+     * in its own right is switched off, and whatever would let it tell on the real one - the
+     * bar, the immune window, the barrier - goes with it. The copies never spawn copies, and
+     * never call for minions.</p>
+     *
+     * @param source      the phase the copies were cast in, copied rather than shared
+     * @param abilityMask which abilities the copy casts, one bit per {@link BossAbilityKind}
+     */
+    public void stripToShadow(BossPhaseData source, int abilityMask) {
+        enabled = true;
+        configured = true;
+        BossPhaseData only = new BossPhaseData();
+        only.readFromNBT(source.writeToNBT());
+        only.setStartHealthPercent(100);
+        for (int kind = 0; kind < BossAbilityKind.COUNT; kind++) {
+            boolean cast = (abilityMask & (1 << kind)) != 0
+                    && kind != BossAbilityKind.SHADOW && kind != BossAbilityKind.SUMMON;
+            only.setAbilityEnabled(kind, cast);
+        }
+        // Not abilities of the rotation, so the mask never names them: a copy that turned
+        // immune, raised a shield or set the arena alight would be the boss twice over.
+        only.invulnerable().setEnabled(false);
+        only.barrier().setEnabled(false);
+        only.hazard().setEnabled(false);
+        phases.clear();
+        phases.add(only);
+        chestEnabled = false;
+        explosionEnabled = false;
+        healthLinkGroup = "";
+        totemsEnabled = false;
+        totems.clear();
+        aggroZoneEnabled = false;
+        healthScalingEnabled = false;
+        rageEnabled = false;
+        homeLeashEnabled = false;
+        bossBarStyle = BossBarStyles.NONE;
     }
 
     /**

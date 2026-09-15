@@ -64,7 +64,8 @@ public final class BossTelegraphUtil {
             0x1E90FF, // dash - azure streak, a deeper blue than the shot's cyan and brighter than the geyser's
             0xFF9A3C, // cone strike - tangerine, between the slam's red-orange and the leap's amber, where only the unpainted blast sat
             0x00FF00, // platforms - signal green, pure where take cover's lime leans yellow and the spit's mint pales, and never the hazard box's red
-            0x7FD4FF  // hurricane - storm sky, a paler blue than the dash's azure and the shot's cyan, well clear of the geyser's deep blue
+            0x7FD4FF, // hurricane - storm sky, a paler blue than the dash's azure and the shot's cyan, well clear of the geyser's deep blue
+            0x4B3D8F  // shadow copies - deep indigo, the summon's violet with the light taken out of it, darker than the cocoon's mauve
     };
 
     /** How much of an ability's colour its faded half keeps, before the boss says otherwise. */

@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
@@ -112,6 +113,8 @@ public final class TeleportPathController {
                     controller.platform.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.HURRICANE, (controller, level, data, phase, gameTime) ->
                     controller.hurricane.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.SHADOW, (controller, level, data, phase, gameTime) ->
+                    controller.shadows.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.tryStart(level, data, phase, gameTime))));
 
@@ -179,6 +182,8 @@ public final class TeleportPathController {
                     controller.platform.perform(level, phase, gameTime)),
             Map.entry(BossAbility.HURRICANE, (controller, level, data, phase, gameTime) ->
                     controller.hurricane.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.SHADOW, (controller, level, data, phase, gameTime) ->
+                    controller.shadows.perform(level, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.perform(level, phase)),
             Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
@@ -294,6 +299,8 @@ public final class TeleportPathController {
     private final BossGeyserRuntime geyser;
     /** The storms let loose on the floor, and where they set off from. */
     private final BossHurricaneRuntime hurricane;
+    /** The copies of the boss itself, their clock and their ending. */
+    private final BossShadowRuntime shadows;
     /** The circle handed to a victim that goes off wherever they take it. */
     private final BossMarkRuntime mark;
     /** The leash tied to the boss, to a spot or between two victims. */
@@ -413,6 +420,7 @@ public final class TeleportPathController {
         this.capture = new BossCaptureRuntime(this, npc);
         this.geyser = new BossGeyserRuntime(this, npc);
         this.hurricane = new BossHurricaneRuntime(this, npc);
+        this.shadows = new BossShadowRuntime(this, npc);
         this.mark = new BossMarkRuntime(this, npc);
         this.tether = new BossTetherCastRuntime(this, npc);
         this.gravity = new BossGravityCastRuntime(this, npc);
@@ -545,7 +553,15 @@ public final class TeleportPathController {
         updatePhase(level, gameTime, data);
         totems.tick(level, gameTime, data);
         rage.tick(level, gameTime, data);
-        bar.update(level, data);
+        if (shadows.hidesBossBar()) {
+            // A bar over one head gives the real boss away among its copies: down, the styled
+            // one and the npc's own, until the last copy is gone. Every tick, the way the
+            // styled bar keeps the native one down, since CustomNPCs may put it back.
+            bar.hide();
+            npc.bossInfo.setVisible(false);
+        } else {
+            bar.update(level, data);
+        }
         bar.syncTimer(gameTime, data);
         BossPhaseData phase = data.getPhase(currentPhase);
         // Above the combat-only return and the busy gate on purpose: a leap already in the
@@ -576,6 +592,9 @@ public final class TeleportPathController {
         // Above the gates for the hazard's reason: the party's clock does not stop because
         // the boss is held in an animation or lost sight of its target for a moment.
         barrierRuntime.tick(level, data, gameTime);
+        // Above the gates for the same reason: the copies' clock runs on while the boss is held
+        // in a wind-up or has lost sight of its target for a moment.
+        shadows.tick(level, gameTime);
 
         if (data.isCombatOnly() && !hasCombatTarget()) {
             cancelPendingAndSchedules();
@@ -976,6 +995,8 @@ public final class TeleportPathController {
         // also runs on every tick a combat-only boss has no target, and a fuse or a smoulder must
         // not go out because the victim it was aimed at just died on it.
         BossPlatformScheduler.clearBoss(npc);
+        // And its shadow copies, when the phase that cast them said so.
+        shadows.onPhaseChange(level);
         // After the schedules are wiped, so an immediate summon is not cleared again.
         enterPhase(level, gameTime, data, data.getPhase(currentPhase));
         playAnimation(data.getPhaseTransitionAnimation());
@@ -1501,6 +1522,9 @@ public final class TeleportPathController {
         BossBoulderRainScheduler.clearBoss(npc);
         BossGravityScheduler.clearBoss(npc);
         BossPlatformScheduler.clearBoss(npc);
+        if (npc.level() instanceof ServerLevel level) {
+            shadows.clear(level);
+        }
         busyUntil = 0L;
     }
 
@@ -1985,6 +2009,7 @@ public final class TeleportPathController {
             case CONE -> cone.isSequencing();
             case PLATFORM -> BossPlatformScheduler.hasPending(npc);
             case HURRICANE -> BossHurricaneScheduler.hasPending(npc);
+            case SHADOW -> shadows.hasCopies();
             case GEYSER -> BossGeyserScheduler.hasPending(npc);
             case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
             case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
@@ -2367,8 +2392,9 @@ public final class TeleportPathController {
             // Nor is the take cover strike: hiding is the dodge, and it is judged per victim
             // on the tick the strike lands, not by calling the whole thing off.
             case COVER -> true;
-            // Nobody to dodge a summon, a teleport, or an action that is not running.
-            case NONE, SUMMON, TELEPORT -> true;
+            // Nobody to dodge a summon, the boss' own copies, a teleport, or an action that is
+            // not running.
+            case NONE, SUMMON, SHADOW, TELEPORT -> true;
         };
     }
 
@@ -2502,6 +2528,21 @@ public final class TeleportPathController {
         minionSpawns.summon(level, phase);
         invulnerableSummonedOnce = true;
         minionAliveScanAt = NOT_SCHEDULED;
+    }
+
+    /** Where one of the builder's points sits in the world, read the way the summon reads it. */
+    Vec3 pointAnchor(BossMinionSpawnPoint point) {
+        return minionSpawns.pointAnchor(point);
+    }
+
+    /** Whether any shadow copy of this boss stands right now. */
+    public boolean hasShadowCopies() {
+        return shadows.hasCopies();
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    public String shadowStatus(long gameTime) {
+        return shadows.status(gameTime);
     }
 
     void playAnimation(String animation) {
