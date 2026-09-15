@@ -135,6 +135,8 @@ public class GeckoAddonCommand {
                 String hurricaneLine = BossHurricaneScheduler.status(npc);
                 String shadowLine = controller == null ? "Shadows: 0 alive"
                         : controller.shadowStatus(level.getGameTime());
+                String seismicLine = controller == null ? "Seismic: idle"
+                        : controller.seismicStatus(level.getGameTime());
                 String castSpotLine = controller == null ? "Cast spot: free"
                         : controller.castSpotStatus(level.getGameTime());
                 String finishLine = controller == null ? "Finish: free"
@@ -164,6 +166,7 @@ public class GeckoAddonCommand {
                 source.sendSuccess(() -> Component.literal(cocoonLine), false);
                 source.sendSuccess(() -> Component.literal(hurricaneLine), false);
                 source.sendSuccess(() -> Component.literal(shadowLine), false);
+                source.sendSuccess(() -> Component.literal(seismicLine), false);
                 source.sendSuccess(() -> Component.literal(castSpotLine), false);
                 source.sendSuccess(() -> Component.literal(finishLine), false);
                 source.sendSuccess(() -> Component.literal(comboLine), false);

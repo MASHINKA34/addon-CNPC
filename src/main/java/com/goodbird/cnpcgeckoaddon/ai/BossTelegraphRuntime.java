@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossHurricaneSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSeismicSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossShadowSettings;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.network.chat.Component;
@@ -196,6 +197,14 @@ final class BossTelegraphRuntime {
             }
             case SUMMON -> drawTelegraphSpawnRings(level, data, phase, paint);
             case SHADOW -> drawShadowRings(level, data, phase, paint);
+            // The edge the rings will reach, read exactly, and the circle under the boss they
+            // start from; the rings between the two are outlined one by one as they come.
+            case SEISMIC -> {
+                BossSeismicSettings seismic = phase.seismic();
+                BossTelegraphUtil.edgeRing(level, npc.position(), seismic.getMaxRadius(), paint);
+                BossTelegraphUtil.ring(level, npc.position(),
+                        Math.min(seismic.getCoreRadius(), seismic.getMaxRadius()), paint);
+            }
             case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.gravity().getRadius(), paint);
             // The ring the volley will fall in, and the dead zone at the boss' feet where it
             // cannot: nothing is aimed at anybody, so the shape is the whole warning.

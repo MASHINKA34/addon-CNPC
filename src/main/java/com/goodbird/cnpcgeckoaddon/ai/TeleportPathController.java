@@ -536,9 +536,12 @@ public final class TeleportPathController {
         // A boss stunned by its broken barrier is pinned the way a held one is, and for as
         // long: the pin is the stun. And a boss holding the cast spot it went to is pinned
         // the same way, for as long as the spot's stay rule keeps it there. And one lying down
-        // under its health link, the stun's way, for as long as it lies there.
+        // under its health link, the stun's way, for as long as it lies there. And one whose
+        // seismic series is running, when the phase told it to stand for it: the cast spot's
+        // pin again, held for as long as the rings keep coming.
         if ((data.isStationary() || totems.isHolding() || isBarrierStunned() || castSpots.isHolding()
-                || healthLink.isDowned()) && !leap.isAirborne() && !dash.isRunning()) {
+                || healthLink.isDowned() || BossSeismicScheduler.isRooting(npc))
+                && !leap.isAirborne() && !dash.isRunning()) {
             keepStationary();
         } else if (castRootActive || cone.isSequencing()) {
             // A rooted wind-up borrows the stationary pin: lockedX/Z stopped following the
