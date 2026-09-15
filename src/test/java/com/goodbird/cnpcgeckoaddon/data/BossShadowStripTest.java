@@ -18,8 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BossShadowStripTest {
 
-    private static final int MASK = (1 << BossAbilityKind.MELEE) | (1 << BossAbilityKind.DASH)
-            | (1 << BossAbilityKind.SHADOW) | (1 << BossAbilityKind.SUMMON) | (1 << BossAbilityKind.HAZARD);
+    private static final long MASK = (1L << BossAbilityKind.MELEE) | (1L << BossAbilityKind.DASH)
+            | (1L << BossAbilityKind.SHADOW) | (1L << BossAbilityKind.SUMMON) | (1L << BossAbilityKind.HAZARD);
 
     @Test
     @DisplayName("everything that makes a boss more than a fighter is switched off on the copy")

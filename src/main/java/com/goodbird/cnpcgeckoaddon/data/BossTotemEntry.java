@@ -14,7 +14,7 @@ public final class BossTotemEntry {
     /** Only the abilities ticked in the mask below get through; everything else bounces. */
     public static final int VULNERABILITY_LISTED_ABILITIES = 1;
 
-    private static final int ALL_ABILITIES = (1 << BossAbilityKind.COUNT) - 1;
+    private static final long ALL_ABILITIES = (1L << BossAbilityKind.COUNT) - 1;
 
     private static final String ENABLED_KEY = "Enabled";
     private static final String CLONE_TAB_KEY = "CloneTab";
@@ -42,7 +42,7 @@ public final class BossTotemEntry {
     private int beamWidthPercentOverride;
     private int slotId;
     private int vulnerabilityMode = VULNERABILITY_ANY;
-    private int vulnerabilityMask;
+    private long vulnerabilityMask;
 
     BossTotemEntry(int slotId) {
         this.slotId = Math.max(1, slotId);
@@ -62,7 +62,7 @@ public final class BossTotemEntry {
         tag.putInt(BEAM_WIDTH_KEY, beamWidthPercentOverride);
         tag.putInt(SLOT_KEY, slotId);
         tag.putInt(VULNERABILITY_MODE_KEY, vulnerabilityMode);
-        tag.putInt(VULNERABILITY_MASK_KEY, vulnerabilityMask);
+        tag.putLong(VULNERABILITY_MASK_KEY, vulnerabilityMask);
         return tag;
     }
 
@@ -80,7 +80,7 @@ public final class BossTotemEntry {
         // A missing pair reads back as mode 0 with an empty mask, which is the old behaviour:
         // the mask is only ever asked for once the mode says to.
         entry.setVulnerabilityMode(tag.getInt(VULNERABILITY_MODE_KEY));
-        entry.setVulnerabilityMask(tag.getInt(VULNERABILITY_MASK_KEY));
+        entry.setVulnerabilityMask(tag.getLong(VULNERABILITY_MASK_KEY));
         return entry;
     }
 
@@ -128,12 +128,12 @@ public final class BossTotemEntry {
     }
 
     /** The whole list, one bit per {@link BossAbilityKind}, read only in the listed mode. */
-    public int getVulnerabilityMask() { return vulnerabilityMask; }
-    public void setVulnerabilityMask(int value) { vulnerabilityMask = value & ALL_ABILITIES; }
+    public long getVulnerabilityMask() { return vulnerabilityMask; }
+    public void setVulnerabilityMask(long value) { vulnerabilityMask = value & ALL_ABILITIES; }
 
     public boolean isVulnerableTo(int ability) {
         return ability >= 0 && ability < BossAbilityKind.COUNT
-                && (vulnerabilityMask & 1 << ability) != 0;
+                && (vulnerabilityMask & 1L << ability) != 0;
     }
 
     public void setVulnerableTo(int ability, boolean value) {
@@ -141,9 +141,9 @@ public final class BossTotemEntry {
             return;
         }
         if (value) {
-            vulnerabilityMask |= 1 << ability;
+            vulnerabilityMask |= 1L << ability;
         } else {
-            vulnerabilityMask &= ~(1 << ability);
+            vulnerabilityMask &= ~(1L << ability);
         }
     }
 }

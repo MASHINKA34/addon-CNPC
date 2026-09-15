@@ -86,7 +86,7 @@ public final class BossTotemUtil {
      */
     public static void cacheVulnerability(Entity totem, BossTotemEntry entry) {
         totem.getPersistentData().putInt(VULNERABILITY_MODE_KEY, entry.getVulnerabilityMode());
-        totem.getPersistentData().putInt(VULNERABILITY_MASK_KEY, entry.getVulnerabilityMask());
+        totem.getPersistentData().putLong(VULNERABILITY_MASK_KEY, entry.getVulnerabilityMask());
     }
 
     /**
@@ -106,7 +106,7 @@ public final class BossTotemUtil {
             return false;
         }
         return ability < 0 || ability >= BossAbilityKind.COUNT
-                || (tag.getInt(VULNERABILITY_MASK_KEY) & 1 << ability) == 0;
+                || (tag.getLong(VULNERABILITY_MASK_KEY) & 1L << ability) == 0;
     }
 
     /** Searches loaded entities only and never asks the target chunk to load. */

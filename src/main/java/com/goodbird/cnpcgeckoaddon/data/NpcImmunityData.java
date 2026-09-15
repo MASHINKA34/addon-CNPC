@@ -22,10 +22,10 @@ public class NpcImmunityData {
     private static final String IMMUNE_ABILITIES_KEY = "GeckoNpcImmuneAbilities";
     private static final String DAMAGE_RESISTS_KEY = "GeckoNpcDamageResists";
 
-    private static final int ALL_ABILITIES = (1 << BossAbilityKind.COUNT) - 1;
+    private static final long ALL_ABILITIES = (1L << BossAbilityKind.COUNT) - 1;
 
     /** Immune to nothing, so every npc built before this existed fights exactly as it did. */
-    private int immuneAbilities;
+    private long immuneAbilities;
 
     private final List<NpcDamageResistEntry> damageResists = new ArrayList<>();
 
@@ -36,7 +36,7 @@ public class NpcImmunityData {
     }
 
     public CompoundTag writeToNBT(CompoundTag tag) {
-        tag.putInt(IMMUNE_ABILITIES_KEY, immuneAbilities);
+        tag.putLong(IMMUNE_ABILITIES_KEY, immuneAbilities);
         ListTag resists = new ListTag();
         for (NpcDamageResistEntry entry : damageResists) {
             if (entry.isSet()) {
@@ -52,7 +52,7 @@ public class NpcImmunityData {
     }
 
     public void readFromNBT(CompoundTag tag) {
-        setImmuneAbilities(tag.getInt(IMMUNE_ABILITIES_KEY));
+        setImmuneAbilities(tag.getLong(IMMUNE_ABILITIES_KEY));
         ListTag resists = tag.getList(DAMAGE_RESISTS_KEY, Tag.TAG_COMPOUND);
         for (int i = 0; i < RESIST_SLOTS; i++) {
             damageResists.get(i).readFromNBT(i < resists.size() ? resists.getCompound(i) : new CompoundTag());
@@ -79,17 +79,17 @@ public class NpcImmunityData {
     }
 
     /** The whole mask, one bit per {@link BossAbilityKind}. */
-    public int getImmuneAbilities() {
+    public long getImmuneAbilities() {
         return immuneAbilities;
     }
 
-    public void setImmuneAbilities(int value) {
+    public void setImmuneAbilities(long value) {
         immuneAbilities = value & ALL_ABILITIES;
     }
 
     public boolean isImmuneTo(int ability) {
         return ability >= 0 && ability < BossAbilityKind.COUNT
-                && (immuneAbilities & 1 << ability) != 0;
+                && (immuneAbilities & 1L << ability) != 0;
     }
 
     public void setImmuneTo(int ability, boolean immune) {
@@ -97,9 +97,9 @@ public class NpcImmunityData {
             return;
         }
         if (immune) {
-            immuneAbilities |= 1 << ability;
+            immuneAbilities |= 1L << ability;
         } else {
-            immuneAbilities &= ~(1 << ability);
+            immuneAbilities &= ~(1L << ability);
         }
     }
 }

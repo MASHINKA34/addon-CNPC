@@ -77,7 +77,7 @@ public final class BossShadowSettings {
             .toArray();
 
     /** Every bit {@link #COPY_ABILITIES} owns; any other bit in the mask is never read. */
-    public static final int COPY_ALL = maskOf(COPY_ABILITIES);
+    public static final long COPY_ALL = maskOf(COPY_ABILITIES);
 
     private boolean shadowEnabled;
     private String shadowAnimation = "";
@@ -90,7 +90,7 @@ public final class BossShadowSettings {
     /** Nought is for good: until they are killed, taken back or the phase ends. */
     private int shadowLifetimeTicks = 600;
     /** Which abilities the copies cast, one bit per {@link BossAbilityKind}; nothing by default. */
-    private int shadowAbilities;
+    private long shadowAbilities;
     /** Where the copies stand up; the clone name a point may carry is ignored, there being no clone. */
     private final BossMinionSpawnList shadowPoints = new BossMinionSpawnList();
     /** The ring round the boss the copies stand on when the phase names no points. */
@@ -172,20 +172,20 @@ public final class BossShadowSettings {
 
     public void setLifetimeTicks(int value) { shadowLifetimeTicks = Mth.clamp(value, 0, MAX_LIFETIME_TICKS); }
 
-    public int getAbilities() { return shadowAbilities; }
+    public long getAbilities() { return shadowAbilities; }
 
-    public void setAbilities(int value) { shadowAbilities = value & COPY_ALL; }
+    public void setAbilities(long value) { shadowAbilities = value & COPY_ALL; }
 
     /** Whether the copies cast this ability; never for the two that are kept off the list. */
     public boolean castsAbility(int kind) {
-        return kind >= 0 && kind < BossAbilityKind.COUNT && (shadowAbilities & (1 << kind)) != 0;
+        return kind >= 0 && kind < BossAbilityKind.COUNT && (shadowAbilities & (1L << kind)) != 0;
     }
 
     public void setCastsAbility(int kind, boolean value) {
         if (kind < 0 || kind >= BossAbilityKind.COUNT) {
             return;
         }
-        setAbilities(value ? shadowAbilities | (1 << kind) : shadowAbilities & ~(1 << kind));
+        setAbilities(value ? shadowAbilities | (1L << kind) : shadowAbilities & ~(1L << kind));
     }
 
     public BossMinionSpawnList getPoints() { return shadowPoints; }
@@ -328,7 +328,7 @@ public final class BossShadowSettings {
         tag.putInt("ShadowHealthPercent", shadowHealthPercent);
         tag.putInt("ShadowHealthValue", shadowHealthValue);
         tag.putInt("ShadowLifetimeTicks", shadowLifetimeTicks);
-        tag.putInt("ShadowAbilities", shadowAbilities);
+        tag.putLong("ShadowAbilities", shadowAbilities);
         tag.put("ShadowPoints", shadowPoints.writeToNBT());
         tag.putInt("ShadowSpawnRadius", shadowSpawnRadius);
         tag.putBoolean("ShadowHideBossBar", shadowHideBossBar);
@@ -369,7 +369,7 @@ public final class BossShadowSettings {
         shadowHealthPercent = value(tag, "ShadowHealthPercent", 20, 1, 100);
         shadowHealthValue = value(tag, "ShadowHealthValue", 100, 1, MAX_HEALTH_VALUE);
         shadowLifetimeTicks = value(tag, "ShadowLifetimeTicks", 600, 0, MAX_LIFETIME_TICKS);
-        shadowAbilities = tag.getInt("ShadowAbilities") & COPY_ALL;
+        shadowAbilities = tag.getLong("ShadowAbilities") & COPY_ALL;
         shadowPoints.readFromNBT(tag, "ShadowPoints");
         shadowSpawnRadius = value(tag, "ShadowSpawnRadius", 4, 1, MAX_SPAWN_RADIUS);
         // The three that default to on: an absent key is a boss saved before they existed.
@@ -405,10 +405,10 @@ public final class BossShadowSettings {
         shadowCastSpot.readFromNBT(tag, "Shadow");
     }
 
-    private static int maskOf(int[] abilities) {
-        int mask = 0;
+    private static long maskOf(int[] abilities) {
+        long mask = 0L;
         for (int ability : abilities) {
-            mask |= 1 << ability;
+            mask |= 1L << ability;
         }
         return mask;
     }
