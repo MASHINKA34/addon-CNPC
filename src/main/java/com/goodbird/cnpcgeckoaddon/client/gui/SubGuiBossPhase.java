@@ -91,7 +91,8 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
         addAbilityButton(37, 1, 13, "cnpcgeckoaddon.boss.dash_settings");
         addAbilityButton(38, 0, 14, "cnpcgeckoaddon.boss.cone_settings");
         addAbilityButton(39, 1, 14, "cnpcgeckoaddon.boss.platform_settings");
-        // The grid runs to fifteen rows now, so Done keeps a line of its own below it.
+        addAbilityButton(40, 0, 15, "cnpcgeckoaddon.boss.hurricane_settings");
+        // The grid runs to sixteen rows now, so Done keeps a line of its own below it.
         addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, 20);
     }
 
@@ -112,8 +113,8 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
     }
 
     private int doneButtonY() {
-        // Fifteen rows of buttons, and Done on a line of its own below them.
-        return gridY() + 15 * 27 + 6;
+        // Sixteen rows of buttons, and Done on a line of its own below them.
+        return gridY() + 16 * 27 + 6;
     }
 
     @Override
@@ -178,6 +179,8 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
             setSubGui(new SubGuiBossCone(npc, phase, phaseIndex));
         } else if (button.id == 39) {
             setSubGui(new SubGuiBossPlatform(npc, phase, phaseIndex));
+        } else if (button.id == 40) {
+            setSubGui(new SubGuiBossHurricane(npc, phase, phaseIndex));
         }
     }
 

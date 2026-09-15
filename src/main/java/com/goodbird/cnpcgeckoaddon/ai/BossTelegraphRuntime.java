@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossHurricaneSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -166,6 +167,19 @@ final class BossTelegraphRuntime {
             // The outline of every platform the cast sets alight, the arena hazard's box; the fuse
             // after the wind-up flashes the same outline whatever the warnings say.
             case PLATFORM -> platform.drawCommitted(level, paint, phase.platform().edgeSpacing());
+            // The path of each storm, as wide as its reach, along the axes the cast committed to; a
+            // spiral and a typhoon have no paths, so the ring of the ground they will roam is drawn.
+            case HURRICANE -> {
+                BossHurricaneSettings hurricane = phase.hurricane();
+                if (hurricane.spreadsFromBoss()) {
+                    BossTelegraphUtil.ring(level, npc.position(), hurricane.getRange(), paint);
+                } else if (cast.axis() != null) {
+                    for (Vec3 axis : BossHurricanePath.launchAxes(hurricane.getLaunchMode(), cast.axis())) {
+                        BossTelegraphUtil.corridor(level, npc.position(), axis, hurricane.getRange(),
+                                hurricane.getRadius() * 2.0D, 0.0D, paint);
+                    }
+                }
+            }
             case MELEE_ATTACK -> BossTelegraphUtil.arc(level, npc.position(),
                     phase.meleeAttack().getRange(), npc.getYRot(),
                     data.tuning().telegraphMeleeHalfAngle(), paint);
