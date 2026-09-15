@@ -132,7 +132,7 @@ public final class SubGuiBossFinish extends SubGuiFieldScreen {
 
     /** Whether this ability leaves an effect behind that the boss can wait for without a hold. */
     private static boolean isLasting(int kind) {
-        return (BossAbilityKind.LASTING_ALL & 1 << kind) != 0;
+        return (BossAbilityKind.LASTING_ALL & 1L << kind) != 0;
     }
 
     @Override
