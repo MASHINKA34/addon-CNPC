@@ -404,6 +404,7 @@ public final class BossHurricaneScheduler {
 
     /** Drops every storm in a level that is going away, and lets go of everyone on them. */
     public static void clear(ServerLevel level) {
+        LANDINGS.values().removeIf(landing -> landing.dimension.equals(level.dimension()));
         STORMS.removeIf(storm -> {
             if (!storm.dimension.equals(level.dimension())) {
                 return false;
@@ -578,6 +579,9 @@ public final class BossHurricaneScheduler {
             storm.spiralAngle = nextAngle;
             storm.spiralRadius = nextRadius;
             storm.course.setVelocity(new Vec3(storm.pos.x - before.x, 0.0D, storm.pos.z - before.z));
+            // A spiral's heading turns every tick, so a rider's client walked straight on from the
+            // last word would be a whole arc off by the next: it is told every tick instead.
+            storm.headingChanged = true;
             return true;
         }
         // A spiral has no straight heading to turn round: coming off a wall is winding back the

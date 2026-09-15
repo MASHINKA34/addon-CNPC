@@ -121,4 +121,10 @@ public final class BossSpinClient {
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
         state = null;
     }
+
+    /** A respawn or a change of world is a new player: whatever ride the old one was on is over. */
+    @SubscribeEvent
+    public static void respawn(ClientPlayerNetworkEvent.Clone event) {
+        state = null;
+    }
 }
