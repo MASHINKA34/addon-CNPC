@@ -210,17 +210,17 @@ class BossFinishHoldTest {
             assertTrue(phase.waitsForFinish(ability.kind()), ability + " cannot be marked");
         }
         assertEquals(25, BossAbility.ROTATION.size(), "every ability of the rotation has a row on the screen");
-        assertEquals(BossAbilityKind.FINISH_ALL, phase.writeToNBT().getInt(MASK));
+        assertEquals(BossAbilityKind.FINISH_ALL, phase.writeToNBT().getLong(MASK));
         phase.setWaitsForFinish(BossAbilityKind.BLAST, true);
         phase.setWaitsForFinish(BossAbilityKind.HAZARD, true);
         assertFalse(phase.waitsForFinish(BossAbilityKind.BLAST));
         assertFalse(phase.waitsForFinish(BossAbilityKind.HAZARD));
-        assertEquals(BossAbilityKind.FINISH_ALL, phase.writeToNBT().getInt(MASK));
+        assertEquals(BossAbilityKind.FINISH_ALL, phase.writeToNBT().getLong(MASK));
         CompoundTag full = phase.writeToNBT();
         full.putInt(MASK, -1);
         BossPhaseData reread = new BossPhaseData();
         reread.readFromNBT(full);
-        assertEquals(BossAbilityKind.FINISH_ALL, reread.writeToNBT().getInt(MASK), "bits outside the rotation are dropped on load");
+        assertEquals(BossAbilityKind.FINISH_ALL, reread.writeToNBT().getLong(MASK), "bits outside the rotation are dropped on load");
 
         // A boss saved by a build that could only mark the lasting abilities: its beams and geyser.
         CompoundTag old = new BossPhaseData().writeToNBT();

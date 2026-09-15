@@ -28,7 +28,7 @@ class BossFinishMaskTest {
     @DisplayName("a boss saved before the finish mask existed waits for nothing")
     void anOldSaveWaitsForNothing() {
         BossPhaseData phase = new BossPhaseData();
-        assertEquals(0, phase.writeToNBT().getInt(KEY), "a fresh phase should wait for nothing");
+        assertEquals(0, phase.writeToNBT().getLong(KEY), "a fresh phase should wait for nothing");
         for (int ability : BossAbilityKind.FINISH_ABILITIES) {
             phase.setWaitsForFinish(ability, true);
         }
@@ -42,7 +42,7 @@ class BossFinishMaskTest {
             assertFalse(phase.waitsForFinish(ability),
                     "a tag with no " + KEY + " key should not wait for ability " + ability);
         }
-        assertEquals(0, phase.writeToNBT().getInt(KEY));
+        assertEquals(0, phase.writeToNBT().getLong(KEY));
     }
 
     @Test
@@ -53,7 +53,7 @@ class BossFinishMaskTest {
 
         BossPhaseData reread = new BossPhaseData();
         reread.readFromNBT(tag);
-        assertEquals(BossAbilityKind.FINISH_ALL, reread.writeToNBT().getInt(KEY),
+        assertEquals(BossAbilityKind.FINISH_ALL, reread.writeToNBT().getLong(KEY),
                 "only the rotation's bits should survive a mask with every bit set");
         Set<Integer> finish = finish();
         for (int ability = 0; ability < BossAbilityKind.COUNT; ability++) {
@@ -68,13 +68,13 @@ class BossFinishMaskTest {
         BossPhaseData phase = new BossPhaseData();
         phase.setWaitsForFinish(BossAbilityKind.BLAST, true);
         phase.setWaitsForFinish(BossAbilityKind.HAZARD, true);
-        // Past the int, a shift wraps round: 36 would land on the hook's bit without the guard.
+        // Past the long, a shift wraps round: 68 would land on the hook's bit without the guard.
         phase.setWaitsForFinish(-1, true);
-        phase.setWaitsForFinish(Integer.SIZE + BossAbilityKind.HOOK, true);
-        assertEquals(0, phase.writeToNBT().getInt(KEY));
+        phase.setWaitsForFinish(Long.SIZE + BossAbilityKind.HOOK, true);
+        assertEquals(0, phase.writeToNBT().getLong(KEY));
         assertFalse(phase.waitsForFinish(BossAbilityKind.BLAST), "the death blast is never cast");
         assertFalse(phase.waitsForFinish(BossAbilityKind.HAZARD), "nor is the arena hazard");
-        assertFalse(phase.waitsForFinish(Integer.SIZE + BossAbilityKind.HOOK));
+        assertFalse(phase.waitsForFinish(Long.SIZE + BossAbilityKind.HOOK));
     }
 
     @Test
@@ -90,7 +90,7 @@ class BossFinishMaskTest {
                         "marking only " + marked + " read back wrong for " + ability);
             }
             reread.setWaitsForFinish(marked, false);
-            assertEquals(0, reread.writeToNBT().getInt(KEY), "unmarking " + marked + " should clear its bit");
+            assertEquals(0, reread.writeToNBT().getLong(KEY), "unmarking " + marked + " should clear its bit");
         }
     }
 

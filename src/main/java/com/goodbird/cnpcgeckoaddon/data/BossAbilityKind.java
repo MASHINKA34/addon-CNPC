@@ -127,6 +127,12 @@ public final class BossAbilityKind {
             throw new IllegalStateException(
                     "BossAbilityKind.LABELS holds " + LABELS.length + " names for " + COUNT + " abilities");
         }
+        // Every mask is a long with one bit per kind, and the sign bit is kept out of it: a
+        // kind numbered 63 would read as a negative mask, so the list stops one short.
+        if (COUNT > Long.SIZE - 1) {
+            throw new IllegalStateException(
+                    "BossAbilityKind.COUNT is " + COUNT + ", but a long mask holds " + (Long.SIZE - 1) + " kinds at most");
+        }
     }
 
     /**
@@ -163,7 +169,7 @@ public final class BossAbilityKind {
     };
 
     /** Every bit {@link #LASTING_ABILITIES} owns: the marked abilities whose wait is an effect rather than a hold. */
-    public static final int LASTING_ALL = maskOf(LASTING_ABILITIES);
+    public static final long LASTING_ALL = maskOf(LASTING_ABILITIES);
 
     /**
      * The abilities a phase can chain one after another: every one the rotation casts.
@@ -178,7 +184,7 @@ public final class BossAbilityKind {
     };
 
     /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */
-    public static final int COMBO_ALL = maskOf(COMBO_ABILITIES);
+    public static final long COMBO_ALL = maskOf(COMBO_ABILITIES);
 
     /**
      * The abilities a phase can be told to see through before it starts anything else: every
@@ -193,12 +199,12 @@ public final class BossAbilityKind {
     public static final int[] FINISH_ABILITIES = Arrays.copyOf(COMBO_ABILITIES, COMBO_ABILITIES.length);
 
     /** Every bit {@link #FINISH_ABILITIES} owns; any other bit in a finish mask is never read. */
-    public static final int FINISH_ALL = maskOf(FINISH_ABILITIES);
+    public static final long FINISH_ALL = maskOf(FINISH_ABILITIES);
 
-    private static int maskOf(int[] abilities) {
-        int mask = 0;
+    private static long maskOf(int[] abilities) {
+        long mask = 0L;
         for (int ability : abilities) {
-            mask |= 1 << ability;
+            mask |= 1L << ability;
         }
         return mask;
     }

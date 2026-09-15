@@ -393,7 +393,7 @@ class BossPlatformSettingsTest {
                 tag.remove(key);
             }
         }
-        tag.putInt("CastRootMask", BossPhaseData.CAST_ROOT_ALL & ~(1 << BossAbilityKind.PLATFORM));
+        tag.putLong("CastRootMask", BossPhaseData.CAST_ROOT_ALL & ~(1L << BossAbilityKind.PLATFORM));
         BossPhaseData old = new BossPhaseData();
         old.readFromNBT(tag);
         assertTrue(old.isCastRooted(BossAbilityKind.PLATFORM),
@@ -411,7 +411,7 @@ class BossPlatformSettingsTest {
     @DisplayName("an old boss sees no platform out before it starts the next thing")
     void theFinishBitStartsClear() {
         CompoundTag tag = new BossPhaseData().writeToNBT();
-        tag.putInt("FinishMask", BossAbilityKind.LASTING_ALL & ~(1 << BossAbilityKind.PLATFORM));
+        tag.putLong("FinishMask", BossAbilityKind.LASTING_ALL & ~(1L << BossAbilityKind.PLATFORM));
         BossPhaseData old = new BossPhaseData();
         old.readFromNBT(tag);
         assertFalse(old.waitsForFinish(BossAbilityKind.PLATFORM), "a mask saved before the platforms never marked them");
@@ -425,7 +425,7 @@ class BossPlatformSettingsTest {
     @Test
     @DisplayName("a boss that warned for everything warns for the platforms; one that chose keeps its choice")
     void theWarningBitIsMigrated() {
-        int beforePlatform = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.PLATFORM);
+        long beforePlatform = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.PLATFORM);
         TeleportPathData everything = configuredBoss();
         everything.setTelegraphAbilities(beforePlatform);
         TeleportPathData reread = new TeleportPathData();
@@ -436,7 +436,7 @@ class BossPlatformSettingsTest {
         // Not the cone: everything but the cone is exactly what a boss saved before the cone warned
         // for, and that one is migrated as warning for everything.
         TeleportPathData chose = configuredBoss();
-        chose.setTelegraphAbilities(beforePlatform & ~(1 << BossAbilityKind.MELEE));
+        chose.setTelegraphAbilities(beforePlatform & ~(1L << BossAbilityKind.MELEE));
         TeleportPathData rereadChoice = new TeleportPathData();
         rereadChoice.readFromNBT(BossTelegraphMaskMigrationTest.stampless(chose));
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.PLATFORM),
@@ -465,7 +465,7 @@ class BossPlatformSettingsTest {
     @DisplayName("the platforms sit on the lists every kind belongs to")
     void thePlatformsAreOnTheirLists() {
         assertEquals("cnpcgeckoaddon.boss.ability.platform", BossAbilityKind.LABELS[BossAbilityKind.PLATFORM]);
-        assertTrue(BossAbilityKind.COUNT < Integer.SIZE, "the masks are ints, so the list cannot outgrow 31");
+        assertTrue(BossAbilityKind.COUNT < Long.SIZE, "the masks are longs, so the list cannot outgrow 63");
         assertTrue(contains(BossAbilityKind.IMMUNITY_ABILITIES, BossAbilityKind.PLATFORM), "an npc can be immune to them");
         assertTrue(contains(BossPhaseData.CAST_ROOT_ABILITIES, BossAbilityKind.PLATFORM), "the wind-up can be rooted");
         assertTrue(contains(TeleportPathData.TELEGRAPH_ABILITIES, BossAbilityKind.PLATFORM), "the wind-up warns");

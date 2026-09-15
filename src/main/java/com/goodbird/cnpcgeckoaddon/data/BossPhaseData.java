@@ -438,7 +438,7 @@ public final class BossPhaseData {
      * included: a warning zone that travels with a running boss lies about where the hit
      * lands, and a line strike fires into a corridor the boss has already left.
      */
-    public static final int CAST_ROOT_ALL = castRootAllMask();
+    public static final long CAST_ROOT_ALL = castRootAllMask();
 
     /** A chain slot with nothing in it: the ability ends and the rotation carries on. */
     public static final int NO_COMBO = -1;
@@ -454,13 +454,13 @@ public final class BossPhaseData {
     private String appearanceAnimation = "";
     private int appearanceLockTicks = 20;
     /** Which abilities this phase casts standing still, one bit per {@link BossAbilityKind}. */
-    private int castRootMask = CAST_ROOT_ALL;
+    private long castRootMask = CAST_ROOT_ALL;
     /**
      * Which abilities this phase sees through before it starts anything else - their effect,
      * and the hold after it - one bit per {@link BossAbilityKind}. Off by default: the boss
      * only ever waited out its wind-ups.
      */
-    private int finishMask;
+    private long finishMask;
     /**
      * How many ticks after each marked ability has done its work the boss goes on finishing
      * it, one slot per {@link BossAbilityKind}: counted from the cast for an instant ability,
@@ -693,10 +693,10 @@ public final class BossPhaseData {
         return tether;
     }
 
-    private static int castRootAllMask() {
-        int mask = 0;
+    private static long castRootAllMask() {
+        long mask = 0L;
         for (int ability : CAST_ROOT_ABILITIES) {
-            mask |= 1 << ability;
+            mask |= 1L << ability;
         }
         return mask;
     }
@@ -715,19 +715,19 @@ public final class BossPhaseData {
 
     /** Whether this ability's wind-up holds a walking boss on the spot it began on. */
     public boolean isCastRooted(int ability) {
-        return isCastRootable(ability) && (castRootMask & 1 << ability) != 0;
+        return isCastRootable(ability) && (castRootMask & 1L << ability) != 0;
     }
 
     public void setCastRooted(int ability, boolean value) {
         if (!isCastRootable(ability)) {
             return;
         }
-        castRootMask = value ? castRootMask | 1 << ability : castRootMask & ~(1 << ability);
+        castRootMask = value ? castRootMask | 1L << ability : castRootMask & ~(1L << ability);
     }
 
     /** Whether this ability has a bit in the mask at all; the movers and the blast have none. */
     private static boolean isCastRootable(int ability) {
-        return ability >= 0 && ability < Integer.SIZE && (CAST_ROOT_ALL & 1 << ability) != 0;
+        return ability >= 0 && ability < Long.SIZE && (CAST_ROOT_ALL & 1L << ability) != 0;
     }
 
     /**
@@ -735,19 +735,19 @@ public final class BossPhaseData {
      * it starts anything else: another ability, a hop along its path, a walk to a cast spot.
      */
     public boolean waitsForFinish(int ability) {
-        return isFinishAbility(ability) && (finishMask & 1 << ability) != 0;
+        return isFinishAbility(ability) && (finishMask & 1L << ability) != 0;
     }
 
     public void setWaitsForFinish(int ability, boolean value) {
         if (!isFinishAbility(ability)) {
             return;
         }
-        finishMask = value ? finishMask | 1 << ability : finishMask & ~(1 << ability);
+        finishMask = value ? finishMask | 1L << ability : finishMask & ~(1L << ability);
     }
 
     /** Whether this ability has a bit in the finish mask: only one the rotation casts. */
     private static boolean isFinishAbility(int ability) {
-        return ability >= 0 && ability < Integer.SIZE && (BossAbilityKind.FINISH_ALL & 1 << ability) != 0;
+        return ability >= 0 && ability < Long.SIZE && (BossAbilityKind.FINISH_ALL & 1L << ability) != 0;
     }
 
     /**
@@ -811,7 +811,7 @@ public final class BossPhaseData {
 
     /** Whether this ability owns a chain slot: only one the rotation casts. */
     private static boolean isComboAbility(int ability) {
-        return ability >= 0 && ability < BossAbilityKind.COUNT && (BossAbilityKind.COMBO_ALL & 1 << ability) != 0;
+        return ability >= 0 && ability < BossAbilityKind.COUNT && (BossAbilityKind.COMBO_ALL & 1L << ability) != 0;
     }
 
     private static int validFollowUp(int ability, int next) {
@@ -845,8 +845,8 @@ public final class BossPhaseData {
         tag.putInt("StartHealthPercent", startHealthPercent);
         tag.putString("AppearanceAnimation", appearanceAnimation);
         tag.putInt("AppearanceLockTicks", appearanceLockTicks);
-        tag.putInt("CastRootMask", castRootMask);
-        tag.putInt("FinishMask", finishMask);
+        tag.putLong("CastRootMask", castRootMask);
+        tag.putLong("FinishMask", finishMask);
         // Copied: an int array tag keeps the very array it is handed, and these go on being edited.
         tag.putIntArray("ComboFollowUp", Arrays.copyOf(comboFollowUp, comboFollowUp.length));
         tag.putIntArray("ComboDelay", Arrays.copyOf(comboDelay, comboDelay.length));
@@ -890,74 +890,74 @@ public final class BossPhaseData {
         // An absent key is a boss saved before the choice existed. It gets the rooted
         // default on purpose: its warnings were lying whenever it cast on the run.
         castRootMask = tag.contains("CastRootMask")
-                ? tag.getInt("CastRootMask") & CAST_ROOT_ALL : CAST_ROOT_ALL;
+                ? tag.getLong("CastRootMask") & CAST_ROOT_ALL : CAST_ROOT_ALL;
         // A save from before the boulder existed never chose to let it walk, so the new bit
         // gets the same rooted default the whole mask got when the choice first appeared.
         // Saves that know the boulder always carry its enabled key.
         if (!tag.contains("BoulderEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.BOULDER;
+            castRootMask |= 1L << BossAbilityKind.BOULDER;
         }
         // The same again for the boulder rain, whose bit is newer still.
         if (!tag.contains("BoulderRainEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.BOULDER_RAIN;
+            castRootMask |= 1L << BossAbilityKind.BOULDER_RAIN;
         }
         // And for the tether, and then the gravity field, each newer than the last.
         if (!tag.contains("TetherEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.TETHER;
+            castRootMask |= 1L << BossAbilityKind.TETHER;
         }
         if (!tag.contains("GravityEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.GRAVITY;
+            castRootMask |= 1L << BossAbilityKind.GRAVITY;
         }
         // And for the marks, and then the take cover strike, newest of the lot.
         if (!tag.contains("MarkEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.MARK;
+            castRootMask |= 1L << BossAbilityKind.MARK;
         }
         if (!tag.contains("CoverEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.COVER;
+            castRootMask |= 1L << BossAbilityKind.COVER;
         }
         // And for the hunt, whose bit only pins the wind-up: the chase after it walks anyway.
         if (!tag.contains("HuntEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.HUNT;
+            castRootMask |= 1L << BossAbilityKind.HUNT;
         }
         // And for the beam, whose bit likewise only pins the wind-up: the sweep after it
         // turns round the boss wherever it walks.
         if (!tag.contains("BeamEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.BEAM;
+            castRootMask |= 1L << BossAbilityKind.BEAM;
         }
         // And for the cocoon, whose bit likewise only pins the wind-up: the lock after it
         // stands wherever its victims stood, whatever the boss does next.
         if (!tag.contains("CocoonEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.COCOON;
+            castRootMask |= 1L << BossAbilityKind.COCOON;
         }
         // And for the dash, whose bit only pins the wind-up: the run lets go of the pin itself.
         if (!tag.contains("DashEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.DASH;
+            castRootMask |= 1L << BossAbilityKind.DASH;
         }
         // And for the cone strike, whose bit likewise only pins the wind-up.
         if (!tag.contains("ConeEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.CONE;
+            castRootMask |= 1L << BossAbilityKind.CONE;
         }
         // And for the platforms, whose bit only pins the wind-up too: the fuse burns on its own.
         if (!tag.contains("PlatformEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.PLATFORM;
+            castRootMask |= 1L << BossAbilityKind.PLATFORM;
         }
         // And for the hurricane, whose bit only pins the wind-up: the storms travel on their own.
         if (!tag.contains("HurricaneEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.HURRICANE;
+            castRootMask |= 1L << BossAbilityKind.HURRICANE;
         }
         // And for the shadow copies, whose bit only pins the wind-up: the copies fight on their own.
         if (!tag.contains("ShadowEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.SHADOW;
+            castRootMask |= 1L << BossAbilityKind.SHADOW;
         }
         // And for the seismic waves, whose bit only pins the wind-up: the series has a switch of its own.
         if (!tag.contains("SeismicEnabled")) {
-            castRootMask |= 1 << BossAbilityKind.SEISMIC;
+            castRootMask |= 1L << BossAbilityKind.SEISMIC;
         }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight. A
         // save from when only the lasting abilities could be marked holds zeros in every other
         // bit by construction, so it reads back exactly as it was.
-        finishMask = tag.getInt("FinishMask") & BossAbilityKind.FINISH_ALL;
+        finishMask = tag.getLong("FinishMask") & BossAbilityKind.FINISH_ALL;
         // A tag from before the chains has neither array and reads as no chains at all. A saved
         // array is laid over the slots rather than trusted: one from a build that knew fewer
         // abilities is short, one from a newer build long, and either may point anywhere.

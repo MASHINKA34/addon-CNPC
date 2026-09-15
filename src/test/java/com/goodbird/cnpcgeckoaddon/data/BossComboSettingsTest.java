@@ -149,7 +149,7 @@ class BossComboSettingsTest {
         assertEquals(0, phase.comboDelay(BossAbilityKind.BLAST));
         assertFalse(phase.isComboFollowUp(BossAbilityKind.HAZARD));
         // Past either end of the table, a question gets an empty answer rather than an exception.
-        for (int outside : new int[]{-1, BossAbilityKind.COUNT, Integer.SIZE + BossAbilityKind.AREA}) {
+        for (int outside : new int[]{-1, BossAbilityKind.COUNT, Long.SIZE + BossAbilityKind.AREA}) {
             phase.setComboFollowUp(outside, BossAbilityKind.AREA);
             phase.setComboDelay(outside, 20);
             assertEquals(NONE, phase.comboFollowUp(outside));
@@ -224,7 +224,7 @@ class BossComboSettingsTest {
         // there would be offered on the screen and never start.
         Set<Integer> rotation = BossAbility.ROTATION.stream().map(BossAbility::kind).collect(Collectors.toSet());
         assertEquals(rotation, combo);
-        assertEquals(combo.size(), Integer.bitCount(BossAbilityKind.COMBO_ALL));
+        assertEquals(combo.size(), Long.bitCount(BossAbilityKind.COMBO_ALL));
     }
 
     private static void assertNoChains(BossPhaseData phase, String what) {

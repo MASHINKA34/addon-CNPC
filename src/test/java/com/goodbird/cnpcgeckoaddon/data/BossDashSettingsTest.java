@@ -219,7 +219,7 @@ class BossDashSettingsTest {
                 tag.remove(key);
             }
         }
-        tag.putInt("CastRootMask", BossPhaseData.CAST_ROOT_ALL & ~(1 << BossAbilityKind.DASH));
+        tag.putLong("CastRootMask", BossPhaseData.CAST_ROOT_ALL & ~(1L << BossAbilityKind.DASH));
         BossPhaseData old = new BossPhaseData();
         old.readFromNBT(tag);
         assertTrue(old.isCastRooted(BossAbilityKind.DASH),
@@ -238,7 +238,7 @@ class BossDashSettingsTest {
     void theWarningBitIsMigrated() {
         // Everything the mask held just before the dash joined it, so the kinds appended after
         // the dash are not in it either.
-        int beforeDash = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.DASH);
+        long beforeDash = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.DASH);
         TeleportPathData everything = configuredBoss();
         everything.setTelegraphAbilities(beforeDash);
         TeleportPathData reread = new TeleportPathData();
@@ -247,7 +247,7 @@ class BossDashSettingsTest {
                 "a boss warning for every ability it had was warning for everything");
 
         TeleportPathData chose = configuredBoss();
-        chose.setTelegraphAbilities(beforeDash & ~(1 << BossAbilityKind.MELEE));
+        chose.setTelegraphAbilities(beforeDash & ~(1L << BossAbilityKind.MELEE));
         TeleportPathData rereadChoice = new TeleportPathData();
         rereadChoice.readFromNBT(BossTelegraphMaskMigrationTest.stampless(chose));
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.DASH),
@@ -259,7 +259,7 @@ class BossDashSettingsTest {
     @DisplayName("the dash sits on every list it belongs to, and only those")
     void theDashIsOnItsLists() {
         assertEquals("cnpcgeckoaddon.boss.ability.dash", BossAbilityKind.LABELS[BossAbilityKind.DASH]);
-        assertTrue(BossAbilityKind.COUNT < Integer.SIZE, "the masks are ints, so the list cannot outgrow 31");
+        assertTrue(BossAbilityKind.COUNT < Long.SIZE, "the masks are longs, so the list cannot outgrow 63");
         assertTrue(contains(BossAbilityKind.IMMUNITY_ABILITIES, BossAbilityKind.DASH), "an npc can be immune to the dash");
         assertTrue(contains(BossAbilityKind.COMBO_ABILITIES, BossAbilityKind.DASH), "the dash can be chained");
         assertTrue(contains(BossPhaseData.CAST_ROOT_ABILITIES, BossAbilityKind.DASH), "the wind-up can be rooted");

@@ -181,7 +181,7 @@ class BossDataRoundTripTest {
         data.setEnabled(true);
         data.setPhaseCount(4);
         data.setTelegraphAbilities(TeleportPathData.TELEGRAPH_ALL_ABILITIES
-                & ~(1 << BossAbilityKind.MELEE));
+                & ~(1L << BossAbilityKind.MELEE));
 
         BossPhaseData phase = data.getPhase(1);
         phase.areaAttack().setEnabled(true);

@@ -278,7 +278,7 @@ class BossConeSettingsTest {
                 tag.remove(key);
             }
         }
-        tag.putInt("CastRootMask", BossPhaseData.CAST_ROOT_ALL & ~(1 << BossAbilityKind.CONE));
+        tag.putLong("CastRootMask", BossPhaseData.CAST_ROOT_ALL & ~(1L << BossAbilityKind.CONE));
         BossPhaseData old = new BossPhaseData();
         old.readFromNBT(tag);
         assertTrue(old.isCastRooted(BossAbilityKind.CONE),
@@ -295,7 +295,7 @@ class BossConeSettingsTest {
     @Test
     @DisplayName("a boss that warned for everything warns for the cone; one that chose keeps its choice")
     void theWarningBitIsMigrated() {
-        int beforeCone = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.CONE);
+        long beforeCone = BossTelegraphMaskMigrationTest.maskBefore(BossAbilityKind.CONE);
         TeleportPathData everything = configuredBoss();
         everything.setTelegraphAbilities(beforeCone);
         TeleportPathData reread = new TeleportPathData();
@@ -304,7 +304,7 @@ class BossConeSettingsTest {
                 "a boss warning for every ability it had was warning for everything");
 
         TeleportPathData chose = configuredBoss();
-        chose.setTelegraphAbilities(beforeCone & ~(1 << BossAbilityKind.MELEE));
+        chose.setTelegraphAbilities(beforeCone & ~(1L << BossAbilityKind.MELEE));
         TeleportPathData rereadChoice = new TeleportPathData();
         rereadChoice.readFromNBT(BossTelegraphMaskMigrationTest.stampless(chose));
         assertFalse(rereadChoice.isTelegraphAbility(BossAbilityKind.CONE),
@@ -329,7 +329,7 @@ class BossConeSettingsTest {
     @DisplayName("the cone sits on every list it belongs to, and only those")
     void theConeIsOnItsLists() {
         assertEquals("cnpcgeckoaddon.boss.ability.cone", BossAbilityKind.LABELS[BossAbilityKind.CONE]);
-        assertTrue(BossAbilityKind.COUNT < Integer.SIZE, "the masks are ints, so the list cannot outgrow 31");
+        assertTrue(BossAbilityKind.COUNT < Long.SIZE, "the masks are longs, so the list cannot outgrow 63");
         assertTrue(contains(BossAbilityKind.IMMUNITY_ABILITIES, BossAbilityKind.CONE), "an npc can be immune to the cone");
         assertTrue(contains(BossAbilityKind.COMBO_ABILITIES, BossAbilityKind.CONE), "the cone can be chained");
         assertTrue(contains(BossPhaseData.CAST_ROOT_ABILITIES, BossAbilityKind.CONE), "the wind-up can be rooted");

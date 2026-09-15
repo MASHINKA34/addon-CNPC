@@ -31,7 +31,7 @@ class BossTelegraphMaskMigrationTest {
     private static final String MASK_KEY = "GeckoBossTelegraphAbilities";
 
     /** The full mask as it stood before {@code ability} joined it, and the name of that day. */
-    private record Era(String name, int ability, int mask) {
+    private record Era(String name, int ability, long mask) {
     }
 
     /**
@@ -63,7 +63,7 @@ class BossTelegraphMaskMigrationTest {
      * warnings in a different order than they were numbered, so "everything before the platforms"
      * is a number rather than a prefix.</p>
      */
-    static int maskBefore(int ability) {
+    static long maskBefore(int ability) {
         return HISTORY.stream().filter(era -> era.ability() == ability).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "no saved mask predates ability " + ability)).mask();
@@ -90,10 +90,10 @@ class BossTelegraphMaskMigrationTest {
     }
 
     /** A save holding {@code saved} under a mod that could warn for {@code known}. */
-    private static TeleportPathData rereadStamped(int saved, int known) {
+    private static TeleportPathData rereadStamped(long saved, long known) {
         CompoundTag tag = configuredBoss().writeToNBT(new CompoundTag());
-        tag.putInt(MASK_KEY, saved);
-        tag.putInt(KNOWN_KEY, known);
+        tag.putLong(MASK_KEY, saved);
+        tag.putLong(KNOWN_KEY, known);
         return reread(tag);
     }
 
@@ -115,7 +115,7 @@ class BossTelegraphMaskMigrationTest {
             TeleportPathData everything = configuredBoss();
             everything.setTelegraphAbilities(era.mask());
             CompoundTag tag = stampless(everything);
-            assertEquals(era.mask(), tag.getInt(MASK_KEY),
+            assertEquals(era.mask(), tag.getLong(MASK_KEY),
                     "the mask " + era.name() + " is part of the save format and cannot change");
             TeleportPathData reloaded = reread(tag);
             assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES, reloaded.getTelegraphAbilities(),
@@ -128,7 +128,7 @@ class BossTelegraphMaskMigrationTest {
     @Test
     @DisplayName("a stampless save that silenced something keeps its choice")
     void aStamplessChoiceIsKept() {
-        int chosen = maskBefore(BossAbilityKind.PLATFORM) & ~(1 << BossAbilityKind.HOOK);
+        long chosen = maskBefore(BossAbilityKind.PLATFORM) & ~(1L << BossAbilityKind.HOOK);
         TeleportPathData chose = configuredBoss();
         chose.setTelegraphAbilities(chosen);
         TeleportPathData reloaded = reread(stampless(chose));
@@ -141,12 +141,12 @@ class BossTelegraphMaskMigrationTest {
     @Test
     @DisplayName("a stamped save from before an ability existed is read by its stamp")
     void aStampedSaveIsReadByItsStamp() {
-        int known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1 << BossAbilityKind.PLATFORM);
+        long known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1L << BossAbilityKind.PLATFORM);
         assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES,
                 rereadStamped(known, known).getTelegraphAbilities(),
                 "everything the save knew about was on, so everything is on");
 
-        int chosen = known & ~(1 << BossAbilityKind.DASH);
+        long chosen = known & ~(1L << BossAbilityKind.DASH);
         TeleportPathData reloaded = rereadStamped(chosen, known);
         assertEquals(chosen, reloaded.getTelegraphAbilities(), "a choice is kept bit for bit");
         assertFalse(reloaded.isTelegraphAbility(BossAbilityKind.PLATFORM),
@@ -179,11 +179,11 @@ class BossTelegraphMaskMigrationTest {
                 "and a new boss warns for it until its builder says otherwise");
         // A save from between the stamp and the hurricane knew everything but the hurricane,
         // and warned for all of it: the stamp says so, and the hurricane joins the rest.
-        int known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1 << BossAbilityKind.HURRICANE);
+        long known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1L << BossAbilityKind.HURRICANE);
         assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES,
                 rereadStamped(known, known).getTelegraphAbilities(),
                 "everything the save knew about was on, so everything is on");
-        int chosen = known & ~(1 << BossAbilityKind.DASH);
+        long chosen = known & ~(1L << BossAbilityKind.DASH);
         assertEquals(chosen, rereadStamped(chosen, known).getTelegraphAbilities(),
                 "a choice is kept bit for bit, and the hurricane stays off with it");
     }
@@ -198,11 +198,11 @@ class BossTelegraphMaskMigrationTest {
                 "and a new boss warns for them until its builder says otherwise");
         // A save from between the hurricane and the copies knew everything but the copies, and
         // warned for all of it: the stamp says so, and the copies join the rest.
-        int known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1 << BossAbilityKind.SHADOW);
+        long known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1L << BossAbilityKind.SHADOW);
         assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES,
                 rereadStamped(known, known).getTelegraphAbilities(),
                 "everything the save knew about was on, so everything is on");
-        int chosen = known & ~(1 << BossAbilityKind.HURRICANE);
+        long chosen = known & ~(1L << BossAbilityKind.HURRICANE);
         assertEquals(chosen, rereadStamped(chosen, known).getTelegraphAbilities(),
                 "a choice is kept bit for bit, and the copies stay off with it");
     }
@@ -217,11 +217,11 @@ class BossTelegraphMaskMigrationTest {
                 "and a new boss warns for them until its builder says otherwise");
         // A save from between the copies and the waves knew everything but the waves, and
         // warned for all of it: the stamp says so, and the waves join the rest.
-        int known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1 << BossAbilityKind.SEISMIC);
+        long known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1L << BossAbilityKind.SEISMIC);
         assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES,
                 rereadStamped(known, known).getTelegraphAbilities(),
                 "everything the save knew about was on, so everything is on");
-        int chosen = known & ~(1 << BossAbilityKind.SHADOW);
+        long chosen = known & ~(1L << BossAbilityKind.SHADOW);
         assertEquals(chosen, rereadStamped(chosen, known).getTelegraphAbilities(),
                 "a choice is kept bit for bit, and the waves stay off with it");
     }
@@ -229,8 +229,8 @@ class BossTelegraphMaskMigrationTest {
     @Test
     @DisplayName("a save from this build is taken at its word")
     void anUpToDateStampChangesNothing() {
-        int chosen = TeleportPathData.TELEGRAPH_ALL_ABILITIES
-                & ~(1 << BossAbilityKind.MELEE) & ~(1 << BossAbilityKind.LEAP);
+        long chosen = TeleportPathData.TELEGRAPH_ALL_ABILITIES
+                & ~(1L << BossAbilityKind.MELEE) & ~(1L << BossAbilityKind.LEAP);
         assertEquals(chosen,
                 rereadStamped(chosen, TeleportPathData.TELEGRAPH_ALL_ABILITIES).getTelegraphAbilities(),
                 "nothing was appended since, so there is nothing to fill in");

@@ -204,81 +204,81 @@ public final class TeleportPathData {
             BossAbilityKind.SEISMIC
     };
     /** Everything warns until a builder switches an ability off. */
-    public static final int TELEGRAPH_ALL_ABILITIES = telegraphMask();
+    public static final long TELEGRAPH_ALL_ABILITIES = telegraphMask();
     /** What {@link #TELEGRAPH_ALL_ABILITIES} was before the line strike joined the mask. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_LINE = (1 << BossAbilityKind.LINE) - 1;
+    private static final long TELEGRAPH_ABILITIES_BEFORE_LINE = (1L << BossAbilityKind.LINE) - 1;
     /** And before the geyser did, which is every bit up to and including the line strike. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_GEYSER = (1 << (BossAbilityKind.LINE + 1)) - 1;
+    private static final long TELEGRAPH_ABILITIES_BEFORE_GEYSER = (1L << (BossAbilityKind.LINE + 1)) - 1;
     /** And before the boulder: everything through the geyser, minus the unwarnable blast. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_BOULDER =
-            ((1 << (BossAbilityKind.GEYSER + 1)) - 1) & ~(1 << BossAbilityKind.BLAST);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_BOULDER =
+            ((1L << (BossAbilityKind.GEYSER + 1)) - 1) & ~(1L << BossAbilityKind.BLAST);
     /**
      * And before the tether: everything through the boulder, minus the blast. The boulder rain
      * had not joined the mask when these saves were written, so its bit is not in here either.
      */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_TETHER =
-            ((1 << (BossAbilityKind.BOULDER + 1)) - 1) & ~(1 << BossAbilityKind.BLAST);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_TETHER =
+            ((1L << (BossAbilityKind.BOULDER + 1)) - 1) & ~(1L << BossAbilityKind.BLAST);
     /** And before the gravity field: everything through the tether, minus the same two. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_GRAVITY =
-            ((1 << (BossAbilityKind.TETHER + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_GRAVITY =
+            ((1L << (BossAbilityKind.TETHER + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN);
     /** And before the marks: everything through the gravity field, minus the same two. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_MARK =
-            ((1 << (BossAbilityKind.GRAVITY + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_MARK =
+            ((1L << (BossAbilityKind.GRAVITY + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN);
     /** And before the take cover strike: everything through the marks, minus the same two. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_COVER =
-            ((1 << (BossAbilityKind.MARK + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_COVER =
+            ((1L << (BossAbilityKind.MARK + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN);
     /**
      * And before the hunt: everything through the take cover strike, minus the same two.
      * The arena hazard never joined the mask - it is armed by the phase, not aimed - so its
      * bit is not in here either.
      */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_HUNT =
-            ((1 << (BossAbilityKind.COVER + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_HUNT =
+            ((1L << (BossAbilityKind.COVER + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN);
     /**
      * And before the sweeping beam: everything through the hunt, minus the same two and the
      * arena hazard, which sits between the take cover strike and the hunt without a bit.
      */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_BEAM =
-            ((1 << (BossAbilityKind.HUNT + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
-                    & ~(1 << BossAbilityKind.HAZARD);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_BEAM =
+            ((1L << (BossAbilityKind.HUNT + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1L << BossAbilityKind.HAZARD);
     /** And before the cocoon: everything through the sweeping beam, minus the same three. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_COCOON =
-            ((1 << (BossAbilityKind.BEAM + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
-                    & ~(1 << BossAbilityKind.HAZARD);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_COCOON =
+            ((1L << (BossAbilityKind.BEAM + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1L << BossAbilityKind.HAZARD);
     /** And before the dash: everything through the cocoon, minus the same three. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_DASH =
-            ((1 << (BossAbilityKind.COCOON + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
-                    & ~(1 << BossAbilityKind.HAZARD);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_DASH =
+            ((1L << (BossAbilityKind.COCOON + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1L << BossAbilityKind.HAZARD);
     /** And before the cone strike: everything through the dash, minus the same three. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_CONE =
-            ((1 << (BossAbilityKind.DASH + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
-                    & ~(1 << BossAbilityKind.HAZARD);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_CONE =
+            ((1L << (BossAbilityKind.DASH + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1L << BossAbilityKind.HAZARD);
     /** And before the platforms: everything through the cone strike, minus the same three. */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_PLATFORM =
-            ((1 << (BossAbilityKind.CONE + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
-                    & ~(1 << BossAbilityKind.HAZARD);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_PLATFORM =
+            ((1L << (BossAbilityKind.CONE + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1L << BossAbilityKind.HAZARD);
     /**
      * And before the rain of stones, which joined last of all: everything through the platforms,
      * minus the blast, the arena hazard and the rain's own bit, which was not in the mask yet.
      */
-    private static final int TELEGRAPH_ABILITIES_BEFORE_BOULDER_RAIN =
-            ((1 << (BossAbilityKind.PLATFORM + 1)) - 1)
-                    & ~(1 << BossAbilityKind.BLAST) & ~(1 << BossAbilityKind.BOULDER_RAIN)
-                    & ~(1 << BossAbilityKind.HAZARD);
+    private static final long TELEGRAPH_ABILITIES_BEFORE_BOULDER_RAIN =
+            ((1L << (BossAbilityKind.PLATFORM + 1)) - 1)
+                    & ~(1L << BossAbilityKind.BLAST) & ~(1L << BossAbilityKind.BOULDER_RAIN)
+                    & ~(1L << BossAbilityKind.HAZARD);
 
-    private static int telegraphMask() {
-        int mask = 0;
+    private static long telegraphMask() {
+        long mask = 0L;
         for (int ability : TELEGRAPH_ABILITIES) {
-            mask |= 1 << ability;
+            mask |= 1L << ability;
         }
         return mask;
     }
@@ -578,7 +578,7 @@ public final class TeleportPathData {
      */
     private boolean telegraphEnabled = true;
     private int telegraphStyle = TELEGRAPH_STYLE_BOTH;
-    private int telegraphAbilities = TELEGRAPH_ALL_ABILITIES;
+    private long telegraphAbilities = TELEGRAPH_ALL_ABILITIES;
     private int telegraphZoneRadius = DEFAULT_TELEGRAPH_ZONE_RADIUS;
     private int telegraphLeadTicks = DEFAULT_TELEGRAPH_LEAD_TICKS;
     private boolean telegraphDodge = true;
@@ -739,10 +739,10 @@ public final class TeleportPathData {
         tag.putBoolean(EXPLOSION_FIRE_KEY, explosionFire);
         tag.putBoolean(TELEGRAPH_ENABLED_KEY, telegraphEnabled);
         tag.putInt(TELEGRAPH_STYLE_KEY, telegraphStyle);
-        tag.putInt(TELEGRAPH_ABILITIES_KEY, telegraphAbilities);
+        tag.putLong(TELEGRAPH_ABILITIES_KEY, telegraphAbilities);
         // Not a setting: a stamp of which abilities warned at all when this was saved, so the
         // next load can tell "everything was on" from "everything except the newest one".
-        tag.putInt(TELEGRAPH_ABILITIES_KNOWN_KEY, TELEGRAPH_ALL_ABILITIES);
+        tag.putLong(TELEGRAPH_ABILITIES_KNOWN_KEY, TELEGRAPH_ALL_ABILITIES);
         tag.putInt(TELEGRAPH_ZONE_RADIUS_KEY, telegraphZoneRadius);
         tag.putInt(TELEGRAPH_LEAD_KEY, telegraphLeadTicks);
         tag.putBoolean(TELEGRAPH_DODGE_KEY, telegraphDodge);
@@ -917,8 +917,8 @@ public final class TeleportPathData {
         setTelegraphStyle(tag.contains(TELEGRAPH_STYLE_KEY)
                 ? tag.getInt(TELEGRAPH_STYLE_KEY) : TELEGRAPH_STYLE_BOTH);
         setTelegraphAbilities(tag.contains(TELEGRAPH_ABILITIES_KEY)
-                ? restoreTelegraphAbilities(tag.getInt(TELEGRAPH_ABILITIES_KEY),
-                        tag.getInt(TELEGRAPH_ABILITIES_KNOWN_KEY))
+                ? restoreTelegraphAbilities(tag.getLong(TELEGRAPH_ABILITIES_KEY),
+                        tag.getLong(TELEGRAPH_ABILITIES_KNOWN_KEY))
                 : TELEGRAPH_ALL_ABILITIES);
         setTelegraphZoneRadius(tag.contains(TELEGRAPH_ZONE_RADIUS_KEY)
                 ? tag.getInt(TELEGRAPH_ZONE_RADIUS_KEY) : DEFAULT_TELEGRAPH_ZONE_RADIUS);
@@ -1062,14 +1062,14 @@ public final class TeleportPathData {
      * @param source      the phase the copies were cast in, copied rather than shared
      * @param abilityMask which abilities the copy casts, one bit per {@link BossAbilityKind}
      */
-    public void stripToShadow(BossPhaseData source, int abilityMask) {
+    public void stripToShadow(BossPhaseData source, long abilityMask) {
         enabled = true;
         configured = true;
         BossPhaseData only = new BossPhaseData();
         only.readFromNBT(source.writeToNBT());
         only.setStartHealthPercent(100);
         for (int kind = 0; kind < BossAbilityKind.COUNT; kind++) {
-            boolean cast = (abilityMask & (1 << kind)) != 0
+            boolean cast = (abilityMask & (1L << kind)) != 0
                     && kind != BossAbilityKind.SHADOW && kind != BossAbilityKind.SUMMON;
             only.setAbilityEnabled(kind, cast);
         }
@@ -1489,8 +1489,8 @@ public final class TeleportPathData {
     public boolean isTelegraphZone() { return telegraphStyle != TELEGRAPH_STYLE_AURA; }
     /** Whether the boss itself is lit up in the ability's colour. */
     public boolean isTelegraphAura() { return telegraphStyle != TELEGRAPH_STYLE_ZONE; }
-    public int getTelegraphAbilities() { return telegraphAbilities; }
-    public void setTelegraphAbilities(int value) { telegraphAbilities = value & TELEGRAPH_ALL_ABILITIES; }
+    public long getTelegraphAbilities() { return telegraphAbilities; }
+    public void setTelegraphAbilities(long value) { telegraphAbilities = value & TELEGRAPH_ALL_ABILITIES; }
     /** How wide a ring an aimed ability paints under its victim. */
     public int getTelegraphZoneRadius() { return telegraphZoneRadius; }
     public void setTelegraphZoneRadius(int value) {
@@ -1515,7 +1515,7 @@ public final class TeleportPathData {
      * the past, and one that matches is taken as "everything on". That guess is why the stamp
      * exists, but it is the best that can be done for a tag that never recorded the answer.</p>
      */
-    private static int restoreTelegraphAbilities(int saved, int known) {
+    private static long restoreTelegraphAbilities(long saved, long known) {
         if (known == 0) {
             return warnedForEverythingBeforeTheStamp(saved) ? TELEGRAPH_ALL_ABILITIES : saved;
         }
@@ -1524,7 +1524,7 @@ public final class TeleportPathData {
     }
 
     /** Whether a stampless mask is every bit the mod offered at some point in its past. */
-    private static boolean warnedForEverythingBeforeTheStamp(int saved) {
+    private static boolean warnedForEverythingBeforeTheStamp(long saved) {
         return saved == TELEGRAPH_ABILITIES_BEFORE_LINE || saved == TELEGRAPH_ABILITIES_BEFORE_GEYSER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_BOULDER
                 || saved == TELEGRAPH_ABILITIES_BEFORE_TETHER
@@ -1541,19 +1541,19 @@ public final class TeleportPathData {
     }
 
     public boolean isTelegraphAbility(int ability) {
-        return isTelegraphable(ability) && (telegraphAbilities & 1 << ability) != 0;
+        return isTelegraphable(ability) && (telegraphAbilities & 1L << ability) != 0;
     }
     public void setTelegraphAbility(int ability, boolean value) {
         if (!isTelegraphable(ability)) {
             return;
         }
         telegraphAbilities = value
-                ? telegraphAbilities | 1 << ability
-                : telegraphAbilities & ~(1 << ability);
+                ? telegraphAbilities | 1L << ability
+                : telegraphAbilities & ~(1L << ability);
     }
     /** Whether this ability has a bit in the mask at all; the blast has none. */
     private static boolean isTelegraphable(int ability) {
-        return ability >= 0 && ability < Integer.SIZE && (TELEGRAPH_ALL_ABILITIES & 1 << ability) != 0;
+        return ability >= 0 && ability < Long.SIZE && (TELEGRAPH_ALL_ABILITIES & 1L << ability) != 0;
     }
     /** Whether the ability's name is put in the action bar as the wind-up starts. */
     public boolean isTelegraphAnnounce() { return telegraphAnnounce; }
