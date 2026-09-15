@@ -16,14 +16,15 @@ public final class SubGuiBossCastMovement extends SubGuiFieldScreen {
      * Two columns, the way the warning and immunity screens list the same abilities. Eleven
      * rows since the cone strike: its choice and the leap's placeholder made twenty-one, one
      * more than two columns of ten, so the hints moved down under the eleventh row. The
-     * platforms' choice fills the last slot, so the next one needs a twelfth row.
+     * platforms' choice filled the last slot of eleven; the hurricane's and the shadow copies'
+     * choices make twenty-four with the placeholder, two columns of twelve.
      */
-    private static final int ROWS_PER_COLUMN = 11;
+    private static final int ROWS_PER_COLUMN = 12;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
-    /** Where the hints start: under the eleventh row. */
-    private static final int HINTS_Y = 270;
-    private static final int DONE_Y = 322;
+    /** Where the hints start: under the twelfth row. */
+    private static final int HINTS_Y = 292;
+    private static final int DONE_Y = 344;
     private static final int HINT_COLOR = 0xA0A0A0;
     private static final int HINT_LINE_HEIGHT = 9;
 

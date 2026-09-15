@@ -24,13 +24,24 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
     private final BossPhaseData phase;
     private final int phaseIndex;
     private final BossMinionSpawnList points;
+    private final String titleKey;
+    /** Whether a point may name a clone of its own: the summon's may, the shadow copies' spawn none. */
+    private final boolean withClone;
     private int page;
 
     public SubGuiBossMinionSpawnList(EntityNPCInterface npc, BossPhaseData phase, int phaseIndex) {
+        this(npc, phase, phaseIndex, phase.summon().getSpawnPoints(), "cnpcgeckoaddon.boss.minion_spawn_title", true);
+    }
+
+    /** The same editor over any list of points kept the summon's way. */
+    public SubGuiBossMinionSpawnList(EntityNPCInterface npc, BossPhaseData phase, int phaseIndex,
+                                     BossMinionSpawnList points, String titleKey, boolean withClone) {
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
-        this.points = phase.summon().getSpawnPoints();
+        this.points = points;
+        this.titleKey = titleKey;
+        this.withClone = withClone;
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -39,8 +50,7 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(
-                "cnpcgeckoaddon.boss.minion_spawn_title", phaseIndex),
+        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(titleKey, phaseIndex),
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
         addLabel(new GuiLabel(EMPTY_LABEL, "cnpcgeckoaddon.boss.minion_spawn_empty",
                 guiLeft + 8, guiTop + 30, 0xA0A0A0));
@@ -94,6 +104,9 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
             coordinates = I18n.get("cnpcgeckoaddon.boss.minion_spawn_arena") + " "
                     + withSign(point.getX()) + "/" + withSign(point.getY()) + "/" + withSign(point.getZ());
         }
+        if (!withClone) {
+            return coordinates;
+        }
         String clone;
         if (point.getCloneNameOverride().isEmpty()) {
             clone = I18n.get("cnpcgeckoaddon.boss.minion_spawn_default_clone");
@@ -112,7 +125,7 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
         if (row >= 0 && row < ROWS) {
             int index = page * ROWS + row;
             if (index < points.size()) {
-                setSubGui(new SubGuiBossMinionSpawnPoint(npc, phase, phaseIndex, index));
+                setSubGui(new SubGuiBossMinionSpawnPoint(npc, phase, phaseIndex, points, index, withClone));
             }
             return;
         }
@@ -126,7 +139,8 @@ public final class SubGuiBossMinionSpawnList extends SubGuiFieldScreen {
             BossMinionSpawnPoint point = points.add();
             if (point != null) {
                 page = (points.size() - 1) / ROWS;
-                setSubGui(new SubGuiBossMinionSpawnPoint(npc, phase, phaseIndex, points.size() - 1));
+                setSubGui(new SubGuiBossMinionSpawnPoint(npc, phase, phaseIndex, points, points.size() - 1,
+                        withClone));
             }
         } else if (button.id == CLEAR_BUTTON) {
             points.clear();

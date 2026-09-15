@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnList;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.Minecraft;
@@ -34,16 +35,27 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
     private final int phaseIndex;
+    private final BossMinionSpawnList points;
     private final int index;
     private final BossMinionSpawnPoint point;
+    /** Whether the point may name a clone of its own; a shadow copy's point spawns none. */
+    private final boolean withClone;
 
     public SubGuiBossMinionSpawnPoint(EntityNPCInterface npc, BossPhaseData phase,
                                       int phaseIndex, int index) {
+        this(npc, phase, phaseIndex, phase.summon().getSpawnPoints(), index, true);
+    }
+
+    /** The same editor for a point of any list kept the summon's way. */
+    public SubGuiBossMinionSpawnPoint(EntityNPCInterface npc, BossPhaseData phase, int phaseIndex,
+                                      BossMinionSpawnList points, int index, boolean withClone) {
         this.npc = npc;
         this.phase = phase;
         this.phaseIndex = phaseIndex;
+        this.points = points;
         this.index = index;
-        this.point = phase.summon().getSpawnPoints().get(index);
+        this.point = points.get(index);
+        this.withClone = withClone;
         imageWidth = 256;
         imageHeight = 256;
         closeOnEsc = true;
@@ -52,9 +64,9 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(
-                "cnpcgeckoaddon.boss.minion_spawn_point_title", phaseIndex),
-                guiLeft + 8, guiTop + 7, 0xFFFFFF));
+        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(withClone
+                ? "cnpcgeckoaddon.boss.minion_spawn_point_title" : "cnpcgeckoaddon.boss.shadow_point_title",
+                phaseIndex), guiLeft + 8, guiTop + 7, 0xFFFFFF));
         int y = guiTop + 25;
         addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled",
                 guiLeft + 8, y + 6));
@@ -74,13 +86,15 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
         addTextField(signedField(Z_FIELD, guiLeft + 188, y, point.getZ()));
         y += 23;
 
-        addLabel(new GuiLabel(CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.minion_spawn_clone_override",
-                guiLeft + 8, y + 6));
-        addTextField(numberField(CLONE_TAB_FIELD, guiLeft + 76, y, 30,
-                point.getCloneTabOverride(), 0, 9, 0));
-        addTextField(new GuiTextFieldNop(CLONE_NAME_FIELD, this, guiLeft + 110, y, 132, 20,
-                point.getCloneNameOverride()));
-        y += 23;
+        if (withClone) {
+            addLabel(new GuiLabel(CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.minion_spawn_clone_override",
+                    guiLeft + 8, y + 6));
+            addTextField(numberField(CLONE_TAB_FIELD, guiLeft + 76, y, 30,
+                    point.getCloneTabOverride(), 0, 9, 0));
+            addTextField(new GuiTextFieldNop(CLONE_NAME_FIELD, this, guiLeft + 110, y, 132, 20,
+                    point.getCloneNameOverride()));
+            y += 23;
+        }
 
         addLabel(new GuiLabel(YAW_FIELD, "cnpcgeckoaddon.boss.minion_spawn_yaw", guiLeft + 8, y + 6));
         GuiTextFieldNop yaw = new GuiTextFieldNop(YAW_FIELD, this, guiLeft + 172, y, 70, 20,
@@ -134,7 +148,7 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
         } else if (button.id == DELETE_BUTTON) {
-            phase.summon().getSpawnPoints().remove(index);
+            points.remove(index);
             super.close();
         }
     }
