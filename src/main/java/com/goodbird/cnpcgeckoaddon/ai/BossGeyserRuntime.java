@@ -97,8 +97,13 @@ final class BossGeyserRuntime {
         // to read the mark and step off it, not a number the fight is allowed to turn up.
         int damage = boss.damageUp(phase.geyser().getDamage());
         int launch = boss.rageUp(phase.geyser().getLaunch());
+        // The strike from above and the residue's doses are the same cast landing later, so they
+        // take the rage as it stood on the cast, the way the eruption's own damage does.
+        int skyDamage = boss.damageUp(phase.geyser().getSkyDamage());
+        int residueDamage = boss.damageUp(phase.geyser().getResidueDamage());
         for (LivingEntity victim : victims) {
-            BossGeyserScheduler.schedule(level, npc, victim, phase, fluid, damage, launch, gameTime);
+            BossGeyserScheduler.schedule(level, npc, victim, phase, fluid, damage, launch, skyDamage,
+                    residueDamage, gameTime);
         }
     }
 

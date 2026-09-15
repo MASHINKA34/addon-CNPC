@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossGeyserSettings;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
@@ -75,6 +76,41 @@ public final class BossGeyserScheduler {
         private final double boilMin;
         private final double boilMax;
         private final BossSoundCue eruptSound;
+        /** The column's shape, its rise and its dots; see BossGeyserSettings.COLUMN_CONE. */
+        private final int columnShape;
+        private final double columnTopRadius;
+        private final int columnRiseTicks;
+        private final int columnPoints;
+        private final BossParticleCue columnParticles;
+        private final BossParticleCue columnSmoke;
+        /** The strike from above, when the phase has one. */
+        private final boolean skyEnabled;
+        private final int skyDelayTicks;
+        private final double skyHeight;
+        private final int skyFallTicks;
+        /** Nought for the geyser's own radius; resolved through {@link #skyRadius(double)}. */
+        private final int skyRadius;
+        private final double skyPress;
+        private final BossEffectSet skyEffects;
+        private final String skyVfx;
+        private final BossParticleCue skyParticles;
+        private final BossSoundCue skySound;
+        private final BossSoundCue skyHitSound;
+        private final BossParticleCue skyHitParticles;
+        /** The residue left on the floor, when the phase leaves one. */
+        private final boolean residueEnabled;
+        private final int residueLifetimeTicks;
+        private final int residueRadius;
+        private final int residueIntervalTicks;
+        private final int residueStackTicks;
+        private final int residueMaxStacks;
+        private final int residueDecayTicks;
+        private final double residueHeight;
+        private final BossEffectSet residueEffects;
+        private final int residueSoundIntervalTicks;
+        private final BossParticleCue residueParticles;
+        private final BossSoundCue residueSound;
+        private final BossParticleCue residueHitParticles;
 
         private Look(BossGeyserSettings geyser) {
             vfxTicks = geyser.getVfxTicks();
@@ -84,10 +120,167 @@ public final class BossGeyserScheduler {
             boilMin = geyser.getBoilMinHundredths() / 100.0D;
             boilMax = geyser.getBoilMaxHundredths() / 100.0D;
             eruptSound = geyser.getEruptSound().copy();
+            columnShape = geyser.getColumnShape();
+            columnTopRadius = geyser.getColumnTopRadius();
+            columnRiseTicks = geyser.getColumnRiseTicks();
+            columnPoints = geyser.getColumnPointsPerSlice();
+            columnParticles = geyser.getColumnParticles().copy();
+            columnSmoke = geyser.getColumnSmoke().copy();
+            skyEnabled = geyser.isSkyEnabled();
+            skyDelayTicks = geyser.getSkyDelayTicks();
+            skyHeight = geyser.getSkyHeight();
+            skyFallTicks = geyser.getSkyFallTicks();
+            skyRadius = geyser.getSkyRadius();
+            skyPress = geyser.getSkyPress();
+            skyEffects = geyser.getSkyEffects();
+            skyVfx = geyser.getSkyVfx();
+            skyParticles = geyser.getSkyParticles().copy();
+            skySound = geyser.getSkySound().copy();
+            skyHitSound = geyser.getSkyHitSound().copy();
+            skyHitParticles = geyser.getSkyHitParticles().copy();
+            residueEnabled = geyser.isResidueEnabled();
+            residueLifetimeTicks = geyser.getResidueLifetimeTicks();
+            residueRadius = geyser.getResidueRadius();
+            residueIntervalTicks = geyser.getResidueIntervalTicks();
+            residueStackTicks = geyser.getResidueStackTicks();
+            residueMaxStacks = geyser.getResidueMaxStacks();
+            residueDecayTicks = geyser.getResidueDecayTicks();
+            residueHeight = geyser.getResidueHeight();
+            residueEffects = geyser.getResidueEffects();
+            residueSoundIntervalTicks = geyser.getResidueSoundIntervalTicks();
+            residueParticles = geyser.getResidueParticles().copy();
+            residueSound = geyser.getResidueSound().copy();
+            residueHitParticles = geyser.getResidueHitParticles().copy();
         }
 
         int vfxTicks() {
             return vfxTicks;
+        }
+
+        int columnShape() {
+            return columnShape;
+        }
+
+        double columnTopRadius() {
+            return columnTopRadius;
+        }
+
+        int columnRiseTicks() {
+            return columnRiseTicks;
+        }
+
+        int columnPoints() {
+            return columnPoints;
+        }
+
+        BossParticleCue columnParticles() {
+            return columnParticles;
+        }
+
+        BossParticleCue columnSmoke() {
+            return columnSmoke;
+        }
+
+        boolean skyEnabled() {
+            return skyEnabled;
+        }
+
+        int skyDelayTicks() {
+            return skyDelayTicks;
+        }
+
+        double skyHeight() {
+            return skyHeight;
+        }
+
+        int skyFallTicks() {
+            return skyFallTicks;
+        }
+
+        /** The strike's radius over a geyser of {@code radius}: its own, or the geyser's when it has none. */
+        double skyRadius(double radius) {
+            return skyRadius > 0 ? skyRadius : radius;
+        }
+
+        double skyPress() {
+            return skyPress;
+        }
+
+        BossEffectSet skyEffects() {
+            return skyEffects;
+        }
+
+        String skyVfx() {
+            return skyVfx;
+        }
+
+        BossParticleCue skyParticles() {
+            return skyParticles;
+        }
+
+        BossSoundCue skySound() {
+            return skySound;
+        }
+
+        BossSoundCue skyHitSound() {
+            return skyHitSound;
+        }
+
+        BossParticleCue skyHitParticles() {
+            return skyHitParticles;
+        }
+
+        boolean residueEnabled() {
+            return residueEnabled;
+        }
+
+        int residueLifetimeTicks() {
+            return residueLifetimeTicks;
+        }
+
+        /** The residue's radius over a geyser of {@code radius}: its own, or the geyser's when it has none. */
+        double residueRadius(double radius) {
+            return residueRadius > 0 ? residueRadius : radius;
+        }
+
+        int residueIntervalTicks() {
+            return residueIntervalTicks;
+        }
+
+        int residueStackTicks() {
+            return residueStackTicks;
+        }
+
+        int residueMaxStacks() {
+            return residueMaxStacks;
+        }
+
+        int residueDecayTicks() {
+            return residueDecayTicks;
+        }
+
+        double residueHeight() {
+            return residueHeight;
+        }
+
+        BossEffectSet residueEffects() {
+            return residueEffects;
+        }
+
+        int residueSoundIntervalTicks() {
+            return residueSoundIntervalTicks;
+        }
+
+        BossParticleCue residueParticles() {
+            return residueParticles;
+        }
+
+        BossSoundCue residueSound() {
+            return residueSound;
+        }
+
+        BossParticleCue residueHitParticles() {
+            return residueHitParticles;
         }
 
         /** How tall the column comes up over a circle of this radius; nought draws none at all. */
@@ -120,6 +313,9 @@ public final class BossGeyserScheduler {
         private final int damage;
         /** Upward throw in tenths of a block per tick, enrage already counted in. */
         private final int launch;
+        /** What the strike from above and a dose of the residue hit for, enrage already counted in. */
+        private final int skyDamage;
+        private final int residueDamage;
         private final BossEffectSet effects;
         private final String vfx;
         /** How the boss had its waves tuned when this was lit; see BossWaveTuning. */
@@ -138,7 +334,8 @@ public final class BossGeyserScheduler {
         private Vec3 pos;
 
         private Pending(ResourceKey<Level> dimension, EntityNPCInterface boss, int followId,
-                        double radius, int damage, int launch, BossEffectSet effects, String vfx,
+                        double radius, int damage, int launch, int skyDamage, int residueDamage,
+                        BossEffectSet effects, String vfx,
                         BossWaveTuning wave, BossTelegraphPaint.Settings telegraph,
                         boolean blockWave, Look look, BlockState fluid,
                         int fluidLifetimeTicks, long litAt, long eruptsAt, Vec3 pos) {
@@ -148,6 +345,8 @@ public final class BossGeyserScheduler {
             this.radius = radius;
             this.damage = damage;
             this.launch = launch;
+            this.skyDamage = skyDamage;
+            this.residueDamage = residueDamage;
             this.effects = effects;
             this.vfx = vfx;
             this.wave = wave;
@@ -170,21 +369,24 @@ public final class BossGeyserScheduler {
     /**
      * Lights one geyser under {@code victim}.
      *
-     * @param fluid  the pool the eruption leaves behind, or null for none
-     * @param damage what the eruption hits for, with the enrage bonus already in it
-     * @param launch how hard it throws, in the same already-scaled terms
+     * @param fluid         the pool the eruption leaves behind, or null for none
+     * @param damage        what the eruption hits for, with the enrage bonus already in it
+     * @param launch        how hard it throws, in the same already-scaled terms
+     * @param skyDamage     what the strike from above hits for, in the same terms
+     * @param residueDamage what a dose of the residue hits for, in the same terms
      * @return whether a mark was really lit, i.e. whether there was floor to lay it on
      */
     public static boolean schedule(ServerLevel level, EntityNPCInterface boss, LivingEntity victim,
                                    BossPhaseData phase, BlockState fluid, int damage, int launch,
-                                   long gameTime) {
+                                   int skyDamage, int residueDamage, long gameTime) {
         Vec3 point = groundUnder(level, victim);
         if (point == null) {
             return false;
         }
         PENDING.add(new Pending(level.dimension(), boss,
                 phase.geyser().isFollowTarget() ? victim.getId() : -1,
-                phase.geyser().getRadius(), damage, launch, phase.geyser().getEffects(),
+                phase.geyser().getRadius(), damage, launch, skyDamage, residueDamage,
+                phase.geyser().getEffects(),
                 phase.geyser().getVfx(), BossWaveTuning.of(boss, phase.geyser().getVfx()),
                 BossTelegraphPaint.Settings.of(boss),
                 phase.geyser().isBlockWave(), look(phase.geyser()), fluid,
