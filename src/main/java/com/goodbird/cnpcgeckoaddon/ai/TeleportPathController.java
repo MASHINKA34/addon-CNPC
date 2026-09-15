@@ -2559,6 +2559,15 @@ public final class TeleportPathController {
         return shadows.hasCopies();
     }
 
+    /** Where the standing copies will go off, for the warning: empty unless the finale is the blast. */
+    List<Vec3> shadowBlastCentres(ServerLevel level) {
+        return shadows.blastCentres(level);
+    }
+
+    double shadowBlastRadius() {
+        return shadows.blastRadius();
+    }
+
     /**
      * Whether this boss - or a copy, which runs the same controller - is between casts and not
      * moving under one: no wind-up, no flight, no run, no series, no chase, no journey to a

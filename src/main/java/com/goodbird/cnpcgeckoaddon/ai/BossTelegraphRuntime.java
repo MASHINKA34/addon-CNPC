@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossHurricaneSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossShadowSettings;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -194,6 +195,7 @@ final class BossTelegraphRuntime {
                 }
             }
             case SUMMON -> drawTelegraphSpawnRings(level, data, phase, paint);
+            case SHADOW -> drawShadowRings(level, data, phase, paint);
             case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.gravity().getRadius(), paint);
             // The ring the volley will fall in, and the dead zone at the boss' feet where it
             // cannot: nothing is aimed at anybody, so the shape is the whole warning.
@@ -301,6 +303,38 @@ final class BossTelegraphRuntime {
         }
         if (drawn == 0) {
             BossTelegraphUtil.ring(level, npc.position(), phase.summon().getRadius(), paint);
+        }
+    }
+
+    /**
+     * The spots the copies will stand up on, the summon's way; or, with copies already standing
+     * and this cast their end, the blast round each of them - nothing for the other endings,
+     * which land on nobody.
+     */
+    private void drawShadowRings(ServerLevel level, TeleportPathData data, BossPhaseData phase,
+                                 BossTelegraphPaint paint) {
+        BossShadowSettings shadow = phase.shadow();
+        if (boss.hasShadowCopies()) {
+            double radius = boss.shadowBlastRadius();
+            for (Vec3 centre : boss.shadowBlastCentres(level)) {
+                BossTelegraphUtil.ring(level, centre, radius, paint);
+            }
+            return;
+        }
+        int drawn = 0;
+        int rings = data.tuning().telegraphSpawnRings();
+        for (BossMinionSpawnPoint point : shadow.getPoints().entries()) {
+            if (drawn >= rings) {
+                break;
+            }
+            if (point.isEnabled()) {
+                BossTelegraphUtil.ring(level, minionSpawns.pointAnchor(point),
+                        data.tuning().telegraphSpawnRingRadius(), paint);
+                drawn++;
+            }
+        }
+        if (drawn == 0) {
+            BossTelegraphUtil.ring(level, npc.position(), shadow.getSpawnRadius(), paint);
         }
     }
 

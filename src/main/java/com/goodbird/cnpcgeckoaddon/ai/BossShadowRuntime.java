@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -260,8 +261,49 @@ final class BossShadowRuntime {
     private void finale(ServerLevel level, long gameTime) {
         switch (cast.getFinale()) {
             case BossShadowSettings.FINALE_ABSORB -> absorbAll(level, gameTime);
+            case BossShadowSettings.FINALE_BLAST -> blastAll(level);
             default -> vanishAll(level);
         }
+    }
+
+    /**
+     * Every standing copy goes off where it stands: the hit on whoever is near it, shoved
+     * away from it, the wave, the cue, and the copy gone. Not an explosion: no block is
+     * touched, and the hit goes through the one door every ability's does, in the boss' name.
+     */
+    private void blastAll(ServerLevel level) {
+        int damage = boss.damageUp(cast.getBlastDamage());
+        int knockback = boss.rageUp(cast.getBlastKnockback());
+        for (EntityNPCInterface copy : aliveCopies(level)) {
+            Vec3 centre = copy.position();
+            for (LivingEntity target : boss.getTargetsAround(level, centre, cast.getBlastRadius(),
+                    BossAbilityKind.SHADOW)) {
+                BossAbilityDamageUtil.hit(target, BossAbilityKind.SHADOW, npc, damage, cast.getBlastEffects(),
+                        knockback, centre.x - target.getX(), centre.z - target.getZ());
+            }
+            BossAreaVfxScheduler.schedule(level, centre, cast.getBlastVfx(), cast.getBlastRadius(),
+                    cast.getBlastVfxTicks(), false, BossWaveTuning.of(npc, cast.getBlastVfx()));
+            cueAt(level, copy, cast.getBlastSound(), cast.getBlastParticles());
+            BossCloneRespawnGuard.retire(copy);
+        }
+        forget();
+    }
+
+    /** Where the copies about to go off stand, for the warning; nothing unless the finale is the blast. */
+    List<Vec3> blastCentres(ServerLevel level) {
+        if (cast == null || cast.getFinale() != BossShadowSettings.FINALE_BLAST) {
+            return List.of();
+        }
+        List<Vec3> centres = new ArrayList<>(copies.size());
+        for (EntityNPCInterface copy : aliveCopies(level)) {
+            centres.add(copy.position());
+        }
+        return centres;
+    }
+
+    /** How far the blast the standing copies will make reaches; nothing while none stand. */
+    double blastRadius() {
+        return cast == null ? 0.0D : cast.getBlastRadius();
     }
 
     /**
