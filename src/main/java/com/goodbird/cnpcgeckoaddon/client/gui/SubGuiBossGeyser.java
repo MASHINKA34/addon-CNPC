@@ -30,6 +30,8 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
     private static final int VFX_STYLE_BUTTON = 16;
     private static final int BLOCK_WAVE_BUTTON = 17;
     private static final int TUNING_BUTTON = 18;
+    private static final int SKY_BUTTON = 19;
+    private static final int RESIDUE_BUTTON = 20;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
@@ -47,8 +49,9 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         imageWidth = 256;
         // The tallest ability screen in the mod, and deliberately so: the cast, the fuse, the
         // eruption and what it leaves behind are four sets of numbers, and a builder tuning
-        // the fuse against the radius needs to see both of them at once.
-        imageHeight = 350;
+        // the fuse against the radius needs to see both of them at once. The strike from
+        // above and the residue each get a screen of their own, reached from two rows here.
+        imageHeight = 392;
         closeOnEsc = true;
     }
 
@@ -113,13 +116,20 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         addLabel(new GuiLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 6, y + 6));
         addButton(new GuiButtonYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.geyser().isBlockWave()));
+        y += 21;
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.geyser_hint", guiLeft + 6, guiTop + 292, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 302, 236, 20,
+        // What the eruption does after and leaves behind, each on a screen of its own.
+        addButton(new GuiButtonNop(this, SKY_BUTTON, guiLeft + 6, y, 236, 20, "cnpcgeckoaddon.boss.geyser_sky"));
+        y += 21;
+        addButton(new GuiButtonNop(this, RESIDUE_BUTTON, guiLeft + 6, y, 236, 20,
+                "cnpcgeckoaddon.boss.geyser_residue"));
+
+        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.geyser_hint", guiLeft + 6, guiTop + 334, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 344, 236, 20,
                 "cnpcgeckoaddon.boss.geyser_tuning"));
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 326, 120, 20,
+        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 368, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 326, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 368, 60, 20);
     }
 
     private int vfxStyleIndex() {
@@ -179,6 +189,12 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         } else if (button.id == TUNING_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossGeyserTuning(phase.geyser()));
+        } else if (button.id == SKY_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossGeyserSky(phase.geyser()));
+        } else if (button.id == RESIDUE_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossGeyserResidue(phase.geyser()));
         } else if (button.id == ENABLED_BUTTON) {
             phase.geyser().setEnabled(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == FOLLOW_BUTTON) {

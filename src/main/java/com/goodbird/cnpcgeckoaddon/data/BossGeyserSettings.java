@@ -26,6 +26,10 @@ public final class BossGeyserSettings {
     public static final int COLUMN_STRAIGHT = 0;
     /** The column comes up off the whole circle and narrows towards its top. */
     public static final int COLUMN_CONE = 1;
+    public static final String[] COLUMN_SHAPE_LABELS = {
+            "cnpcgeckoaddon.boss.geyser_column_shape.straight",
+            "cnpcgeckoaddon.boss.geyser_column_shape.cone"
+    };
 
     /** The cone's top, its rise and its dots, each in the unit its label names. */
     public static final int MAX_COLUMN_TOP_RADIUS = 160;
