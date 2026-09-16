@@ -6,6 +6,14 @@ inventory of all four archives is `scripts/inventory_round3.json`. No class file
 registries, data packs, sounds, recipes, language files, or block, item, armor, and screen art
 were imported from any of them, and none of the donors is a runtime dependency.
 
+Animation policy (reworked on 2026-09-16 after review; every count and table below comes from a
+full rerun of the pipeline): the converter writes a portable idle, walk, or attack loop only for
+an action the donor has no authored clip for, reads the `<holder>_` prefix of MCreator clip names
+from the clips themselves, and leaves out a placeholder that would move no bone (except `idle`,
+which every model must carry); `ensure_round3_animations.py` then aliases `idle`, `walk`, and
+`attack` to the donor's own clips and replaces a static `idle` with a clip that moves whenever
+the model has one. In the tables, `static` marks a clip that exists but moves no bone.
+
 ## 01 EEEAB's Mobs
 
 ### Source and scope
@@ -32,7 +40,10 @@ villager corpse), converts cubes, pivots, UVs, and mirroring to GeckoLib geometr
 unconditional `setStaticRotationAngle` calls into the bone rotations (GeckoLib adds keyframes to
 the geometry pose exactly the way the donor adds them to the static pose), and converts every
 authored clip the model plays in `setupAnim`. Portable idle, walk, and attack loops from the
-round-two converter stand in for the procedural motion; authored clips of the same name win.
+round-two converter stand in for the procedural motion only where the model has no authored
+clip of that action; where the donor names it differently (`attack_1`, `attack_left`,
+`punch_left_1`, `melee1`, `elbow_strike`, `slash`, `smash`), `ensure_round3_animations.py`
+aliases the standard name to it.
 
 ### Result
 
@@ -42,12 +53,20 @@ round-two converter stand in for the procedural motion; authored clips of the sa
   skeleton class sheets, plains variants); the `textures/entity/effect` tree was left out.
 - 16 exact model-to-texture mappings, each the `TEXTURE` the donor renderer binds.
 - 163 authored clips were converted (attacks, spawns, deaths, abilities, and the authored
-  `walk`/`idle` of the bosses that have them); the remaining idle and walk loops are portable.
+  `walk`/`idle` of the bosses that have them). The idle loop is portable for 15 models (only
+  `java_realm_warden` has an authored idle), the walk loop for 12 (`java_immortal`,
+  `java_nameless_guardian`, `java_realm_warden`, and `java_relic_ripper` walk with their own
+  clip), and the attack loop for 2 (`java_tester`, `java_unknown`); `java_corpse_warlock`,
+  `java_immortal_golem`, `java_immortal_shaman`, and `java_relic_observer` have an authored
+  `attack`.
 - Static rest poses were baked for two models: both corpse rigs hold their arms forward at
   40 degrees as the donor does; every other static pose in the donor is conditional and was not
   baked.
-- Aliases added by `ensure_round3_animations.py`: 0 idle, 0 walk, 0 attack (every model
-  already had the portable clips).
+- Aliases added by `ensure_round3_animations.py`: 0 idle, 0 walk, 10 attack (`java_corpse`,
+  `java_corpse_villager`, and `java_nameless_guardian` from `attack_1`;
+  `java_immortal_executioner` and `java_relic_earthshaker` from `attack_left`; `java_immortal`
+  from `punch_left_1`; `java_immortal_skeleton` from `melee1`; `java_realm_warden` from
+  `elbow_strike`; `java_relic_annihilator` from `slash`; `java_relic_ripper` from `smash`).
 - 0 animation channels of missing bones removed.
 
 ### Excluded resources
@@ -61,8 +80,10 @@ round-two converter stand in for the procedural motion; authored clips of the sa
 
 ### Imported models
 
-`yes` means the animation file contains at least one clip whose name includes that standard
-action. Missing death clips are non-blocking.
+`yes` means the file has a clip of that standard name (for death, a clip whose name contains
+`death` or `die`) that moves at least one bone, `static` that the clip is there but moves no
+bone (the donor's own state), `no` that there is no such clip. Missing walk, attack, and death
+clips are non-blocking.
 
 | Model | Namespace | Animations | Default texture |
 |---|---|---|---|
@@ -111,7 +132,13 @@ import did.
 ### Result
 
 - 51 selectable geometry files.
-- 51 paired animation files; 51/51 idle, 30/51 walk, 30/51 attack, 26/51 death.
+- 51 paired animation files; 51/51 idle (39 moving, 12 static, see below), 30/51 walk (29
+  moving, the hydra's static), 30/51 attack, 26/51 death.
+- Static models, the donor's own state and not an import defect: `hydra`, `hsegment1` to
+  `hsegment10`, and `boss_remains` ship clips with no bone channels at all (the files in the jar
+  are the same), so the hydra body, its ten segments, and the boss remains stand still in game
+  and their `idle` only satisfies the pairing rule. The four hydra heads (`hydra_head_*`) and
+  `hydra_passive` are animated.
 - 70 texture files from `textures/entities` (the villager and zombie villager profession overlays
   under `textures/entity` were left out).
 - 51 exact model-to-texture mappings.
@@ -159,7 +186,7 @@ variant sheets are bundled and can be picked by hand.
 | `bandit_1` | `dragonforged` | idle yes, walk yes, attack yes, death no (3 clips) | `dragonforged:textures/entities/bandit_1.png` |
 | `bandit_2` | `dragonforged` | idle yes, walk yes, attack yes, death no (3 clips) | `dragonforged:textures/entities/bandit_2.png` |
 | `bandit_3` | `dragonforged` | idle yes, walk yes, attack yes, death no (3 clips) | `dragonforged:textures/entities/bandit_3.png` |
-| `boss_remains` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/bossremainstexture.png` |
+| `boss_remains` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/bossremainstexture.png` |
 | `chimera` | `dragonforged` | idle yes, walk yes, attack yes, death no (11 clips) | `dragonforged:textures/entities/chimeratexture.png` |
 | `chimera_passive` | `dragonforged` | idle yes, walk yes, attack yes, death no (11 clips) | `dragonforged:textures/entities/chimeratexture.png` |
 | `circle` | `dragonforged` | idle yes, walk no, attack no, death no (2 clips) | `dragonforged:textures/entities/lightning_carel.png` |
@@ -175,17 +202,17 @@ variant sheets are bundled and can be picked by hand.
 | `gull` | `dragonforged` | idle yes, walk yes, attack no, death no (3 clips) | `dragonforged:textures/entities/gulltexture.png` |
 | `harpy` | `dragonforged` | idle yes, walk yes, attack yes, death yes (9 clips) | `dragonforged:textures/entities/harpytexture.png` |
 | `hobgoblin` | `dragonforged` | idle yes, walk yes, attack yes, death yes (6 clips) | `dragonforged:textures/entities/hobgoblintexture.png` |
-| `hsegment1` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment10` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment2` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment3` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment4` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment5` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment6` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment7` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment8` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hsegment9` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
-| `hydra` | `dragonforged` | idle yes, walk yes, attack no, death yes (9 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment1` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment10` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment2` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment3` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment4` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment5` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment6` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment7` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment8` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment9` | `dragonforged` | idle static, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hydra` | `dragonforged` | idle static, walk static, attack no, death yes (9 clips) | `dragonforged:textures/entities/hydratexture.png` |
 | `hydra_head_bottom` | `dragonforged` | idle yes, walk no, attack yes, death yes (5 clips) | `dragonforged:textures/entities/hydratexture.png` |
 | `hydra_head_left` | `dragonforged` | idle yes, walk no, attack yes, death yes (6 clips) | `dragonforged:textures/entities/hydratexture.png` |
 | `hydra_head_right` | `dragonforged` | idle yes, walk no, attack yes, death yes (5 clips) | `dragonforged:textures/entities/hydratexture.png` |
@@ -225,22 +252,43 @@ The inventory found no `.geo.json` and no animation JSON: all 85 model classes a
 `ModelPart` models (`client/model/Model*.java`, SRG names) with vanilla `AnimationDefinition`
 holders (`client/model/animations/*Animation.java`). `convert_round3_java_models.py` converts the
 `LayerDefinition` of every model that a `MobRenderer` draws, using the SRG keyframe parser of
-`convert_java_modelparts.py`, strips the `<model>_` prefix MCreator puts on clip names, and adds
-the portable loops where the donor animates procedurally. Each identifier is named after the
+`convert_java_modelparts.py`, strips the `<holder>_` prefix MCreator puts on clip names (read
+from the clips of each animation holder, because the holder is not always named after the
+model: `saintp1_`, `ifg_`, `cucumber_`, `woodlizard_`, `szw_`, `drake_`, `lich_`, `aphid_`,
+`castbeast_`, `aod_`, `storm_`, and so on), and adds the portable loops only for the actions the
+donor has no authored clip for. Each identifier is named after the
 entity the renderer serves (`Modelaodre` -> `java_armor_of_desert`, `Modelunknown` ->
 `java_icefairy`, `Modellichnogeo` -> `java_lich`, and so on).
 
 ### Result
 
 - 73 selectable geometry files (`java_*`), all converted from Java; none failed.
-- 73 paired animation files; 73/73 idle, 73/73 walk, 73/73 attack, 18/73 death.
+- 73 paired animation files; 73/73 idle (72 moving, `java_icefairy` static), 60/73 walk,
+  51/73 attack, 18/73 death.
 - 164 texture files from `textures/entities` (glow, alpha, saddle, and stage variants included;
   the villager and zombie villager profession overlays were left out).
 - 73 exact model-to-texture mappings, each the sheet the donor renderer returns from
   `getTextureLocation`.
-- 293 authored clips were converted; models whose Java animation is purely procedural
-  (`java_guardian_statue`, `java_icefairy`, `java_mtr1`) carry only the portable loops.
-- Aliases added by `ensure_round3_animations.py`: 0 idle, 0 walk, 0 attack.
+- 293 authored clips were converted. `idle` is the donor's own idle clip for 62 models (named
+  `idle` once the holder prefix is stripped, or the alias of `saintp1_idle` for
+  `java_hypocritical_saint`), the alias of the first authored clip for three models with no
+  idle-like clip (`java_blastrock` from `fly`, `java_flamestorm` from `spawn`,
+  `java_holy_coffin` from `open`), and the portable loop for seven: `java_abyss_fang`,
+  `java_basalt_wyvern`, `java_riptooth`, and `java_shadowmoon_butterfly` (their authored clips
+  are swims, flights, and attacks), `java_guardian_statue` and `java_mtr1` (purely procedural
+  in Java, no authored clips), and `java_icefairy`, whose portable idle moves no bone because
+  the rig has no body, tail, or wing bone: it stands still and only its portable walk plays.
+- Portable walk and attack loops that would move no bone are no longer written (they were
+  empty clips before), so 13 models have no `walk` (`java_confinement_trap`,
+  `java_dungeon_guardian`, `java_earthdrill`, `java_ferox_worm`, `java_flamestorm`,
+  `java_holy_coffin`, `java_horsehoe_egg`, `java_nature_harmony`, `java_rock_cannon`,
+  `java_saint_summoner`, `java_snow_servent`, `java_vine`, `java_windcannon`) and 22 have no
+  `attack`; the donor animates those actions procedurally or not at all.
+- Aliases added by `ensure_round3_animations.py`: 4 idle (above), 8 walk
+  (`java_hypocritical_saint` from `saintp2_walk`; `java_abyss_fang`, `java_riptooth`, and
+  `java_shadowmoon_butterfly` from `swim`; `java_basalt_wyvern` and `java_blastrock` from `fly`;
+  `java_lich` and `java_skeleton_predator` from `chase`), 26 attack (from the donor's `atk`,
+  `atk1`, `attack1`, `bite`, `swing`, and `saintp2_atk1` clips).
 - 0 animation channels of missing bones removed.
 
 ### Excluded resources
@@ -260,78 +308,78 @@ entity the renderer serves (`Modelaodre` -> `java_armor_of_desert`, `Modelunknow
 | Model | Namespace | Animations | Default texture |
 |---|---|---|---|
 | `java_abyss_fang` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (9 clips) | `threateningly_mobs:textures/entities/abstexture_glowing.png` |
-| `java_armor_of_desert` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (8 clips) | `threateningly_mobs:textures/entities/aodtexture_2.png` |
+| `java_armor_of_desert` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/aodtexture_2.png` |
 | `java_basalt_wyvern` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (8 clips) | `threateningly_mobs:textures/entities/phiptheretexture.png` |
-| `java_blastrock` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/blastrocktexture.png` |
+| `java_blastrock` | `threateningly_mobs` | idle yes, walk yes, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/blastrocktexture.png` |
 | `java_cannon_crab` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/shootcrabtexture.png` |
-| `java_castylosaurus` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (7 clips) | `threateningly_mobs:textures/entities/castylosaurustexture.png` |
+| `java_castylosaurus` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/castylosaurustexture.png` |
 | `java_cave_hunter` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (6 clips) | `threateningly_mobs:textures/entities/cavehuntertexture.png` |
-| `java_confinement_trap` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/confinementtraptexture.png` |
-| `java_copas` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/copastexture.png` |
+| `java_confinement_trap` | `threateningly_mobs` | idle yes, walk no, attack no, death no (2 clips) | `threateningly_mobs:textures/entities/confinementtraptexture.png` |
+| `java_copas` | `threateningly_mobs` | idle yes, walk yes, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/copastexture.png` |
 | `java_devourer` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/devotexture.png` |
 | `java_diplocaulus` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/diplocaulustexture.png` |
 | `java_dracoscorpius` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (6 clips) | `threateningly_mobs:textures/entities/dratexture.png` |
-| `java_dungeon_guardian` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/gu_texture.png` |
-| `java_earthdrill` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/earthdrilltexture5.png` |
-| `java_earthloong` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (10 clips) | `threateningly_mobs:textures/entities/woodlizardtexturere.png` |
-| `java_elite_zombie_warrior` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (8 clips) | `threateningly_mobs:textures/entities/szwtexture.png` |
+| `java_dungeon_guardian` | `threateningly_mobs` | idle yes, walk no, attack no, death no (1 clips) | `threateningly_mobs:textures/entities/gu_texture.png` |
+| `java_earthdrill` | `threateningly_mobs` | idle yes, walk no, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/earthdrilltexture5.png` |
+| `java_earthloong` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (7 clips) | `threateningly_mobs:textures/entities/woodlizardtexturere.png` |
+| `java_elite_zombie_warrior` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (6 clips) | `threateningly_mobs:textures/entities/szwtexture.png` |
 | `java_executioner` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (9 clips) | `threateningly_mobs:textures/entities/executionertexture.png` |
-| `java_ferox_worm` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (9 clips) | `threateningly_mobs:textures/entities/feroxwormtexture.png` |
+| `java_ferox_worm` | `threateningly_mobs` | idle yes, walk no, attack yes, death yes (8 clips) | `threateningly_mobs:textures/entities/feroxwormtexture.png` |
 | `java_fire_lizard` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/firelizardtexture.png` |
 | `java_flamehorn` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (6 clips) | `threateningly_mobs:textures/entities/flamearmortexturenosaddle.png` |
 | `java_flamelarva` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/flamelarvatexture.png` |
-| `java_flamestorm` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/fastexture.png` |
+| `java_flamestorm` | `threateningly_mobs` | idle yes, walk no, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/fastexture.png` |
 | `java_flower_of_dragon` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/fodtexture.png` |
-| `java_forest_drake` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (8 clips) | `threateningly_mobs:textures/entities/draketexture.png` |
+| `java_forest_drake` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (6 clips) | `threateningly_mobs:textures/entities/draketexture.png` |
 | `java_frostbite` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/rosttexture.png` |
-| `java_giant_seacucumber` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/cucumbertexture.png` |
+| `java_giant_seacucumber` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/cucumbertexture.png` |
 | `java_guardian_statue` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/guardtexture.png` |
 | `java_healing_fairy` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/healingfairytexture.png` |
-| `java_hippo_fish` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/hippofishtexture.png` |
-| `java_holy_coffin` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/holycoffintexture.png` |
-| `java_horsehoe_crab` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (7 clips) | `threateningly_mobs:textures/entities/horsecrabtexture.png` |
-| `java_horsehoe_egg` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/hoeggtexture.png` |
+| `java_hippo_fish` | `threateningly_mobs` | idle yes, walk yes, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/hippofishtexture.png` |
+| `java_holy_coffin` | `threateningly_mobs` | idle yes, walk no, attack no, death no (2 clips) | `threateningly_mobs:textures/entities/holycoffintexture.png` |
+| `java_horsehoe_crab` | `threateningly_mobs` | idle yes, walk yes, attack no, death yes (4 clips) | `threateningly_mobs:textures/entities/horsecrabtexture.png` |
+| `java_horsehoe_egg` | `threateningly_mobs` | idle yes, walk no, attack no, death no (1 clips) | `threateningly_mobs:textures/entities/hoeggtexture.png` |
 | `java_hydra` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (8 clips) | `threateningly_mobs:textures/entities/hydratexture_2.png` |
 | `java_hydra_cub` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/hydracubtexture.png` |
 | `java_hypocritical_saint` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (18 clips) | `threateningly_mobs:textures/entities/saints_texture.png` |
 | `java_ice_brood_mother` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (7 clips) | `threateningly_mobs:textures/entities/icebroodmothertexture.png` |
-| `java_ice_fairy_guardian` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (8 clips) | `threateningly_mobs:textures/entities/icefairyguardiantexture.png` |
-| `java_ice_weaver` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/iceweavertexture.png` |
-| `java_icefairy` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/icefairytexture.png` |
+| `java_ice_fairy_guardian` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (6 clips) | `threateningly_mobs:textures/entities/icefairyguardiantexture.png` |
+| `java_ice_weaver` | `threateningly_mobs` | idle yes, walk yes, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/iceweavertexture.png` |
+| `java_icefairy` | `threateningly_mobs` | idle static, walk yes, attack no, death no (2 clips) | `threateningly_mobs:textures/entities/icefairytexture.png` |
 | `java_inferno` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (9 clips) | `threateningly_mobs:textures/entities/newinfernotexture.png` |
 | `java_knowledge_fairy` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (4 clips) | `threateningly_mobs:textures/entities/bookfairytexture.png` |
-| `java_lich` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (9 clips) | `threateningly_mobs:textures/entities/lichtex2.png` |
+| `java_lich` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (8 clips) | `threateningly_mobs:textures/entities/lichtex2.png` |
 | `java_lindworm` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (8 clips) | `threateningly_mobs:textures/entities/lindwormtexture.png` |
-| `java_louxia` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/louxiatexture.png` |
-| `java_mega_aphid` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (6 clips) | `threateningly_mobs:textures/entities/aphidtexture.png` |
+| `java_louxia` | `threateningly_mobs` | idle yes, walk yes, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/louxiatexture.png` |
+| `java_mega_aphid` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (4 clips) | `threateningly_mobs:textures/entities/aphidtexture.png` |
 | `java_moon_priest` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (7 clips) | `threateningly_mobs:textures/entities/moonpriesttexture.png` |
 | `java_mtr1` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/mtr1texture.png` |
 | `java_nature_fairy` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (4 clips) | `threateningly_mobs:textures/entities/naturefairytexture.png` |
-| `java_nature_harmony` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (6 clips) | `threateningly_mobs:textures/entities/harmonytexture.png` |
-| `java_nibbler` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/nibblertexture.png` |
+| `java_nature_harmony` | `threateningly_mobs` | idle yes, walk no, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/harmonytexture.png` |
+| `java_nibbler` | `threateningly_mobs` | idle yes, walk yes, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/nibblertexture.png` |
 | `java_plague_bird` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/plaguebirdtexture.png` |
-| `java_red_triplefish` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/tripletexture.png` |
-| `java_regalhart` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (10 clips) | `threateningly_mobs:textures/entities/regalharttexture.png` |
+| `java_red_triplefish` | `threateningly_mobs` | idle yes, walk yes, attack no, death no (3 clips) | `threateningly_mobs:textures/entities/tripletexture.png` |
+| `java_regalhart` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (8 clips) | `threateningly_mobs:textures/entities/regalharttexture.png` |
 | `java_riptooth` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (6 clips) | `threateningly_mobs:textures/entities/riptoothtexture.png` |
-| `java_rock_cannon` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (3 clips) | `threateningly_mobs:textures/entities/rptexture.png` |
-| `java_rock_snail` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (8 clips) | `threateningly_mobs:textures/entities/rocksnailtexture.png` |
-| `java_saint_summoner` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/saintsummonertexture.png` |
-| `java_sandworm` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (4 clips) | `threateningly_mobs:textures/entities/sandwormtexture.png` |
+| `java_rock_cannon` | `threateningly_mobs` | idle yes, walk no, attack no, death no (1 clips) | `threateningly_mobs:textures/entities/rptexture.png` |
+| `java_rock_snail` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/rocksnailtexture.png` |
+| `java_saint_summoner` | `threateningly_mobs` | idle yes, walk no, attack no, death no (2 clips) | `threateningly_mobs:textures/entities/saintsummonertexture.png` |
+| `java_sandworm` | `threateningly_mobs` | idle yes, walk yes, attack no, death yes (3 clips) | `threateningly_mobs:textures/entities/sandwormtexture.png` |
 | `java_scorch_golem` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (6 clips) | `threateningly_mobs:textures/entities/scorchgolemtexture.png` |
-| `java_shadow_spider` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (4 clips) | `threateningly_mobs:textures/entities/shadowspidertexture.png` |
+| `java_shadow_spider` | `threateningly_mobs` | idle yes, walk yes, attack no, death yes (3 clips) | `threateningly_mobs:textures/entities/shadowspidertexture.png` |
 | `java_shadowmoon_butterfly` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/moonflytexture.png` |
 | `java_skeleton_minion` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/eliteminiontexture.png` |
 | `java_skeleton_predator` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (9 clips) | `threateningly_mobs:textures/entities/reapertexture.png` |
-| `java_snow_servent` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/snowserventtexture.png` |
+| `java_snow_servent` | `threateningly_mobs` | idle yes, walk no, attack yes, death no (2 clips) | `threateningly_mobs:textures/entities/snowserventtexture.png` |
 | `java_solscarab_maximus` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (8 clips) | `threateningly_mobs:textures/entities/dbettexture.png` |
 | `java_steelboar` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (6 clips) | `threateningly_mobs:textures/entities/steelboartexture.png` |
 | `java_tall_mouse` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/tallmousetexture.png` |
-| `java_terra_dragon` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (11 clips) | `threateningly_mobs:textures/entities/terradragontexture.png` |
+| `java_terra_dragon` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (8 clips) | `threateningly_mobs:textures/entities/terradragontexture.png` |
 | `java_tide_specter` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/tidespectertexture.png` |
-| `java_titan_rabbit` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (13 clips) | `threateningly_mobs:textures/entities/retitanrabbittexture.png` |
+| `java_titan_rabbit` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (11 clips) | `threateningly_mobs:textures/entities/retitanrabbittexture.png` |
 | `java_undead_paladin` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/paladintexture.png` |
-| `java_vine` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (5 clips) | `threateningly_mobs:textures/entities/vinetexture.png` |
-| `java_windcannon` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/texturestorms.png` |
+| `java_vine` | `threateningly_mobs` | idle yes, walk no, attack no, death yes (3 clips) | `threateningly_mobs:textures/entities/vinetexture.png` |
+| `java_windcannon` | `threateningly_mobs` | idle yes, walk no, attack no, death no (1 clips) | `threateningly_mobs:textures/entities/texturestorms.png` |
 
 ## 04 Metus Oblita
 
@@ -355,7 +403,9 @@ files belong to entity `GeoModel` classes; 16 are block entities and their displ
 (altar, pedestals, lamp, reactor, cruor machinery, one glass block without an animation file).
 Two creatures, the Immolar and the Juggernaut, are MCreator Java `ModelPart` models with
 `AnimationDefinition` keyframes and were converted the same way as the Threateningly Mobs
-models; the other Java models are projectile and effect parts.
+models (both carry an authored `idle`, `walk`, and attack: the Immolar's own `attack`, the
+Juggernaut's `bite1` under the alias `attack`); the other Java models are projectile and effect
+parts.
 
 ### Result
 
@@ -366,7 +416,8 @@ models; the other Java models are projectile and effect parts.
   occultist villager overlays were left out).
 - 26 exact model-to-texture mappings.
 - Aliases added by `ensure_round3_animations.py`: 24 idle (the donor names its clips
-  `animation.<model>.idle`; the swarms only have `default`), 17 walk, 16 attack.
+  `animation.<model>.idle`; the swarms only have `default`), 17 walk, 17 attack (16 GeckoLib
+  models and `java_juggernaut` from `bite1`).
 - 6 animation channels of missing bones removed from `servus_colossus_adult`, whose every
   clip carries an `undefined` bone left by Blockbench.
 - 0 donor particle and sound event sections were stripped from 0 animation files by
@@ -432,8 +483,9 @@ models; the other Java models are projectile and effect parts.
   Threateningly Mobs, 2 Metus Oblita), none failed.
 - `scripts/normalize_geckolib_animations.py`: 23 donor event sections removed from 9 files.
   `scripts/normalize_animation_bones.py`: no renames needed in the four namespaces.
-- `scripts/ensure_round3_animations.py`: 166 models, 0 animation files generated, 75 aliases
-  added, 56 channels of missing bones removed; every model has `idle`.
+- `scripts/ensure_round3_animations.py`: 166 models, 0 animation files generated, 124 aliases
+  added (35 idle, 32 walk, 57 attack), 56 channels of missing bones removed; every model has
+  `idle`, 13 of them static (the twelve Dragonforged models above and `java_icefairy`).
 - `scripts/generate_mob_texture_mappings.py`: 704 mappings (16 + 51 + 73 + 26 new).
   `scripts/generate_mob_hitboxes.py`: 1169 sizes.
 - `scripts/validate_mob_bundle.py`: passed with 2,133 JSON files (1,169 geometry, 954
@@ -450,4 +502,7 @@ models; the other Java models are projectile and effect parts.
   launched during this import. Suggested checks: `java_immortal`, `java_corpse`,
   `java_relic_annihilator` (EEEAB's Mobs); `cyclops`, `goblin`, `harpy` (Dragonforged);
   `java_cave_hunter`, `java_hydra`, `java_hypocritical_saint` (Threateningly Mobs);
-  `arataurus`, `vicious`, `java_juggernaut` (Metus Oblita).
+  `arataurus`, `vicious`, `java_juggernaut` (Metus Oblita). For the idle rework, the models to
+  watch are `java_ice_fairy_guardian`, `java_giant_seacucumber`, and `java_snow_servent`
+  (Threateningly Mobs, static before) and `java_corpse` (EEEAB's Mobs, `attack` now its
+  `attack_1`).
