@@ -81,6 +81,15 @@ DONORS = (
             "textures/entity/zombie_villager/",
         ),
     ),
+    Donor(
+        "03_threateningly_mobs.jar",
+        namespaces=("threateningly_mobs",),
+        direct_models=False,
+        excluded_texture_prefixes=(
+            "textures/entity/villager/",
+            "textures/entity/zombie_villager/",
+        ),
+    ),
 )
 
 

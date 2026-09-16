@@ -47,6 +47,7 @@ Bundled model, animation, and texture resources originate from:
 - EEEAB's Mobs 0.98.1 for Forge 1.20.1 (LGPL-3.0)
 - Dragonforged 1.0.9 for Forge 1.20.1 (archive metadata: license "Not specified";
   CurseForge lists none; treated as All Rights Reserved)
+- Threateningly Mobs 1.1.1 for Forge 1.20.1 (MIT License)
 
 The original authors retain all rights to their respective resources.
 Do not publish or monetize this combined archive without permission from
@@ -168,6 +169,18 @@ Mowzie's Mobs integration:
 - Animation channels for bones the shipped geometry does not contain (weapon
   and smoke props, chimera parts referenced by the goat and snake heads) were
   removed.
+
+2026-09-16 Threateningly Mobs integration:
+- Added 73 standalone GeckoLib geometry files with paired animation files and
+  the sheets their donor renderers bind under the isolated threateningly_mobs
+  namespace.
+- Threateningly Mobs 1.1.1 for Forge 1.20.1 by Tkhy, licensed MIT License
+  (archive metadata). The creatures are MCreator Java ModelPart models with
+  vanilla AnimationDefinition keyframes; both were converted to GeckoLib JSON,
+  and portable loops stand in where the donor animates procedurally.
+- Bullet, ammo, slash-wave, summoning-circle, lightning-marker, and
+  water-impact effect models were left out. No Threateningly classes are
+  packaged.
 
 Important redistribution note:
 - "Allowed in modpacks" is not permission to extract and republish a mod's art.

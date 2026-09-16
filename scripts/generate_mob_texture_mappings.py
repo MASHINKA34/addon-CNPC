@@ -47,6 +47,7 @@ PROJECTS = {
     "panascraftrpgmod": WORK_DIR / "donor_decompiled_apocalyptic",
     "eeeabsmobs": WORK_DIR / "donor_decompiled_round3" / "01_eeeabs_mobs",
     "dragonforged": WORK_DIR / "donor_decompiled_round3" / "02_dragonforged",
+    "threateningly_mobs": WORK_DIR / "donor_decompiled_round3" / "03_threateningly_mobs",
 }
 
 MANUAL = {
