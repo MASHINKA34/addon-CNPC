@@ -1,0 +1,84 @@
+# Third donor batch model import report
+
+Four donors, one section each, imported on 2026-09-16 with `scripts/import_round3_resources.py`,
+`scripts/convert_round3_java_models.py`, and `scripts/ensure_round3_animations.py`. The
+inventory of all four archives is `scripts/inventory_round3.json`. No class files, manifests,
+registries, data packs, sounds, recipes, language files, or block, item, armor, and screen art
+were imported from any of them, and none of the donors is a runtime dependency.
+
+## 01 EEEAB's Mobs
+
+### Source and scope
+
+- Source: CurseForge project `eeeabs-mobs` ("EEEAB's Mobs"), project id 921600, file id 8073814,
+  version `1.20.1-0.98.1` (beta, uploaded 2026-05-11), the newest file tagged both `1.20.1` and
+  `Forge` in the cfwidget metadata.
+- Donor archive: `D:\GEYDEV\donor_mods_round3\01_eeeabs_mobs.jar` (`eeeabsmobs-1.20.1-0.98.1.jar`,
+  29,425,926 bytes, size verified against cfwidget).
+- SHA-512: `6f3335b4c1f2442ae7233f4c6dc128ac3502b1997b859fce191fe887b4ff71371689b404e5a3e278eea47ab5ffe08d263c80d1e4c2e690cd30d6b1e6175187e1`.
+- Donor platform: Forge 1.20.1. The donor code is not loaded or packaged.
+- License: `license = "LGPL-3.0"` in `META-INF/mods.toml`; the CurseForge project metadata exposes
+  no license field and the jar carries no license file. Author: EEEAB (the only listed member).
+- Destination namespace: `eeeabsmobs` (the donor's own namespace, no collision with the 39
+  namespaces already in the bundle, so no remap was needed).
+
+The inventory found no `.geo.json` and no animation JSON at all: every creature is a Java
+`ModelPart` model (`com.eeeab.eeeabsmobs.client.model.entity`) built from a vanilla
+`LayerDefinition`, animated by the mod's own copy of the keyframe classes
+(`com.eeeab.animate.client.animation.AnimationDefinition`, readable names) plus procedural
+sine motion and static rest poses in `setupAnim`. `convert_round3_java_models.py` reads the
+`LayerDefinition` of the layer each renderer registers (`ModelCorpse` has two: the corpse and the
+villager corpse), converts cubes, pivots, UVs, and mirroring to GeckoLib geometry, bakes the
+unconditional `setStaticRotationAngle` calls into the bone rotations (GeckoLib adds keyframes to
+the geometry pose exactly the way the donor adds them to the static pose), and converts every
+authored clip the model plays in `setupAnim`. Portable idle, walk, and attack loops from the
+round-two converter stand in for the procedural motion; authored clips of the same name win.
+
+### Result
+
+- 16 selectable geometry files (`java_*`), all converted from Java; none failed.
+- 16 paired animation files; 16/16 idle, 16/16 walk, 16/16 attack, 6/16 death.
+- 50 texture files from `textures/entity` (base sheets, eye and glow layers, the four immortal
+  skeleton class sheets, plains variants); the `textures/entity/effect` tree was left out.
+- 16 exact model-to-texture mappings, each the `TEXTURE` the donor renderer binds.
+- 163 authored clips were converted (attacks, spawns, deaths, abilities, and the authored
+  `walk`/`idle` of the bosses that have them); the remaining idle and walk loops are portable.
+- Static rest poses were baked for two models: both corpse rigs hold their arms forward at
+  40 degrees as the donor does; every other static pose in the donor is conditional and was not
+  baked.
+- Aliases added by `ensure_round3_animations.py`: 0 idle, 0 walk, 0 attack (every model
+  already had the portable clips).
+- 0 animation channels of missing bones removed.
+
+### Excluded resources
+
+- Projectile and effect models (`ModelBloodBall`, `ModelGuardianBlade`, `ModelImmortalShuriken`,
+  `ModelPulsedGrenade`, `ModelAnnihilatorMissile`, `ModelDoomboltAxe`), the armor model, the
+  held-item models, and the sliding door block model were not converted.
+- The `textures/entity/effect` sheets (beams, missiles, rune circles, portals, shuriken) that
+  only those entities use were not imported.
+- `java_tester` and `java_unknown` are the donor's own test creatures; they render and are kept.
+
+### Imported models
+
+`yes` means the animation file contains at least one clip whose name includes that standard
+action. Missing death clips are non-blocking.
+
+| Model | Namespace | Animations | Default texture |
+|---|---|---|---|
+| `java_corpse` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (7 clips) | `eeeabsmobs:textures/entity/corpse.png` |
+| `java_corpse_villager` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (7 clips) | `eeeabsmobs:textures/entity/corpse_villager.png` |
+| `java_corpse_warlock` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (8 clips) | `eeeabsmobs:textures/entity/corpse_warlock.png` |
+| `java_immortal` | `eeeabsmobs` | idle yes, walk yes, attack yes, death yes (28 clips) | `eeeabsmobs:textures/entity/immortal.png` |
+| `java_immortal_executioner` | `eeeabsmobs` | idle yes, walk yes, attack yes, death yes (18 clips) | `eeeabsmobs:textures/entity/immortal_executioner.png` |
+| `java_immortal_golem` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (5 clips) | `eeeabsmobs:textures/entity/immortal_golem.png` |
+| `java_immortal_shaman` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (7 clips) | `eeeabsmobs:textures/entity/immortal_shaman.png` |
+| `java_immortal_skeleton` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (10 clips) | `eeeabsmobs:textures/entity/immortal_skeleton.png` |
+| `java_nameless_guardian` | `eeeabsmobs` | idle yes, walk yes, attack yes, death yes (28 clips) | `eeeabsmobs:textures/entity/nameless_guardian.png` |
+| `java_realm_warden` | `eeeabsmobs` | idle yes, walk yes, attack yes, death yes (22 clips) | `eeeabsmobs:textures/entity/realm_warden.png` |
+| `java_relic_annihilator` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (23 clips) | `eeeabsmobs:textures/entity/relic_annihilator.png` |
+| `java_relic_earthshaker` | `eeeabsmobs` | idle yes, walk yes, attack yes, death yes (12 clips) | `eeeabsmobs:textures/entity/relic_earthshaker.png` |
+| `java_relic_observer` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (7 clips) | `eeeabsmobs:textures/entity/relic_observer.png` |
+| `java_relic_ripper` | `eeeabsmobs` | idle yes, walk yes, attack yes, death yes (12 clips) | `eeeabsmobs:textures/entity/relic_ripper.png` |
+| `java_tester` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (5 clips) | `eeeabsmobs:textures/entity/tester.png` |
+| `java_unknown` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (3 clips) | `eeeabsmobs:textures/entity/unknown.png` |

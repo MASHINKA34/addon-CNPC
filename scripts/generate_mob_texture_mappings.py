@@ -6,6 +6,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from convert_round3_java_models import java_texture_mappings as round3_java_texture_mappings
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
@@ -43,6 +45,7 @@ PROJECTS = {
     "wroughtnights": WORK_DIR / "donor_decompiled_round2" / "19_wrought_nights",
     "dungeons_and_combat": WORK_DIR / "donor_decompiled_dnc",
     "panascraftrpgmod": WORK_DIR / "donor_decompiled_apocalyptic",
+    "eeeabsmobs": WORK_DIR / "donor_decompiled_round3" / "01_eeeabs_mobs",
 }
 
 MANUAL = {
@@ -510,6 +513,12 @@ def main() -> None:
                 fallback = fallback_mapping(namespace, model)
                 if fallback:
                     mappings[key] = fallback
+
+    # Java creatures converted from the third donor batch carry the sheet
+    # their donor renderer binds; the converter table is the source of truth.
+    mappings.update(
+        {model: texture for model, texture in round3_java_texture_mappings().items() if bundled(model)}
+    )
 
     # Explicitly reviewed pairs must win over renderer heuristics and fallback
     # name matching. Some donor mods ship several renderer variants for one

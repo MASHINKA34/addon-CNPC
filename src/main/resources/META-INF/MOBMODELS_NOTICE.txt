@@ -44,13 +44,14 @@ Bundled model, animation, and texture resources originate from:
 - Dungeons and Combat 1.2.2 for Forge 1.20.1 (All Rights Reserved)
 - Apocalyptic Bosses / BossesRPG 3.6 for NeoForge 1.21.1 (archive metadata: license
   "Not specified"; treated as All Rights Reserved)
+- EEEAB's Mobs 0.98.1 for Forge 1.20.1 (LGPL-3.0)
 
 The original authors retain all rights to their respective resources.
 Do not publish or monetize this combined archive without permission from
 the respective authors. Install the same archive on the server and on
 every connecting client.
 
-Bundle update date: 2026-08-29
+Bundle update date: 2026-09-16
 
 Texture behavior:
 - Bundled mob models automatically use their matching base entity texture
@@ -140,6 +141,17 @@ Mowzie's Mobs integration:
   textures its geometry actually uses are bundled.
 - Imported only model, animation, and required texture resources. No donor
   classes, registries, data packs, sounds, or mod metadata are packaged.
+
+2026-09-16 EEEAB's Mobs integration:
+- Added 16 standalone GeckoLib geometry files with paired animation files and
+  the sheets their donor renderers bind under the isolated eeeabsmobs namespace.
+- EEEAB's Mobs 0.98.1 for Forge 1.20.1 by EEEAB, licensed LGPL-3.0 (archive
+  metadata). The creatures are Java ModelPart models with the mod's own
+  keyframe animation classes; their geometry, static rest poses, and authored
+  attack, spawn, death, and ability clips were converted to GeckoLib JSON, and
+  portable idle and walk loops stand in for the procedural Java motion.
+- Projectile, effect, armor, and held-item models and the effect texture
+  sheets were left out. No EEEAB classes are packaged.
 
 Important redistribution note:
 - "Allowed in modpacks" is not permission to extract and republish a mod's art.
