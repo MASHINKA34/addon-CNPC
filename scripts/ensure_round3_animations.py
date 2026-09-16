@@ -26,7 +26,7 @@ from convert_round2_java_models import animation_document
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 ASSET_ROOT = PROJECT_DIR / "src" / "main" / "resources" / "assets"
-NAMESPACES = ("eeeabsmobs",)
+NAMESPACES = ("eeeabsmobs", "dragonforged",)
 
 IDLE_KEYWORDS = ("idle", "ambient", "rest", "stand", "default", "breathing", "float", "hover")
 WALK_KEYWORDS = ("walk", "run", "move", "swim", "fly", "crawl", "slither")

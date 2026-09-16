@@ -54,6 +54,33 @@ DONORS = (
         # converted.
         excluded_texture_prefixes=("textures/entity/effect/",),
     ),
+    Donor(
+        "02_dragonforged.jar",
+        namespaces=("dragonforged",),
+        excluded_geo=(
+            # Item and hand rigs.
+            "aneled_bastard",
+            "bronze_lantern",
+            "copper_lantern",
+            "dark_lantern",
+            "elite_lantern",
+            "lantern",
+            "rusted_lantern",
+            "oil_lamp",
+            # Block entities.
+            "fire_brazier",
+            "soul_fire_brazier",
+            "goblin_trap",
+            # Props with no entity texture: a crate sheet at half the declared
+            # UV size and a thrown rock that no renderer references.
+            "crates_2",
+            "rock_entity",
+        ),
+        excluded_texture_prefixes=(
+            "textures/entity/villager/",
+            "textures/entity/zombie_villager/",
+        ),
+    ),
 )
 
 

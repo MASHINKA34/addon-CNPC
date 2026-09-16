@@ -45,6 +45,8 @@ Bundled model, animation, and texture resources originate from:
 - Apocalyptic Bosses / BossesRPG 3.6 for NeoForge 1.21.1 (archive metadata: license
   "Not specified"; treated as All Rights Reserved)
 - EEEAB's Mobs 0.98.1 for Forge 1.20.1 (LGPL-3.0)
+- Dragonforged 1.0.9 for Forge 1.20.1 (archive metadata: license "Not specified";
+  CurseForge lists none; treated as All Rights Reserved)
 
 The original authors retain all rights to their respective resources.
 Do not publish or monetize this combined archive without permission from
@@ -152,6 +154,20 @@ Mowzie's Mobs integration:
   portable idle and walk loops stand in for the procedural Java motion.
 - Projectile, effect, armor, and held-item models and the effect texture
   sheets were left out. No EEEAB classes are packaged.
+
+2026-09-16 Dragonforged integration:
+- Added 51 GeckoLib geometry files with paired animation files and reviewed
+  default textures under the isolated dragonforged namespace.
+- Dragonforged 1.0.9 for Forge 1.20.1 by CsDani50 (models, animations, code)
+  and Grimlogic777 (textures), with the spider and leapworm by GSmithy; the
+  archive declares license "Not specified" and CurseForge lists none, so the
+  resources are treated as All Rights Reserved. Dragon's Dogma is the property
+  of Capcom; the mod is a fan project.
+- Lantern and lamp items, brazier and trap block entities, the hand rig, and
+  two untextured props were left out together with their block and item art.
+- Animation channels for bones the shipped geometry does not contain (weapon
+  and smoke props, chimera parts referenced by the goat and snake heads) were
+  removed.
 
 Important redistribution note:
 - "Allowed in modpacks" is not permission to extract and republish a mod's art.

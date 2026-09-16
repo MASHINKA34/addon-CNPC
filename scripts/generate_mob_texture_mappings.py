@@ -46,6 +46,7 @@ PROJECTS = {
     "dungeons_and_combat": WORK_DIR / "donor_decompiled_dnc",
     "panascraftrpgmod": WORK_DIR / "donor_decompiled_apocalyptic",
     "eeeabsmobs": WORK_DIR / "donor_decompiled_round3" / "01_eeeabs_mobs",
+    "dragonforged": WORK_DIR / "donor_decompiled_round3" / "02_dragonforged",
 }
 
 MANUAL = {
@@ -286,6 +287,21 @@ MANUAL = {
     "panascraftrpgmod:geo/lava_golem.geo.json": "panascraftrpgmod:textures/entities/mso_lava_lord.png",
     # The void dragon renderer draws the ender_dragon geometry and sheet.
     "panascraftrpgmod:geo/void_dragon.geo.json": "panascraftrpgmod:textures/entities/ender_dragon.png",
+
+    # Dragonforged draws one geometry through several renderers (plain, brown,
+    # armored, gore, snow, and passive variants), and the last renderer class
+    # would otherwise win. These pin the base entity's own default sheet; the
+    # goat and the snake are the chimera's heads and share the chimera atlas.
+    "dragonforged:geo/armored_cyclops.geo.json": "dragonforged:textures/entities/armoredcyclopstexture.png",
+    "dragonforged:geo/baby_saurian.geo.json": "dragonforged:textures/entities/babysaurian.png",
+    "dragonforged:geo/chimera.geo.json": "dragonforged:textures/entities/chimeratexture.png",
+    "dragonforged:geo/chimera_passive.geo.json": "dragonforged:textures/entities/chimeratexture.png",
+    "dragonforged:geo/gargoyle.geo.json": "dragonforged:textures/entities/gargoyletexture.png",
+    "dragonforged:geo/goat.geo.json": "dragonforged:textures/entities/chimeratexture.png",
+    "dragonforged:geo/goblin.geo.json": "dragonforged:textures/entities/goblingtexture.png",
+    "dragonforged:geo/harpy.geo.json": "dragonforged:textures/entities/harpytexture.png",
+    "dragonforged:geo/saurian.geo.json": "dragonforged:textures/entities/sauriantexturefixteeth.png",
+    "dragonforged:geo/snake.geo.json": "dragonforged:textures/entities/chimeratexture.png",
 }
 for name in (
     "breacher",

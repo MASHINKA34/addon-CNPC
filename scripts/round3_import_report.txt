@@ -82,3 +82,126 @@ action. Missing death clips are non-blocking.
 | `java_relic_ripper` | `eeeabsmobs` | idle yes, walk yes, attack yes, death yes (12 clips) | `eeeabsmobs:textures/entity/relic_ripper.png` |
 | `java_tester` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (5 clips) | `eeeabsmobs:textures/entity/tester.png` |
 | `java_unknown` | `eeeabsmobs` | idle yes, walk yes, attack yes, death no (3 clips) | `eeeabsmobs:textures/entity/unknown.png` |
+
+## 02 Dragonforged
+
+### Source and scope
+
+- Source: CurseForge project `dragonforged` ("Dragonforged"), project id 1304872, file id 8508682,
+  version `1.0.9` (release, uploaded 2026-07-25; a second `1.0.9` file from 2026-07-24 is older).
+- Donor archive: `D:\GEYDEV\donor_mods_round3\02_dragonforged.jar` (`dragonforged-1.0.9-forge-1.20.1.jar`,
+  45,059,841 bytes, size verified against cfwidget).
+- SHA-512: `f8e05592fc796d3e68775003c88e5d471591159135880113ba74ecd024e05db2a7aac5466346afed66f3c8d77abdaee1432227580ac08b50e1edf1949be41702`.
+- Donor platform: Forge 1.20.1, MCreator with GeckoLib. The donor code is not loaded or packaged.
+- License: `license="Not specified"` in `META-INF/mods.toml`, no license file in the jar, and the
+  CurseForge metadata exposes no license. Treated as All Rights Reserved. Authors per
+  `mods.toml`: CsDani50, Grimlogic777; the project page credits CsDani50 (owner, animator, coder,
+  modeler), Grimlogic777 (texture artist), and GSmithy (spider and leapworm model and texture).
+  The mod is a Dragon's Dogma fan project; Capcom owns the source material.
+- Destination namespace: `dragonforged` (the donor's own namespace, no collision). The jar also
+  carries an empty `assets/minecraft` folder, which was ignored.
+
+The inventory found 64 `.geo.json` files, 64 animation files, and 76 entity textures. Every
+creature model class is a GeckoLib `GeoModel`, so nothing had to be converted. 46 geometry files
+are referenced by an entity model class; five more (`bandit_1`, `bandit_2`, `bandit_3`,
+`grigori_head`, `succubus_flock`) are referenced by no class but have a same-name entity sheet of
+the declared UV size, so they were imported as archived rigs the way the Apocalyptic Bosses
+import did.
+
+### Result
+
+- 51 selectable geometry files.
+- 51 paired animation files; 51/51 idle, 30/51 walk, 30/51 attack, 26/51 death.
+- 70 texture files from `textures/entities` (the villager and zombie villager profession overlays
+  under `textures/entity` were left out).
+- 51 exact model-to-texture mappings.
+- Aliases added by `ensure_round3_animations.py`: 7 idle (`circle` from its only clip `0`,
+  `succubus_flock` from `sing`, and the crow, gargoyle, gore harpy, gull, and venin harpy from
+  `fly`), 7 walk (the seven fliers from `fly`), 4 attack (the cyclopes from `attack_1`, the
+  drake from `attack_bite`).
+- 50 animation channels of missing bones removed from 9 models
+  (`bandit_1`, `bandit_2`, `bandit_3`, `cyclops`, `full_armored_cyclops`, `gargoyle`, `goat`, `madeleine`, `snake`): weapon and smoke props of the bandits, a belly bone of
+  the cyclops, a torso bone of the fully armored cyclops, and the chimera parts the goat and
+  snake heads reference in their death clips, since those heads are cut from the chimera project.
+- 23 donor particle and sound event sections were stripped from 9 animation files by
+  `scripts/normalize_geckolib_animations.py`.
+- No bone renames were needed.
+
+### Excluded resources
+
+- 13 geometry files with their animations: the six lantern items and the oil lamp
+  (`textures/item` sheets), the fire and soul fire braziers and the goblin trap (block entities
+  with `textures/block` sheets), `aneled_bastard` (a first-person hand rig for the sword item),
+  `crates_2` (a prop whose only candidate sheet is half its declared UV size), and
+  `rock_entity` (a thrown rock no renderer references).
+- `player_animation`, `textures/block`, `textures/item`, `textures/models`, and the villager
+  profession overlays were not imported.
+
+### Reviewed texture pairs
+
+Dragonforged draws one geometry through several renderers (plain, brown, armored, gore, snow,
+sage, and passive variants) and the generator's renderer scan keeps the last class it meets.
+These pairs are pinned in `scripts/generate_mob_texture_mappings.py` to the base entity's own
+default sheet: `armored_cyclops` -> `armoredcyclopstexture.png`, `baby_saurian` ->
+`babysaurian.png`, `chimera` and `chimera_passive` -> `chimeratexture.png`, `gargoyle` ->
+`gargoyletexture.png`, `goblin` -> `goblingtexture.png`, `harpy` -> `harpytexture.png`, `saurian`
+-> `sauriantexturefixteeth.png`, and `goat` and `snake` -> `chimeratexture.png` (they are the
+chimera's heads and share its atlas). Every other pair comes from the donor's own
+`getTextureResource` and entity texture default. The brown, gore, snow, armored, and hellhound
+variant sheets are bundled and can be picked by hand.
+
+### Imported models
+
+| Model | Namespace | Animations | Default texture |
+|---|---|---|---|
+| `armored_cyclops` | `dragonforged` | idle yes, walk yes, attack yes, death yes (9 clips) | `dragonforged:textures/entities/armoredcyclopstexture.png` |
+| `baby_saurian` | `dragonforged` | idle yes, walk yes, attack yes, death yes (8 clips) | `dragonforged:textures/entities/babysaurian.png` |
+| `bandit_1` | `dragonforged` | idle yes, walk yes, attack yes, death no (3 clips) | `dragonforged:textures/entities/bandit_1.png` |
+| `bandit_2` | `dragonforged` | idle yes, walk yes, attack yes, death no (3 clips) | `dragonforged:textures/entities/bandit_2.png` |
+| `bandit_3` | `dragonforged` | idle yes, walk yes, attack yes, death no (3 clips) | `dragonforged:textures/entities/bandit_3.png` |
+| `boss_remains` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/bossremainstexture.png` |
+| `chimera` | `dragonforged` | idle yes, walk yes, attack yes, death no (11 clips) | `dragonforged:textures/entities/chimeratexture.png` |
+| `chimera_passive` | `dragonforged` | idle yes, walk yes, attack yes, death no (11 clips) | `dragonforged:textures/entities/chimeratexture.png` |
+| `circle` | `dragonforged` | idle yes, walk no, attack no, death no (2 clips) | `dragonforged:textures/entities/lightning_carel.png` |
+| `crow` | `dragonforged` | idle yes, walk yes, attack no, death no (3 clips) | `dragonforged:textures/entities/crowtexture.png` |
+| `cyclops` | `dragonforged` | idle yes, walk yes, attack yes, death yes (11 clips) | `dragonforged:textures/entities/cyclopstexturenewclub.png` |
+| `drake` | `dragonforged` | idle yes, walk yes, attack yes, death no (14 clips) | `dragonforged:textures/entities/draketexture.png` |
+| `full_armored_cyclops` | `dragonforged` | idle yes, walk yes, attack yes, death yes (13 clips) | `dragonforged:textures/entities/fullyarmouredcyclops.png` |
+| `gargoyle` | `dragonforged` | idle yes, walk yes, attack yes, death yes (7 clips) | `dragonforged:textures/entities/gargoyletexture.png` |
+| `goat` | `dragonforged` | idle yes, walk no, attack yes, death yes (5 clips) | `dragonforged:textures/entities/chimeratexture.png` |
+| `goblin` | `dragonforged` | idle yes, walk yes, attack yes, death yes (10 clips) | `dragonforged:textures/entities/goblingtexture.png` |
+| `gore_harpy` | `dragonforged` | idle yes, walk yes, attack yes, death yes (7 clips) | `dragonforged:textures/entities/goreharpytexture.png` |
+| `grigori_head` | `dragonforged` | idle yes, walk no, attack no, death no (2 clips) | `dragonforged:textures/entities/grigoriheadtexture.png` |
+| `gull` | `dragonforged` | idle yes, walk yes, attack no, death no (3 clips) | `dragonforged:textures/entities/gulltexture.png` |
+| `harpy` | `dragonforged` | idle yes, walk yes, attack yes, death yes (9 clips) | `dragonforged:textures/entities/harpytexture.png` |
+| `hobgoblin` | `dragonforged` | idle yes, walk yes, attack yes, death yes (6 clips) | `dragonforged:textures/entities/hobgoblintexture.png` |
+| `hsegment1` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment10` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment2` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment3` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment4` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment5` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment6` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment7` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment8` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hsegment9` | `dragonforged` | idle yes, walk no, attack no, death no (1 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hydra` | `dragonforged` | idle yes, walk yes, attack no, death yes (9 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hydra_head_bottom` | `dragonforged` | idle yes, walk no, attack yes, death yes (5 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hydra_head_left` | `dragonforged` | idle yes, walk no, attack yes, death yes (6 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hydra_head_right` | `dragonforged` | idle yes, walk no, attack yes, death yes (5 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hydra_head_top` | `dragonforged` | idle yes, walk no, attack yes, death yes (5 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `hydra_passive` | `dragonforged` | idle yes, walk yes, attack no, death yes (8 clips) | `dragonforged:textures/entities/hydratexture.png` |
+| `leapworm` | `dragonforged` | idle yes, walk yes, attack yes, death no (3 clips) | `dragonforged:textures/entities/leapwormtexture.png` |
+| `madeleine` | `dragonforged` | idle yes, walk yes, attack no, death no (2 clips) | `dragonforged:textures/entities/madeleinetexture.png` |
+| `ox` | `dragonforged` | idle yes, walk yes, attack no, death yes (3 clips) | `dragonforged:textures/entities/oxtexutre.png` |
+| `pyre_saurian` | `dragonforged` | idle yes, walk yes, attack yes, death yes (7 clips) | `dragonforged:textures/entities/pyresaurian.png` |
+| `rat` | `dragonforged` | idle yes, walk yes, attack yes, death yes (4 clips) | `dragonforged:textures/entities/rattexture.png` |
+| `rift_player` | `dragonforged` | idle yes, walk no, attack no, death no (2 clips) | `dragonforged:textures/entities/riftplayertexture.png` |
+| `saurian` | `dragonforged` | idle yes, walk yes, attack yes, death yes (9 clips) | `dragonforged:textures/entities/sauriantexturefixteeth.png` |
+| `shield_goblin` | `dragonforged` | idle yes, walk yes, attack yes, death yes (5 clips) | `dragonforged:textures/entities/shieldgoblintexture.png` |
+| `snake` | `dragonforged` | idle yes, walk no, attack yes, death yes (4 clips) | `dragonforged:textures/entities/chimeratexture.png` |
+| `spider` | `dragonforged` | idle yes, walk yes, attack yes, death yes (4 clips) | `dragonforged:textures/entities/spidertexture.png` |
+| `succubus` | `dragonforged` | idle yes, walk yes, attack yes, death yes (8 clips) | `dragonforged:textures/entities/succubus2texture.png` |
+| `succubus_flock` | `dragonforged` | idle yes, walk no, attack no, death no (2 clips) | `dragonforged:textures/entities/succubus2texture.png` |
+| `venin_harpy` | `dragonforged` | idle yes, walk yes, attack yes, death yes (7 clips) | `dragonforged:textures/entities/veninharpytexture.png` |
+| `wolf` | `dragonforged` | idle yes, walk yes, attack yes, death yes (9 clips) | `dragonforged:textures/entities/wolftexture.png` |
