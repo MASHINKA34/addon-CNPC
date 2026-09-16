@@ -14,9 +14,14 @@ geometry. Authored keyframes are converted where the donor has them:
   converter bakes into the bone rotations, because GeckoLib adds keyframes to
   the geometry pose exactly the way the donor adds them to the static one.
 
-Procedural Java motion (sine-based walking, look-at) has no keyframes, so every
-model also gets the portable idle, walk, and attack loops of the round-two
-converter; authored clips of the same name win. No donor class is packaged.
+Procedural Java motion (sine-based walking, look-at) has no keyframes, so the
+portable idle, walk, and attack loops of the round-two converter stand in for
+it, but only for the actions the donor has no authored clip for: a clip whose
+name reads as idle, walk, or attack in the vocabulary of
+``ensure_round3_animations.py`` keeps the placeholder out, and that script then
+aliases the standard name to the authored clip. A placeholder that would move
+no bone is left out as well, except ``idle``, which every model must carry. No
+donor class is packaged.
 """
 
 from __future__ import annotations
@@ -44,6 +49,7 @@ from convert_round2_java_models import (
     parts_to_geometry,
     write_json,
 )
+from ensure_round3_animations import STANDARD_CLIPS, STANDARD_KEYWORDS, has_channels, matching_clip
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -67,6 +73,9 @@ class JavaModel:
     donor renderer draws with, relative to the namespace. ``animation_class``
     is the MCreator animation holder (SRG keyframes); EEEAB's models name the
     clips they play in ``setupAnim`` and are resolved from there.
+    ``clip_prefix`` is the fallback for the ``<holder>_`` prefix MCreator puts
+    on clip names, used when the holder's own prefix cannot be read from its
+    clips (see ``holder_prefix``).
     """
 
     root: str
@@ -391,6 +400,30 @@ def eeeab_authored_clips(source: str, model_dir: Path, bones: set[str]) -> dict[
     return clips
 
 
+def holder_prefix(names: list[str]) -> str | None:
+    """The ``<holder>_`` prefix MCreator puts on every clip of an animation holder.
+
+    MCreator names clips after the holder the author created them in
+    (``saintp1_idle``, ``ifg_walk``, ``cucumber_idle``), which is not always
+    the model class, so the prefix is read from the clip names themselves: the
+    token before the first underscore when every clip shares it and it is not
+    itself an action word. Holders that mix prefixes (``saintp1_``, ``saint_``,
+    ``saintp2_``) return None and fall back to the class stem.
+    """
+    tokens: set[str] = set()
+    for name in names:
+        token, separator, rest = name.lower().partition("_")
+        if not separator or not rest:
+            return None
+        tokens.add(token)
+    if len(tokens) != 1:
+        return None
+    token = tokens.pop()
+    if any(token in keywords for keywords in STANDARD_KEYWORDS.values()):
+        return None
+    return f"{token}_"
+
+
 def mcreator_authored_clips(model: JavaModel, bones: set[str]) -> dict[str, dict]:
     if not model.animation_class:
         return {}
@@ -398,11 +431,16 @@ def mcreator_authored_clips(model: JavaModel, bones: set[str]) -> dict[str, dict
     if not path.is_file():
         return {}
     document, _ = parse_srg_animations(path, bones)
+    prefixes = tuple(
+        prefix for prefix in (holder_prefix(list(document["animations"])), model.clip_prefix) if prefix
+    )
     clips: dict[str, dict] = {}
     for name, clip in document["animations"].items():
         lowered = name.lower()
-        if model.clip_prefix and lowered.startswith(model.clip_prefix) and len(lowered) > len(model.clip_prefix):
-            lowered = lowered[len(model.clip_prefix):]
+        for prefix in prefixes:
+            if lowered.startswith(prefix) and len(lowered) > len(prefix):
+                lowered = lowered[len(prefix):]
+                break
         clips[lowered] = clip
     return clips
 
@@ -419,17 +457,31 @@ def convert(model: JavaModel) -> dict[str, int]:
     else:
         authored = mcreator_authored_clips(model, bones)
 
-    animations = animation_document(bones)
+    # A portable loop stands in only where no authored clip reads as that
+    # action, so ensure_round3_animations.py can alias the standard name to the
+    # authored clip instead of finding the name taken by a placeholder. A
+    # placeholder that moves no bone is left out, except idle, which every
+    # model must carry: it stays static only when nothing authored moves.
+    portable = animation_document(bones)["animations"]
+    animations: dict = {"format_version": "1.8.0", "animations": {}}
+    placeholders: list[str] = []
+    for name in STANDARD_CLIPS:
+        if name in authored or matching_clip(authored, STANDARD_KEYWORDS[name]):
+            continue
+        if has_channels(portable[name]) or (name == "idle" and not any(map(has_channels, authored.values()))):
+            animations["animations"][name] = portable[name]
+            placeholders.append(name)
     animations["animations"].update(authored)
 
     namespace_root = ASSET_ROOT / model.namespace
     write_json(namespace_root / "geo" / f"{model.identifier}.geo.json", geometry)
     write_json(namespace_root / "animations" / f"{model.identifier}.animation.json", animations)
-    return stats | {"authored": len(authored), "baked": baked}
+    return stats | {"authored": len(authored), "baked": baked, "portable": placeholders}
 
 
 def main() -> None:
     failures: list[tuple[JavaModel, Exception]] = []
+    summary: dict[str, dict[str, int]] = {}
     for model in MODELS:
         try:
             stats = convert(model)
@@ -441,6 +493,17 @@ def main() -> None:
             f"{model.namespace}:{model.identifier}: {stats['bones']} bones, {stats['cubes']} cubes, "
             f"{stats['authored']} authored clips"
             + (f", {stats['baked']} static pose bones" if stats["baked"] else "")
+            + (f", portable {'/'.join(stats['portable'])}" if stats["portable"] else "")
+        )
+        counts = summary.setdefault(model.namespace, {"models": 0, "authored": 0, "idle": 0, "walk": 0, "attack": 0})
+        counts["models"] += 1
+        counts["authored"] += stats["authored"]
+        for name in stats["portable"]:
+            counts[name] += 1
+    for namespace, counts in summary.items():
+        print(
+            f"{namespace}: {counts['models']} models, {counts['authored']} authored clips, portable idle for "
+            f"{counts['idle']}, walk for {counts['walk']}, attack for {counts['attack']}"
         )
     if failures:
         raise SystemExit(f"{len(failures)} Java models failed conversion")
