@@ -16,8 +16,10 @@ import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -63,6 +65,8 @@ public final class BossGeyserScheduler {
     private static final double COLUMN_SPEED = 0.08D;
     private static final double SMOKE_SPREAD = 0.25D;
     private static final double SMOKE_SPEED = 0.04D;
+    /** Ceiling on the dots one puff spends over a circle, whatever the builder asks for: one packet each. */
+    private static final int MAX_SCATTER_PARTICLES = 64;
 
     /**
      * How an eruption looks and sounds, taken off the settings on the tick the fuse was lit.
@@ -303,6 +307,17 @@ public final class BossGeyserScheduler {
                     countOf(columnParticles), countOf(columnSmoke), false);
         }
 
+        /**
+         * The column that falls back onto a circle of this radius, drawn from its narrow top
+         * down: the cone the other way up, in the strike's own particle over the column's smoke.
+         */
+        BossGeyserColumn skyColumn(double radius) {
+            boolean cone = columnShape == BossGeyserSettings.COLUMN_CONE;
+            return new BossGeyserColumn(cone ? radius : 0.0D, cone ? columnTopRadius : 0.0D,
+                    skyHeight, skyFallTicks, cone ? columnPoints : 1,
+                    countOf(skyParticles), countOf(columnSmoke), true);
+        }
+
         /** What a cue spends per dot, or nothing at all while it is switched off. */
         private static int countOf(BossParticleCue cue) {
             return cue.isEnabled() ? cue.getCount() : 0;
@@ -340,6 +355,8 @@ public final class BossGeyserScheduler {
         private final String vfx;
         /** How the boss had its waves tuned when this was lit; see BossWaveTuning. */
         private final BossWaveTuning wave;
+        /** The same for the strike from above, whose wave may be drawn in another style. */
+        private final BossWaveTuning skyWave;
         /** How the boss was drawing its warnings when this was lit; see BossTelegraphPaint. */
         private final BossTelegraphPaint.Settings telegraph;
         private final boolean blockWave;
@@ -356,7 +373,7 @@ public final class BossGeyserScheduler {
         private Pending(ResourceKey<Level> dimension, EntityNPCInterface boss, int followId,
                         double radius, int damage, int launch, int skyDamage, int residueDamage,
                         BossEffectSet effects, String vfx,
-                        BossWaveTuning wave, BossTelegraphPaint.Settings telegraph,
+                        BossWaveTuning wave, BossWaveTuning skyWave, BossTelegraphPaint.Settings telegraph,
                         boolean blockWave, Look look, BlockState fluid,
                         int fluidLifetimeTicks, long litAt, long eruptsAt, Vec3 pos) {
             this.dimension = dimension;
@@ -370,6 +387,7 @@ public final class BossGeyserScheduler {
             this.effects = effects;
             this.vfx = vfx;
             this.wave = wave;
+            this.skyWave = skyWave;
             this.telegraph = telegraph;
             this.blockWave = blockWave;
             this.look = look;
@@ -408,8 +426,46 @@ public final class BossGeyserScheduler {
         }
     }
 
+    /**
+     * One strike from above, from the tick the ground opened until it lands.
+     *
+     * <p>Part of the cast, unlike a column: the stay rule, the finish gate and the chains
+     * wait for it the way they wait for the fuse, since a boss that has thrown the party up
+     * still owes them what comes down.</p>
+     */
+    private static final class Sky {
+        private final ResourceKey<Level> dimension;
+        private final EntityNPCInterface boss;
+        /** Where the ground opened: the strike lands there whatever the victim did since. */
+        private final Vec3 pos;
+        private final double radius;
+        /** What the landing hits for, enrage already counted in. */
+        private final int damage;
+        private final Look look;
+        private final BossWaveTuning wave;
+        private final BossTelegraphPaint.Settings telegraph;
+        private final BossGeyserSky clock;
+        private final BossGeyserColumn column;
+
+        private Sky(ResourceKey<Level> dimension, EntityNPCInterface boss, Vec3 pos, double radius,
+                    int damage, Look look, BossWaveTuning wave, BossTelegraphPaint.Settings telegraph,
+                    BossGeyserSky clock, BossGeyserColumn column) {
+            this.dimension = dimension;
+            this.boss = boss;
+            this.pos = pos;
+            this.radius = radius;
+            this.damage = damage;
+            this.look = look;
+            this.wave = wave;
+            this.telegraph = telegraph;
+            this.clock = clock;
+            this.column = column;
+        }
+    }
+
     private static final TickQueue<Pending> PENDING = new TickQueue<>("boss geysers", MAX_PER_TICK);
     private static final TickQueue<Column> COLUMNS = new TickQueue<>("boss geyser columns", MAX_PER_TICK);
+    private static final TickQueue<Sky> SKIES = new TickQueue<>("boss geyser sky strikes", MAX_PER_TICK);
 
     private BossGeyserScheduler() {
     }
@@ -436,6 +492,7 @@ public final class BossGeyserScheduler {
                 phase.geyser().getRadius(), damage, launch, skyDamage, residueDamage,
                 phase.geyser().getEffects(),
                 phase.geyser().getVfx(), BossWaveTuning.of(boss, phase.geyser().getVfx()),
+                BossWaveTuning.of(boss, phase.geyser().getSkyVfx()),
                 BossTelegraphPaint.Settings.of(boss),
                 phase.geyser().isBlockWave(), look(phase.geyser()), fluid,
                 phase.geyser().getFluidLifetimeTicks(), gameTime,
@@ -446,17 +503,19 @@ public final class BossGeyserScheduler {
     }
 
     public static boolean hasPending() {
-        return !PENDING.isEmpty() || !COLUMNS.isEmpty();
+        return !PENDING.isEmpty() || !COLUMNS.isEmpty() || !SKIES.isEmpty();
     }
 
     /**
-     * Whether this boss still has a geyser on the way; what a cast spot's stay rule waits on.
+     * Whether this boss still has a geyser on the way - a fuse burning or a strike from above
+     * still to land; what a cast spot's stay rule, the finish gate and the chains wait on.
      *
      * <p>A column still being drawn is not counted: it is what the eruption looked like, not
      * something the boss is still doing.</p>
      */
     public static boolean hasPending(EntityNPCInterface boss) {
-        return !PENDING.isEmpty() && PENDING.find(pending -> pending.boss == boss) != null;
+        return !PENDING.isEmpty() && PENDING.find(pending -> pending.boss == boss) != null
+                || !SKIES.isEmpty() && SKIES.find(sky -> sky.boss == boss) != null;
     }
 
     public static void tick(ServerLevel level) {
@@ -464,20 +523,24 @@ public final class BossGeyserScheduler {
         PENDING.sweep(pending -> pending.dimension.equals(level.dimension()),
                 pending -> tickFuse(level, pending, gameTime));
         // After the fuses, so a column started by an eruption this tick draws its first
-        // slices on the tick the ground opened rather than one behind it.
+        // slices on the tick the ground opened rather than one behind it, and a strike
+        // scheduled by it warns from that same tick.
         COLUMNS.sweep(column -> column.dimension.equals(level.dimension()),
                 column -> tickColumn(level, column));
+        SKIES.sweep(sky -> sky.dimension.equals(level.dimension()),
+                sky -> tickSky(level, sky, gameTime));
     }
 
     /** Drops anything still waiting in a level that is going away. */
     public static void clear(ServerLevel level) {
         PENDING.removeIf(pending -> pending.dimension.equals(level.dimension()));
         COLUMNS.removeIf(column -> column.dimension.equals(level.dimension()));
+        SKIES.removeIf(sky -> sky.dimension.equals(level.dimension()));
     }
 
     /**
-     * Drops the fuses one boss lit, for its death and for the end of its fight, and the
-     * columns it still had coming up.
+     * Drops the fuses one boss lit, for its death and for the end of its fight, with the
+     * columns it still had coming up and the strikes it still had coming down.
      *
      * <p>A geyser is the boss doing something, not a mine left in the floor: killing it while
      * the ground is still smoking is a win, and the arena owes the party nothing more.</p>
@@ -488,6 +551,9 @@ public final class BossGeyserScheduler {
         }
         if (!COLUMNS.isEmpty()) {
             COLUMNS.removeIf(column -> column.boss == boss);
+        }
+        if (!SKIES.isEmpty()) {
+            SKIES.removeIf(sky -> sky.boss == boss);
         }
     }
 
@@ -501,7 +567,7 @@ public final class BossGeyserScheduler {
             markFuse(level, pending, gameTime);
             return true;
         }
-        erupt(level, pending);
+        erupt(level, pending, gameTime);
         return false;
     }
 
@@ -538,14 +604,11 @@ public final class BossGeyserScheduler {
      * left as well as where not to be standing.</p>
      */
     private static void markFuse(ServerLevel level, Pending pending, long gameTime) {
-        if (gameTime % MARK_INTERVAL_TICKS != 0L || level.getNearestPlayer(pending.pos.x,
-                pending.pos.y, pending.pos.z, BossTelegraphUtil.audienceRange(pending.boss), false) == null) {
+        if (gameTime % MARK_INTERVAL_TICKS != 0L || !seen(level, pending.boss, pending.pos)) {
             return;
         }
         double burned = fuseProgress(pending, gameTime);
-        BossTelegraphUtil.ring(level, pending.pos, pending.radius,
-                BossTelegraphPaint.of(pending.telegraph, pending.boss,
-                        BossTelegraphPaint.CHANNEL_GEYSER, BossAbilityKind.GEYSER, (float) burned));
+        markRing(level, pending.boss, pending.telegraph, pending.pos, pending.radius, burned);
         double speed = pending.look.boilSpeed(burned);
         level.sendParticles(ParticleTypes.BUBBLE_POP, pending.pos.x, pending.pos.y + 0.2D,
                 pending.pos.z, 3, 0.25D, 0.05D, 0.25D, speed);
@@ -559,7 +622,17 @@ public final class BossGeyserScheduler {
         return fuse <= 0L ? 1.0D : Mth.clamp((double) (gameTime - pending.litAt) / fuse, 0.0D, 1.0D);
     }
 
-    private static void erupt(ServerLevel level, Pending pending) {
+    /**
+     * The circle of what is about to happen at this spot, in the boss' colour and on the
+     * geyser's channel, with how far along it is: the fuse's ring, and the strike's after it.
+     */
+    private static void markRing(ServerLevel level, EntityNPCInterface boss, BossTelegraphPaint.Settings telegraph,
+                                 Vec3 pos, double radius, double progress) {
+        BossTelegraphUtil.ring(level, pos, radius, BossTelegraphPaint.of(telegraph, boss,
+                BossTelegraphPaint.CHANNEL_GEYSER, BossAbilityKind.GEYSER, (float) progress));
+    }
+
+    private static void erupt(ServerLevel level, Pending pending, long gameTime) {
         Vec3 pos = pending.pos;
         // Both started before the hits, so what a player sees leaves at the same moment the
         // damage lands rather than a tick behind it.
@@ -573,7 +646,7 @@ public final class BossGeyserScheduler {
         }
         pending.look.eruptSound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
 
-        for (LivingEntity victim : victims(level, pending)) {
+        for (LivingEntity victim : victims(level, pending.boss, pos, pending.radius)) {
             // The launch is this eruption's knockback rather than something on top of it, so
             // it goes with the hit rather than after it: a totem whose list this geyser is not
             // on has to be left standing, not thrown while taking nothing.
@@ -587,19 +660,131 @@ public final class BossGeyserScheduler {
             launch(victim, pending.launch);
         }
         pool(level, pending);
+        if (pending.look.skyEnabled()) {
+            // Nailed to where the ground opened rather than to the victim: the mark stopped
+            // following them the moment it went off, and what falls lands on the same circle.
+            double radius = pending.look.skyRadius(pending.radius);
+            SKIES.add(new Sky(level.dimension(), pending.boss, pos, radius, pending.skyDamage, pending.look,
+                    pending.skyWave, pending.telegraph,
+                    new BossGeyserSky(gameTime, pending.look.skyDelayTicks(), pending.look.skyFallTicks()),
+                    pending.look.skyColumn(radius)));
+        }
     }
 
     /**
-     * Everyone this eruption may catch.
+     * Everyone a circle of the geyser's may catch.
      *
      * <p>Asked of the boss that lit the fuse rather than worked out here, so a geyser and an
      * area slam can never end up with different ideas of who counts as an enemy.</p>
      */
-    private static List<LivingEntity> victims(ServerLevel level, Pending pending) {
-        TeleportPathController controller = pending.boss instanceof IBossController holder
+    private static List<LivingEntity> victims(ServerLevel level, EntityNPCInterface boss, Vec3 centre,
+                                              double radius) {
+        TeleportPathController controller = boss instanceof IBossController holder
                 ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
-        return controller == null ? List.of()
-                : controller.geyserVictims(level, pending.pos, pending.radius);
+        return controller == null ? List.of() : controller.geyserVictims(level, centre, radius);
+    }
+
+    /** @return whether this strike is still on its way and belongs back in the queue */
+    private static boolean tickSky(ServerLevel level, Sky sky, long gameTime) {
+        if (!sky.boss.isAlive() || sky.boss.isRemoved()) {
+            return false;
+        }
+        BossGeyserSky clock = sky.clock;
+        if (clock.takeStart(gameTime)) {
+            // One splash from up where the column starts, for the player who is not looking up.
+            sky.look.skySound().play(level, sky.pos.x, sky.pos.y + sky.look.skyHeight(), sky.pos.z,
+                    SoundSource.HOSTILE);
+        }
+        if (clock.takeStrike(gameTime)) {
+            // Whatever the particle ceiling still held back of the column lands with it.
+            drawSkyColumn(level, sky);
+            strike(level, sky);
+            return false;
+        }
+        if (clock.isFalling(gameTime)) {
+            drawSkyColumn(level, sky);
+        }
+        // Warned for the whole way, from the eruption to the landing: a player the eruption
+        // threw up reads what is about to come down on the spot they will land on.
+        if (gameTime % MARK_INTERVAL_TICKS == 0L && seen(level, sky.boss, sky.pos)) {
+            markRing(level, sky.boss, sky.telegraph, sky.pos, sky.radius, clock.warnProgress(gameTime));
+        }
+        return true;
+    }
+
+    /** The falling column's next slices, top down; its clock runs whether or not anyone is watching. */
+    private static void drawSkyColumn(ServerLevel level, Sky sky) {
+        if (sky.column.isDone()) {
+            return;
+        }
+        boolean seen = seen(level, sky.boss, sky.pos);
+        ParticleOptions particles = seen ? options(sky.look.skyParticles()) : null;
+        ParticleOptions smoke = seen ? options(sky.look.columnSmoke()) : null;
+        sky.column.advance(step -> drawSlice(level, sky.pos, sky.column, step,
+                particles, sky.look.skyParticles().getCount(), smoke, sky.look.columnSmoke().getCount()));
+    }
+
+    /**
+     * The strike landing: its wave and its splash, then whoever stands in the circle hit, and
+     * whoever is still off the floor - thrown by the eruption, most likely - pressed back down
+     * onto it.
+     */
+    private static void strike(ServerLevel level, Sky sky) {
+        Vec3 pos = sky.pos;
+        Look look = sky.look;
+        // Started before the hits, so what a player sees leaves at the same moment the damage
+        // lands. No block wave: that was the eruption's, and the floor has been thrown once.
+        BossAreaVfxScheduler.schedule(level, pos, look.skyVfx(), sky.radius, look.vfxTicks(), false, sky.wave);
+        if (seen(level, sky.boss, pos)) {
+            scatter(level, pos, sky.radius, look.skyHitParticles());
+        }
+        look.skyHitSound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
+        for (LivingEntity victim : victims(level, sky.boss, pos, sky.radius)) {
+            if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.GEYSER)) {
+                continue;
+            }
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.GEYSER, sky.boss, sky.damage, look.skyEffects(),
+                    0, 0.0D, 0.0D);
+            // Only the airborne are pressed: somebody standing on the floor has nowhere to be
+            // pressed to, and the hit alone is what the strike does to them.
+            if (look.skyPress() > 0.0D && !victim.onGround()) {
+                press(victim, look.skyPress());
+            }
+        }
+    }
+
+    /**
+     * Straight down, the launch's opposite, for whoever the strike caught still in the air.
+     *
+     * <p>The fall they were in is kept: being pressed into the floor from up there is the
+     * point, and the fall damage is the strike's second half.</p>
+     */
+    private static void press(LivingEntity victim, double down) {
+        Vec3 movement = victim instanceof ServerPlayer player ? player.getKnownMovement() : victim.getDeltaMovement();
+        victim.setDeltaMovement(BossGeyserSky.pressVelocity(movement, down, victim instanceof ServerPlayer));
+        // Players simulate their own movement, so the server has to push the new velocity to
+        // them explicitly. hurtMarked is what makes ServerEntity send it.
+        victim.hurtMarked = true;
+    }
+
+    /**
+     * A cue's count spent over the whole circle, one dot at a random spot on it each, so the
+     * puff reads as the circle rather than as a blob at its middle.
+     */
+    private static void scatter(ServerLevel level, Vec3 pos, double radius, BossParticleCue cue) {
+        ParticleOptions options = options(cue);
+        if (options == null) {
+            return;
+        }
+        RandomSource random = level.getRandom();
+        int count = Math.min(cue.getCount(), MAX_SCATTER_PARTICLES);
+        for (int i = 0; i < count; i++) {
+            double angle = random.nextDouble() * Mth.TWO_PI;
+            // The root keeps the dots spread evenly over the area rather than crowding the middle.
+            double distance = radius * Math.sqrt(random.nextDouble());
+            level.sendParticles(options, pos.x + Math.cos(angle) * distance, pos.y + 0.2D,
+                    pos.z + Math.sin(angle) * distance, 1, 0.1D, 0.1D, 0.1D, 0.05D);
+        }
     }
 
     /**
@@ -652,7 +837,8 @@ public final class BossGeyserScheduler {
         boolean seen = seen(level, column.boss, column.pos);
         ParticleOptions particles = seen ? options(column.particles) : null;
         ParticleOptions smoke = seen ? options(column.smoke) : null;
-        column.shape.advance(step -> drawSlice(level, column, step, particles, smoke));
+        column.shape.advance(step -> drawSlice(level, column.pos, column.shape, step,
+                particles, column.particles.getCount(), smoke, column.smoke.getCount()));
         return !column.shape.isDone();
     }
 
@@ -666,29 +852,27 @@ public final class BossGeyserScheduler {
      * circle turned by a random amount so the dots of one slice do not line up with the
      * next's. A straight column's one dot at the middle is the emit it always was.
      */
-    private static void drawSlice(ServerLevel level, Column column, int step, ParticleOptions particles,
-                                  ParticleOptions smoke) {
+    private static void drawSlice(ServerLevel level, Vec3 pos, BossGeyserColumn shape, int step,
+                                  ParticleOptions particles, int perPoint, ParticleOptions smoke, int smokePerPoint) {
         if (particles == null && smoke == null) {
             return;
         }
-        double y = column.pos.y + column.shape.yAt(step);
-        double radius = column.shape.radiusAt(step);
-        int points = column.shape.points();
+        double y = pos.y + shape.yAt(step);
+        double radius = shape.radiusAt(step);
+        int points = shape.points();
         double turn = level.getRandom().nextDouble() * Mth.TWO_PI;
-        boolean smokeOn = smoke != null && column.shape.smokeOn(step);
+        boolean smokeOn = smoke != null && shape.smokeOn(step);
         for (int i = 0; i < points; i++) {
             double angle = turn + i * Mth.TWO_PI / points;
-            double x = column.pos.x + Math.cos(angle) * radius;
-            double z = column.pos.z + Math.sin(angle) * radius;
+            double x = pos.x + Math.cos(angle) * radius;
+            double z = pos.z + Math.sin(angle) * radius;
             if (particles != null) {
-                level.sendParticles(particles, x, y, z, column.particles.getCount(),
-                        COLUMN_SPREAD, 0.1D, COLUMN_SPREAD, COLUMN_SPEED);
+                level.sendParticles(particles, x, y, z, perPoint, COLUMN_SPREAD, 0.1D, COLUMN_SPREAD, COLUMN_SPEED);
             }
             // The smoke thins out to every other slice, which keeps a tall column inside a
             // packet budget a boss fight can afford.
             if (smokeOn) {
-                level.sendParticles(smoke, x, y, z, column.smoke.getCount(),
-                        SMOKE_SPREAD, 0.1D, SMOKE_SPREAD, SMOKE_SPEED);
+                level.sendParticles(smoke, x, y, z, smokePerPoint, SMOKE_SPREAD, 0.1D, SMOKE_SPREAD, SMOKE_SPEED);
             }
         }
     }
