@@ -48,6 +48,7 @@ Bundled model, animation, and texture resources originate from:
 - Dragonforged 1.0.9 for Forge 1.20.1 (archive metadata: license "Not specified";
   CurseForge lists none; treated as All Rights Reserved)
 - Threateningly Mobs 1.1.1 for Forge 1.20.1 (MIT License)
+- Metus Oblita 1.1.6 (alpha) for Forge 1.20.1 (All Rights Reserved)
 
 The original authors retain all rights to their respective resources.
 Do not publish or monetize this combined archive without permission from
@@ -181,6 +182,18 @@ Mowzie's Mobs integration:
 - Bullet, ammo, slash-wave, summoning-circle, lightning-marker, and
   water-impact effect models were left out. No Threateningly classes are
   packaged.
+
+2026-09-16 Metus Oblita integration:
+- Added 26 selectable models under the isolated metus_oblita namespace: 24
+  GeckoLib geometry files with their paired animation files and reviewed
+  default textures, plus the Immolar and Juggernaut converted from Java
+  ModelPart models with their AnimationDefinition keyframes.
+- Metus Oblita 1.1.6 (alpha) for Forge 1.20.1 by Skarrier, All Rights Reserved
+  (archive metadata). The author's Skarrier Mobs resources already bundled
+  under skarrier_mobs are untouched; the two namespaces share no file names.
+- Altar, pedestal, lamp, reactor, and cruor block entities and their display
+  items were left out together with their block art; projectile and effect
+  Java models were not converted. No Metus Oblita classes are packaged.
 
 Important redistribution note:
 - "Allowed in modpacks" is not permission to extract and republish a mod's art.

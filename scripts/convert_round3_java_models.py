@@ -213,6 +213,12 @@ MODELS: tuple[JavaModel, ...] = (
     threateningly("Modelpaladin", "java_undead_paladin", "paladintexture"),
     threateningly("Modelvine", "java_vine", "vinetexture"),
     threateningly("Modelsandstorm", "java_windcannon", "texturestorms"),
+
+    # Metus Oblita 1.1.6: the two creatures that are not GeckoLib models. The
+    # Immolar renderer binds the alchemical reactor sheet and paints the real
+    # skin through conditional layers; the hungry state is its resting look.
+    metus("Modelimmolar", "java_immolar", "immolar_hungry"),
+    metus("Modeljuggernaut", "java_juggernaut", "juggernaut_alpha"),
 )
 
 

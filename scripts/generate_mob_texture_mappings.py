@@ -48,6 +48,7 @@ PROJECTS = {
     "eeeabsmobs": WORK_DIR / "donor_decompiled_round3" / "01_eeeabs_mobs",
     "dragonforged": WORK_DIR / "donor_decompiled_round3" / "02_dragonforged",
     "threateningly_mobs": WORK_DIR / "donor_decompiled_round3" / "03_threateningly_mobs",
+    "metus_oblita": WORK_DIR / "donor_decompiled_round3" / "04_metus_oblita",
 }
 
 MANUAL = {

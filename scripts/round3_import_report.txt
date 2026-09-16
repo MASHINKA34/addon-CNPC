@@ -332,3 +332,122 @@ entity the renderer serves (`Modelaodre` -> `java_armor_of_desert`, `Modelunknow
 | `java_undead_paladin` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (5 clips) | `threateningly_mobs:textures/entities/paladintexture.png` |
 | `java_vine` | `threateningly_mobs` | idle yes, walk yes, attack yes, death yes (5 clips) | `threateningly_mobs:textures/entities/vinetexture.png` |
 | `java_windcannon` | `threateningly_mobs` | idle yes, walk yes, attack yes, death no (4 clips) | `threateningly_mobs:textures/entities/texturestorms.png` |
+
+## 04 Metus Oblita
+
+### Source and scope
+
+- Source: CurseForge project `metus-oblita` ("Metus Oblita"), project id 1507439, file id 8128146,
+  version `1.1.6` (alpha; beta-tagged file uploaded 2026-05-22, the newer of the two `1.1.6` files).
+- Donor archive: `D:\GEYDEV\donor_mods_round3\04_metus_oblita.jar`
+  (`metus_oblita-1.1.6(alpha)-forge-1.20.1.jar`, 6,585,293 bytes, size verified against cfwidget;
+  the parentheses in the name were URL-encoded for the forgecdn download).
+- SHA-512: `944fe7b7bb4df01dae67644afb51b627e3be71d19856497229e84ef02c48e1024183582d7057de40db98ed0ba95f4b915360c3ec401cdf22d8458740bf7d6d6d`.
+- Donor platform: Forge 1.20.1, MCreator with GeckoLib. The donor code is not loaded or packaged.
+- License: `license="All Rights Reserved"` in `META-INF/mods.toml`; the CurseForge metadata
+  exposes no license. Author: Skarrier.
+- Destination namespace: `metus_oblita` (the donor's own namespace). The author's Skarrier Mobs
+  resources already bundled under `skarrier_mobs` are a different namespace and share no geometry,
+  animation, or texture file name with this import, so nothing collides and no remap was needed.
+
+The inventory found 40 `.geo.json` files, 39 animation files, and 65 entity textures. 24 geometry
+files belong to entity `GeoModel` classes; 16 are block entities and their display items
+(altar, pedestals, lamp, reactor, cruor machinery, one glass block without an animation file).
+Two creatures, the Immolar and the Juggernaut, are MCreator Java `ModelPart` models with
+`AnimationDefinition` keyframes and were converted the same way as the Threateningly Mobs
+models; the other Java models are projectile and effect parts.
+
+### Result
+
+- 26 selectable geometry files: 24 GeckoLib and 2 converted from Java (`java_immolar`,
+  `java_juggernaut`).
+- 26 paired animation files; 26/26 idle, 19/26 walk, 18/26 attack, 2/26 death.
+- 63 texture files from `textures/entities` (stage, hunger, and emissive variants included; the
+  occultist villager overlays were left out).
+- 26 exact model-to-texture mappings.
+- Aliases added by `ensure_round3_animations.py`: 24 idle (the donor names its clips
+  `animation.<model>.idle`; the swarms only have `default`), 17 walk, 16 attack.
+- 6 animation channels of missing bones removed from `servus_colossus_adult`, whose every
+  clip carries an `undefined` bone left by Blockbench.
+- 0 donor particle and sound event sections were stripped from 0 animation files by
+  `scripts/normalize_geckolib_animations.py`.
+
+### Excluded resources
+
+- 16 block geometry files with their animations and `textures/block` sheets:
+  `alchemical_core_assembled_machine`, `alchemical_glass_green`, `cruor_collector_core`,
+  `cruor_conduit`, `cruor_laser`, `effigy_of_decay`, `oblita_altar`, `oblita_cruor_beam_emitter`,
+  `oblita_cruor_infuser`, `oblita_cruor_laserbeam_model`, `oblita_occult_lamp`, `oblita_pedestal`,
+  `oblita_pedestal_ancient_artifact`, `oblita_pedestal_cruor_collector`,
+  `oblita_pedestal_glistering_lump`, `oblita_pedestal_ritual_beam`.
+- Java projectile and effect models (`Modelcruor_collector_sphere`, `Modelcuratrix_spike`,
+  `Modelcuratrix_splinter`, `Modelincarnation_projectile_trail_render_Converted`) were not
+  converted.
+
+### Reviewed texture pairs
+
+- `java_immolar` -> `immolar_hungry.png`. The donor renderer binds the alchemical reactor sheet
+  and paints the creature through conditional hungry, fed, and activated layers; the hungry state
+  is its resting look. `java_juggernaut` uses the `juggernaut_alpha.png` its renderer returns.
+- Every GeckoLib pair comes from the donor's own `getTextureResource` and entity texture default
+  (`devolved_1`, `oblita_demontouched_stage1`, `oblita_servus_default`, `sacraphague_hungry`,
+  `swarm_hungry` are the first stage of their creatures).
+
+### Imported models
+
+| Model | Namespace | Animations | Default texture |
+|---|---|---|---|
+| `arataurus` | `metus_oblita` | idle yes, walk yes, attack yes, death no (7 clips) | `metus_oblita:textures/entities/arataurus.png` |
+| `brutehound` | `metus_oblita` | idle yes, walk yes, attack yes, death no (8 clips) | `metus_oblita:textures/entities/brutehound.png` |
+| `curatrix` | `metus_oblita` | idle yes, walk yes, attack yes, death no (8 clips) | `metus_oblita:textures/entities/curatrix.png` |
+| `devolved` | `metus_oblita` | idle yes, walk yes, attack no, death no (5 clips) | `metus_oblita:textures/entities/devolved_1.png` |
+| `failure_small` | `metus_oblita` | idle yes, walk yes, attack yes, death no (7 clips) | `metus_oblita:textures/entities/failure_small.png` |
+| `flayer` | `metus_oblita` | idle yes, walk yes, attack yes, death yes (9 clips) | `metus_oblita:textures/entities/flayer.png` |
+| `gorespawn_knight` | `metus_oblita` | idle yes, walk yes, attack yes, death no (6 clips) | `metus_oblita:textures/entities/gorespawn_knight.png` |
+| `homunculus` | `metus_oblita` | idle yes, walk yes, attack no, death no (5 clips) | `metus_oblita:textures/entities/homunculus.png` |
+| `incarnation` | `metus_oblita` | idle yes, walk yes, attack yes, death yes (11 clips) | `metus_oblita:textures/entities/incarnation.png` |
+| `java_immolar` | `metus_oblita` | idle yes, walk yes, attack yes, death no (5 clips) | `metus_oblita:textures/entities/immolar_hungry.png` |
+| `java_juggernaut` | `metus_oblita` | idle yes, walk yes, attack yes, death no (4 clips) | `metus_oblita:textures/entities/juggernaut_alpha.png` |
+| `oblita_demontouched` | `metus_oblita` | idle yes, walk yes, attack yes, death no (16 clips) | `metus_oblita:textures/entities/oblita_demontouched_stage1.png` |
+| `oblita_servus_carnis` | `metus_oblita` | idle yes, walk yes, attack yes, death no (13 clips) | `metus_oblita:textures/entities/oblita_servus_default.png` |
+| `oblita_servus_gatherer` | `metus_oblita` | idle yes, walk yes, attack yes, death no (9 clips) | `metus_oblita:textures/entities/oblita_servus_gatherer.png` |
+| `predator_specter` | `metus_oblita` | idle yes, walk no, attack yes, death no (6 clips) | `metus_oblita:textures/entities/predator_specter.png` |
+| `predator_specter_empowered` | `metus_oblita` | idle yes, walk no, attack yes, death no (6 clips) | `metus_oblita:textures/entities/predator_specter_empowered.png` |
+| `rankle` | `metus_oblita` | idle yes, walk yes, attack yes, death no (7 clips) | `metus_oblita:textures/entities/rankle.png` |
+| `ritual_marker` | `metus_oblita` | idle yes, walk no, attack no, death no (2 clips) | `metus_oblita:textures/entities/ritual_marker.png` |
+| `sacraphague` | `metus_oblita` | idle yes, walk yes, attack yes, death no (7 clips) | `metus_oblita:textures/entities/sacraphague_hungry.png` |
+| `servus_colossus_adult` | `metus_oblita` | idle yes, walk yes, attack yes, death no (12 clips) | `metus_oblita:textures/entities/servus_colossus_adult.png` |
+| `shroud_of_intrusion_entity` | `metus_oblita` | idle yes, walk no, attack no, death no (2 clips) | `metus_oblita:textures/entities/shroud_of_intrusion_entity.png` |
+| `swarm_big` | `metus_oblita` | idle yes, walk no, attack no, death no (2 clips) | `metus_oblita:textures/entities/swarm_hungry.png` |
+| `swarm_medium` | `metus_oblita` | idle yes, walk no, attack no, death no (2 clips) | `metus_oblita:textures/entities/swarm_hungry.png` |
+| `swarm_small` | `metus_oblita` | idle yes, walk no, attack no, death no (2 clips) | `metus_oblita:textures/entities/swarm_hungry.png` |
+| `vicious` | `metus_oblita` | idle yes, walk yes, attack yes, death no (8 clips) | `metus_oblita:textures/entities/vicious.png` |
+| `wild_spirit` | `metus_oblita` | idle yes, walk yes, attack no, death no (4 clips) | `metus_oblita:textures/entities/wild_spirit.png` |
+
+## Verification
+
+- `scripts/import_round3_resources.py`: 0/51/0/24 geo, 0/51/0/24 animation, 50/70/164/63 texture
+  files for donors 01/02/03/04.
+- `scripts/convert_round3_java_models.py`: 91 Java models converted (16 EEEAB's Mobs, 73
+  Threateningly Mobs, 2 Metus Oblita), none failed.
+- `scripts/normalize_geckolib_animations.py`: 23 donor event sections removed from 9 files.
+  `scripts/normalize_animation_bones.py`: no renames needed in the four namespaces.
+- `scripts/ensure_round3_animations.py`: 166 models, 0 animation files generated, 75 aliases
+  added, 56 channels of missing bones removed; every model has `idle`.
+- `scripts/generate_mob_texture_mappings.py`: 704 mappings (16 + 51 + 73 + 26 new).
+  `scripts/generate_mob_hitboxes.py`: 1169 sizes.
+- `scripts/validate_mob_bundle.py`: passed with 2,133 JSON files (1,169 geometry, 954
+  animation), 2,577 PNG files, 704 exact texture mappings, and 1,169 hitbox sizes; the four
+  namespaces are checked strictly (paired animation, idle clip, known bones, mapping).
+- `gradlew build`: BUILD SUCCESSFUL, 728 JUnit tests green. The build first failed on
+  `MobModelTextureResolverTest`, which gates every namespace in the texture and hitbox tables
+  through `MobModelTextureResolver.BUNDLED_NAMESPACES`; the four namespaces were added to that
+  Java set, otherwise their models would render with a stretched NPC skin.
+- The packaged jar carries 679 entries under the four namespaces, all under `geo/`,
+  `animations/`, or `textures/`, and no donor class or metadata entry; it grew from 28.7 MB to
+  36.5 MB.
+- In-game selection and rendering remain a manual verification step; no Minecraft client was
+  launched during this import. Suggested checks: `java_immortal`, `java_corpse`,
+  `java_relic_annihilator` (EEEAB's Mobs); `cyclops`, `goblin`, `harpy` (Dragonforged);
+  `java_cave_hunter`, `java_hydra`, `java_hypocritical_saint` (Threateningly Mobs);
+  `arataurus`, `vicious`, `java_juggernaut` (Metus Oblita).

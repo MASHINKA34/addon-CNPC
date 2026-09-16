@@ -90,6 +90,33 @@ DONORS = (
             "textures/entity/zombie_villager/",
         ),
     ),
+    Donor(
+        "04_metus_oblita.jar",
+        namespaces=("metus_oblita",),
+        excluded_geo=(
+            # Block entities and their display items.
+            "alchemical_core_assembled_machine",
+            "alchemical_glass_green",
+            "cruor_collector_core",
+            "cruor_conduit",
+            "cruor_laser",
+            "effigy_of_decay",
+            "oblita_altar",
+            "oblita_cruor_beam_emitter",
+            "oblita_cruor_infuser",
+            "oblita_cruor_laserbeam_model",
+            "oblita_occult_lamp",
+            "oblita_pedestal",
+            "oblita_pedestal_ancient_artifact",
+            "oblita_pedestal_cruor_collector",
+            "oblita_pedestal_glistering_lump",
+            "oblita_pedestal_ritual_beam",
+        ),
+        excluded_texture_prefixes=(
+            "textures/entity/villager/",
+            "textures/entity/zombie_villager/",
+        ),
+    ),
 )
 
 
