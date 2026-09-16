@@ -12,6 +12,7 @@ import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.TemporaryFluidStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -57,8 +58,11 @@ public final class BossGeyserScheduler {
     /** Beyond this nobody can see the mark, so the fuse burns down without costing anything. */
     /** How often the mark is repainted. Every other tick reads as a steady shape. */
     private static final int MARK_INTERVAL_TICKS = 2;
-    /** Spacing between the column's emits; how high it climbs is the ability's to say. */
-    private static final double COLUMN_SPACING = 0.5D;
+    /** How the dots of a column slice scatter: the numbers the straight column was always drawn with. */
+    private static final double COLUMN_SPREAD = 0.2D;
+    private static final double COLUMN_SPEED = 0.08D;
+    private static final double SMOKE_SPREAD = 0.25D;
+    private static final double SMOKE_SPEED = 0.04D;
 
     /**
      * How an eruption looks and sounds, taken off the settings on the tick the fuse was lit.
@@ -288,6 +292,22 @@ public final class BossGeyserScheduler {
             return Mth.clamp(radius * columnPerRadius / 10.0D, columnMin / 10.0D, columnMax / 10.0D);
         }
 
+        /**
+         * The column that comes up out of a circle of this radius, ready to be drawn from the
+         * floor: a cone off the whole circle, or the line at the middle every older boss has.
+         */
+        BossGeyserColumn column(double radius) {
+            boolean cone = columnShape == BossGeyserSettings.COLUMN_CONE;
+            return new BossGeyserColumn(cone ? radius : 0.0D, cone ? columnTopRadius : 0.0D,
+                    columnHeight(radius), columnRiseTicks, cone ? columnPoints : 1,
+                    countOf(columnParticles), countOf(columnSmoke), false);
+        }
+
+        /** What a cue spends per dot, or nothing at all while it is switched off. */
+        private static int countOf(BossParticleCue cue) {
+            return cue.isEnabled() ? cue.getCount() : 0;
+        }
+
         /** How hard the boil spits this far into the fuse. */
         double boilSpeed(double burned) {
             return Mth.lerp(burned, boilMin, boilMax);
@@ -361,7 +381,35 @@ public final class BossGeyserScheduler {
         }
     }
 
+    /**
+     * One column being drawn, from the tick it started coming up until its last slice.
+     *
+     * <p>Decoration and nothing else: it is neither the cast the stay rule waits on nor a
+     * thing the boss owes the party, so a fight goes on round it and only the boss' death or
+     * the level going away takes it down early.</p>
+     */
+    private static final class Column {
+        private final ResourceKey<Level> dimension;
+        private final EntityNPCInterface boss;
+        /** Where the column's floor slice lies. */
+        private final Vec3 pos;
+        private final BossGeyserColumn shape;
+        private final BossParticleCue particles;
+        private final BossParticleCue smoke;
+
+        private Column(ResourceKey<Level> dimension, EntityNPCInterface boss, Vec3 pos,
+                       BossGeyserColumn shape, BossParticleCue particles, BossParticleCue smoke) {
+            this.dimension = dimension;
+            this.boss = boss;
+            this.pos = pos;
+            this.shape = shape;
+            this.particles = particles;
+            this.smoke = smoke;
+        }
+    }
+
     private static final TickQueue<Pending> PENDING = new TickQueue<>("boss geysers", MAX_PER_TICK);
+    private static final TickQueue<Column> COLUMNS = new TickQueue<>("boss geyser columns", MAX_PER_TICK);
 
     private BossGeyserScheduler() {
     }
@@ -398,10 +446,15 @@ public final class BossGeyserScheduler {
     }
 
     public static boolean hasPending() {
-        return !PENDING.isEmpty();
+        return !PENDING.isEmpty() || !COLUMNS.isEmpty();
     }
 
-    /** Whether this boss still has a geyser on the way; what a cast spot's stay rule waits on. */
+    /**
+     * Whether this boss still has a geyser on the way; what a cast spot's stay rule waits on.
+     *
+     * <p>A column still being drawn is not counted: it is what the eruption looked like, not
+     * something the boss is still doing.</p>
+     */
     public static boolean hasPending(EntityNPCInterface boss) {
         return !PENDING.isEmpty() && PENDING.find(pending -> pending.boss == boss) != null;
     }
@@ -410,24 +463,32 @@ public final class BossGeyserScheduler {
         long gameTime = level.getGameTime();
         PENDING.sweep(pending -> pending.dimension.equals(level.dimension()),
                 pending -> tickFuse(level, pending, gameTime));
+        // After the fuses, so a column started by an eruption this tick draws its first
+        // slices on the tick the ground opened rather than one behind it.
+        COLUMNS.sweep(column -> column.dimension.equals(level.dimension()),
+                column -> tickColumn(level, column));
     }
 
     /** Drops anything still waiting in a level that is going away. */
     public static void clear(ServerLevel level) {
         PENDING.removeIf(pending -> pending.dimension.equals(level.dimension()));
+        COLUMNS.removeIf(column -> column.dimension.equals(level.dimension()));
     }
 
     /**
-     * Drops the fuses one boss lit, for its death and for the end of its fight.
+     * Drops the fuses one boss lit, for its death and for the end of its fight, and the
+     * columns it still had coming up.
      *
      * <p>A geyser is the boss doing something, not a mine left in the floor: killing it while
      * the ground is still smoking is a win, and the arena owes the party nothing more.</p>
      */
     public static void clearBoss(EntityNPCInterface boss) {
-        if (PENDING.isEmpty()) {
-            return;
+        if (!PENDING.isEmpty()) {
+            PENDING.removeIf(pending -> pending.boss == boss);
         }
-        PENDING.removeIf(pending -> pending.boss == boss);
+        if (!COLUMNS.isEmpty()) {
+            COLUMNS.removeIf(column -> column.boss == boss);
+        }
     }
 
     /** @return whether this fuse is still burning and belongs back in the queue */
@@ -504,7 +565,12 @@ public final class BossGeyserScheduler {
         // damage lands rather than a tick behind it.
         BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius,
                 pending.look.vfxTicks(), pending.blockWave, pending.wave);
-        drawColumn(level, pending);
+        startColumn(level, pending);
+        if (pending.fluid != null && seen(level, pending.boss, pos)) {
+            // A geyser of something shows what it is throwing before the puddle says so.
+            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, pending.fluid),
+                    pos.x, pos.y + 0.5D, pos.z, 16, 0.4D, 0.6D, 0.4D, 0.15D);
+        }
         pending.look.eruptSound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
 
         for (LivingEntity victim : victims(level, pending)) {
@@ -554,30 +620,76 @@ public final class BossGeyserScheduler {
         victim.hurtMarked = true;
     }
 
-    /** The column itself: what a player watching sees come up out of the mark. */
-    private static void drawColumn(ServerLevel level, Pending pending) {
-        Vec3 pos = pending.pos;
-        if (level.getNearestPlayer(pos.x, pos.y, pos.z, BossTelegraphUtil.audienceRange(pending.boss), false) == null) {
+    /** Whether anyone is near enough to see what happens at this spot; decoration is skipped otherwise. */
+    private static boolean seen(ServerLevel level, EntityNPCInterface boss, Vec3 pos) {
+        return level.getNearestPlayer(pos.x, pos.y, pos.z, BossTelegraphUtil.audienceRange(boss), false) != null;
+    }
+
+    /**
+     * Starts the column itself: what a player watching sees come up out of the mark.
+     *
+     * <p>Queued rather than drawn here, because it may take a while to come up: its first
+     * slices go out on this same tick, the rest at the pace the phase set. A column of no
+     * height is an eruption drawn without one, the way a particle count of nought is no
+     * particles: the puff of what it throws is a separate thing.</p>
+     */
+    private static void startColumn(ServerLevel level, Pending pending) {
+        BossGeyserColumn shape = pending.look.column(pending.radius);
+        if (shape.slices() <= 0) {
             return;
         }
-        // A column of no height is an eruption drawn without one, the way a particle count
-        // of nought is no particles: the puff of what it throws below is a separate thing.
-        double height = pending.look.columnHeight(pending.radius);
-        int steps = height <= 0.0D ? -1 : (int) Math.round(height / COLUMN_SPACING);
-        for (int step = 0; step <= steps; step++) {
-            double y = pos.y + step * COLUMN_SPACING;
-            level.sendParticles(ParticleTypes.CLOUD, pos.x, y, pos.z, 2, 0.2D, 0.1D, 0.2D, 0.08D);
-            // The smoke thins out to every other step, which keeps a tall column inside a
-            // packet budget a boss fight can afford.
-            if ((step & 1) == 0) {
-                level.sendParticles(ParticleTypes.LARGE_SMOKE, pos.x, y, pos.z, 1,
-                        0.25D, 0.1D, 0.25D, 0.04D);
-            }
+        COLUMNS.add(new Column(level.dimension(), pending.boss, pending.pos, shape,
+                pending.look.columnParticles(), pending.look.columnSmoke()));
+    }
+
+    /** @return whether this column still has slices to come and belongs back in the queue */
+    private static boolean tickColumn(ServerLevel level, Column column) {
+        if (!column.boss.isAlive() || column.boss.isRemoved()) {
+            return false;
         }
-        if (pending.fluid != null) {
-            // A geyser of something shows what it is throwing before the puddle says so.
-            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, pending.fluid),
-                    pos.x, pos.y + 0.5D, pos.z, 16, 0.4D, 0.6D, 0.4D, 0.15D);
+        // The clock runs whether or not anyone is watching: a column nobody saw come up is
+        // not held back for the first player to arrive.
+        boolean seen = seen(level, column.boss, column.pos);
+        ParticleOptions particles = seen ? options(column.particles) : null;
+        ParticleOptions smoke = seen ? options(column.smoke) : null;
+        column.shape.advance(step -> drawSlice(level, column, step, particles, smoke));
+        return !column.shape.isDone();
+    }
+
+    /** What a cue spits, or null while it is switched off, set to nothing or names no particle. */
+    private static ParticleOptions options(BossParticleCue cue) {
+        return cue.isEnabled() && cue.getCount() > 0 ? cue.resolve(BossAbilityKind.GEYSER) : null;
+    }
+
+    /**
+     * One slice of a column: its dots spread evenly round the slice's circle, the whole
+     * circle turned by a random amount so the dots of one slice do not line up with the
+     * next's. A straight column's one dot at the middle is the emit it always was.
+     */
+    private static void drawSlice(ServerLevel level, Column column, int step, ParticleOptions particles,
+                                  ParticleOptions smoke) {
+        if (particles == null && smoke == null) {
+            return;
+        }
+        double y = column.pos.y + column.shape.yAt(step);
+        double radius = column.shape.radiusAt(step);
+        int points = column.shape.points();
+        double turn = level.getRandom().nextDouble() * Mth.TWO_PI;
+        boolean smokeOn = smoke != null && column.shape.smokeOn(step);
+        for (int i = 0; i < points; i++) {
+            double angle = turn + i * Mth.TWO_PI / points;
+            double x = column.pos.x + Math.cos(angle) * radius;
+            double z = column.pos.z + Math.sin(angle) * radius;
+            if (particles != null) {
+                level.sendParticles(particles, x, y, z, column.particles.getCount(),
+                        COLUMN_SPREAD, 0.1D, COLUMN_SPREAD, COLUMN_SPEED);
+            }
+            // The smoke thins out to every other slice, which keeps a tall column inside a
+            // packet budget a boss fight can afford.
+            if (smokeOn) {
+                level.sendParticles(smoke, x, y, z, column.smoke.getCount(),
+                        SMOKE_SPREAD, 0.1D, SMOKE_SPREAD, SMOKE_SPEED);
+            }
         }
     }
 
