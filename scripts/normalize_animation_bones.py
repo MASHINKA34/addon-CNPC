@@ -150,6 +150,12 @@ def main() -> None:
             ROOT / "panascraftrpgmod" / "geo",
             ROOT / "panascraftrpgmod" / "animations",
         ),
+        # Third donor batch: the Blockbench exports of Dragonforged and Metus
+        # Oblita, plus the converted Java creatures of all four donors.
+        *(
+            (namespace, ROOT / namespace / "geo", ROOT / namespace / "animations")
+            for namespace in ("eeeabsmobs", "dragonforged", "threateningly_mobs", "metus_oblita")
+        ),
     ]
 
     total = 0

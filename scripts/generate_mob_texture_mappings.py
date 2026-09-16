@@ -489,10 +489,18 @@ def fallback_mapping(namespace: str, model: Path) -> str | None:
     return f"{namespace}:{relative}"
 
 
+def bundled(model: str) -> bool:
+    namespace, resource = model.split(":", 1)
+    return (ASSET_ROOT / namespace / resource).is_file()
+
+
 def main() -> None:
     mappings: dict[str, str] = {}
     for namespace, project_root in PROJECTS.items():
-        parsed = direct_mappings(project_root)
+        # Donor renderers also describe block entities, item displays, and
+        # props that the import deliberately leaves out; only pairs whose
+        # geometry is actually bundled may reach the mapping file.
+        parsed = {model: texture for model, texture in direct_mappings(project_root).items() if bundled(model)}
         mappings.update(parsed)
         namespace_root = ASSET_ROOT / namespace
         for model in namespace_root.rglob("*.geo.json"):

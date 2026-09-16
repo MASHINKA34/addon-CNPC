@@ -12,7 +12,14 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 RESOURCE_ROOT = PROJECT_DIR / "src" / "main" / "resources"
 ASSET_ROOT = RESOURCE_ROOT / "assets"
 PATH_PATTERN = re.compile(r"^[a-z0-9._/-]+$")
-STRICT_PAIRED_NAMESPACES = {"dungeons_and_combat", "panascraftrpgmod"}
+STRICT_PAIRED_NAMESPACES = {
+    "dungeons_and_combat",
+    "panascraftrpgmod",
+    "eeeabsmobs",
+    "dragonforged",
+    "threateningly_mobs",
+    "metus_oblita",
+}
 
 
 def resource_path(identifier: str) -> Path:

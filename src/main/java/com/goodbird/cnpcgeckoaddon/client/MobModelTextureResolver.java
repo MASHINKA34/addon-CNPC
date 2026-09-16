@@ -65,7 +65,11 @@ public final class MobModelTextureResolver {
             "redev_edition_mobs",
             "wroughtnights",
             "dungeons_and_combat",
-            "panascraftrpgmod"
+            "panascraftrpgmod",
+            "eeeabsmobs",
+            "dragonforged",
+            "threateningly_mobs",
+            "metus_oblita"
     );
 
     private static final Map<String, ResourceLocation> BUNDLED_TEXTURES = loadBundledTextures();
