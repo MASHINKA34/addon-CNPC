@@ -26,7 +26,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Holds a geyser's fuse: a mark burns on the arena floor for a while, and only then does the
@@ -318,6 +321,12 @@ public final class BossGeyserScheduler {
                     countOf(skyParticles), countOf(columnSmoke), true);
         }
 
+        /** The residue's clock numbers, as they stood on the cast. */
+        BossGeyserResidue.Rules residueRules() {
+            return new BossGeyserResidue.Rules(residueLifetimeTicks, residueIntervalTicks, residueStackTicks,
+                    residueMaxStacks, residueDecayTicks, residueSoundIntervalTicks);
+        }
+
         /** What a cue spends per dot, or nothing at all while it is switched off. */
         private static int countOf(BossParticleCue cue) {
             return cue.isEnabled() ? cue.getCount() : 0;
@@ -463,9 +472,41 @@ public final class BossGeyserScheduler {
         }
     }
 
+    /**
+     * One residue, from the eruption that left it until it dries up.
+     *
+     * <p>A remainder rather than the cast: the stay rule, the finish gate and the chains do
+     * not wait for it, and the boss is back on its rotation while it lies there. It still
+     * goes with the boss, since it is the boss' and not the arena's.</p>
+     */
+    private static final class Residue {
+        private final ResourceKey<Level> dimension;
+        private final EntityNPCInterface boss;
+        private final Vec3 pos;
+        private final double radius;
+        /** What a dose hits for, enrage already counted in; nought is the potions alone. */
+        private final int damage;
+        private final Look look;
+        private final BossTelegraphPaint.Settings telegraph;
+        private final BossGeyserResidue clock;
+
+        private Residue(ResourceKey<Level> dimension, EntityNPCInterface boss, Vec3 pos, double radius,
+                        int damage, Look look, BossTelegraphPaint.Settings telegraph, BossGeyserResidue clock) {
+            this.dimension = dimension;
+            this.boss = boss;
+            this.pos = pos;
+            this.radius = radius;
+            this.damage = damage;
+            this.look = look;
+            this.telegraph = telegraph;
+            this.clock = clock;
+        }
+    }
+
     private static final TickQueue<Pending> PENDING = new TickQueue<>("boss geysers", MAX_PER_TICK);
     private static final TickQueue<Column> COLUMNS = new TickQueue<>("boss geyser columns", MAX_PER_TICK);
     private static final TickQueue<Sky> SKIES = new TickQueue<>("boss geyser sky strikes", MAX_PER_TICK);
+    private static final TickQueue<Residue> RESIDUES = new TickQueue<>("boss geyser residues", MAX_PER_TICK);
 
     private BossGeyserScheduler() {
     }
@@ -503,15 +544,16 @@ public final class BossGeyserScheduler {
     }
 
     public static boolean hasPending() {
-        return !PENDING.isEmpty() || !COLUMNS.isEmpty() || !SKIES.isEmpty();
+        return !PENDING.isEmpty() || !COLUMNS.isEmpty() || !SKIES.isEmpty() || !RESIDUES.isEmpty();
     }
 
     /**
      * Whether this boss still has a geyser on the way - a fuse burning or a strike from above
      * still to land; what a cast spot's stay rule, the finish gate and the chains wait on.
      *
-     * <p>A column still being drawn is not counted: it is what the eruption looked like, not
-     * something the boss is still doing.</p>
+     * <p>Neither a column still being drawn nor a residue lying there is counted: the one is
+     * what the eruption looked like and the other what it left, not something the boss is
+     * still doing.</p>
      */
     public static boolean hasPending(EntityNPCInterface boss) {
         return !PENDING.isEmpty() && PENDING.find(pending -> pending.boss == boss) != null
@@ -529,6 +571,8 @@ public final class BossGeyserScheduler {
                 column -> tickColumn(level, column));
         SKIES.sweep(sky -> sky.dimension.equals(level.dimension()),
                 sky -> tickSky(level, sky, gameTime));
+        RESIDUES.sweep(residue -> residue.dimension.equals(level.dimension()),
+                residue -> tickResidue(level, residue, gameTime));
     }
 
     /** Drops anything still waiting in a level that is going away. */
@@ -536,11 +580,13 @@ public final class BossGeyserScheduler {
         PENDING.removeIf(pending -> pending.dimension.equals(level.dimension()));
         COLUMNS.removeIf(column -> column.dimension.equals(level.dimension()));
         SKIES.removeIf(sky -> sky.dimension.equals(level.dimension()));
+        RESIDUES.removeIf(residue -> residue.dimension.equals(level.dimension()));
     }
 
     /**
      * Drops the fuses one boss lit, for its death and for the end of its fight, with the
-     * columns it still had coming up and the strikes it still had coming down.
+     * columns it still had coming up, the strikes it still had coming down and the residues
+     * it left.
      *
      * <p>A geyser is the boss doing something, not a mine left in the floor: killing it while
      * the ground is still smoking is a win, and the arena owes the party nothing more.</p>
@@ -554,6 +600,9 @@ public final class BossGeyserScheduler {
         }
         if (!SKIES.isEmpty()) {
             SKIES.removeIf(sky -> sky.boss == boss);
+        }
+        if (!RESIDUES.isEmpty()) {
+            RESIDUES.removeIf(residue -> residue.boss == boss);
         }
     }
 
@@ -669,6 +718,61 @@ public final class BossGeyserScheduler {
                     new BossGeyserSky(gameTime, pending.look.skyDelayTicks(), pending.look.skyFallTicks()),
                     pending.look.skyColumn(radius)));
         }
+        if (pending.look.residueEnabled()) {
+            // Beside the fluid, not instead of it: the puddle is blocks the arena gets back,
+            // the residue is the doses and the stacks, and a phase may want both.
+            RESIDUES.add(new Residue(level.dimension(), pending.boss, pos, pending.look.residueRadius(pending.radius),
+                    pending.residueDamage, pending.look, pending.telegraph,
+                    new BossGeyserResidue(pending.look.residueRules(), gameTime)));
+        }
+    }
+
+    /** @return whether this residue still lies there and belongs back in the queue */
+    private static boolean tickResidue(ServerLevel level, Residue residue, long gameTime) {
+        if (!residue.boss.isAlive() || residue.boss.isRemoved() || residue.clock.isOver(gameTime)) {
+            return false;
+        }
+        Look look = residue.look;
+        Vec3 pos = residue.pos;
+        // Who is in it: within the circle, and no lower than a block under its floor - a
+        // residue on a step - nor higher than it reaches, so a player thrown clear is out.
+        Map<UUID, LivingEntity> inside = new LinkedHashMap<>();
+        for (LivingEntity victim : victims(level, residue.boss, pos, residue.radius)) {
+            double y = victim.getY();
+            if (y >= pos.y - 1.0D && y <= pos.y + look.residueHeight()) {
+                inside.put(victim.getUUID(), victim);
+            }
+        }
+        boolean seen = seen(level, residue.boss, pos);
+        for (BossGeyserResidue.Hit hit : residue.clock.tick(gameTime, inside.keySet())) {
+            LivingEntity victim = inside.get(hit.victim());
+            if (victim == null || BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.GEYSER)) {
+                continue;
+            }
+            // The damage and the potions go separately: the potions carry the stacks, and a
+            // residue of no damage is the potions alone rather than a hurt() spent on nothing.
+            if (residue.damage > 0) {
+                BossAbilityDamageUtil.hit(victim, BossAbilityKind.GEYSER, residue.boss, residue.damage, null,
+                        0, 0.0D, 0.0D);
+            }
+            BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.GEYSER, residue.boss, look.residueEffects(),
+                    hit.stacks());
+            if (seen) {
+                look.residueHitParticles().emitDust(level, victim.getX(), victim.getY() + 0.3D, victim.getZ(),
+                        0.3D, 0.2D, 0.3D, 0.02D, BossAbilityKind.GEYSER);
+            }
+        }
+        if (residue.clock.soundDue(gameTime)) {
+            look.residueSound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
+        }
+        if (seen && gameTime % MARK_INTERVAL_TICKS == 0L) {
+            // The outline says where the residue lies and how long is left of it, the way the
+            // fuse's ring says how long is left of the fuse; the bubbles over the whole
+            // circle say it is still wet.
+            markRing(level, residue.boss, residue.telegraph, pos, residue.radius, residue.clock.progress(gameTime));
+            scatter(level, pos, residue.radius, look.residueParticles());
+        }
+        return true;
     }
 
     /**

@@ -40,11 +40,16 @@ public final class BossEffectSet {
     }
 
     public void applyAll(LivingEntity victim, Entity source) {
+        applyAll(victim, source, 0);
+    }
+
+    /** The same, every slot's level raised by {@code extraLevels}: what a residue's stacks are worth. */
+    public void applyAll(LivingEntity victim, Entity source, int extraLevels) {
         if (victim == null) {
             return;
         }
         for (BossEffectData effect : effects) {
-            effect.apply(victim, source);
+            effect.apply(victim, source, extraLevels);
         }
     }
 

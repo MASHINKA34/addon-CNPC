@@ -32,6 +32,9 @@ public final class BossEffectData {
      */
     public static final String FIRE_ID = "cnpcgeckoaddon:fire";
 
+    /** Vanilla's ceiling on an amplifier: it goes over the wire as a byte, so nothing above it can be sent. */
+    public static final int MAX_AMPLIFIER = 255;
+
     private boolean enabled;
     private String effectId = "minecraft:poison";
     private int durationTicks = 100;
@@ -66,19 +69,41 @@ public final class BossEffectData {
      * that quietly hits for plain damage.</p>
      */
     public void apply(LivingEntity victim, Entity source) {
+        apply(victim, source, 0);
+    }
+
+    /**
+     * The same with {@code extraLevels} on top of the slot's own level: the stacks a residue
+     * has on whoever stands in it. The potion's amplifier and the fire's level both grow by
+     * it; the duration is the slot's own either way.
+     */
+    public void apply(LivingEntity victim, Entity source, int extraLevels) {
         if (!enabled || victim == null) {
             return;
         }
         if (isFire(effectId)) {
-            ignite(victim, source);
+            ignite(victim, source, extraLevels);
             return;
         }
         Holder<MobEffect> effect = resolve(effectId);
         if (effect == null) {
             return;
         }
-        victim.addEffect(new MobEffectInstance(effect, durationTicks, amplifier,
+        victim.addEffect(new MobEffectInstance(effect, durationTicks, amplifierWith(extraLevels),
                 false, showParticles, showParticles), source);
+    }
+
+    /**
+     * The amplifier with this many levels on top: held under vanilla's ceiling, and never below
+     * the slot's own, since stacks only ever add.
+     */
+    public int amplifierWith(int extraLevels) {
+        return Mth.clamp(amplifier + Math.max(0, extraLevels), 0, MAX_AMPLIFIER);
+    }
+
+    /** The 1-based level with the extra on top: what the fire burns at. */
+    public int levelWith(int extraLevels) {
+        return amplifierWith(extraLevels) + 1;
     }
 
     /**
@@ -88,13 +113,13 @@ public final class BossEffectData {
      * time, and fire immunity, fire resistance and water keep their vanilla say over the burn.
      * The particles switch is left out: the flames are the effect.</p>
      */
-    private void ignite(LivingEntity victim, Entity source) {
+    private void ignite(LivingEntity victim, Entity source, int extraLevels) {
         // The capture's boss half hands its slots to the boss itself, and a stray shot can
         // land on a summon; a boss lighting its own side is never what the slot meant.
         if (victim == source || source != null && BossMinionUtil.isMinionOf(victim, source)) {
             return;
         }
-        BossFireTracker.ignite(victim, durationTicks, getLevel());
+        BossFireTracker.ignite(victim, durationTicks, levelWith(extraLevels));
     }
 
     /** Whether this id names the fire rather than a potion. */

@@ -90,6 +90,15 @@ public final class BossAbilityDamageUtil {
     /** The potion half on its own, for an ability that deals its damage somewhere else. */
     public static boolean applyEffects(LivingEntity target, int ability, EntityNPCInterface boss,
                                        BossEffectSet effects) {
+        return applyEffects(target, ability, boss, effects, 0);
+    }
+
+    /**
+     * The same with {@code extraLevels} on top of every potion's own level: the stacks a
+     * residue has on whoever stands in it.
+     */
+    public static boolean applyEffects(LivingEntity target, int ability, EntityNPCInterface boss,
+                                       BossEffectSet effects, int extraLevels) {
         if (target == null || passesBy(target, ability)) {
             return false;
         }
@@ -98,7 +107,7 @@ public final class BossAbilityDamageUtil {
         try {
             // Marked as well as hurting does: a potion of harming is damage arriving under this
             // ability's name, and the totem filter has to read it as such.
-            effects.applyAll(target, boss);
+            effects.applyAll(target, boss, extraLevels);
         } finally {
             currentAbility = outerAbility;
         }
