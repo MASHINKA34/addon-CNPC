@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -21,6 +22,10 @@ public abstract class MixinEntityNPCInterfaceTeleportPath extends PathfinderMob 
     @Unique
     private TeleportPathController cnpcgeckoaddon$teleportPathController;
 
+    /** Set by a controller that gave up; never saved, so a reload builds one again. */
+    @Unique
+    private boolean cnpcgeckoaddon$bossControllerDisabled;
+
     protected MixinEntityNPCInterfaceTeleportPath(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
     }
@@ -37,36 +42,61 @@ public abstract class MixinEntityNPCInterfaceTeleportPath extends PathfinderMob 
         cnpcgeckoaddon$teleportPathController = null;
     }
 
+    @Override
+    @Unique
+    public void cnpcgeckoaddon$disableBossController() {
+        cnpcgeckoaddon$teleportPathController = null;
+        cnpcgeckoaddon$bossControllerDisabled = true;
+    }
+
+    /**
+     * The controller guards its own tick; the try here is for what comes before it - the
+     * settings being read and a controller being built - which runs inside the npc's tick
+     * just the same. Written out rather than a lambda: this is every npc, every tick.
+     */
     @Inject(method = "tick", at = @At("TAIL"), remap = false)
     private void cnpcgeckoaddon$tickTeleportPath(CallbackInfo ci) {
-        if (level().isClientSide) {
+        if (level().isClientSide || cnpcgeckoaddon$bossControllerDisabled) {
             return;
         }
-        EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
-        if (cnpcgeckoaddon$teleportPathController == null) {
-            if (!((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData().isEnabled()) {
-                return;
+        try {
+            EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
+            if (cnpcgeckoaddon$teleportPathController == null) {
+                if (!((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData().isEnabled()) {
+                    return;
+                }
+                cnpcgeckoaddon$teleportPathController = new TeleportPathController(npc);
             }
-            cnpcgeckoaddon$teleportPathController = new TeleportPathController(npc);
+            cnpcgeckoaddon$teleportPathController.tick();
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.boss_tick", error);
         }
-        cnpcgeckoaddon$teleportPathController.tick();
     }
 
     @Inject(method = "stopSeenByPlayer", at = @At("HEAD"), remap = false)
     private void cnpcgeckoaddon$stopBossBarTracking(ServerPlayer player, CallbackInfo ci) {
-        if (cnpcgeckoaddon$teleportPathController != null) {
-            cnpcgeckoaddon$teleportPathController.removeBossBarPlayer(player);
+        try {
+            if (cnpcgeckoaddon$teleportPathController != null) {
+                cnpcgeckoaddon$teleportPathController.removeBossBarPlayer(player);
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.boss_bar_untrack", error);
         }
     }
 
     @Inject(method = "remove", at = @At("HEAD"), remap = false)
     private void cnpcgeckoaddon$shutdownBossBar(Entity.RemovalReason reason, CallbackInfo ci) {
-        if (cnpcgeckoaddon$teleportPathController != null) {
-            if (reason == Entity.RemovalReason.KILLED) {
-                cnpcgeckoaddon$teleportPathController.stopBossBar();
-            } else {
-                cnpcgeckoaddon$teleportPathController.shutdown();
+        // What escapes here escapes into the entity being removed, and leaves it half removed.
+        try {
+            if (cnpcgeckoaddon$teleportPathController != null) {
+                if (reason == Entity.RemovalReason.KILLED) {
+                    cnpcgeckoaddon$teleportPathController.stopBossBar();
+                } else {
+                    cnpcgeckoaddon$teleportPathController.shutdown();
+                }
             }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.boss_remove", error);
         }
     }
 }

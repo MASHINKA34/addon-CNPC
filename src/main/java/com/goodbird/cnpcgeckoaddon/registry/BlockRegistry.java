@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.registry;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.block.BossChestBlock;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
@@ -21,6 +22,10 @@ public class BlockRegistry {
 
     @SubscribeEvent
     public static void registerBlocks(RegisterEvent event) {
+        EventGuard.handle("registry.block.register_blocks", event, BlockRegistry::handleRegisterBlocks);
+    }
+
+    private static void handleRegisterBlocks(RegisterEvent event) {
         event.register(Registries.BLOCK, helper -> {
             // No item form and no loot table: this block is only ever put down by a dying
             // boss, and breaking it should give back its contents, not a chest to keep.

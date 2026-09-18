@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.registry;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.tile.BossChestBlockEntity;
 import com.goodbird.cnpcgeckoaddon.tile.TileEntityCustomModel;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.Util;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +24,10 @@ public class TileEntityRegistry {
 
     @SubscribeEvent
     public static void registerBlocks(RegisterEvent event) {
+        EventGuard.handle("registry.block_entity.register_blocks", event, TileEntityRegistry::handleRegisterBlocks);
+    }
+
+    private static void handleRegisterBlocks(RegisterEvent event) {
         event.register(Registries.BLOCK_ENTITY_TYPE, helper -> {
             tileEntityCustomModel = createTile("custommodeltileentity", TileEntityCustomModel::new,
                     CustomBlocks.scripted, CustomBlocks.scripted_door);

@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossTetherAnchor;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
@@ -27,6 +28,10 @@ public class EntityRegistry {
 
     @SubscribeEvent
     public static void registerEntities(RegisterEvent event) {
+        EventGuard.handle("registry.entity.register_entities", event, EntityRegistry::handleRegisterEntities);
+    }
+
+    private static void handleRegisterEntities(RegisterEvent event) {
         // The typed form of the event: it hands back a helper already bound to the entity
         // registry, so nothing here has to cast a wildcard registry into the shape it wants
         // and be trusted about it.
@@ -69,6 +74,10 @@ public class EntityRegistry {
 
     @SubscribeEvent
     public static void attribute(final EntityAttributeCreationEvent event) {
+        EventGuard.handle("registry.entity.attribute", event, EntityRegistry::handleAttribute);
+    }
+
+    private static void handleAttribute(EntityAttributeCreationEvent event) {
         event.put(entityCustomModel, LivingEntity.createLivingAttributes().add(Attributes.FOLLOW_RANGE).build());
     }
 }

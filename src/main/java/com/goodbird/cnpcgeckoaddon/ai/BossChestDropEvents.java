@@ -3,6 +3,8 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
@@ -40,11 +42,15 @@ public class BossChestDropEvents {
      */
     @SubscribeEvent
     public static void onServerStarting(final ServerStartingEvent event) {
+        EventGuard.handle("chest_drop.server_starting", event, BossChestDropEvents::handleServerStarting);
+    }
+
+    private static void handleServerStarting(ServerStartingEvent event) {
         if (listeningToNpcApi) {
             return;
         }
         listeningToNpcApi = true;
-        WrapperNpcAPI.EVENT_BUS.addListener(NpcEvent.DiedEvent.class, BossChestDropEvents::captureNpcDrops);
+        WrapperNpcAPI.EVENT_BUS.addListener(NpcEvent.DiedEvent.class, BossChestDropEvents::onNpcDied);
     }
 
     /**
@@ -53,6 +59,11 @@ public class BossChestDropEvents {
      * <p>This fires before the death event that schedules the chest, so the items are handed
      * to the scheduler for it to pick up rather than the other way round.</p>
      */
+    private static void onNpcDied(final NpcEvent.DiedEvent event) {
+        // CustomNPCs posts this from inside die(): what escapes here escapes into the death.
+        CrashGuard.run("chest_drop.npc_died", event, BossChestDropEvents::captureNpcDrops);
+    }
+
     private static void captureNpcDrops(final NpcEvent.DiedEvent event) {
         if (event.droppedItems == null || event.droppedItems.length == 0
                 || !(event.npc.getMCEntity() instanceof EntityNPCInterface npc)
@@ -67,15 +78,21 @@ public class BossChestDropEvents {
                 drops.add(stack.copy());
             }
         }
+        // Staged before the list is emptied, so a staging that fails leaves the loot to drop
+        // the way CustomNPCs drops it rather than nowhere at all.
+        BossChestScheduler.takeDrops(level, npc.getUUID(), npc.blockPosition(), drops,
+                BossTuningUtil.of(npc).chestStagedDropsTimeoutTicks());
         // Emptying the list is what keeps the loot out of the grass: CustomNPCs spawns
         // exactly what is left in it.
         event.droppedItems = new IItemStack[0];
-        BossChestScheduler.takeDrops(level, npc.getUUID(), npc.blockPosition(), drops,
-                BossTuningUtil.of(npc).chestStagedDropsTimeoutTicks());
     }
 
     @SubscribeEvent
     public static void onLivingDrops(final LivingDropsEvent event) {
+        EventGuard.handle("chest_drop.living_drops", event, BossChestDropEvents::handleLivingDrops);
+    }
+
+    private static void handleLivingDrops(LivingDropsEvent event) {
         if (event.getDrops().isEmpty()
                 || !(event.getEntity() instanceof EntityNPCInterface npc)
                 || !(npc.level() instanceof ServerLevel level)
@@ -89,9 +106,10 @@ public class BossChestDropEvents {
                 drops.add(stack.copy());
             }
         }
-        event.getDrops().clear();
+        // In this order for the reason above: drops that could not be staged stay drops.
         BossChestScheduler.takeDrops(level, npc.getUUID(), npc.blockPosition(), drops,
                 BossTuningUtil.of(npc).chestStagedDropsTimeoutTicks());
+        event.getDrops().clear();
     }
 
     private static boolean wantsDrops(EntityNPCInterface npc) {

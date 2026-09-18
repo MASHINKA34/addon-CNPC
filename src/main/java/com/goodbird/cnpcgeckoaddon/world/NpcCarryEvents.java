@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.world;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -35,6 +37,10 @@ public final class NpcCarryEvents {
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onEntityInteract(final PlayerInteractEvent.EntityInteract event) {
+        EventGuard.handle("carry.entity_interact", event, NpcCarryEvents::handleEntityInteract);
+    }
+
+    private static void handleEntityInteract(PlayerInteractEvent.EntityInteract event) {
         if (!isServerMainHand(event)) {
             return;
         }
@@ -71,6 +77,10 @@ public final class NpcCarryEvents {
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onRightClickBlock(final PlayerInteractEvent.RightClickBlock event) {
+        EventGuard.handle("carry.right_click_block", event, NpcCarryEvents::handleRightClickBlock);
+    }
+
+    private static void handleRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (isPlaceClick(event) && NpcCarryManager.placeFromAim((ServerPlayer) event.getEntity())) {
             event.setCancellationResult(InteractionResult.SUCCESS);
             event.setCanceled(true);
@@ -85,6 +95,10 @@ public final class NpcCarryEvents {
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onRightClickItem(final PlayerInteractEvent.RightClickItem event) {
+        EventGuard.handle("carry.right_click_item", event, NpcCarryEvents::handleRightClickItem);
+    }
+
+    private static void handleRightClickItem(PlayerInteractEvent.RightClickItem event) {
         if (isPlaceClick(event) && NpcCarryManager.throwOrPlace((ServerPlayer) event.getEntity())) {
             event.setCancellationResult(InteractionResult.SUCCESS);
             event.setCanceled(true);
@@ -93,13 +107,23 @@ public final class NpcCarryEvents {
 
     @SubscribeEvent
     public static void onLevelTick(final LevelTickEvent.Post event) {
+        EventGuard.handle("carry.level_tick", event, NpcCarryEvents::handleLevelTick);
+    }
+
+    private static void handleLevelTick(LevelTickEvent.Post event) {
         if (event.getLevel() instanceof ServerLevel level) {
-            NpcCarryManager.tick(level);
+            // A carry that fails its tick fails the next one too; putting this level's npcs
+            // down where they are is the recovery, the one a level going away already uses.
+            CrashGuard.tick("carry.tick", level, NpcCarryManager::tick, NpcCarryManager::clearLevel);
         }
     }
 
     @SubscribeEvent
     public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
+        EventGuard.handle("carry.player_logout", event, NpcCarryEvents::handlePlayerLogout);
+    }
+
+    private static void handlePlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             NpcCarryManager.onPlayerGone(player);
         }
@@ -107,6 +131,10 @@ public final class NpcCarryEvents {
 
     @SubscribeEvent
     public static void onStartTracking(final PlayerEvent.StartTracking event) {
+        EventGuard.handle("carry.start_tracking", event, NpcCarryEvents::handleStartTracking);
+    }
+
+    private static void handleStartTracking(PlayerEvent.StartTracking event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             NpcCarryManager.syncForTracking(player, event.getTarget());
         }
@@ -115,6 +143,10 @@ public final class NpcCarryEvents {
     /** The npc stays in the dimension it was picked up in, so the carry ends with it. */
     @SubscribeEvent
     public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
+        EventGuard.handle("carry.player_changed_dimension", event, NpcCarryEvents::handlePlayerChangedDimension);
+    }
+
+    private static void handlePlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             NpcCarryManager.release(player);
         }
@@ -128,6 +160,10 @@ public final class NpcCarryEvents {
      */
     @SubscribeEvent
     public static void onCarrierDamaged(final LivingDamageEvent.Post event) {
+        EventGuard.handle("carry.carrier_damaged", event, NpcCarryEvents::handleCarrierDamaged);
+    }
+
+    private static void handleCarrierDamaged(LivingDamageEvent.Post event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             NpcCarryManager.onCarrierDamaged(player);
         }
@@ -135,6 +171,10 @@ public final class NpcCarryEvents {
 
     @SubscribeEvent
     public static void onDeath(final LivingDeathEvent event) {
+        EventGuard.handle("carry.death", event, NpcCarryEvents::handleDeath);
+    }
+
+    private static void handleDeath(LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             NpcCarryManager.release(player);
         } else if (!event.getEntity().level().isClientSide) {
@@ -144,6 +184,10 @@ public final class NpcCarryEvents {
 
     @SubscribeEvent
     public static void onEntityLeaveLevel(final EntityLeaveLevelEvent event) {
+        EventGuard.handle("carry.entity_leave_level", event, NpcCarryEvents::handleEntityLeaveLevel);
+    }
+
+    private static void handleEntityLeaveLevel(EntityLeaveLevelEvent event) {
         if (!event.getLevel().isClientSide) {
             NpcCarryManager.releaseNpc(event.getEntity());
         }
@@ -151,6 +195,10 @@ public final class NpcCarryEvents {
 
     @SubscribeEvent
     public static void onLevelUnload(final LevelEvent.Unload event) {
+        EventGuard.handle("carry.level_unload", event, NpcCarryEvents::handleLevelUnload);
+    }
+
+    private static void handleLevelUnload(LevelEvent.Unload event) {
         if (event.getLevel() instanceof ServerLevel level) {
             NpcCarryManager.clearLevel(level);
         }
@@ -159,6 +207,10 @@ public final class NpcCarryEvents {
     /** Runs before the world is saved, which is the only chance to land a carry cleanly. */
     @SubscribeEvent
     public static void onServerStopping(final ServerStoppingEvent event) {
+        EventGuard.handle("carry.server_stopping", event, NpcCarryEvents::handleServerStopping);
+    }
+
+    private static void handleServerStopping(ServerStoppingEvent event) {
         NpcCarryManager.shutdown(event.getServer());
     }
 

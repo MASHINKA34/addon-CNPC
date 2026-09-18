@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -23,6 +24,10 @@ public final class BossPlayerEvents {
 
     @SubscribeEvent
     public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
+        EventGuard.handle("player.player_logout", event, BossPlayerEvents::handlePlayerLogout);
+    }
+
+    private static void handlePlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             releaseFromEverything(player);
         }
@@ -30,6 +35,10 @@ public final class BossPlayerEvents {
 
     @SubscribeEvent
     public static void onPlayerChangedDimension(final PlayerEvent.PlayerChangedDimensionEvent event) {
+        EventGuard.handle("player.player_changed_dimension", event, BossPlayerEvents::handlePlayerChangedDimension);
+    }
+
+    private static void handlePlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             releaseFromEverything(player);
         }
@@ -37,6 +46,10 @@ public final class BossPlayerEvents {
 
     @SubscribeEvent
     public static void onPlayerStartsTracking(final PlayerEvent.StartTracking event) {
+        EventGuard.handle("player.player_starts_tracking", event, BossPlayerEvents::handlePlayerStartsTracking);
+    }
+
+    private static void handlePlayerStartsTracking(PlayerEvent.StartTracking event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.syncTotemLinksForTracking(player, event.getTarget());
             BossCaptureManager.syncLinkForTracking(player, event.getTarget());

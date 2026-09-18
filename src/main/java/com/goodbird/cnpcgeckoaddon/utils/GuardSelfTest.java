@@ -50,6 +50,14 @@ public final class GuardSelfTest {
     private GuardSelfTest() {
     }
 
+    /**
+     * Whether anything at all is armed: one volatile read, for the sites whose wire is named after
+     * what they are running on - a level, a victim - and should only build that name in a drill.
+     */
+    public static boolean anyArmed() {
+        return anyArmed;
+    }
+
     /** Lays a one-shot wire: the next time the site runs, it fails once. */
     public static void arm(String site) {
         ARMED.add(site);

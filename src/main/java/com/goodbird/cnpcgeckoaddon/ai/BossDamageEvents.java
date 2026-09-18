@@ -7,10 +7,13 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
+import com.goodbird.cnpcgeckoaddon.utils.GuardSelfTest;
 import com.goodbird.cnpcgeckoaddon.world.NpcLaunchPadManager;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -36,6 +39,11 @@ import noppes.npcs.entity.EntityNPCInterface;
  *
  * <p>Keeping them together also means one listener per priority rather than eight on a path
  * every hit dealt anywhere in the world walks down.</p>
+ *
+ * <p>Every listener is one line that hands its stage to {@link EventGuard}: these run inside
+ * {@code LivingEntity.hurt}, where an exception is a crash, and behind the guard a stage that
+ * fails is a log line and a hit that lands the vanilla way. The stages are method references,
+ * so the guard costs a hit nothing to allocate.</p>
  */
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID)
 public final class BossDamageEvents {
@@ -53,6 +61,10 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onScaleIncomingDamage(final LivingIncomingDamageEvent event) {
+        EventGuard.incomingDamage("damage.scale", event, BossDamageEvents::scaleIncomingDamage);
+    }
+
+    private static void scaleIncomingDamage(LivingIncomingDamageEvent event) {
         scaleEnragedBossAttack(event);
         scaleAbsorbedShadows(event);
         scaleBossFire(event);
@@ -113,6 +125,15 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent
     public static void onIncomingDamage(final LivingIncomingDamageEvent event) {
+        EventGuard.incomingDamage("damage.protections", event, BossDamageEvents::claimIncomingDamage);
+    }
+
+    private static void claimIncomingDamage(LivingIncomingDamageEvent event) {
+        // The self test's wire: /cnpcgecko selftest damage fails this stage on the next hit the
+        // tester takes. The name is only built while a drill is armed.
+        if (GuardSelfTest.anyArmed()) {
+            GuardSelfTest.trip(selfTestWire(event.getEntity()));
+        }
         if (blockTotemsOwnSwing(event) || blockProtectedBoss(event) || blockDownedBoss(event)
                 || blockOutsideAggroZone(event) || blockTotemVulnerability(event)) {
             return;
@@ -303,6 +324,10 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent(priority = EventPriority.LOW)
     public static void onNpcDamageResist(final LivingIncomingDamageEvent event) {
+        EventGuard.incomingDamage("damage.npc_resist", event, BossDamageEvents::resistIncomingDamage);
+    }
+
+    private static void resistIncomingDamage(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof EntityNPCInterface npc)) {
             return;
         }
@@ -340,6 +365,10 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBossBarrier(final LivingIncomingDamageEvent event) {
+        EventGuard.incomingDamage("damage.barrier", event, BossDamageEvents::payIntoBarrier);
+    }
+
+    private static void payIntoBarrier(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof EntityNPCInterface npc)
                 || !(npc instanceof IBossController holder)
                 // The same escape hatch every protection leaves: /kill has to keep working.
@@ -387,6 +416,10 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onDamagePre(final LivingDamageEvent.Pre event) {
+        EventGuard.damagePre("damage.lethal", event, BossDamageEvents::claimMitigatedDamage);
+    }
+
+    private static void claimMitigatedDamage(LivingDamageEvent.Pre event) {
         downOnLethalHit(event);
         clampToLethalGuard(event);
         breakCocoonOnLethalHit(event);
@@ -458,6 +491,10 @@ public final class BossDamageEvents {
 
     @SubscribeEvent
     public static void onLivingDamage(final LivingDamageEvent.Post event) {
+        EventGuard.handle("damage.landed", event, BossDamageEvents::recordLandedDamage);
+    }
+
+    private static void recordLandedDamage(LivingDamageEvent.Post event) {
         if (event.getEntity() instanceof EntityNPCInterface npc
                 && event.getSource().getEntity() instanceof ServerPlayer player) {
             trackParticipant(npc, player);
@@ -498,6 +535,10 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingHeal(final LivingHealEvent event) {
+        EventGuard.handle("damage.heal", event, BossDamageEvents::shareHeal);
+    }
+
+    private static void shareHeal(LivingHealEvent event) {
         if (!(event.getEntity() instanceof EntityNPCInterface npc) || !(npc instanceof IBossController holder)
                 || npc.level().isClientSide) {
             return;
@@ -523,6 +564,10 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent
     public static void onLivingFall(final LivingFallEvent event) {
+        EventGuard.handle("damage.fall", event, BossDamageEvents::settleLanding);
+    }
+
+    private static void settleLanding(LivingFallEvent event) {
         landGravityThrow(event);
         landSeismicSlam(event);
         cancelLaunchPadFall(event);
@@ -559,6 +604,10 @@ public final class BossDamageEvents {
      */
     @SubscribeEvent
     public static void onFlyableFall(final PlayerFlyableFallEvent event) {
+        EventGuard.handle("damage.flyable_fall", event, BossDamageEvents::landFlyer);
+    }
+
+    private static void landFlyer(PlayerFlyableFallEvent event) {
         NpcLaunchPadManager.land(event.getEntity());
     }
 
@@ -607,6 +656,11 @@ public final class BossDamageEvents {
         if (controller != null && (controller.isLeaping() || controller.isDashing())) {
             event.setCanceled(true);
         }
+    }
+
+    /** The wire {@code /cnpcgecko selftest damage} lays for the hits one entity takes. */
+    public static String selfTestWire(Entity victim) {
+        return GuardSelfTest.DAMAGE + "@" + victim.getUUID();
     }
 
     static void trackParticipant(EntityNPCInterface npc, ServerPlayer player) {

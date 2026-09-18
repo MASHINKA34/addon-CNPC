@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -23,6 +24,10 @@ public final class NpcProjectileDamage {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        EventGuard.incomingDamage("npc_projectile.incoming_damage", event, NpcProjectileDamage::handleIncomingDamage);
+    }
+
+    private static void handleIncomingDamage(LivingIncomingDamageEvent event) {
         if (!(event.getSource().getDirectEntity() instanceof Projectile projectile)) {
             return;
         }

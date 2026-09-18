@@ -10,6 +10,8 @@ import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.mixin.ISoundReactionData;
 import com.goodbird.cnpcgeckoaddon.mixin.ISoundReactiveNpc;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -65,10 +67,19 @@ public final class IntegrationCheck {
 
     @SubscribeEvent
     public static void verify(final FMLCommonSetupEvent event) {
+        EventGuard.handle("setup.integration_check", event, IntegrationCheck::handleVerify);
+    }
+
+    private static void handleVerify(FMLCommonSetupEvent event) {
         // enqueueWork rather than the event thread: this only reads classes, but every other
         // mod's setup runs in parallel with it, and a log line about a broken install is
         // worth putting where the rest of the loading messages are.
-        event.enqueueWork(IntegrationCheck::report);
+        event.enqueueWork(IntegrationCheck::guardedReport);
+    }
+
+    /** A check that exists to say the install is broken must not be what breaks the loading. */
+    private static void guardedReport() {
+        CrashGuard.run("setup.integration_check", IntegrationCheck::report);
     }
 
     private static void report() {

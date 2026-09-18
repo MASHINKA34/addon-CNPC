@@ -8,6 +8,7 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import com.goodbird.cnpcgeckoaddon.world.BossMinionCleanupStore;
 import com.goodbird.cnpcgeckoaddon.world.BossCocoonGuardCleanupStore;
@@ -46,6 +47,10 @@ public final class BossLifecycleEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBossDeath(final LivingDeathEvent event) {
+        EventGuard.handle("lifecycle.boss_death", event, BossLifecycleEvents::handleBossDeath);
+    }
+
+    private static void handleBossDeath(LivingDeathEvent event) {
         // Any captured victim, player or npc, has to be let go before it stops existing.
         BossCaptureManager.releaseVictim(event.getEntity());
         BossTetherManager.releaseVictim(event.getEntity());
@@ -132,6 +137,10 @@ public final class BossLifecycleEvents {
      */
     @SubscribeEvent
     public static void onEntityJoinLevel(final EntityJoinLevelEvent event) {
+        EventGuard.handle("lifecycle.entity_join_level", event, BossLifecycleEvents::handleEntityJoinLevel);
+    }
+
+    private static void handleEntityJoinLevel(EntityJoinLevelEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
@@ -185,6 +194,10 @@ public final class BossLifecycleEvents {
 
     @SubscribeEvent
     public static void onProjectileJoinLevel(final EntityJoinLevelEvent event) {
+        EventGuard.handle("lifecycle.projectile_join_level", event, BossLifecycleEvents::handleProjectileJoinLevel);
+    }
+
+    private static void handleProjectileJoinLevel(EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide || event.loadedFromDisk()
                 || !(event.getEntity() instanceof Projectile projectile)
                 || PersistentDataUtil.contains(projectile, PROJECTILE_EFFECTS_KEY, Tag.TAG_LIST)
@@ -201,6 +214,10 @@ public final class BossLifecycleEvents {
 
     @SubscribeEvent
     public static void onProjectileImpact(final ProjectileImpactEvent event) {
+        EventGuard.handle("lifecycle.projectile_impact", event, BossLifecycleEvents::handleProjectileImpact);
+    }
+
+    private static void handleProjectileImpact(ProjectileImpactEvent event) {
         if (!(event.getRayTraceResult() instanceof EntityHitResult hit)
                 || !(hit.getEntity() instanceof LivingEntity victim)) {
             return;

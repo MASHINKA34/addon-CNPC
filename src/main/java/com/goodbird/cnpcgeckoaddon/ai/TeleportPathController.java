@@ -6,7 +6,10 @@ import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
+import com.goodbird.cnpcgeckoaddon.utils.GuardSelfTest;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
+import com.goodbird.cnpcgeckoaddon.utils.TickFailureEscalation;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
@@ -51,8 +54,6 @@ import java.util.function.Predicate;
 public final class TeleportPathController {
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
     static final long NOT_SCHEDULED = Long.MIN_VALUE;
-    /** How often a controller whose tick keeps throwing is allowed to say so in the log. */
-    private static final int TICK_FAILURE_LOG_INTERVAL_TICKS = 200;
 
     @FunctionalInterface
     private interface AbilityStarter {
@@ -238,8 +239,8 @@ public final class TeleportPathController {
     private int invulnerablePhaseIndex = -1;
     /** Earliest game time the next blocked-hit clang may play at. */
     private long nextBlockFeedbackAt;
-    /** Earliest game time the tick guard may report the next failure at. */
-    private long nextTickFailureLogAt;
+    /** How long the tick has been failing for, and what that calls for. */
+    private final TickFailureEscalation tickFailures = new TickFailureEscalation();
     private long outOfCombatSince = NOT_SCHEDULED;
     private long outsideHomeLeashSince = NOT_SCHEDULED;
     private boolean encounterResetDone;
@@ -452,18 +453,52 @@ public final class TeleportPathController {
      * takes the level tick - and the server - down with it. One boss with a configuration
      * or a world state nothing here foresaw is not worth that: it is logged and skipped,
      * and the rest of the tick carries on.</p>
+     *
+     * <p>A controller that fails every tick is in a state it will not leave by itself. After
+     * {@link TickFailureEscalation#RESET_AFTER} failed ticks in a row the fight is reset, which
+     * drops everything a broken cast could be stuck in; after
+     * {@link TickFailureEscalation#DISABLE_AFTER} the controller is shut down and the npc is
+     * told not to build another one until it is loaded again - a plain npc, and a server that
+     * is not logging the same stack for the rest of the session.</p>
      */
     public void tick() {
         try {
+            GuardSelfTest.tripController(npc.getUUID());
             tickGuarded();
+            tickFailures.succeeded();
         } catch (Throwable error) {
-            long gameTime = npc.level() instanceof ServerLevel level ? level.getGameTime() : 0L;
             // One line every ten seconds at worst, not one per tick for as long as it lasts.
-            if (gameTime >= nextTickFailureLogAt) {
-                nextTickFailureLogAt = gameTime + TICK_FAILURE_LOG_INTERVAL_TICKS;
-                LOGGER.error("Boss controller tick failed for NPC {}; skipping this tick",
-                        npc.getName().getString(), error);
+            CrashGuard.caught("boss.controller.tick", nameForLog(), error);
+            escalate(tickFailures.failed());
+        }
+    }
+
+    private void escalate(TickFailureEscalation.Step step) {
+        if (step == TickFailureEscalation.Step.RESET) {
+            LOGGER.error("Boss controller of NPC {} has failed {} ticks in a row; resetting its fight",
+                    nameForLog(), TickFailureEscalation.RESET_AFTER);
+            CrashGuard.run("boss.controller.reset", this::cancelPendingAndSchedules);
+        } else if (step == TickFailureEscalation.Step.DISABLE) {
+            LOGGER.error("Boss controller of NPC {} has failed {} ticks in a row; boss framework disabled "
+                    + "for this npc until reload", nameForLog(), TickFailureEscalation.DISABLE_AFTER);
+            CrashGuard.run("boss.controller.shutdown", this::shutdown);
+            CrashGuard.run("boss.controller.shutdown", bar::restoreNative);
+            // Whatever shutdown() got through, these two are what "disabled" means: off the live
+            // list, and off the npc with a note not to build the next one.
+            INSTANCES.remove(this);
+            if (npc instanceof IBossController holder) {
+                holder.cnpcgeckoaddon$disableBossController();
             }
+            GuardSelfTest.disarmController(npc.getUUID());
+        }
+    }
+
+    /** The npc's name for a log line, from an npc whose state may be what is broken. */
+    private String nameForLog() {
+        try {
+            return npc.getName().getString();
+        } catch (Throwable unnamed) {
+            return String.valueOf(npc.getUUID());
         }
     }
 

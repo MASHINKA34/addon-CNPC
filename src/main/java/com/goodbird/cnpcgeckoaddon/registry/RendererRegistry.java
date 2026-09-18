@@ -7,6 +7,7 @@ import com.goodbird.cnpcgeckoaddon.client.renderer.RenderBossBoulder;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderCustomModel;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderTileCustomModel;
 import com.goodbird.cnpcgeckoaddon.client.MobModelTextureResolver;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -19,6 +20,10 @@ public class RendererRegistry {
 
     @SubscribeEvent
     public static void registerRenderers(final EntityRenderersEvent.RegisterRenderers event) {
+        EventGuard.handle("registry.renderer.register_renderers", event, RendererRegistry::handleRegisterRenderers);
+    }
+
+    private static void handleRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         // Piggybacks on renderer registration: a client-only moment that always runs before
         // any server can send a manual animation.
         ManualAnimationClient.register();
@@ -38,6 +43,10 @@ public class RendererRegistry {
      */
     @SubscribeEvent
     public static void registerReloadListeners(final RegisterClientReloadListenersEvent event) {
+        EventGuard.handle("registry.renderer.register_reload_listeners", event, RendererRegistry::handleRegisterReloadListeners);
+    }
+
+    private static void handleRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener((preparationBarrier, resourceManager, preparationsProfiler,
                                       reloadProfiler, backgroundExecutor, gameExecutor) ->
                 // Clear after the barrier: only then are the new resources actually live,

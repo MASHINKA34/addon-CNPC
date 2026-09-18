@@ -16,4 +16,14 @@ public interface IBossController {
      * fight - would quietly pass this boss by for as long as it kept ticking.</p>
      */
     void cnpcgeckoaddon$clearTeleportPathController();
+
+    /**
+     * Drops the controller and builds no other for as long as this entity object lives.
+     *
+     * <p>Called for a controller that has failed every tick for twenty seconds, reset included.
+     * Forgetting it alone would not do: the settings still say "boss", so the next tick would
+     * build a fresh controller out of the same settings, to fail the same way. Not saved - a
+     * reload, of the chunk or of the server, is the way back in.</p>
+     */
+    void cnpcgeckoaddon$disableBossController();
 }

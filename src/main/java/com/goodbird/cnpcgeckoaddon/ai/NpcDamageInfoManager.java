@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.NpcDamageResistEntry;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -43,6 +44,10 @@ public final class NpcDamageInfoManager {
 
     @SubscribeEvent
     public static void onPlayerLogout(final PlayerEvent.PlayerLoggedOutEvent event) {
+        EventGuard.handle("damage_info.player_logout", event, NpcDamageInfoManager::handlePlayerLogout);
+    }
+
+    private static void handlePlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (!ENABLED.isEmpty()) {
             ENABLED.remove(event.getEntity().getUUID());
         }

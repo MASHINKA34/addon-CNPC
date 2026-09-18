@@ -10,6 +10,7 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -38,6 +39,10 @@ public class GeckoAddonCommand {
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
+        EventGuard.handle("command.register_commands", event, GeckoAddonCommand::handleRegisterCommands);
+    }
+
+    private static void handleRegisterCommands(RegisterCommandsEvent event) {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("cnpcgecko")
                 .requires(source -> source.hasPermission(2));
         root.then(Commands.literal("scan").executes(context -> check(context.getSource(), false)));
