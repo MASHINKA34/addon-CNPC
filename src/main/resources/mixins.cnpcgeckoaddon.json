@@ -19,6 +19,7 @@
     "MixinEntityNPCInterfaceRanged",
     "MixinEntityNPCInterfaceSoundReaction",
     "MixinEntityNPCInterfaceTeleportPath",
+    "MixinEntityProjectile",
     "MixinFlowingFluid",
     "MixinFluidState",
     "MixinFluidInteractionRegistry",
