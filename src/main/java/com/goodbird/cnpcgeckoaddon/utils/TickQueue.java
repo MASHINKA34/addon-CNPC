@@ -40,6 +40,8 @@ public final class TickQueue<T> {
 
     /** Names the queue in the log, as a plural: "16 boss explosions came due". */
     private final String name;
+    /** The same name as a guard site: "queue.boss_explosions". */
+    private final String site;
     private final int maxPerTick;
 
     private final List<T> entries = new ArrayList<>();
@@ -55,6 +57,7 @@ public final class TickQueue<T> {
 
     public TickQueue(String name, int maxPerTick) {
         this.name = name;
+        this.site = "queue." + name.replace(' ', '_');
         this.maxPerTick = maxPerTick;
     }
 
@@ -200,7 +203,9 @@ public final class TickQueue<T> {
                     keep = action.test(entry);
                 } catch (Throwable throwable) {
                     // One broken entry is not worth a server: it goes, and the tick carries on.
-                    LOGGER.error("A queued {} entry failed and was dropped", name, throwable);
+                    // Through the guard, so it is counted for the guards command, logged at most
+                    // once in ten seconds, and what nothing survives is not held back.
+                    CrashGuard.caught(site, "the entry was dropped", throwable);
                     continue;
                 }
                 if (keep && !currentCancelled) {
