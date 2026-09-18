@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.Pose;
@@ -31,28 +32,38 @@ public class MixinEntityCustomNpc extends EntityNPCInterface {
 
     @Inject(method = "getDimensions", at = @At("RETURN"), cancellable = true)
     private void cnpcgeckoaddon$limitModelHitbox(Pose pose, CallbackInfoReturnable<EntityDimensions> cir) {
-        if (modelData == null || !(modelData.getEntity(this) instanceof EntityCustomModel)) {
-            return;
-        }
-        EntityDimensions dimensions = cir.getReturnValue();
-        float width = CustomModelData.clampHitboxSize(dimensions.width());
-        float height = CustomModelData.clampHitboxSize(dimensions.height());
-        if (width != dimensions.width() || height != dimensions.height()) {
-            cir.setReturnValue(EntityDimensions.scalable(width, height));
+        // A failure keeps the size CustomNPCs worked out: a hitbox one clamp too big, not a crash.
+        try {
+            if (modelData == null || !(modelData.getEntity(this) instanceof EntityCustomModel)) {
+                return;
+            }
+            EntityDimensions dimensions = cir.getReturnValue();
+            float width = CustomModelData.clampHitboxSize(dimensions.width());
+            float height = CustomModelData.clampHitboxSize(dimensions.height());
+            if (width != dimensions.width() || height != dimensions.height()) {
+                cir.setReturnValue(EntityDimensions.scalable(width, height));
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.model_hitbox", error);
         }
     }
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void cnpcgeckoaddon$syncModelEntitySize(CallbackInfo ci) {
-        IDataDisplay display = (IDataDisplay) this.display;
-        Entity entity = this.modelData.getEntity(this);
-        if (!(entity instanceof EntityCustomModel)) return;
-        EntityCustomModel modelEntity = (EntityCustomModel) entity;
-        float width = display.getCustomModelData().getEffectiveWidth();
-        float height = display.getCustomModelData().getEffectiveHeight();
-        if (height != modelEntity.getBbHeight() || width != modelEntity.getBbWidth()) {
-            modelEntity.setSize(width, height);
-            this.refreshDimensions();
+        // Every npc, every tick, on both sides: a try written out rather than a lambda.
+        try {
+            IDataDisplay display = (IDataDisplay) this.display;
+            Entity entity = this.modelData.getEntity(this);
+            if (!(entity instanceof EntityCustomModel)) return;
+            EntityCustomModel modelEntity = (EntityCustomModel) entity;
+            float width = display.getCustomModelData().getEffectiveWidth();
+            float height = display.getCustomModelData().getEffectiveHeight();
+            if (height != modelEntity.getBbHeight() || width != modelEntity.getBbWidth()) {
+                modelEntity.setSize(width, height);
+                this.refreshDimensions();
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.model_size", error);
         }
     }
 }

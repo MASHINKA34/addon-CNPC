@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.entity.EntityCustomNpc;
@@ -31,13 +32,23 @@ public class MixinDataDisplay implements IDataDisplay {
 
     @Inject(method = "save", at = @At("HEAD"), remap = false)
     private void cnpcgeckoaddon$saveCustomModel(CompoundTag nbttagcompound, CallbackInfoReturnable<CompoundTag> cir) {
-        if(hasCustomModel())
-            cnpcgeckoaddon$customModelData.writeToNBT(nbttagcompound);
+        // The head of CustomNPCs' own save: what escapes here costs the npc its whole display.
+        try {
+            if (hasCustomModel()) {
+                cnpcgeckoaddon$customModelData.writeToNBT(nbttagcompound);
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("npc_data.save.custom_model", error);
+        }
     }
 
     @Inject(method = "readToNBT", at = @At("HEAD"), remap = false)
     private void cnpcgeckoaddon$loadCustomModel(CompoundTag nbttagcompound, CallbackInfo ci) {
-        cnpcgeckoaddon$customModelData.readFromNBT(nbttagcompound);
+        try {
+            cnpcgeckoaddon$customModelData.readFromNBT(nbttagcompound);
+        } catch (Throwable error) {
+            CrashGuard.caught("npc_data.load.custom_model", error);
+        }
     }
 
     @Unique

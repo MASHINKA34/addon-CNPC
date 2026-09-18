@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import software.bernie.geckolib.animation.RawAnimation;
@@ -30,6 +31,10 @@ public class PacketSyncAnimation implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncAnimation packet) {
+        CrashGuard.run("packet.sync_animation", packet, PacketSyncAnimation::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncAnimation packet) {
         // Handed through the bridge so this class never mentions the client-only lookup:
         // a packet class is loaded on the dedicated server too.
         ManualAnimationClientBridge.acceptEntity(packet.id, packet.builder);

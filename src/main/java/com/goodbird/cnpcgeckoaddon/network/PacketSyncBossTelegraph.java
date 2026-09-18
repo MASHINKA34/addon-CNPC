@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.network;
 
 import com.goodbird.cnpcgeckoaddon.data.TelegraphLineStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.TelegraphShape;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -181,6 +182,10 @@ public final class PacketSyncBossTelegraph implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncBossTelegraph packet) {
+        CrashGuard.run("packet.sync_boss_telegraph", packet, PacketSyncBossTelegraph::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncBossTelegraph packet) {
         BossTelegraphClientBridge.accept(packet.ownerId, packet.channel, packet.styleId,
                 packet.widthTenths, packet.motion, packet.fillPercent, packet.progress,
                 packet.ttlTicks, packet.shapes);

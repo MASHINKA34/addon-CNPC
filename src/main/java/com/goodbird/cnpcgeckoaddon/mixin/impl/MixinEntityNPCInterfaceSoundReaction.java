@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 import com.goodbird.cnpcgeckoaddon.ai.SoundInvestigationGoal;
 import com.goodbird.cnpcgeckoaddon.ai.SoundReactionController;
 import com.goodbird.cnpcgeckoaddon.mixin.ISoundReactiveNpc;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
@@ -46,22 +47,35 @@ public abstract class MixinEntityNPCInterfaceSoundReaction extends PathfinderMob
     public void updateDynamicGameEventListener(
             BiConsumer<DynamicGameEventListener<?>, ServerLevel> listenerConsumer) {
         super.updateDynamicGameEventListener(listenerConsumer);
-        if (level() instanceof ServerLevel serverLevel) {
-            listenerConsumer.accept(cnpcgeckoaddon$getSoundReactionController().dynamicListener(), serverLevel);
+        // Only the addon's own listener is guarded: vanilla's are handed on above as they were.
+        try {
+            if (level() instanceof ServerLevel serverLevel) {
+                listenerConsumer.accept(cnpcgeckoaddon$getSoundReactionController().dynamicListener(), serverLevel);
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.sound_listener", error);
         }
     }
 
     @Inject(method = "tick", at = @At("TAIL"), remap = false)
     private void cnpcgeckoaddon$tickSoundReaction(CallbackInfo ci) {
         if (!level().isClientSide) {
-            cnpcgeckoaddon$getSoundReactionController().tick();
+            try {
+                cnpcgeckoaddon$getSoundReactionController().tick();
+            } catch (Throwable error) {
+                CrashGuard.caught("mixin.npc.sound_reaction_tick", error);
+            }
         }
     }
 
     @Inject(method = "setResponse", at = @At("TAIL"), remap = false)
     private void cnpcgeckoaddon$addSoundInvestigationGoal(CallbackInfo ci) {
-        SoundReactionController controller = cnpcgeckoaddon$getSoundReactionController();
-        goalSelector.addGoal(taskCount++,
-                new SoundInvestigationGoal((EntityNPCInterface) (Object) this, controller));
+        try {
+            SoundReactionController controller = cnpcgeckoaddon$getSoundReactionController();
+            goalSelector.addGoal(taskCount++,
+                    new SoundInvestigationGoal((EntityNPCInterface) (Object) this, controller));
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.sound_goal", error);
+        }
     }
 }

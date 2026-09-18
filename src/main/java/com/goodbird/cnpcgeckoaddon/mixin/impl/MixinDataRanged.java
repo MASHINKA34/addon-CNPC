@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import net.minecraft.nbt.CompoundTag;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -25,16 +26,30 @@ public class MixinDataRanged implements IRangedData {
 
     @Inject(method = "save", at = @At("HEAD"), remap = false)
     private void cnpcgeckoaddon$saveRangedExtra(CompoundTag nbttagcompound, CallbackInfoReturnable<CompoundTag> cir) {
-        cnpcgeckoaddon$rangedExtraData.writeToNBT(nbttagcompound);
+        // The head of CustomNPCs' own save: what escapes here costs the npc its ranged settings.
+        try {
+            cnpcgeckoaddon$rangedExtraData.writeToNBT(nbttagcompound);
+        } catch (Throwable error) {
+            CrashGuard.caught("npc_data.save.ranged_extra", error);
+        }
     }
 
     @Inject(method = "load", at = @At("HEAD"), remap = false)
     private void cnpcgeckoaddon$loadRangedExtra(CompoundTag nbttagcompound, CallbackInfo ci) {
-        cnpcgeckoaddon$rangedExtraData.readFromNBT(nbttagcompound);
+        try {
+            cnpcgeckoaddon$rangedExtraData.readFromNBT(nbttagcompound);
+        } catch (Throwable error) {
+            CrashGuard.caught("npc_data.load.ranged_extra", error);
+        }
         // Both ways a projectile id reaches the server end here - the world being read and the
         // editor's save - so this is where it is found out whether the entity is a projectile
         // at all. Does nothing on a client, where no entity may be created to look at.
-        ProjectileEntityUtil.validate(npc, cnpcgeckoaddon$rangedExtraData);
+        // Guarded apart from the read: it builds somebody else's entity to look at it.
+        try {
+            ProjectileEntityUtil.validate(npc, cnpcgeckoaddon$rangedExtraData);
+        } catch (Throwable error) {
+            CrashGuard.caught("npc_data.load.ranged_projectile_probe", error);
+        }
     }
 
     @Unique

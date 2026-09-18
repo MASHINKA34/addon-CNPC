@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.world.NpcLaunchPadManager;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
@@ -23,6 +24,11 @@ public abstract class MixinEntityNPCInterfaceLaunchPad extends PathfinderMob {
         if (level().isClientSide) {
             return;
         }
-        NpcLaunchPadManager.tick((EntityNPCInterface) (Object) this);
+        // A try written out rather than a lambda: this is every npc, every tick.
+        try {
+            NpcLaunchPadManager.tick((EntityNPCInterface) (Object) this);
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.launch_pad_tick", error);
+        }
     }
 }

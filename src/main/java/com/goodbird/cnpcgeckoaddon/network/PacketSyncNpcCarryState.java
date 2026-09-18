@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryState;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.FriendlyByteBuf;
@@ -27,6 +28,10 @@ public record PacketSyncNpcCarryState(int entityId, UUID entityUuid, boolean car
     }
 
     public static void handle(PacketSyncNpcCarryState packet) {
+        CrashGuard.run("packet.sync_npc_carry_state", packet, PacketSyncNpcCarryState::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncNpcCarryState packet) {
         ClientTarget.apply(packet);
     }
 

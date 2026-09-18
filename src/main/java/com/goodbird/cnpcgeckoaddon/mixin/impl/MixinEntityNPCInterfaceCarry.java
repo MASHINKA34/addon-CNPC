@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryState;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.PathfinderMob;
@@ -58,6 +59,11 @@ public abstract class MixinEntityNPCInterfaceCarry extends PathfinderMob impleme
      */
     @Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
     private void cnpcgeckoaddon$saveCarriedNpcAsItWas(CompoundTag tag, CallbackInfo ci) {
-        NpcCarryManager.restoreSavedFlags(this, tag);
+        // Inside the entity's save: what escapes here costs the chunk its save, not just the npc.
+        try {
+            NpcCarryManager.restoreSavedFlags(this, tag);
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.carry_save", error);
+        }
     }
 }

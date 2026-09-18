@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
@@ -39,6 +40,10 @@ public final class PacketSyncHookCord implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncHookCord packet) {
+        CrashGuard.run("packet.sync_hook_cord", packet, PacketSyncHookCord::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncHookCord packet) {
         HookCordClientBridge.accept(packet.bossEntityId, packet.victimEntityId, packet.styleId,
                 packet.durationTicks);
     }

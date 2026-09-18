@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
@@ -57,6 +58,10 @@ public final class PacketSyncBossCaptureState implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncBossCaptureState packet) {
+        CrashGuard.run("packet.sync_boss_capture_state", packet, PacketSyncBossCaptureState::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncBossCaptureState packet) {
         BossCaptureClientBridge.accept(packet.active, packet.x, packet.y, packet.z,
                 packet.startedAt, packet.endsAt, packet.liftEndsAt, packet.targetY,
                 packet.yaw, packet.pitch, packet.allowLook);

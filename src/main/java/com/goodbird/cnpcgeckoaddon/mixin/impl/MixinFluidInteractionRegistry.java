@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.world.TemporaryFluidStore;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -18,8 +19,15 @@ public abstract class MixinFluidInteractionRegistry {
     private static boolean cnpcgeckoaddon$freezeInteraction(
             FluidInteractionRegistry.HasFluidInteraction predicate, Level level, BlockPos pos,
             BlockPos neighbor, FluidState state, Operation<Boolean> original) {
-        return !TemporaryFluidStore.isFrozen(level, pos)
-                && !TemporaryFluidStore.isFrozen(level, neighbor)
-                && original.call(predicate, level, pos, neighbor, state);
+        // Only the addon's own question is guarded - the predicate is somebody else's, and what
+        // it throws is theirs to answer for. A lookup that fails counts as "not frozen".
+        boolean frozen;
+        try {
+            frozen = TemporaryFluidStore.isFrozen(level, pos) || TemporaryFluidStore.isFrozen(level, neighbor);
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.fluid.interaction", error);
+            frozen = false;
+        }
+        return !frozen && original.call(predicate, level, pos, neighbor, state);
     }
 }

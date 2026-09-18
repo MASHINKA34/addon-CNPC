@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.world.TemporaryFluidStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
@@ -15,8 +16,13 @@ public abstract class MixinFluidState {
     @Inject(method = "randomTick", at = @At("HEAD"), cancellable = true)
     private void cnpcgeckoaddon$freezeRandomTick(Level level, BlockPos pos, RandomSource random,
                                                 CallbackInfo ci) {
-        if (TemporaryFluidStore.isFrozen(level, pos)) {
-            ci.cancel();
+        // A try written out, not a lambda: this is every random fluid tick in the world.
+        try {
+            if (TemporaryFluidStore.isFrozen(level, pos)) {
+                ci.cancel();
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.fluid.random_tick", error);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -26,6 +27,10 @@ public record PacketNpcCarryThrow() implements CustomPacketPayload {
     }
 
     public static void handle(PacketNpcCarryThrow packet, MinecraftServer server, ServerPlayer player) {
+        CrashGuard.run("packet.npc_carry_throw", () -> handleGuarded(packet, server, player));
+    }
+
+    private static void handleGuarded(PacketNpcCarryThrow packet, MinecraftServer server, ServerPlayer player) {
         NpcCarryManager.throwIntoAir(player);
     }
 

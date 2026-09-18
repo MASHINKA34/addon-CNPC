@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
@@ -80,6 +81,10 @@ public final class PacketSyncBossSpinState implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncBossSpinState packet) {
+        CrashGuard.run("packet.sync_boss_spin_state", packet, PacketSyncBossSpinState::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncBossSpinState packet) {
         BossSpinClientBridge.accept(packet);
     }
 

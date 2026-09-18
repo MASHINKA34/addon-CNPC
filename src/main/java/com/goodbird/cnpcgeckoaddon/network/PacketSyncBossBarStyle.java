@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.network;
 
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.util.Mth;
@@ -33,6 +34,10 @@ public final class PacketSyncBossBarStyle implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncBossBarStyle packet) {
+        CrashGuard.run("packet.sync_boss_bar_style", packet, PacketSyncBossBarStyle::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncBossBarStyle packet) {
         BossBarStyleClientBridge.accept(packet.eventId, packet.styleId, packet.scalePercent);
     }
 

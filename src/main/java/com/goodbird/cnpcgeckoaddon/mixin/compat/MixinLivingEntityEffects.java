@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.compat;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.effect.MobEffect;
@@ -39,21 +40,29 @@ public class MixinLivingEntityEffects {
 
     @Inject(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z", at = @At("HEAD"), cancellable = true)
     private void cnpcgeckoaddon$rewrapUnregisteredHolder(MobEffectInstance instance, Entity source, CallbackInfoReturnable<Boolean> cir) {
-        Holder<MobEffect> holder = instance.getEffect();
-        if (holder.unwrapKey().isPresent()) {
+        // Every effect applied anywhere comes through here: a try written out, around the addon's
+        // own question only. A question that fails leaves the effect to vanilla as it came.
+        MobEffectInstance fixed;
+        try {
+            Holder<MobEffect> holder = instance.getEffect();
+            if (holder.unwrapKey().isPresent()) {
+                return;
+            }
+            Holder<MobEffect> registered = BuiltInRegistries.MOB_EFFECT.wrapAsHolder(holder.value());
+            if (registered.unwrapKey().isEmpty()) {
+                // The effect is not in the registry at all, so there is no id to send and no way
+                // to apply it without disconnecting whoever can see the victim. Dropped - but
+                // said out loud once, or this is a potion that silently never works.
+                cnpcgeckoaddon$reportUnregistered(holder);
+                cir.setReturnValue(false);
+                return;
+            }
+            fixed = new MobEffectInstance(registered, instance.getDuration(), instance.getAmplifier(),
+                    instance.isAmbient(), instance.isVisible(), instance.showIcon());
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.living_entity.add_effect", error);
             return;
         }
-        Holder<MobEffect> registered = BuiltInRegistries.MOB_EFFECT.wrapAsHolder(holder.value());
-        if (registered.unwrapKey().isEmpty()) {
-            // The effect is not in the registry at all, so there is no id to send and no way
-            // to apply it without disconnecting whoever can see the victim. Dropped - but
-            // said out loud once, or this is a potion that silently never works.
-            cnpcgeckoaddon$reportUnregistered(holder);
-            cir.setReturnValue(false);
-            return;
-        }
-        MobEffectInstance fixed = new MobEffectInstance(registered, instance.getDuration(), instance.getAmplifier(),
-                instance.isAmbient(), instance.isVisible(), instance.showIcon());
         cir.setReturnValue(((LivingEntity) (Object) this).addEffect(fixed, source));
     }
 

@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 import com.goodbird.cnpcgeckoaddon.ai.BossCaptureManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossCocoonManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossHurricaneScheduler;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
@@ -25,10 +26,16 @@ public abstract class MixinServerGamePacketListenerImpl {
             cancellable = true)
     private void cnpcgeckoaddon$lockCapturedPlayer(ServerboundMovePlayerPacket packet,
                                                    CallbackInfo ci) {
-        if (BossCaptureManager.handleMovePacket(player, packet)
-                || BossCocoonManager.handleMovePacket(player, packet)
-                || BossHurricaneScheduler.handleMovePacket(player, packet)) {
-            ci.cancel();
+        // Every movement packet of every player comes through here, so the guard is a try
+        // written out. A hold that fails to answer lets the packet through the vanilla way.
+        try {
+            if (BossCaptureManager.handleMovePacket(player, packet)
+                    || BossCocoonManager.handleMovePacket(player, packet)
+                    || BossHurricaneScheduler.handleMovePacket(player, packet)) {
+                ci.cancel();
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.move_packet", error);
         }
     }
 }

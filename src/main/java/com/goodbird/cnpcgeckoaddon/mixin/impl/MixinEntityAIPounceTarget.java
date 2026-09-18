@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossMechanicUtil;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import noppes.npcs.ai.EntityAIPounceTarget;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,8 +18,13 @@ public abstract class MixinEntityAIPounceTarget {
 
     @Inject(method = {"canUse", "canContinueToUse"}, at = @At("HEAD"), cancellable = true)
     private void cnpcgeckoaddon$disableBossPounce(CallbackInfoReturnable<Boolean> cir) {
-        if (BossMechanicUtil.keepsStationary(npc) || BossMechanicUtil.isBoundForCastSpot(npc)) {
-            cir.setReturnValue(false);
+        // A failed question leaves the pounce to CustomNPCs, the way it is without the addon.
+        try {
+            if (BossMechanicUtil.keepsStationary(npc) || BossMechanicUtil.isBoundForCastSpot(npc)) {
+                cir.setReturnValue(false);
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.ai.pounce", error);
         }
     }
 }

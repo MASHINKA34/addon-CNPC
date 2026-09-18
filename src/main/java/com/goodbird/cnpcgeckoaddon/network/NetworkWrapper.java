@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -18,6 +19,17 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * Registers the addon's payloads and sends them.
+ *
+ * <p>Every {@code Packet*.handle} runs its body behind {@code CrashGuard}, under a site of its
+ * own. NeoForge would not crash on a handler that throws either - its main thread wrapper
+ * completes the queued task exceptionally and logs "Failed to process a synchronized task of
+ * the payload", with neither a crash nor a disconnect - but it logs every one of them, counts
+ * none, and that is its behaviour to change. Behind the guard a payload that cannot be applied
+ * is one line in ten seconds and a count in {@code /cnpcgecko guards}, whatever the loader
+ * does with exceptions next. {@code PacketHandlersGuardedTest} holds every handler to it.</p>
+ */
 @EventBusSubscriber(modid=CNPCGeckoAddon.MODID)
 public class NetworkWrapper {
 
@@ -28,6 +40,10 @@ public class NetworkWrapper {
 
     @SubscribeEvent
     public static void register(final RegisterPayloadHandlersEvent event) {
+        EventGuard.handle("network.register", event, NetworkWrapper::handleRegister);
+    }
+
+    private static void handleRegister(RegisterPayloadHandlersEvent event) {
         final PayloadRegistrar registrar = event.registrar("1");
         registerPacket(registrar.versioned("2"), PacketSyncAnimation.TYPE,PacketSyncAnimation::encode,PacketSyncAnimation::decode,PacketSyncAnimation::handle);
         registerPacket(registrar.versioned("2"), PacketSyncTileAnimation.TYPE,PacketSyncTileAnimation::encode,PacketSyncTileAnimation::decode,PacketSyncTileAnimation::handle);
@@ -52,6 +68,8 @@ public class NetworkWrapper {
         registrar.playToClient(PacketSyncNpcCarryState.TYPE,
                 CustomPacketPayload.codec(PacketSyncNpcCarryState::encode, PacketSyncNpcCarryState::decode),
                 (packet, context) -> PacketSyncNpcCarryState.handle(packet));
+        registerPacket(registrar, PacketGuardSelfTest.TYPE, PacketGuardSelfTest::encode,
+                PacketGuardSelfTest::decode, PacketGuardSelfTest::handle);
     }
 
     /**

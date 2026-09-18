@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
@@ -49,6 +50,10 @@ public final class PacketSyncBossTimer implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncBossTimer packet) {
+        CrashGuard.run("packet.sync_boss_timer", packet, PacketSyncBossTimer::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncBossTimer packet) {
         BossTimerClientBridge.accept(packet.eventId, packet.remainingTicks, packet.totalTicks, packet.state);
     }
 

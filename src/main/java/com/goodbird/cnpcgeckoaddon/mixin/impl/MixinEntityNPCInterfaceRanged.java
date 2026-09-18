@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.ai.KeepDistanceGoal;
 import com.goodbird.cnpcgeckoaddon.ai.NpcProjectileDamage;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileShotChoice;
 import net.minecraft.sounds.SoundEvent;
@@ -73,33 +74,45 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
             return;
         }
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
-        RangedExtraData extra = cnpcgeckoaddon$rangedExtra();
-        for (int choices = 0; choices < cnpcgeckoaddon$MAX_SHOT_CHOICES; choices++) {
-            ProjectileShotChoice choice = ProjectileEntityUtil.chooseShot(npc);
-            if (choice == ProjectileShotChoice.CNPC) {
-                return;
-            }
-            if (choice == ProjectileShotChoice.NONE) {
-                break;
-            }
-            boolean custom = choice == ProjectileShotChoice.CUSTOM;
-            EntityType<?> type = ProjectileEntityUtil.getType(
-                    custom ? extra.getProjectileEntity() : extra.getFallbackProjectile());
-            if (type != null && cnpcgeckoaddon$fireVolley(type, npc, target, extra)) {
-                SoundEvent sound = stats.ranged.getSoundEvent(0);
-                if (sound != null) {
-                    npc.playSound(sound, extra.getShotSoundVolumeTenths() / 10.0F,
-                            extra.getShotSoundPitchTenths() / 10.0F);
+        // Whether a volley already went out: a failure after that must not let CustomNPCs fire
+        // a second one on top. Before it, the attack is left to CustomNPCs the way it would be
+        // without the addon - and an empty shot of theirs is caught by the projectile's guard.
+        boolean fired = false;
+        try {
+            RangedExtraData extra = cnpcgeckoaddon$rangedExtra();
+            for (int choices = 0; choices < cnpcgeckoaddon$MAX_SHOT_CHOICES; choices++) {
+                ProjectileShotChoice choice = ProjectileEntityUtil.chooseShot(npc);
+                if (choice == ProjectileShotChoice.CNPC) {
+                    return;
                 }
-                ci.cancel();
-                return;
+                if (choice == ProjectileShotChoice.NONE) {
+                    break;
+                }
+                boolean custom = choice == ProjectileShotChoice.CUSTOM;
+                EntityType<?> type = ProjectileEntityUtil.getType(
+                        custom ? extra.getProjectileEntity() : extra.getFallbackProjectile());
+                if (type != null && cnpcgeckoaddon$fireVolley(type, npc, target, extra)) {
+                    fired = true;
+                    ci.cancel();
+                    SoundEvent sound = stats.ranged.getSoundEvent(0);
+                    if (sound != null) {
+                        npc.playSound(sound, extra.getShotSoundVolumeTenths() / 10.0F,
+                                extra.getShotSoundPitchTenths() / 10.0F);
+                    }
+                    return;
+                }
+                if (custom) {
+                    cnpcgeckoaddon$dropProjectileEntity();
+                }
             }
-            if (custom) {
-                cnpcgeckoaddon$dropProjectileEntity();
+            ProjectileEntityUtil.warnNoShot(npc);
+            ci.cancel();
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.ranged_attack", error);
+            if (fired && !ci.isCancelled()) {
+                ci.cancel();
             }
         }
-        ProjectileEntityUtil.warnNoShot(npc);
-        ci.cancel();
     }
 
     /**
@@ -197,9 +210,13 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
 
     @Inject(method = "setResponse", at = @At("TAIL"), remap = false)
     private void cnpcgeckoaddon$addKeepDistanceGoal(CallbackInfo ci) {
-        if (ais.onAttack != 0 || cnpcgeckoaddon$rangedExtra().getKeepDistance() <= 0) {
-            return;
+        try {
+            if (ais.onAttack != 0 || cnpcgeckoaddon$rangedExtra().getKeepDistance() <= 0) {
+                return;
+            }
+            this.goalSelector.addGoal(taskCount++, new KeepDistanceGoal((EntityNPCInterface) (Object) this));
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.npc.keep_distance_goal", error);
         }
-        this.goalSelector.addGoal(taskCount++, new KeepDistanceGoal((EntityNPCInterface) (Object) this));
     }
 }

@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -36,6 +37,10 @@ public class PacketSyncTileAnimation implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncTileAnimation packet) {
+        CrashGuard.run("packet.sync_tile_animation", packet, PacketSyncTileAnimation::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncTileAnimation packet) {
         // Handed through the bridge so this class never mentions the client-only lookup:
         // a packet class is loaded on the dedicated server too.
         ManualAnimationClientBridge.acceptTile(packet.dimension, packet.pos, packet.builder);

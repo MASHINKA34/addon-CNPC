@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
@@ -32,18 +33,24 @@ public abstract class MixinModelData {
 
     @Inject(method = "getEntity", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcgeckoaddon$skipBrokenEntity(EntityNPCInterface npc, CallbackInfoReturnable<LivingEntity> cir) {
-        ModelData data = (ModelData) (Object) this;
-        if (!data.hasEntity()) {
-            return;
-        }
-        ResourceLocation name = data.getEntityName();
-        if (name == null) {
-            cir.setReturnValue(null);
-            return;
-        }
-        if (name.equals(cnpcgeckoaddon$brokenEntityName) || !BuiltInRegistries.ENTITY_TYPE.containsKey(name)) {
-            cnpcgeckoaddon$markBroken(name, npc);
-            cir.setReturnValue(null);
+        // Asked for every npc every frame and every tick; a try written out, and a question that
+        // fails leaves the lookup to CustomNPCs.
+        try {
+            ModelData data = (ModelData) (Object) this;
+            if (!data.hasEntity()) {
+                return;
+            }
+            ResourceLocation name = data.getEntityName();
+            if (name == null) {
+                cir.setReturnValue(null);
+                return;
+            }
+            if (name.equals(cnpcgeckoaddon$brokenEntityName) || !BuiltInRegistries.ENTITY_TYPE.containsKey(name)) {
+                cnpcgeckoaddon$markBroken(name, npc);
+                cir.setReturnValue(null);
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.model_data.skip_broken", error);
         }
     }
 
@@ -52,13 +59,17 @@ public abstract class MixinModelData {
         if (cir.getReturnValue() != null) {
             return;
         }
-        ModelData data = (ModelData) (Object) this;
-        if (!data.hasEntity()) {
-            return;
-        }
-        ResourceLocation name = data.getEntityName();
-        if (name != null) {
-            cnpcgeckoaddon$markBroken(name, npc);
+        try {
+            ModelData data = (ModelData) (Object) this;
+            if (!data.hasEntity()) {
+                return;
+            }
+            ResourceLocation name = data.getEntityName();
+            if (name != null) {
+                cnpcgeckoaddon$markBroken(name, npc);
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.model_data.remember_broken", error);
         }
     }
 

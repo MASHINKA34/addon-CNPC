@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.tile.TileEntityCustomModel;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.core.BlockPos;
@@ -33,20 +34,31 @@ public abstract class TileScriptedMixin extends BlockEntity {
                                             Operation<Void> original) {
         TileEntityCustomModel previous = renderTile instanceof TileEntityCustomModel model ? model : null;
         original.call(compound, registries);
-        if (compound.contains("renderTileTag", Tag.TAG_COMPOUND)) {
-            TileEntityCustomModel model = previous == null ? new TileEntityCustomModel(this) : previous;
-            model.setLevel(getLevel());
-            model.loadAdditional(compound.getCompound("renderTileTag"), registries);
-            renderTile = model;
+        // Only the addon's half is guarded: CustomNPCs' own read above is left as it was. A model
+        // that cannot be read leaves the block showing whatever CustomNPCs set.
+        try {
+            if (compound.contains("renderTileTag", Tag.TAG_COMPOUND)) {
+                TileEntityCustomModel model = previous == null ? new TileEntityCustomModel(this) : previous;
+                model.setLevel(getLevel());
+                model.loadAdditional(compound.getCompound("renderTileTag"), registries);
+                renderTile = model;
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.scripted_block.load_model", error);
         }
     }
 
     @Inject(method = "getDisplayNBT", at = @At("TAIL"), remap = false)
     public void getDisplayNBT(CompoundTag compound, HolderLookup.Provider registries, CallbackInfoReturnable<CompoundTag> cir) {
-        if (renderTile instanceof TileEntityCustomModel model) {
-            CompoundTag saveTag = new CompoundTag();
-            model.saveAdditional(saveTag, registries);
-            compound.put("renderTileTag", saveTag);
+        // What escapes here costs the whole block its display tag, not just the model.
+        try {
+            if (renderTile instanceof TileEntityCustomModel model) {
+                CompoundTag saveTag = new CompoundTag();
+                model.saveAdditional(saveTag, registries);
+                compound.put("renderTileTag", saveTag);
+            }
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.scripted_block.save_model", error);
         }
     }
 }

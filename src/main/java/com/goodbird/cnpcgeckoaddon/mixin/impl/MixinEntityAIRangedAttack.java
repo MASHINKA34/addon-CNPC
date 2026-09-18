@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossMechanicUtil;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,6 +11,7 @@ import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
@@ -26,19 +28,40 @@ public abstract class MixinEntityAIRangedAttack {
     @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;moveTo(Lnet/minecraft/world/entity/Entity;D)Z"))
     private boolean cnpcgeckoaddon$holdApproachForCastSpot(PathNavigation navigation, Entity target, double speed) {
-        return !BossMechanicUtil.isBoundForCastSpot(npc) && navigation.moveTo(target, speed);
+        return !cnpcgeckoaddon$boundForCastSpot(npc) && navigation.moveTo(target, speed);
     }
 
     @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnoppes/npcs/entity/EntityNPCInterface;performRangedAttack(Lnet/minecraft/world/entity/LivingEntity;F)V"))
     private void cnpcgeckoaddon$suppressVanillaProjectile(EntityNPCInterface npc,
                                                            LivingEntity target, float indirect) {
-        if (!BossMechanicUtil.replacesVanillaAttacks(npc)) npc.performRangedAttack(target, indirect);
+        if (!cnpcgeckoaddon$replacesAttacks(npc)) npc.performRangedAttack(target, indirect);
     }
 
     @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnoppes/npcs/entity/EntityNPCInterface;swing(Lnet/minecraft/world/InteractionHand;)V"))
     private void cnpcgeckoaddon$suppressVanillaRangedSwing(EntityNPCInterface npc, InteractionHand hand) {
-        if (!BossMechanicUtil.replacesVanillaAttacks(npc)) npc.swing(hand);
+        if (!cnpcgeckoaddon$replacesAttacks(npc)) npc.swing(hand);
+    }
+
+    /** Asked behind a try written out, for the melee goal's reason; a failed question means "no". */
+    @Unique
+    private static boolean cnpcgeckoaddon$boundForCastSpot(EntityNPCInterface npc) {
+        try {
+            return BossMechanicUtil.isBoundForCastSpot(npc);
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.ai.ranged_cast_spot", error);
+            return false;
+        }
+    }
+
+    @Unique
+    private static boolean cnpcgeckoaddon$replacesAttacks(EntityNPCInterface npc) {
+        try {
+            return BossMechanicUtil.replacesVanillaAttacks(npc);
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.ai.ranged_attack", error);
+            return false;
+        }
     }
 }

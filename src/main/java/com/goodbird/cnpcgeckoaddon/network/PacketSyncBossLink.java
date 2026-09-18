@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.network;
 
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.util.Mth;
@@ -56,6 +57,10 @@ public final class PacketSyncBossLink implements CustomPacketPayload {
     }
 
     public static void handle(PacketSyncBossLink packet) {
+        CrashGuard.run("packet.sync_boss_link", packet, PacketSyncBossLink::handleGuarded);
+    }
+
+    private static void handleGuarded(PacketSyncBossLink packet) {
         BossLinkClientBridge.accept(packet.linkKind, packet.sourceEntityId, packet.targetEntityId,
                 packet.slotOrChannel, packet.styleId, packet.durationTicks, packet.widthPercent,
                 packet.sagPercent, packet.drawHead);
