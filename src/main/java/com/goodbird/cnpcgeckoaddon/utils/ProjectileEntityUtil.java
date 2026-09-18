@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import noppes.npcs.api.wrapper.ItemStackWrapper;
@@ -27,6 +28,8 @@ import java.util.WeakHashMap;
 public class ProjectileEntityUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
     private static final Map<EntityType<?>, Boolean> USABLE = Collections.synchronizedMap(new WeakHashMap<>());
+    /** Why a type was refused, for the one line an npc gets when its id is dropped. */
+    private static final Map<EntityType<?>, String> REFUSALS = Collections.synchronizedMap(new WeakHashMap<>());
     /** Ten seconds: an npc with nothing to shoot says so once in a while, not once per attack. */
     private static final long NO_SHOT_WARNING_INTERVAL_TICKS = 200L;
     private static final Map<Entity, Long> NEXT_NO_SHOT_WARNING = Collections.synchronizedMap(new WeakHashMap<>());
@@ -74,15 +77,48 @@ public class ProjectileEntityUtil {
         return false;
     }
 
-    /** What this npc's next ranged attack is fired with, as things stand right now. */
+    /** What this npc's next ranged attack is fired with, as things stand right now. Server only. */
     public static ProjectileShotChoice chooseShot(EntityNPCInterface npc) {
         RangedExtraData extra = ((IRangedData) npc.stats.ranged).getRangedExtraData();
+        // Loading already went through this; an id put there by a setter since has not.
+        validate(npc, extra);
+        Level level = npc.level();
         String custom = extra.getProjectileEntity();
         String fallback = extra.getFallbackProjectile();
         return ProjectileShotChoice.decide(
-                !custom.isEmpty(), isShootable(getType(custom)),
+                !custom.isEmpty(), isShootable(getType(custom), level),
                 !hasProjectileItem(npc),
-                !fallback.isEmpty(), isShootable(getType(fallback)));
+                !fallback.isEmpty(), isShootable(getType(fallback), level));
+    }
+
+    /**
+     * Finds out whether the entities this npc names are projectiles while it is being set up,
+     * rather than by firing one: the id of an entity that is not is dropped, with one line
+     * saying whose it was and why.
+     *
+     * <p>Runs wherever the ids arrive on the server - the npc's settings being read, and any
+     * question about what it shoots. It used to be the first shot that found out, which meant
+     * a boss wound up for an attack it could not make, and CustomNPCs was then left to make
+     * it with whatever the npc had in its slot. The fallback is asked too, so the answer is
+     * there before anybody needs it, but it is left alone: dropping it would turn a typo into
+     * "never shoot", while keeping it keeps the warning that names it.</p>
+     */
+    public static void validate(EntityNPCInterface npc, RangedExtraData extra) {
+        Level level = npc == null ? null : npc.level();
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        String custom = extra.getProjectileEntity();
+        // An id nothing is registered under is left for /cnpcgecko fix: the mod it came from
+        // may only be missing for now, and there is nothing to create and look at anyway.
+        EntityType<?> customType = getType(custom);
+        if (customType != null && !isShootable(customType, level)) {
+            extra.setProjectileEntity("");
+            LOGGER.warn("Npc {} names {} as its projectile entity, but {}: the id is dropped, and the npc shoots "
+                            + "its projectile item or its fallback projectile instead",
+                    nameOf(npc), custom, REFUSALS.getOrDefault(customType, "it is not usable as a projectile"));
+        }
+        isShootable(getType(extra.getFallbackProjectile()), level);
     }
 
     /**
@@ -97,9 +133,58 @@ public class ProjectileEntityUtil {
         return stack != null && !stack.isEmpty();
     }
 
-    /** A type that is registered and has not let an npc down yet. */
-    private static boolean isShootable(EntityType<?> type) {
-        return type != null && isUsable(type);
+    /**
+     * Whether this type really makes a projectile - asked of the type itself, once.
+     *
+     * <p>The registry cannot say. {@code EntityType.getBaseClass()} answers {@code Entity} for
+     * every type on NeoForge, and an id with "projectile" in it is only a guess: a gun mod's
+     * {@code tesla_projectile} extends {@code Entity}, got past that guess, and the npc that
+     * was given it brought the server down. So one entity is made on the server, looked at and
+     * thrown away without ever joining the level, and the answer is kept for the type.</p>
+     */
+    private static boolean isShootable(EntityType<?> type, Level level) {
+        if (type == null) {
+            return false;
+        }
+        Boolean known = USABLE.get(type);
+        if (known != null) {
+            return known;
+        }
+        if (level == null || level.isClientSide) {
+            // Nothing is ever created on a client; all it has is the picker's guess.
+            return isProjectile(type, level);
+        }
+        return probe(type, level);
+    }
+
+    private static boolean probe(EntityType<?> type, Level level) {
+        Entity entity = null;
+        String refusal;
+        try {
+            entity = type.create(level);
+            refusal = entity instanceof Projectile ? null
+                    : entity == null ? "that type makes no entity in this world"
+                    : "it is a " + entity.getClass().getName() + ", which is not a projectile";
+        } catch (Throwable error) {
+            refusal = "creating one failed (" + error.getClass().getSimpleName() + ": " + error.getMessage() + ")";
+        }
+        discardQuietly(entity);
+        USABLE.put(type, refusal == null);
+        if (refusal != null) {
+            REFUSALS.put(type, refusal);
+        }
+        return refusal == null;
+    }
+
+    private static void discardQuietly(Entity entity) {
+        if (entity == null) {
+            return;
+        }
+        try {
+            entity.discard();
+        } catch (Throwable ignored) {
+            // A third-party entity that cannot even be thrown away was never in the level.
+        }
     }
 
     /**
@@ -113,10 +198,14 @@ public class ProjectileEntityUtil {
         }
         NEXT_NO_SHOT_WARNING.put(npc, gameTime + NO_SHOT_WARNING_INTERVAL_TICKS);
         String fallback = ((IRangedData) npc.stats.ranged).getRangedExtraData().getFallbackProjectile();
+        EntityType<?> type = getType(fallback);
+        String fallbackState = fallback.isEmpty() ? "no fallback projectile"
+                : "its fallback projectile " + fallback + " cannot be fired (" + (type == null
+                ? "no entity is registered under that id"
+                : REFUSALS.getOrDefault(type, "it is not usable as a projectile")) + ")";
         LOGGER.warn("Npc {} does not shoot: it has no projectile item, no usable projectile entity and {}. "
                         + "Give it a projectile item or set a fallback projectile in its ranged extras",
-                nameOf(npc), fallback.isEmpty() ? "no fallback projectile"
-                        : "its fallback projectile " + fallback + " is not a usable projectile");
+                nameOf(npc), fallbackState);
     }
 
     public static void markUsable(EntityType<?> type) {
@@ -129,6 +218,8 @@ public class ProjectileEntityUtil {
         if (Boolean.FALSE.equals(USABLE.put(type, Boolean.FALSE))) {
             return;
         }
+        REFUSALS.put(type, error == null ? "it is not a projectile"
+                : "shooting one failed (" + error.getClass().getSimpleName() + ": " + error.getMessage() + ")");
         if (error == null) {
             LOGGER.warn("Entity {} is not a projectile: npc {} shoots its projectile item or its fallback projectile instead",
                     getId(type), nameOf(npc));
