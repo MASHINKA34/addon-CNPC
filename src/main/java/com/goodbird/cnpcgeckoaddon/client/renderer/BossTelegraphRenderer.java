@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.data.TelegraphLineStyles;
 import com.goodbird.cnpcgeckoaddon.network.BossTelegraphClientBridge;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.goodbird.cnpcgeckoaddon.utils.TelegraphLineGeometry;
 import com.goodbird.cnpcgeckoaddon.utils.TelegraphShape;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -145,11 +146,19 @@ public final class BossTelegraphRenderer {
 
     @SubscribeEvent
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
+        EventGuard.handle("client.telegraph.logout", event, BossTelegraphRenderer::handleLogout);
+    }
+
+    private static void handleLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         FRAMES.clear();
     }
 
     @SubscribeEvent
     public static void render(RenderLevelStageEvent event) {
+        EventGuard.handle("client.telegraph.render", event, BossTelegraphRenderer::handleRender);
+    }
+
+    private static void handleRender(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS
                 || FRAMES.isEmpty()) {
             return;
@@ -168,24 +177,29 @@ public final class BossTelegraphRenderer {
         VertexConsumer consumer = buffers.getBuffer(quads);
         PoseStack poseStack = event.getPoseStack();
         poseStack.pushPose();
-        poseStack.translate(-camera.x, -camera.y, -camera.z);
+        // Popped in a finally: the level renderer throws on a pose stack left unbalanced, so a
+        // draw that fails behind the guard must still hand the stack back the way it got it.
+        try {
+            poseStack.translate(-camera.x, -camera.y, -camera.z);
 
-        Iterator<Frame> frames = FRAMES.values().iterator();
-        while (frames.hasNext()) {
-            Frame frame = frames.next();
-            if (gameTime >= frame.expiresAt) {
-                frames.remove();
-                continue;
+            Iterator<Frame> frames = FRAMES.values().iterator();
+            while (frames.hasNext()) {
+                Frame frame = frames.next();
+                if (gameTime >= frame.expiresAt) {
+                    frames.remove();
+                    continue;
+                }
+                // The level object changes on a dimension transfer, which is what stops the
+                // coordinates of the arena left behind from being drawn in the next world.
+                if (frame.builtFor != level) {
+                    build(frame, level);
+                }
+                draw(frame, poseStack, consumer, camera, gameTime, partialTick);
             }
-            // The level object changes on a dimension transfer, which is what stops the
-            // coordinates of the arena left behind from being drawn in the next world.
-            if (frame.builtFor != level) {
-                build(frame, level);
-            }
-            draw(frame, poseStack, consumer, camera, gameTime, partialTick);
+
+        } finally {
+            poseStack.popPose();
         }
-
-        poseStack.popPose();
         // This batch belongs solely to the warnings; flushing it keeps their vertices out of
         // whatever the game draws next.
         buffers.endBatch(quads);

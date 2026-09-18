@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
+import com.goodbird.cnpcgeckoaddon.client.PoseStackGuard;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
@@ -36,15 +38,31 @@ public abstract class MixinRenderNPCInterface <T extends EntityNPCInterface, M e
 
     @Inject(method = "render(Lnoppes/npcs/entity/EntityNPCInterface;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",at=@At(value = "INVOKE",target = "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;render(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"), cancellable = true)
     public void render(T npc, float entityYaw, float partialTicks, PoseStack matrixStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
-        if(npc instanceof EntityCustomNpc && ((EntityCustomNpc)npc).modelData.getEntity(npc) instanceof EntityCustomModel){
-            try {
-                cnpcgeckoaddon$renderGeoModel((EntityCustomNpc) npc, entityYaw,
-                        matrixStack, buffer, packedLight, partialTicks);
-                cnpcgeckoaddon$drawNameStandalone(npc, entityYaw, partialTicks, matrixStack, buffer, packedLight);
-            } finally {
-                RenderNPCInterface.currentNpc = null;
-            }
-            ci.cancel();
+        boolean geckoModel;
+        try {
+            geckoModel = npc instanceof EntityCustomNpc
+                    && ((EntityCustomNpc) npc).modelData.getEntity(npc) instanceof EntityCustomModel;
+        } catch (Throwable error) {
+            // Not known to be ours: CustomNPCs draws the npc the way it would without the addon.
+            CrashGuard.caught("mixin.render_npc.model_lookup", error);
+            return;
+        }
+        if (!geckoModel) {
+            return;
+        }
+        // Cancelled whether the model draws or not: a frame without this npc, rather than
+        // CustomNPCs' plain body standing where a geckolib model failed to draw.
+        ci.cancel();
+        PoseStack.Pose top = matrixStack.last();
+        try {
+            cnpcgeckoaddon$renderGeoModel((EntityCustomNpc) npc, entityYaw,
+                    matrixStack, buffer, packedLight, partialTicks);
+            cnpcgeckoaddon$drawNameStandalone(npc, entityYaw, partialTicks, matrixStack, buffer, packedLight);
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.render_npc.geo_model", error);
+            PoseStackGuard.unwind(matrixStack, top);
+        } finally {
+            RenderNPCInterface.currentNpc = null;
         }
     }
 

@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.GuiModelAnimation;
 import com.goodbird.cnpcgeckoaddon.client.gui.GuiModelSelection;
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiModelExtras;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.entity.LivingEntity;
 import noppes.npcs.client.gui.model.GuiCreationEntities;
@@ -12,6 +13,7 @@ import noppes.npcs.entity.EntityCustomNpc;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -25,6 +27,16 @@ public class MixinGuiCreationEntities extends GuiCreationScreenInterface {
 
     @Inject(method = "init",at = @At("TAIL"))
     public void init(CallbackInfo ci){
+        // A screen whose init throws takes the client with it; this one opens without the model row.
+        try {
+            cnpcgeckoaddon$addModelButtons();
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.gui.creation_entities", error);
+        }
+    }
+
+    @Unique
+    private void cnpcgeckoaddon$addModelButtons() {
         if(npc instanceof EntityCustomNpc && ((EntityCustomNpc)npc).modelData.getEntity(npc) instanceof EntityCustomModel) {
             EntityCustomModel customModel = (EntityCustomModel) ((EntityCustomNpc)npc).modelData.getEntity(npc);
             addLabel(new GuiLabel(212,"Model:", this.guiLeft + 124, this.guiTop + 26,0xffffff));

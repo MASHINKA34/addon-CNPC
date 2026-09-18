@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
+import com.goodbird.cnpcgeckoaddon.client.PoseStackGuard;
 import com.goodbird.cnpcgeckoaddon.tile.TileEntityCustomModel;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
@@ -24,15 +26,23 @@ public abstract class MixinBlockScriptedRenderer {
     private void cnpcgeckoaddon$renderGeckoBlockModel(TileScripted tileScripted, float partialTicks, PoseStack matrixStack, MultiBufferSource buffer, int light, int overlay, CallbackInfo ci) {
         if(overrideModel()) return;
         if(!(tileScripted.renderTile instanceof TileEntityCustomModel)) return;
-        matrixStack.pushPose();
-        matrixStack.translate(0.5,0.5, 0.5);
-        matrixStack.mulPose(Axis.YP.rotationDegrees((float)tileScripted.rotationY));
-        matrixStack.mulPose(Axis.XP.rotationDegrees((float)tileScripted.rotationX));
-        matrixStack.mulPose(Axis.ZP.rotationDegrees((float)tileScripted.rotationZ));
-        matrixStack.scale(tileScripted.scaleX, tileScripted.scaleY, tileScripted.scaleZ);
-        matrixStack.translate(-0.5,-0.5/tileScripted.scaleY, -0.5);
-        Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(tileScripted.renderTile).render(tileScripted.renderTile, partialTicks, matrixStack, buffer, light, overlay);
-        matrixStack.popPose();
+        // Ours from here on, so the block is not drawn a second time by CustomNPCs whatever happens;
+        // a model that fails to draw is a frame without it, with the pose stack put back.
         ci.cancel();
+        PoseStack.Pose top = matrixStack.last();
+        try {
+            matrixStack.pushPose();
+            matrixStack.translate(0.5,0.5, 0.5);
+            matrixStack.mulPose(Axis.YP.rotationDegrees((float)tileScripted.rotationY));
+            matrixStack.mulPose(Axis.XP.rotationDegrees((float)tileScripted.rotationX));
+            matrixStack.mulPose(Axis.ZP.rotationDegrees((float)tileScripted.rotationZ));
+            matrixStack.scale(tileScripted.scaleX, tileScripted.scaleY, tileScripted.scaleZ);
+            matrixStack.translate(-0.5,-0.5/tileScripted.scaleY, -0.5);
+            Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(tileScripted.renderTile).render(tileScripted.renderTile, partialTicks, matrixStack, buffer, light, overlay);
+            matrixStack.popPose();
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.scripted_block.render_model", error);
+            PoseStackGuard.unwind(matrixStack, top);
+        }
     }
 }

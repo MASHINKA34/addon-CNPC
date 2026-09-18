@@ -5,12 +5,14 @@ import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiNpcImmunity;
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiNpcLaunchPad;
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiSoundReaction;
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiTeleportPath;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import noppes.npcs.client.gui.mainmenu.GuiNpcAI;
 import noppes.npcs.client.gui.util.GuiNPCInterface2;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -36,6 +38,16 @@ public abstract class MixinGuiNpcAI extends GuiNPCInterface2 {
      */
     @Inject(method = "init", at = @At("TAIL"), remap = false)
     private void cnpcgeckoaddon$addSoundReactionButton(CallbackInfo ci) {
+        // A screen whose init throws takes the client with it; this one opens without the addon's row.
+        try {
+            cnpcgeckoaddon$addButtons();
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.gui.npc_ai", error);
+        }
+    }
+
+    @Unique
+    private void cnpcgeckoaddon$addButtons() {
         addButton(new GuiButtonNop(this, 941, guiLeft + 150, guiTop + 130, 140, 20,
                 "cnpcgeckoaddon.sound.open", button -> setSubGui(new SubGuiSoundReaction(ai))));
         addButton(new GuiButtonNop(this, 942, guiLeft + 150, guiTop + 152, 140, 20,

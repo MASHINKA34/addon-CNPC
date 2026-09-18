@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.client.renderer;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.network.BossLinkClientBridge;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -53,12 +54,20 @@ public final class BossLinkRenderer {
 
     @SubscribeEvent
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
+        EventGuard.handle("client.boss_link.logout", event, BossLinkRenderer::handleLogout);
+    }
+
+    private static void handleLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         LINKS.clear();
         AnimatedLinkRenderUtil.clearWarnings();
     }
 
     @SubscribeEvent
     public static void render(RenderLevelStageEvent event) {
+        EventGuard.handle("client.boss_link.render", event, BossLinkRenderer::handleRender);
+    }
+
+    private static void handleRender(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES || LINKS.isEmpty()) {
             return;
         }
@@ -76,32 +85,37 @@ public final class BossLinkRenderer {
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         PoseStack poseStack = event.getPoseStack();
         poseStack.pushPose();
-        poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+        // Popped in a finally: the level renderer throws on a pose stack left unbalanced, so a
+        // draw that fails behind the guard must still hand the stack back the way it got it.
+        try {
+            poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
 
-        Iterator<Link> iterator = LINKS.iterator();
-        while (iterator.hasNext()) {
-            Link link = iterator.next();
-            Entity source = level.getEntity(link.sourceId);
-            Entity target = level.getEntity(link.targetId);
-            if (gameTime >= link.expiresAt || source == null || target == null
-                    || source.isRemoved() || target.isRemoved()) {
-                iterator.remove();
-                continue;
-            }
-            Vec3 from = source.getEyePosition(partialTick).subtract(0.0D, 0.1D, 0.0D);
-            Vec3 to = target.getPosition(partialTick).add(0.0D, target.getBbHeight() * 0.6D, 0.0D);
-            if (to.distanceToSqr(from) < 1.0E-6D) {
-                continue;
-            }
-            if (!AnimatedLinkRenderUtil.hasTextures(minecraft, link.style, link.drawHead)) {
-                if (fallbackTick) {
-                    AnimatedLinkRenderUtil.drawParticles(level, from, to, ParticleTypes.END_ROD);
+            Iterator<Link> iterator = LINKS.iterator();
+            while (iterator.hasNext()) {
+                Link link = iterator.next();
+                Entity source = level.getEntity(link.sourceId);
+                Entity target = level.getEntity(link.targetId);
+                if (gameTime >= link.expiresAt || source == null || target == null
+                        || source.isRemoved() || target.isRemoved()) {
+                    iterator.remove();
+                    continue;
                 }
-                continue;
+                Vec3 from = source.getEyePosition(partialTick).subtract(0.0D, 0.1D, 0.0D);
+                Vec3 to = target.getPosition(partialTick).add(0.0D, target.getBbHeight() * 0.6D, 0.0D);
+                if (to.distanceToSqr(from) < 1.0E-6D) {
+                    continue;
+                }
+                if (!AnimatedLinkRenderUtil.hasTextures(minecraft, link.style, link.drawHead)) {
+                    if (fallbackTick) {
+                        AnimatedLinkRenderUtil.drawParticles(level, from, to, ParticleTypes.END_ROD);
+                    }
+                    continue;
+                }
+                AnimatedLinkRenderUtil.render(poseStack, buffers, level, link.style, from, to,
+                        cameraPos, gameTime, link.widthPercent, link.sagPercent, link.drawHead);
             }
-            AnimatedLinkRenderUtil.render(poseStack, buffers, level, link.style, from, to,
-                    cameraPos, gameTime, link.widthPercent, link.sagPercent, link.drawHead);
+        } finally {
+            poseStack.popPose();
         }
-        poseStack.popPose();
     }
 }

@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.client.renderer;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -70,11 +71,19 @@ public final class BossAggroZonePreview {
 
     @SubscribeEvent
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
+        EventGuard.handle("client.aggro_zone.logout", event, BossAggroZonePreview::handleLogout);
+    }
+
+    private static void handleLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         clear();
     }
 
     @SubscribeEvent
     public static void render(RenderLevelStageEvent event) {
+        EventGuard.handle("client.aggro_zone.render", event, BossAggroZonePreview::handleRender);
+    }
+
+    private static void handleRender(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES || bounds == null) {
             return;
         }
@@ -94,12 +103,17 @@ public final class BossAggroZonePreview {
         VertexConsumer consumer = buffers.getBuffer(lines);
 
         poseStack.pushPose();
-        poseStack.translate(-camera.x, -camera.y, -camera.z);
-        LevelRenderer.renderLineBox(poseStack, consumer, bounds,
-                valid ? 0.15F : 1.0F, valid ? 1.0F : 0.15F, 0.15F, 1.0F);
-        LevelRenderer.renderLineBox(poseStack, consumer, marker(corner1), 1.0F, 0.35F, 0.1F, 1.0F);
-        LevelRenderer.renderLineBox(poseStack, consumer, marker(corner2), 0.15F, 0.45F, 1.0F, 1.0F);
-        poseStack.popPose();
+        // Popped in a finally: the level renderer throws on a pose stack left unbalanced, so a
+        // draw that fails behind the guard must still hand the stack back the way it got it.
+        try {
+            poseStack.translate(-camera.x, -camera.y, -camera.z);
+            LevelRenderer.renderLineBox(poseStack, consumer, bounds,
+                    valid ? 0.15F : 1.0F, valid ? 1.0F : 0.15F, 0.15F, 1.0F);
+            LevelRenderer.renderLineBox(poseStack, consumer, marker(corner1), 1.0F, 0.35F, 0.1F, 1.0F);
+            LevelRenderer.renderLineBox(poseStack, consumer, marker(corner2), 0.15F, 0.45F, 1.0F, 1.0F);
+        } finally {
+            poseStack.popPose();
+        }
 
         // This batch belongs solely to the preview; flushing it prevents line vertices from
         // surviving into another world render stage.

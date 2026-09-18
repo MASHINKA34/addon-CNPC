@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.client.gui.SubGuiRangedExtras;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.client.gui.screens.Screen;
 import noppes.npcs.client.gui.SubGuiNpcRangeProperties;
 import noppes.npcs.entity.data.DataRanged;
@@ -24,8 +25,12 @@ public abstract class MixinSubGuiNpcRangeProperties extends GuiBasic {
         if (!(ranged instanceof IRangedData)) {
             return;
         }
-        addButton(new GuiButtonNop(this, 940, guiLeft + 5, guiTop + 190, 100, 20, "Projectile Extras", (b) ->
-                setSubGui(new SubGuiRangedExtras(ranged))));
+        try {
+            addButton(new GuiButtonNop(this, 940, guiLeft + 5, guiTop + 190, 100, 20, "Projectile Extras", (b) ->
+                    setSubGui(new SubGuiRangedExtras(ranged))));
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.gui.range_properties", error);
+        }
     }
 
     @Inject(method = "subGuiClosed", at = @At("HEAD"), cancellable = true, remap = false)

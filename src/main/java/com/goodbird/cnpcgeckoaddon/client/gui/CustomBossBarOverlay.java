@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.network.BossBarStyleClientBridge;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -49,6 +50,10 @@ public final class CustomBossBarOverlay {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void render(CustomizeGuiOverlayEvent.BossEventProgress event) {
+        EventGuard.handle("client.boss_bar.render", event, CustomBossBarOverlay::handleRender);
+    }
+
+    private static void handleRender(CustomizeGuiOverlayEvent.BossEventProgress event) {
         BossBarStyleClientBridge.Bar bar = STYLES.get(event.getBossEvent().getId());
         if (bar == null) {
             return;
@@ -129,6 +134,10 @@ public final class CustomBossBarOverlay {
 
     @SubscribeEvent
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
+        EventGuard.handle("client.boss_bar.logout", event, CustomBossBarOverlay::handleLogout);
+    }
+
+    private static void handleLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         STYLES.clear();
     }
 

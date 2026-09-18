@@ -3,7 +3,9 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 import net.minecraft.util.Mth;
 import noppes.npcs.client.gui.SubGuiNpcProjectiles;
 import noppes.npcs.entity.data.DataRanged;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -18,6 +20,16 @@ public abstract class MixinSubGuiNpcProjectiles {
 
     @Inject(method = "init", at = @At("HEAD"))
     private void cnpcgeckoaddon$sanitizeProjectileGuiValues(CallbackInfo ci) {
+        // A failure leaves the values as they came, which is what CustomNPCs would show anyway.
+        try {
+            cnpcgeckoaddon$sanitize();
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.gui.projectiles", error);
+        }
+    }
+
+    @Unique
+    private void cnpcgeckoaddon$sanitize() {
         int explodeSize = Mth.clamp(stats.getExplodeSize(), 0, 3);
         if (explodeSize != stats.getExplodeSize()) {
             stats.setExplodeSize(explodeSize);

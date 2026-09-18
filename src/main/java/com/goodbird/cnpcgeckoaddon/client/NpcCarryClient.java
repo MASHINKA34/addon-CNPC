@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.client;
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketNpcCarryThrow;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.world.InteractionHand;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -26,6 +27,10 @@ public final class NpcCarryClient {
      */
     @SubscribeEvent
     public static void onRightClickEmpty(final PlayerInteractEvent.RightClickEmpty event) {
+        EventGuard.handle("client.carry.right_click_empty", event, NpcCarryClient::handleRightClickEmpty);
+    }
+
+    private static void handleRightClickEmpty(PlayerInteractEvent.RightClickEmpty event) {
         if (event.getHand() == InteractionHand.MAIN_HAND) {
             NetworkWrapper.sendToServer(new PacketNpcCarryThrow());
         }

@@ -3,12 +3,14 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.NpcTextureUtils;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import noppes.npcs.client.EntityUtil;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -20,6 +22,17 @@ public class MixinEntityUtil {
 
     @Inject(method = "Copy", at = @At("TAIL"), remap = false)
     private static void cnpcgeckoaddon$copyGeckoModelState(LivingEntity copied, LivingEntity entity, CallbackInfo ci) {
+        // Every npc with a model, every frame: a try written out, and a copy that fails leaves the
+        // model entity as the last frame had it.
+        try {
+            cnpcgeckoaddon$copyState(copied, entity);
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.entity_util.copy_model_state", error);
+        }
+    }
+
+    @Unique
+    private static void cnpcgeckoaddon$copyState(LivingEntity copied, LivingEntity entity) {
         if (entity instanceof EntityCustomModel && copied instanceof EntityNPCInterface) {
             EntityCustomModel modelEntity = (EntityCustomModel) entity;
             EntityNPCInterface npc = (EntityNPCInterface) copied;

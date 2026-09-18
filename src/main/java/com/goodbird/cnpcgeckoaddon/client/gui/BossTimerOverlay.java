@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.network.BossTimerClientBridge;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossTimer;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -95,6 +96,10 @@ public final class BossTimerOverlay {
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
+        EventGuard.handle("client.boss_timer.tick", event, BossTimerOverlay::handleTick);
+    }
+
+    private static void handleTick(ClientTickEvent.Post event) {
         clientTick++;
         for (Iterator<TimerState> timers = TIMERS.values().iterator(); timers.hasNext(); ) {
             TimerState timer = timers.next();
@@ -108,6 +113,10 @@ public final class BossTimerOverlay {
 
     @SubscribeEvent
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
+        EventGuard.handle("client.boss_timer.logout", event, BossTimerOverlay::handleLogout);
+    }
+
+    private static void handleLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         TIMERS.clear();
         BossTimerClientBridge.clear();
     }
@@ -118,6 +127,10 @@ public final class BossTimerOverlay {
      */
     @SubscribeEvent(priority = EventPriority.LOW)
     public static void renderPlain(CustomizeGuiOverlayEvent.BossEventProgress event) {
+        EventGuard.handle("client.boss_timer.render_plain", event, BossTimerOverlay::handleRenderPlain);
+    }
+
+    private static void handleRenderPlain(CustomizeGuiOverlayEvent.BossEventProgress event) {
         UUID eventId = event.getBossEvent().getId();
         if (CustomBossBarOverlay.isTracked(eventId)) {
             return;
@@ -243,11 +256,15 @@ public final class BossTimerOverlay {
         }
 
         graphics.pose().pushPose();
-        graphics.pose().scale(SMALL_TEXT_SCALE, SMALL_TEXT_SCALE, 1.0F);
-        int textX = Math.round((trackX + trackWidth) / SMALL_TEXT_SCALE) - font.width(text);
-        int textY = Math.round((trackY - 1) / SMALL_TEXT_SCALE) - font.lineHeight;
-        graphics.drawString(font, text, textX, textY, TEXT_COLOR, true);
-        graphics.pose().popPose();
+        // Popped in a finally, so a label that fails to draw does not leave the rest of the HUD scaled.
+        try {
+            graphics.pose().scale(SMALL_TEXT_SCALE, SMALL_TEXT_SCALE, 1.0F);
+            int textX = Math.round((trackX + trackWidth) / SMALL_TEXT_SCALE) - font.width(text);
+            int textY = Math.round((trackY - 1) / SMALL_TEXT_SCALE) - font.lineHeight;
+            graphics.drawString(font, text, textX, textY, TEXT_COLOR, true);
+        } finally {
+            graphics.pose().popPose();
+        }
     }
 
     private static String caption(TimerState timer, Font font, int trackWidth) {

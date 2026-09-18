@@ -4,6 +4,8 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.ai.BossHurricaneHold;
 import com.goodbird.cnpcgeckoaddon.network.BossSpinClientBridge;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossSpinState;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -75,7 +77,21 @@ public final class BossSpinClient {
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
+        EventGuard.handle("client.spin.tick", event, BossSpinClient::handleTick);
+    }
+
+    private static void handleTick(ClientTickEvent.Post event) {
+        // The capture's rule: a ride that fails its tick is let go of here, and the server,
+        // which carries the victim anyway, is left to do the carrying.
+        CrashGuard.tick("client.spin.apply", BossSpinClient::advance, BossSpinClient::forget);
+    }
+
+    private static void advance() {
         apply(true);
+    }
+
+    private static void forget() {
+        state = null;
     }
 
     /**
@@ -119,12 +135,20 @@ public final class BossSpinClient {
 
     @SubscribeEvent
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
+        EventGuard.handle("client.spin.logout", event, BossSpinClient::handleLogout);
+    }
+
+    private static void handleLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         state = null;
     }
 
     /** A respawn or a change of world is a new player: whatever ride the old one was on is over. */
     @SubscribeEvent
     public static void respawn(ClientPlayerNetworkEvent.Clone event) {
+        EventGuard.handle("client.spin.respawn", event, BossSpinClient::handleRespawn);
+    }
+
+    private static void handleRespawn(ClientPlayerNetworkEvent.Clone event) {
         state = null;
     }
 }

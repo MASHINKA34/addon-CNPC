@@ -2,6 +2,9 @@ package com.goodbird.cnpcgeckoaddon.client;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.network.BossCaptureClientBridge;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
+import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
+import com.goodbird.cnpcgeckoaddon.utils.GuardSelfTest;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -40,7 +43,19 @@ public final class BossCaptureClient {
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
-        apply();
+        EventGuard.handle("client.capture.tick", event, BossCaptureClient::handleTick);
+    }
+
+    private static void handleTick(ClientTickEvent.Post event) {
+        // The self test's wire: /cnpcgecko selftest client fails this tick once, on this client.
+        GuardSelfTest.trip(GuardSelfTest.CLIENT);
+        // A hold that cannot be applied this tick cannot be applied the next one either: it is
+        // let go of locally, and the server's own pin is left to do the holding.
+        CrashGuard.tick("client.capture.apply", BossCaptureClient::apply, BossCaptureClient::forget);
+    }
+
+    private static void forget() {
+        state = null;
     }
 
     private static void apply() {
@@ -72,6 +87,10 @@ public final class BossCaptureClient {
 
     @SubscribeEvent
     public static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
+        EventGuard.handle("client.capture.logout", event, BossCaptureClient::handleLogout);
+    }
+
+    private static void handleLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         state = null;
     }
 }
