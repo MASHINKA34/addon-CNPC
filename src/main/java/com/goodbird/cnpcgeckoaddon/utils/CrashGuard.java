@@ -153,9 +153,7 @@ public final class CrashGuard {
 
     /** @param detail what it happened to - a boss' name, a block's position - for the log line only */
     public static void caught(String site, String detail, Throwable error) {
-        if (isFatal(error)) {
-            throw (Error) error;
-        }
+        rethrowIfFatal(error);
         Site entry = SITES.computeIfAbsent(site, key -> new Site());
         long failures;
         long unreported;
@@ -180,9 +178,7 @@ public final class CrashGuard {
         } catch (Throwable loggingFailed) {
             // The line is lost, the count above is not - and a guard must not be the thing that
             // throws. Only what nothing survives goes on up.
-            if (isFatal(loggingFailed)) {
-                throw (Error) loggingFailed;
-            }
+            rethrowIfFatal(loggingFailed);
         }
     }
 
@@ -216,6 +212,21 @@ public final class CrashGuard {
         return site + ".recovery";
     }
 
+    /**
+     * The fatal half of a guard on its own, for a {@code catch (Throwable)} written for
+     * something else: the diagnostic helpers that run on an already failing path - naming the
+     * npc a failed tick belongs to, printing what was thrown - catch everything, because
+     * failing on top of the first failure would be worse than a duller log line. What nothing
+     * can carry on after is still not theirs to hold, and this is the one check that says so.
+     *
+     * @throws Error when {@code error} is one nothing can carry on after
+     */
+    public static void rethrowIfFatal(Throwable error) {
+        if (isFatal(error)) {
+            throw (Error) error;
+        }
+    }
+
     @SuppressWarnings("removal")
     private static boolean isFatal(Throwable error) {
         return error instanceof OutOfMemoryError || error instanceof ThreadDeath;
@@ -226,6 +237,7 @@ public final class CrashGuard {
         try {
             text = String.valueOf(error);
         } catch (Throwable unprintable) {
+            rethrowIfFatal(unprintable);
             // An exception whose own message throws: its class is still worth a line.
             text = error.getClass().getName();
         }

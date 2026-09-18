@@ -482,7 +482,10 @@ public final class TeleportPathController {
             LOGGER.error("Boss controller of NPC {} has failed {} ticks in a row; boss framework disabled "
                     + "for this npc until reload", nameForLog(), TickFailureEscalation.DISABLE_AFTER);
             CrashGuard.run("boss.controller.shutdown", this::shutdown);
-            CrashGuard.run("boss.controller.shutdown", bar::restoreNative);
+            // The bar is reached inside the guard, not while the reference to it is made: a
+            // controller whose fields are part of what is broken must still get off the list
+            // below, and a shutdown that dies on the way there would leave it failing forever.
+            CrashGuard.run("boss.controller.shutdown", () -> bar.restoreNative());
             // Whatever shutdown() got through, these two are what "disabled" means: off the live
             // list, and off the npc with a note not to build the next one.
             INSTANCES.remove(this);
@@ -498,6 +501,7 @@ public final class TeleportPathController {
         try {
             return npc.getName().getString();
         } catch (Throwable unnamed) {
+            CrashGuard.rethrowIfFatal(unnamed);
             return String.valueOf(npc.getUUID());
         }
     }
