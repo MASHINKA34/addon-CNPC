@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.command;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.ai.BossDamageEvents;
+import com.goodbird.cnpcgeckoaddon.ai.BossSchedulerEvents;
 import com.goodbird.cnpcgeckoaddon.ai.NpcDamageInfoManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossHurricaneScheduler;
 import com.goodbird.cnpcgeckoaddon.ai.BossShadowUtil;
@@ -10,13 +12,19 @@ import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
+import com.goodbird.cnpcgeckoaddon.network.PacketGuardSelfTest;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
+import com.goodbird.cnpcgeckoaddon.utils.GuardSelfTest;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -36,6 +44,10 @@ import java.util.List;
 public class GeckoAddonCommand {
 
     private static final int MAX_REPORTED_BOSSES = 10;
+    /** The guards command lists the worst sites first and stops here; the rest are counted in one line. */
+    private static final int MAX_REPORTED_GUARD_SITES = 20;
+    /** How far the controller drill looks for a boss to fail. */
+    private static final double SELF_TEST_BOSS_RANGE = 64.0D;
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
@@ -50,7 +62,116 @@ public class GeckoAddonCommand {
         root.then(Commands.literal("boss").executes(context -> showBossStatus(context.getSource())));
         root.then(Commands.literal("carry").executes(context -> toggleCarry(context.getSource())));
         root.then(Commands.literal("damageinfo").executes(context -> toggleDamageInfo(context.getSource())));
+        root.then(Commands.literal("guards")
+                .executes(context -> showGuards(context.getSource()))
+                .then(Commands.literal("reset").executes(context -> resetGuards(context.getSource()))));
+        root.then(Commands.literal("selftest")
+                .then(Commands.argument("site", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(GuardSelfTest.SITES, builder))
+                        .executes(context -> selfTest(context.getSource(),
+                                StringArgumentType.getString(context, "site")))));
         event.getDispatcher().register(root);
+    }
+
+    /**
+     * Every guarded place that has failed since the start or the last reset, worst first: how
+     * often, how long ago the last time was, and what it threw. The whole stack is in the log.
+     */
+    private static int showGuards(CommandSourceStack source) {
+        List<CrashGuard.Counter> counters = CrashGuard.counters();
+        if (counters.isEmpty()) {
+            source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.guards_none"), false);
+            return 0;
+        }
+        source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.guards_header",
+                String.valueOf(counters.size())), false);
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < Math.min(counters.size(), MAX_REPORTED_GUARD_SITES); i++) {
+            CrashGuard.Counter counter = counters.get(i);
+            String secondsAgo = String.valueOf(Math.max(0L, now - counter.lastFailureMillis()) / 1000L);
+            source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.guards_line", counter.site(),
+                    String.valueOf(counter.failures()), secondsAgo, counter.lastError()), false);
+        }
+        if (counters.size() > MAX_REPORTED_GUARD_SITES) {
+            String more = String.valueOf(counters.size() - MAX_REPORTED_GUARD_SITES);
+            source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.guards_more", more), false);
+        }
+        return counters.size();
+    }
+
+    private static int resetGuards(CommandSourceStack source) {
+        CrashGuard.reset();
+        GuardSelfTest.disarmAll();
+        source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.guards_reset"), true);
+        return 1;
+    }
+
+    /**
+     * Makes one guarded place fail on purpose, so a tester can watch the game carry on and the
+     * failure land in the log and in {@code /cnpcgecko guards}.
+     */
+    private static int selfTest(CommandSourceStack source, String site) throws CommandSyntaxException {
+        switch (site) {
+            case GuardSelfTest.SCHEDULER -> {
+                ServerLevel level = source.getLevel();
+                GuardSelfTest.arm(BossSchedulerEvents.selfTestWire(level));
+                armed(source, site, Component.translatable("cnpcgeckoaddon.cmd.selftest_scheduler",
+                        level.dimension().location().toString()));
+            }
+            case GuardSelfTest.DAMAGE -> {
+                ServerPlayer player = source.getPlayerOrException();
+                GuardSelfTest.arm(BossDamageEvents.selfTestWire(player));
+                armed(source, site, Component.translatable("cnpcgeckoaddon.cmd.selftest_damage"));
+            }
+            case GuardSelfTest.PACKET -> {
+                ServerPlayer player = source.getPlayerOrException();
+                NetworkWrapper.send(player, new PacketGuardSelfTest(PacketGuardSelfTest.KIND_PACKET));
+                armed(source, site, Component.translatable("cnpcgeckoaddon.cmd.selftest_packet"));
+            }
+            case GuardSelfTest.CLIENT -> {
+                ServerPlayer player = source.getPlayerOrException();
+                NetworkWrapper.send(player, new PacketGuardSelfTest(PacketGuardSelfTest.KIND_CLIENT_TICK));
+                armed(source, site, Component.translatable("cnpcgeckoaddon.cmd.selftest_client"));
+            }
+            case GuardSelfTest.CONTROLLER -> {
+                EntityNPCInterface boss = nearestRunningBoss(source);
+                if (boss == null) {
+                    source.sendFailure(Component.translatable("cnpcgeckoaddon.cmd.selftest_no_boss",
+                            String.valueOf((int) SELF_TEST_BOSS_RANGE)));
+                    return 0;
+                }
+                GuardSelfTest.armController(boss.getUUID());
+                armed(source, site, Component.translatable("cnpcgeckoaddon.cmd.selftest_controller",
+                        boss.getName().getString()));
+            }
+            default -> {
+                source.sendFailure(Component.translatable("cnpcgeckoaddon.cmd.selftest_unknown", site,
+                        String.join(", ", GuardSelfTest.SITES)));
+                return 0;
+            }
+        }
+        return 1;
+    }
+
+    private static void armed(CommandSourceStack source, String site, Component what) {
+        source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.selftest_armed", site, what), true);
+    }
+
+    /** The boss nearest the command whose controller is ticking now, within the drill's range. */
+    private static EntityNPCInterface nearestRunningBoss(CommandSourceStack source) {
+        EntityNPCInterface nearest = null;
+        double best = SELF_TEST_BOSS_RANGE * SELF_TEST_BOSS_RANGE;
+        for (Entity entity : source.getLevel().getAllEntities()) {
+            if (entity instanceof EntityNPCInterface npc && npc instanceof IBossController holder
+                    && holder.cnpcgeckoaddon$getTeleportPathController() != null) {
+                double distance = npc.distanceToSqr(source.getPosition());
+                if (distance <= best) {
+                    best = distance;
+                    nearest = npc;
+                }
+            }
+        }
+        return nearest;
     }
 
     private static int toggleCarry(CommandSourceStack source) throws CommandSyntaxException {
