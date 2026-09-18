@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.client;
 
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
+import com.goodbird.cnpcgeckoaddon.utils.ResourceIds;
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.entity.EntityCustomNpc;
 import org.jetbrains.annotations.Nullable;
@@ -43,9 +44,9 @@ public final class ModelSelectionHelper {
         }
 
         String name = path.substring(GEO_PREFIX.length(), path.length() - GEO_SUFFIX.length());
-        ResourceLocation animation = ResourceLocation.fromNamespaceAndPath(
-                model.getNamespace(), "animations/" + name + ".animation.json");
-        return GeckoLibCache.getBakedAnimations().containsKey(animation) ? animation : null;
+        ResourceLocation animation = ResourceIds.pathOrDefault(
+                model.getNamespace(), "animations/" + name + ".animation.json", null);
+        return animation != null && GeckoLibCache.getBakedAnimations().containsKey(animation) ? animation : null;
     }
 
     public record ModelResources(

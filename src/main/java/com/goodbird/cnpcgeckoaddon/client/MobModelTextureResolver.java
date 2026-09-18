@@ -1,8 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client;
 
 import com.goodbird.cnpcgeckoaddon.utils.MobModelNameMatcher;
+import com.goodbird.cnpcgeckoaddon.utils.ResourceIds;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -29,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * geometry.</p>
  */
 public final class MobModelTextureResolver {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
     private static final Set<String> BUNDLED_NAMESPACES = Set.of(
             "born_in_chaos_v1",
             "cataclysm",
@@ -162,9 +167,9 @@ public final class MobModelTextureResolver {
         String overrideNamespace = embeddedArphex ? "arphex" : model.getNamespace();
         ResourceLocation override = OVERRIDES.get(overrideNamespace + ":" + MobModelNameMatcher.normalize(modelName));
         if (embeddedArphex && override != null) {
-            override = ResourceLocation.fromNamespaceAndPath(
+            override = ResourceIds.pathOrDefault(
                     model.getNamespace(),
-                    "textures/entities/arphex/" + MobModelNameMatcher.fileName(override.getPath()));
+                    "textures/entities/arphex/" + MobModelNameMatcher.fileName(override.getPath()), null);
         }
         if (override != null && resourceManager.getResource(override).isPresent()) {
             return override;
@@ -198,6 +203,7 @@ public final class MobModelTextureResolver {
      */
     private static Map<String, ResourceLocation> loadTextureTable(String resource, boolean normalizeKeys) {
         Map<String, ResourceLocation> textures = new HashMap<>();
+        int malformed = 0;
         try (InputStream input = MobModelTextureResolver.class.getResourceAsStream(resource)) {
             if (input == null) {
                 return Map.of();
@@ -214,18 +220,34 @@ public final class MobModelTextureResolver {
                         continue;
                     }
                     String model = line.substring(0, separator);
-                    ResourceLocation texture = ResourceLocation.parse(line.substring(separator + 1));
-                    textures.put(normalizeKeys ? overrideKey(model) : model, texture);
+                    // One malformed line costs that line: the table is read on the render thread,
+                    // and a parse that threw used to cost every other model its texture too.
+                    ResourceLocation texture = ResourceLocation.tryParse(line.substring(separator + 1));
+                    String key = normalizeKeys ? overrideKey(model) : model;
+                    if (texture == null || key == null) {
+                        malformed++;
+                        continue;
+                    }
+                    textures.put(key, texture);
                 }
             }
-        } catch (IOException | RuntimeException ignored) {
+        } catch (IOException | RuntimeException error) {
+            LOGGER.warn("Could not read the bundled model texture table {}; bundled models use the npc skin", resource,
+                    error);
             return Map.of();
+        }
+        if (malformed > 0) {
+            LOGGER.warn("Skipped {} malformed lines of the bundled model texture table {}", malformed, resource);
         }
         return Map.copyOf(textures);
     }
 
+    /** @return the key an override is looked up by, or null for a model that is not a valid id */
     private static String overrideKey(String model) {
-        ResourceLocation location = ResourceLocation.parse(model);
+        ResourceLocation location = ResourceLocation.tryParse(model);
+        if (location == null) {
+            return null;
+        }
         return location.getNamespace() + ":" + MobModelNameMatcher.normalize(MobModelNameMatcher.fileStem(location.getPath(), ".geo.json"));
     }
 

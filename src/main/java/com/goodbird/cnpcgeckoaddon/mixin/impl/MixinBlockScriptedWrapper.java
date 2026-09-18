@@ -2,7 +2,9 @@ package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncTileAnimation;
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.tile.TileEntityCustomModel;
+import com.goodbird.cnpcgeckoaddon.utils.ResourceIds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -22,6 +24,20 @@ import software.bernie.geckolib.animation.RawAnimation;
 @Mixin(BlockScriptedWrapper.class)
 public abstract class MixinBlockScriptedWrapper extends BlockWrapper {
 
+    /*
+     * What a scripted block shows for an id a script got wrong: the placeholders the npc models
+     * fall back to, so a typo reads as "model not found" on the block rather than as an
+     * exception in the script's console.
+     */
+    @Unique
+    private static final ResourceLocation cnpcgeckoaddon$MISSING_MODEL =
+            ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "geo/modelnotfound.geo.json");
+    @Unique
+    private static final ResourceLocation cnpcgeckoaddon$MISSING_TEXTURE =
+            ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "textures/model/alphabet.png");
+    @Unique
+    private static final ResourceLocation cnpcgeckoaddon$MISSING_ANIMATION =
+            ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "animations/none.animation.json");
 
     protected MixinBlockScriptedWrapper(Level level, Block block, BlockPos pos) {
         super(level, block, pos);
@@ -39,22 +55,34 @@ public abstract class MixinBlockScriptedWrapper extends BlockWrapper {
     @Unique
     public void setGeckoModel(String model) {
         TileEntityCustomModel geckoTile = getOrCreateTECM();
-        geckoTile.modelResLoc = ResourceLocation.parse(model);
+        geckoTile.modelResLoc = ResourceIds.parseFromScript(model, cnpcgeckoaddon$MISSING_MODEL,
+                "gecko model", cnpcgeckoaddon$where());
         ((TileScripted) getMCTileEntity()).needsClientUpdate = true;
     }
 
     @Unique
     public void setGeckoTexture(String texture) {
         TileEntityCustomModel geckoTile = getOrCreateTECM();
-        geckoTile.textureResLoc = ResourceLocation.parse(texture);
+        geckoTile.textureResLoc = ResourceIds.parseFromScript(texture, cnpcgeckoaddon$MISSING_TEXTURE,
+                "gecko texture", cnpcgeckoaddon$where());
         ((TileScripted) getMCTileEntity()).needsClientUpdate = true;
     }
 
     @Unique
     public void setGeckoAnimationFile(String animation) {
         TileEntityCustomModel geckoTile = getOrCreateTECM();
-        geckoTile.animResLoc = ResourceLocation.parse(animation);
+        geckoTile.animResLoc = ResourceIds.parseFromScript(animation, cnpcgeckoaddon$MISSING_ANIMATION,
+                "gecko animation file", cnpcgeckoaddon$where());
         ((TileScripted) getMCTileEntity()).needsClientUpdate = true;
+    }
+
+    /** The block a script is talking to, for the log line about an id it got wrong. */
+    @Unique
+    private String cnpcgeckoaddon$where() {
+        BlockPos pos = getMCTileEntity().getBlockPos();
+        Level level = getMCTileEntity().getLevel();
+        return "the scripted block at " + (level == null ? "" : level.dimension().location() + " ")
+                + pos.getX() + " " + pos.getY() + " " + pos.getZ();
     }
 
     @Unique

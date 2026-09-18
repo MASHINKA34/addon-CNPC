@@ -32,7 +32,10 @@ public final class BossEffectData {
      */
     public static final String FIRE_ID = "cnpcgeckoaddon:fire";
 
-    /** Vanilla's ceiling on an amplifier: it goes over the wire as a byte, so nothing above it can be sent. */
+    /**
+     * Vanilla's ceiling on an amplifier: the effect is saved with it as an unsigned byte, and one
+     * above it throws on the save - which is the victim's save, and the chunk's.
+     */
     public static final int MAX_AMPLIFIER = 255;
 
     private boolean enabled;
@@ -98,7 +101,9 @@ public final class BossEffectData {
      * the slot's own, since stacks only ever add.
      */
     public int amplifierWith(int extraLevels) {
-        return Mth.clamp(amplifier + Math.max(0, extraLevels), 0, MAX_AMPLIFIER);
+        // Added as longs: a stack count near the top of an int would otherwise wrap round to a
+        // negative sum, and the clamp would take the slot below its own level.
+        return (int) Math.min(MAX_AMPLIFIER, (long) amplifier + Math.max(0, extraLevels));
     }
 
     /** The 1-based level with the extra on top: what the fire burns at. */
