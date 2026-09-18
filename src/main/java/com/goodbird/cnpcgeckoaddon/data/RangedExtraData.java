@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.util.Mth;
 
 public class RangedExtraData {
@@ -38,7 +39,19 @@ public class RangedExtraData {
     public static final int MIN_SHOT_COUNT = 1;
     public static final int MAX_SHOT_COUNT = 10;
 
+    /**
+     * What an npc shoots when it has neither a usable entity of its own nor a projectile item.
+     *
+     * <p>CustomNPCs fires its own projectile whether or not the slot holds anything, and one
+     * thrown as an empty stack takes the server down when it lands. An arrow is the default
+     * rather than "nothing" so that an npc saved before this key existed goes on shooting
+     * instead of going quiet; an empty id is how an npc is told not to shoot at all.</p>
+     */
+    public static final String DEFAULT_FALLBACK_PROJECTILE = "minecraft:arrow";
+    private static final String FALLBACK_KEY = "GeckoNpcRangedFallback";
+
     private String projectileEntity = "";
+    private String fallbackProjectile = DEFAULT_FALLBACK_PROJECTILE;
     private int keepDistance = 0;
     private int muzzleHeightTenths = DEFAULT_MUZZLE_HEIGHT;
     private int shotSoundVolumeTenths = DEFAULT_SHOT_VOLUME;
@@ -46,6 +59,7 @@ public class RangedExtraData {
 
     public CompoundTag writeToNBT(CompoundTag nbttagcompound) {
         nbttagcompound.putString("GeckoProjectileEntity", projectileEntity);
+        nbttagcompound.putString(FALLBACK_KEY, fallbackProjectile);
         nbttagcompound.putInt("GeckoKeepDistance", keepDistance);
         nbttagcompound.putInt("GeckoNpcRangedMuzzle", muzzleHeightTenths);
         nbttagcompound.putInt("GeckoNpcRangedShotVolume", shotSoundVolumeTenths);
@@ -55,6 +69,11 @@ public class RangedExtraData {
 
     public void readFromNBT(CompoundTag nbttagcompound) {
         setProjectileEntity(nbttagcompound.getString("GeckoProjectileEntity"));
+        // Asked for as a string and nothing else: a save that never wrote the key and one
+        // that holds something other than text under it both read the default, while an
+        // empty string is a setting in its own right and stays empty.
+        setFallbackProjectile(nbttagcompound.contains(FALLBACK_KEY, Tag.TAG_STRING)
+                ? nbttagcompound.getString(FALLBACK_KEY) : DEFAULT_FALLBACK_PROJECTILE);
         setKeepDistance(nbttagcompound.getInt("GeckoKeepDistance"));
         muzzleHeightTenths = readInt(nbttagcompound, "GeckoNpcRangedMuzzle", DEFAULT_MUZZLE_HEIGHT,
                 MIN_MUZZLE_HEIGHT, MAX_MUZZLE_HEIGHT);
@@ -75,6 +94,15 @@ public class RangedExtraData {
 
     public void setProjectileEntity(String projectileEntity) {
         this.projectileEntity = projectileEntity == null ? "" : projectileEntity.trim();
+    }
+
+    /** The entity fired when there is nothing else to fire; empty means the npc holds its fire. */
+    public String getFallbackProjectile() {
+        return fallbackProjectile;
+    }
+
+    public void setFallbackProjectile(String fallbackProjectile) {
+        this.fallbackProjectile = fallbackProjectile == null ? "" : fallbackProjectile.trim();
     }
 
     public int getKeepDistance() {

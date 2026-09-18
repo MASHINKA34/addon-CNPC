@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.data;
 
 import com.goodbird.cnpcgeckoaddon.util.NbtNumericSweep;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -14,6 +15,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -184,6 +186,45 @@ class NpcDataFieldRangeTest {
         assertTrue(seen >= BOUNDS.size(), "the sweep found only " + seen + " numbers to check");
         assertTrue(unlisted.isEmpty(),
                 "these are saved but have no range stated in this test: " + unlisted);
+    }
+
+    /**
+     * The fallback projectile is the one setting here that is text with a default, so the
+     * sweep above - which only walks numbers - says nothing about it. What a hand-edited save
+     * can do to it is a different shape of the same hole: a key of the wrong type reads as an
+     * empty string, and for this field empty means "hold your fire", so a mistyped key would
+     * quietly disarm the npc instead of falling back to the arrow.
+     */
+    @Test
+    @DisplayName("the fallback projectile survives whatever a hand-edited save holds under its key")
+    void theFallbackProjectileSurvivesAHandEditedSave() {
+        CompoundTag baseline = new RangedExtraData().writeToNBT(new CompoundTag());
+        assertTrue(baseline.contains("GeckoNpcRangedFallback", Tag.TAG_STRING),
+                "the fallback projectile is not saved under the key this test poisons");
+
+        CompoundTag missing = baseline.copy();
+        missing.remove("GeckoNpcRangedFallback");
+        assertEquals(RangedExtraData.DEFAULT_FALLBACK_PROJECTILE, fallbackAfter(missing),
+                "a save without the key should read the default");
+
+        CompoundTag mistyped = baseline.copy();
+        mistyped.putInt("GeckoNpcRangedFallback", Integer.MAX_VALUE);
+        assertEquals(RangedExtraData.DEFAULT_FALLBACK_PROJECTILE, fallbackAfter(mistyped),
+                "a number under the key should read the default, not an empty id");
+
+        CompoundTag padded = baseline.copy();
+        padded.putString("GeckoNpcRangedFallback", "  minecraft:snowball ");
+        assertEquals("minecraft:snowball", fallbackAfter(padded), "a padded id should come back trimmed");
+
+        CompoundTag emptied = baseline.copy();
+        emptied.putString("GeckoNpcRangedFallback", "");
+        assertEquals("", fallbackAfter(emptied), "an empty id is a setting of its own and should stay empty");
+    }
+
+    private static String fallbackAfter(CompoundTag tag) {
+        RangedExtraData reloaded = new RangedExtraData();
+        reloaded.readFromNBT(tag);
+        return reloaded.getFallbackProjectile();
     }
 
     /**

@@ -64,6 +64,7 @@ class RangedExtraDataRoundTripTest {
     @DisplayName("the shot settings survive write -> read -> write unchanged")
     void shotSettingsSurviveTheRoundTrip() {
         RangedExtraData first = new RangedExtraData();
+        first.setFallbackProjectile("minecraft:snowball");
         first.setKeepDistance(9);
         first.setMuzzleHeightTenths(10);
         first.setShotSoundVolumeTenths(0);
@@ -75,6 +76,7 @@ class RangedExtraDataRoundTripTest {
 
         assertEquals(once, reread.writeToNBT(new CompoundTag()),
                 "write -> read -> write should reproduce the identical ranged tag");
+        assertEquals("minecraft:snowball", reread.getFallbackProjectile());
         assertEquals(9, reread.getKeepDistance());
         assertEquals(10, reread.getMuzzleHeightTenths());
         assertEquals(0, reread.getShotSoundVolumeTenths());
@@ -90,17 +92,33 @@ class RangedExtraDataRoundTripTest {
         old.putInt("GeckoKeepDistance", 12);
 
         RangedExtraData reread = new RangedExtraData();
+        reread.setFallbackProjectile("");
         reread.setMuzzleHeightTenths(15);
         reread.setShotSoundVolumeTenths(0);
         reread.setShotSoundPitchTenths(30);
         reread.readFromNBT(old);
 
         assertEquals("minecraft:arrow", reread.getProjectileEntity());
+        assertEquals(RangedExtraData.DEFAULT_FALLBACK_PROJECTILE, reread.getFallbackProjectile(),
+                "an npc saved before there was a fallback shoots an arrow rather than nothing");
         assertEquals(12, reread.getKeepDistance());
         assertEquals(RangedExtraData.DEFAULT_MUZZLE_HEIGHT, reread.getMuzzleHeightTenths(),
                 "the muzzle used to sit two tenths under the eyes");
         assertEquals(RangedExtraData.DEFAULT_SHOT_VOLUME, reread.getShotSoundVolumeTenths());
         assertEquals(RangedExtraData.DEFAULT_SHOT_PITCH, reread.getShotSoundPitchTenths());
+    }
+
+    @Test
+    @DisplayName("an emptied fallback stays empty, because empty is how an npc is told not to shoot")
+    void anEmptyFallbackIsASettingOfItsOwn() {
+        RangedExtraData silent = new RangedExtraData();
+        silent.setFallbackProjectile("");
+
+        RangedExtraData reread = new RangedExtraData();
+        reread.readFromNBT(silent.writeToNBT(new CompoundTag()));
+
+        assertEquals("", reread.getFallbackProjectile(),
+                "the default belongs to a save without the key, not to one that says \"nothing\"");
     }
 
     private static List<Object> candidatesFor(Class<?> type) {
