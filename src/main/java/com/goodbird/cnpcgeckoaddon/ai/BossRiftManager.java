@@ -645,9 +645,9 @@ public final class BossRiftManager {
                     BlockPos floor = BossFloorUtil.findFloor(level, x, fromY, z);
                     return floor == null ? null : (double) (floor.getY() + 1);
                 });
+        BlockState amethyst = BossRiftDimension.resolveBlock(BossRiftSettings.FALLBACK_CRYSTAL_BLOCK);
         BlockState fallback = BossRiftDimension.blockOrDefault(settings.getCrystalBlock(),
-                BossRiftDimension.blockOrDefault(BossRiftSettings.FALLBACK_CRYSTAL_BLOCK,
-                        Blocks.AMETHYST_BLOCK.defaultBlockState(), "crystal"), "crystal");
+                amethyst == null ? Blocks.AMETHYST_BLOCK.defaultBlockState() : amethyst, "crystal");
         for (BossRiftCrystalPlacement.Spot spot : spots) {
             BlockState block = spot.block().isEmpty() ? fallback
                     : BossRiftDimension.blockOrDefault(spot.block(), fallback, "crystal zone");
@@ -692,7 +692,7 @@ public final class BossRiftManager {
                 rift.crystalsPlaced = Math.max(rift.crystalsCollected, rift.crystalsPlaced - 1);
                 continue;
             }
-            if (collector(level, rift, zone) != null) {
+            if (reached(level, rift, zone)) {
                 collect(level, rift, entity, zone);
                 continue;
             }
@@ -714,8 +714,8 @@ public final class BossRiftManager {
         }
     }
 
-    /** Whichever of the rift's players has reached this crystal, or null while none has. */
-    private static ServerPlayer collector(ServerLevel level, Rift rift, BossRiftCrystalPlacement.Spot zone) {
+    /** Whether any of the rift's players has reached this crystal, by whichever way the phase asked for. */
+    private static boolean reached(ServerLevel level, Rift rift, BossRiftCrystalPlacement.Spot zone) {
         for (UUID id : rift.inside) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(id);
             if (player == null || player.level() != level || !player.isAlive()) {
@@ -723,10 +723,10 @@ public final class BossRiftManager {
             }
             if (BossRiftCrystalPlacement.collects(zone, rift.settings.getCrystalCollectMode(),
                     player.getX(), player.getY(), player.getZ(), player.getBbHeight())) {
-                return player;
+                return true;
             }
         }
-        return null;
+        return false;
     }
 
     /** One crystal collected: the chime, the puff, and one fewer between its players and the way home. */
