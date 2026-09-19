@@ -420,7 +420,8 @@ public final class BossPhaseData {
      * hurricane's: its storms travel on their own once let go. And the shadow copies': the
      * copies fight on their own feet once they stand. The seismic waves' bit likewise only
      * holds the wind-up: whether the boss stands still for the series is the ability's own
-     * switch.</p>
+     * switch. So does the rift's: while its victims are away the boss is held on its spot by
+     * the rift itself, whatever this says.</p>
      */
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -430,7 +431,8 @@ public final class BossPhaseData {
             BossAbilityKind.GRAVITY, BossAbilityKind.MARK, BossAbilityKind.COVER,
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
             BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
-            BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW, BossAbilityKind.SEISMIC
+            BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW, BossAbilityKind.SEISMIC,
+            BossAbilityKind.RIFT
     };
 
     /**
@@ -501,6 +503,7 @@ public final class BossPhaseData {
     private final BossMeleeAttackSettings meleeAttack = new BossMeleeAttackSettings();
     private final BossPlatformSettings platform = new BossPlatformSettings();
     private final BossRangedAttackSettings rangedAttack = new BossRangedAttackSettings();
+    private final BossRiftSettings rift = new BossRiftSettings();
     private final BossSeismicSettings seismic = new BossSeismicSettings();
     private final BossShadowSettings shadow = new BossShadowSettings();
     private final BossSummonSettings summon = new BossSummonSettings();
@@ -632,6 +635,11 @@ public final class BossPhaseData {
         return seismic;
     }
 
+    /** The cut that takes victims to the boss' pocket dimension, and what the fight becomes meanwhile. */
+    public BossRiftSettings rift() {
+        return rift;
+    }
+
     /** The copies of the boss itself, what they cast, and how they end. */
     public BossShadowSettings shadow() {
         return shadow;
@@ -678,6 +686,7 @@ public final class BossPhaseData {
             case BossAbilityKind.HURRICANE -> hurricane.setEnabled(value);
             case BossAbilityKind.SHADOW -> shadow.setEnabled(value);
             case BossAbilityKind.SEISMIC -> seismic.setEnabled(value);
+            case BossAbilityKind.RIFT -> rift.setEnabled(value);
             default -> {
             }
         }
@@ -875,6 +884,7 @@ public final class BossPhaseData {
         meleeAttack.writeToNBT(tag);
         platform.writeToNBT(tag);
         rangedAttack.writeToNBT(tag);
+        rift.writeToNBT(tag);
         seismic.writeToNBT(tag);
         shadow.writeToNBT(tag);
         summon.writeToNBT(tag);
@@ -953,6 +963,10 @@ public final class BossPhaseData {
         if (!tag.contains("SeismicEnabled")) {
             castRootMask |= 1L << BossAbilityKind.SEISMIC;
         }
+        // And for the rift, whose bit only pins the wind-up: the rift holds the boss itself.
+        if (!tag.contains("RiftEnabled")) {
+            castRootMask |= 1L << BossAbilityKind.RIFT;
+        }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight. A
         // save from when only the lasting abilities could be marked holds zeros in every other
@@ -1001,6 +1015,7 @@ public final class BossPhaseData {
         meleeAttack.readFromNBT(tag);
         platform.readFromNBT(tag);
         rangedAttack.readFromNBT(tag);
+        rift.readFromNBT(tag);
         seismic.readFromNBT(tag);
         shadow.readFromNBT(tag);
         summon.readFromNBT(tag);

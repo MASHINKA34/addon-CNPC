@@ -86,6 +86,10 @@ public enum BossAbility {
             phase -> phase.shadow().getCooldownTicks(), phase -> phase.shadow().castSpot()),
     SEISMIC(BossAbilityKind.SEISMIC, phase -> phase.seismic().isEnabled(),
             phase -> phase.seismic().getCooldownTicks(), phase -> phase.seismic().castSpot()),
+    // Configured when its way out has what it needs: a minion rift is nothing without a clone.
+    RIFT(BossAbilityKind.RIFT, phase -> phase.rift().canCast(),
+            phase -> phase.rift().isConfigured(),
+            phase -> phase.rift().getCooldownTicks(), phase -> phase.rift().castSpot()),
     SUMMON(BossAbilityKind.SUMMON, phase -> phase.summon().canSummon(),
             phase -> phase.summon().isConfigured(),
             phase -> phase.summon().getCooldownTicks(), phase -> phase.summon().castSpot()),

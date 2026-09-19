@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossCastSpot;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -154,6 +155,10 @@ class BossAbilityTableTest {
                     phase -> phase.seismic().setEnabled(true),
                     (phase, ticks) -> phase.seismic().setCooldownTicks(ticks),
                     phase -> phase.seismic().castSpot())),
+            Map.entry(BossAbility.RIFT, new Wiring(
+                    phase -> phase.rift().setEnabled(true),
+                    (phase, ticks) -> phase.rift().setCooldownTicks(ticks),
+                    phase -> phase.rift().castSpot())),
             Map.entry(BossAbility.SUMMON, new Wiring(
                     phase -> {
                         phase.summon().setEnabled(true);
@@ -183,6 +188,13 @@ class BossAbilityTableTest {
                     }),
             BossAbility.PLATFORM, new Setup(phase -> phase.platform().getZones().add(),
                     phase -> phase.platform().getZones().clear()),
+            // A rift that ends when its minions are dead needs a clone to spawn them from; the
+            // survival rift it starts out as needs nothing.
+            BossAbility.RIFT, new Setup(phase -> phase.rift().setMinionCloneName("rift_minion"),
+                    phase -> {
+                        phase.rift().setExitMode(BossRiftSettings.EXIT_MINIONS);
+                        phase.rift().setMinionCloneName("");
+                    }),
             BossAbility.SUMMON, new Setup(phase -> phase.summon().setCloneName("minion"),
                     phase -> phase.summon().setCloneName(""))));
 

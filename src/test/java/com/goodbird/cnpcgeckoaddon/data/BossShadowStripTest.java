@@ -19,7 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BossShadowStripTest {
 
     private static final long MASK = (1L << BossAbilityKind.MELEE) | (1L << BossAbilityKind.DASH)
-            | (1L << BossAbilityKind.SHADOW) | (1L << BossAbilityKind.SUMMON) | (1L << BossAbilityKind.HAZARD);
+            | (1L << BossAbilityKind.SHADOW) | (1L << BossAbilityKind.SUMMON) | (1L << BossAbilityKind.HAZARD)
+            | (1L << BossAbilityKind.RIFT);
 
     @Test
     @DisplayName("everything that makes a boss more than a fighter is switched off on the copy")
@@ -60,6 +61,7 @@ class BossShadowStripTest {
         assertFalse(only.areaAttack().isEnabled());
         assertFalse(only.shadow().isEnabled(), "copies never make copies");
         assertFalse(only.summon().isEnabled(), "and never call for minions");
+        assertFalse(only.rift().isEnabled(), "nor open a rift, whatever the mask says");
         assertFalse(only.hazard().isEnabled(), "the arena is the boss' to burn, whatever the mask says");
         assertFalse(only.invulnerable().isEnabled());
         assertFalse(only.barrier().isEnabled());
@@ -99,6 +101,7 @@ class BossShadowStripTest {
         assertEquals(BossShadowSettings.COPY_ALL, shadow.getAbilities());
         assertFalse(shadow.castsAbility(BossAbilityKind.SUMMON));
         assertFalse(shadow.castsAbility(BossAbilityKind.SHADOW));
+        assertFalse(shadow.castsAbility(BossAbilityKind.RIFT), "the rift is the boss' own");
         assertFalse(shadow.castsAbility(BossAbilityKind.HAZARD));
         assertFalse(shadow.castsAbility(BossAbilityKind.BLAST));
         assertTrue(shadow.castsAbility(BossAbilityKind.MELEE));

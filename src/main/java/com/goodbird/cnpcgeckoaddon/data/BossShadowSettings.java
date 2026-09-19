@@ -70,10 +70,11 @@ public final class BossShadowSettings {
     /**
      * The abilities a copy may be told to cast, in the order they are offered: everything the
      * rotation casts, less the two that would make copies of copies - the copies themselves,
-     * and the minion summon.
+     * and the minion summon - and the rift, which only the boss itself may open.
      */
     public static final int[] COPY_ABILITIES = Arrays.stream(BossAbilityKind.COMBO_ABILITIES)
-            .filter(kind -> kind != BossAbilityKind.SUMMON && kind != BossAbilityKind.SHADOW)
+            .filter(kind -> kind != BossAbilityKind.SUMMON && kind != BossAbilityKind.SHADOW
+                    && kind != BossAbilityKind.RIFT)
             .toArray();
 
     /** Every bit {@link #COPY_ABILITIES} owns; any other bit in the mask is never read. */

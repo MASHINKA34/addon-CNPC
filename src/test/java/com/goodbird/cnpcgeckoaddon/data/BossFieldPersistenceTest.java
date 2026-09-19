@@ -113,6 +113,7 @@ class BossFieldPersistenceTest {
                         Map.entry(BossHuntSettings.class, BossPhaseData::hunt),
                         Map.entry(BossHurricaneSettings.class, BossPhaseData::hurricane),
                         Map.entry(BossSeismicSettings.class, BossPhaseData::seismic),
+                        Map.entry(BossRiftSettings.class, BossPhaseData::rift),
                         Map.entry(BossShadowSettings.class, BossPhaseData::shadow),
                         Map.entry(BossInvulnerableSettings.class, BossPhaseData::invulnerable),
                         Map.entry(BossLeapSettings.class, BossPhaseData::leap),
@@ -161,6 +162,7 @@ class BossFieldPersistenceTest {
                         Map.entry("Platform", phase -> phase.platform().castSpot()),
                         Map.entry("Hurricane", phase -> phase.hurricane().castSpot()),
                         Map.entry("Seismic", phase -> phase.seismic().castSpot()),
+                        Map.entry("Rift", phase -> phase.rift().castSpot()),
                         Map.entry("Shadow", phase -> phase.shadow().castSpot()),
                         Map.entry("Summon", phase -> phase.summon().castSpot()))
                 .map(entry -> DynamicTest.dynamicTest(entry.getKey() + " cast spot",

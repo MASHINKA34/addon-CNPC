@@ -107,7 +107,7 @@ class BossFinishMaskTest {
                         BossAbilityKind.BOULDER_RAIN, BossAbilityKind.TETHER, BossAbilityKind.GRAVITY,
                         BossAbilityKind.MARK, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
                         BossAbilityKind.PLATFORM, BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW,
-                        BossAbilityKind.SEISMIC), lasting());
+                        BossAbilityKind.SEISMIC, BossAbilityKind.RIFT), lasting());
         assertEquals(BossAbilityKind.LASTING_ABILITIES.length, lasting().size(), "an ability is listed twice");
         assertTrue(finish().containsAll(lasting()), "a lasting ability is off the finish list: " + lasting());
         assertEquals(BossAbilityKind.LASTING_ALL, BossAbilityKind.LASTING_ALL & BossAbilityKind.FINISH_ALL);

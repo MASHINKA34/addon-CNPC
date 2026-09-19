@@ -118,6 +118,8 @@ public final class TeleportPathController {
                     controller.shadows.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SEISMIC, (controller, level, data, phase, gameTime) ->
                     controller.seismic.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.RIFT, (controller, level, data, phase, gameTime) ->
+                    controller.rift.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.tryStart(level, data, phase, gameTime))));
 
@@ -189,6 +191,8 @@ public final class TeleportPathController {
                     controller.shadows.perform(level, phase, gameTime)),
             Map.entry(BossAbility.SEISMIC, (controller, level, data, phase, gameTime) ->
                     controller.seismic.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.RIFT, (controller, level, data, phase, gameTime) ->
+                    controller.rift.perform(level, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.perform(level, phase)),
             Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
@@ -308,6 +312,8 @@ public final class TeleportPathController {
     private final BossShadowRuntime shadows;
     /** The rings of the floor set off round the boss, and where they set off from. */
     private final BossSeismicRuntime seismic;
+    /** The cut that takes victims to the boss' pocket dimension, and who it picks. */
+    private final BossRiftRuntime rift;
     /** The circle handed to a victim that goes off wherever they take it. */
     private final BossMarkRuntime mark;
     /** The leash tied to the boss, to a spot or between two victims. */
@@ -429,6 +435,7 @@ public final class TeleportPathController {
         this.hurricane = new BossHurricaneRuntime(this, npc);
         this.shadows = new BossShadowRuntime(this, npc);
         this.seismic = new BossSeismicRuntime(this, npc);
+        this.rift = new BossRiftRuntime(this, npc);
         this.mark = new BossMarkRuntime(this, npc);
         this.tether = new BossTetherCastRuntime(this, npc);
         this.gravity = new BossGravityCastRuntime(this, npc);
@@ -577,9 +584,10 @@ public final class TeleportPathController {
         // the same way, for as long as the spot's stay rule keeps it there. And one lying down
         // under its health link, the stun's way, for as long as it lies there. And one whose
         // seismic series is running, when the phase told it to stand for it: the cast spot's
-        // pin again, held for as long as the rings keep coming.
+        // pin again, held for as long as the rings keep coming. And one whose rift is open: it
+        // stands and waits for whoever it sent away.
         if ((data.isStationary() || totems.isHolding() || isBarrierStunned() || castSpots.isHolding()
-                || healthLink.isDowned() || BossSeismicScheduler.isRooting(npc))
+                || healthLink.isDowned() || BossSeismicScheduler.isRooting(npc) || rift.isActive())
                 && !leap.isAirborne() && !dash.isRunning()) {
             keepStationary();
         } else if (castRootActive || cone.isSequencing()) {
@@ -700,10 +708,11 @@ public final class TeleportPathController {
         // silenced hunt bars it too: the boss is meant to be running its prey down, not away.
         // And a stun: a boss that cannot walk cannot blink out of the window either. And a
         // cast spot it is holding: leaving the spot is exactly what the hold is there to stop.
-        // And a boss lying down under its health link, for the stun's reason.
+        // And a boss lying down under its health link, for the stun's reason. And one whose rift is
+        // open: it waits where it cut the rift for whoever it sent through.
         if (points.size() >= 2 && gameTime >= abilityScheduleAt(BossAbility.TELEPORT) && !totems.isHolding()
                 && !castSpots.isHolding() && !huntRuntime.isSilenced()
-                && !isBarrierStunned() && !healthLink.isDowned()
+                && !isBarrierStunned() && !healthLink.isDowned() && !rift.isActive()
                 && (!isInvulnerable() || phase.invulnerable().isAllowTeleport())) {
             setAbilityScheduleAt(BossAbility.TELEPORT, NOT_SCHEDULED);
             beginAction(BossAbility.TELEPORT, phase.teleport().getPreparationAnimation(),
@@ -1367,6 +1376,28 @@ public final class TeleportPathController {
         return !data.isAggroZoneOnlyWayIn() || isInsideAggroZone(player, data);
     }
 
+    /**
+     * How many of this fight's players are on the arena right now: alive, still fighting and
+     * within the reach that keeps a target a target. What decides whether a rift is a solo one.
+     */
+    int arenaParticipantCount(ServerLevel level, TeleportPathData data) {
+        double leash = data.tuning().targetLeash(data.getTargetSearchRadius());
+        double leashSquared = leash * leash;
+        int count = 0;
+        for (UUID playerId : encounterParticipants) {
+            if (level.getPlayerByUUID(playerId) instanceof ServerPlayer player && player.level() == level
+                    && isParticipant(player) && npc.distanceToSqr(player) <= leashSquared) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Whether this boss has a rift open right now, holding it on its spot. */
+    public boolean isRiftActive() {
+        return active && rift.isActive();
+    }
+
     /** Adds the whole nearby group before a lock-at-start encounter takes its snapshot. */
     void registerInitialPartyCandidates(ServerLevel level, TeleportPathData data) {
         double radius = data.getTargetSearchRadius();
@@ -1987,6 +2018,10 @@ public final class TeleportPathController {
      * and the reach, the ground underfoot and the rest stay each starter's own business.</p>
      */
     boolean mayStart(BossAbility ability, BossPhaseData phase) {
+        // While a rift is open the boss casts only what the phase lets it cast meanwhile.
+        if (rift.isActive() && !rift.allowsMeanwhile(ability.kind())) {
+            return false;
+        }
         return ability.isEnabledIn(phase) || ability == forcedAbility && ability.isConfiguredIn(phase);
     }
 
@@ -2080,6 +2115,7 @@ public final class TeleportPathController {
             case HURRICANE -> BossHurricaneScheduler.hasPending(npc);
             case SHADOW -> shadows.hasCopies();
             case SEISMIC -> BossSeismicScheduler.hasPending(npc);
+            case RIFT -> rift.isActive();
             case GEYSER -> BossGeyserScheduler.hasPending(npc);
             case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
             case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
@@ -2436,6 +2472,8 @@ public final class TeleportPathController {
             case TETHER -> hasWoundUpVictim(level, candidate -> tether.isValidTarget(candidate, phase));
             case MARK -> hasWoundUpVictim(level, candidate -> mark.isValidTarget(candidate, phase));
             case COCOON -> hasWoundUpVictim(level, candidate -> cocoon.isValidTarget(candidate, phase));
+            // Somebody still on the arena, still fighting and still free to be taken.
+            case RIFT -> hasWoundUpVictim(level, candidate -> rift.isValidTarget(candidate, settings()));
             case CAPTURE -> capture.isValidTarget(target, phase);
             // A prey that got out of reach before the boss even set off is a hunt not worth
             // starting; one that got out afterwards ends it on its own.

@@ -187,7 +187,8 @@ final class BossTelegraphRuntime {
                     data.tuning().telegraphMeleeHalfAngle(), paint);
             case RANGED_ATTACK, FLUID_SPIT, CAPTURE, HUNT ->
                     drawTelegraphTargetZone(level, data, cast.target(level), paint);
-            case HOOK, GEYSER, MARK, COCOON -> {
+            // A ring round each victim of a rift too: those are the ones about to be taken.
+            case HOOK, GEYSER, MARK, COCOON, RIFT -> {
                 drawTelegraphTargetZone(level, data, cast.target(level), paint);
                 for (int id : cast.extraTargets()) {
                     if (level.getEntity(id) instanceof LivingEntity victim) {

@@ -48,9 +48,9 @@ class BossTuningDefaultsTest {
 
         assertEquals(200, tuning.comboStaleTicks());
         assertEquals(60, tuning.comboRetryWindowTicks());
-        // 27 is one link per ability, today's BossAbilityKind.COUNT. Spelled out so a new
+        // 28 is one link per ability, today's BossAbilityKind.COUNT. Spelled out so a new
         // ability has to come past this line instead of moving the default on its own.
-        assertEquals(27, tuning.comboMaxLinks());
+        assertEquals(28, tuning.comboMaxLinks());
         assertTrue(tuning.comboMaxLinks() <= BossTuningSettings.COMBO_LINK_CEILING);
 
         assertEquals(20, tuning.totemRetryIntervalTicks());

@@ -201,7 +201,7 @@ public final class TeleportPathData {
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
             BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
             BossAbilityKind.BOULDER_RAIN, BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW,
-            BossAbilityKind.SEISMIC
+            BossAbilityKind.SEISMIC, BossAbilityKind.RIFT
     };
     /** Everything warns until a builder switches an ability off. */
     public static final long TELEGRAPH_ALL_ABILITIES = telegraphMask();
@@ -1056,8 +1056,9 @@ public final class TeleportPathData {
      * stays is the look and the fight: one phase, a deep copy of the one the copies were cast
      * in, casting only the abilities of {@code abilityMask}. Whatever would make a copy a boss
      * in its own right is switched off, and whatever would let it tell on the real one - the
-     * bar, the immune window, the barrier - goes with it. The copies never spawn copies, and
-     * never call for minions.</p>
+     * bar, the immune window, the barrier - goes with it. The copies never spawn copies, never
+     * call for minions and never open a rift: a second pocket dimension trip run by a copy
+     * would be the boss twice over.</p>
      *
      * @param source      the phase the copies were cast in, copied rather than shared
      * @param abilityMask which abilities the copy casts, one bit per {@link BossAbilityKind}
@@ -1070,7 +1071,8 @@ public final class TeleportPathData {
         only.setStartHealthPercent(100);
         for (int kind = 0; kind < BossAbilityKind.COUNT; kind++) {
             boolean cast = (abilityMask & (1L << kind)) != 0
-                    && kind != BossAbilityKind.SHADOW && kind != BossAbilityKind.SUMMON;
+                    && kind != BossAbilityKind.SHADOW && kind != BossAbilityKind.SUMMON
+                    && kind != BossAbilityKind.RIFT;
             only.setAbilityEnabled(kind, cast);
         }
         // Not abilities of the rotation, so the mask never names them: a copy that turned
