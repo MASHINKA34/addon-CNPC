@@ -252,15 +252,18 @@ public final class BossRiftManager {
             ensurePlatform(riftLevel, centre, settings, false);
         }
         Rift rift = new Rift(boss, arena, settings, solo, exitMode, centre, gameTime);
+        // Open before anyone is taken: whatever fails halfway through the takes leaves a rift the
+        // cleanup can find, rather than trips pointing at one nobody knows.
+        BY_BOSS.put(rift.bossId, rift);
         for (ServerPlayer player : victims) {
             if (!BY_PLAYER.containsKey(player.getUUID()) && player.level() != riftLevel) {
                 take(riftLevel, rift, boss, player);
             }
         }
         if (rift.inside.isEmpty()) {
+            BY_BOSS.remove(rift.bossId, rift);
             return 0;
         }
-        BY_BOSS.put(rift.bossId, rift);
         arena.getChunkSource().addRegionTicket(BOSS_TICKET, rift.bossChunk, BOSS_TICKET_DISTANCE, rift.bossId);
         return rift.inside.size();
     }
@@ -276,6 +279,10 @@ public final class BossRiftManager {
             // Another mod refused the trip: the player stays where they are, with nothing to undo.
             BY_PLAYER.remove(id);
             clearRecord(player);
+            return;
+        }
+        if (!BY_PLAYER.containsKey(id)) {
+            // Died on the way in, and the death already let go of the trip and its record.
             return;
         }
         rift.inside.add(id);
@@ -375,6 +382,10 @@ public final class BossRiftManager {
                 continue;
             }
             if (!player.isAlive()) {
+                if (!BY_PLAYER.containsKey(id)) {
+                    // A death that left no trip behind is a death the rift has already counted.
+                    rift.inside.remove(id);
+                }
                 continue;
             }
             guard(level, rift, player);
@@ -603,8 +614,8 @@ public final class BossRiftManager {
      * Puts a player back where a record says, lets go of the record, and hands them back to the
      * fight they were taken from.
      */
-    private static void sendBack(MinecraftServer server, ServerPlayer player, ResourceKey<Level> levelKey, Vec3 pos,
-                                 float yaw, float pitch, BossRiftSettings settings) {
+    private static boolean sendBack(MinecraftServer server, ServerPlayer player, ResourceKey<Level> levelKey, Vec3 pos,
+                                    float yaw, float pitch, BossRiftSettings settings) {
         ServerLevel home = server.getLevel(levelKey);
         Vec3 spot = pos;
         if (home == null) {
@@ -612,13 +623,20 @@ public final class BossRiftManager {
             home = server.overworld();
             spot = Vec3.atBottomCenterOf(home.getSharedSpawnPos());
         }
-        move(player, home, spot, yaw, pitch);
-        clearRecord(player);
+        // The rift is over for them either way: its tint goes.
         unsync(player);
+        if (!move(player, home, spot, yaw, pitch)) {
+            // Another mod refused the way back. The record stays, so a relog or rift return tries again.
+            LOGGER.warn("Reality rift: could not put {} back in {}; their return record is kept",
+                    player.getName().getString(), home.dimension().location());
+            return false;
+        }
+        clearRecord(player);
         if (settings != null) {
             settings.getExitSound().play(home, spot.x, spot.y, spot.z, SoundSource.HOSTILE);
         }
         rejoinFight(player);
+        return true;
     }
 
     /** Signs a returned player back up with the boss that took them, for its bar and its count. */
@@ -633,17 +651,41 @@ public final class BossRiftManager {
     /** Lets a player go without taking them anywhere: they left, or died, some other way. */
     private static void drop(ServerPlayer player, boolean died) {
         unsync(player);
-        Trip trip = BY_PLAYER.remove(player.getUUID());
-        if (trip != null) {
-            Rift rift = BY_BOSS.get(trip.bossId());
-            if (rift != null) {
-                rift.inside.remove(player.getUUID());
-                if (died) {
-                    rift.deaths++;
-                }
+        BY_PLAYER.remove(player.getUUID());
+        // Out of whichever rift holds them, found by the rift rather than by the trip: one that
+        // lost its trip to a failure halfway would otherwise keep them inside until its limit.
+        for (Rift rift : BY_BOSS.values()) {
+            if (rift.inside.remove(player.getUUID()) && died) {
+                rift.deaths++;
             }
         }
         clearRecord(player);
+    }
+
+    /** Lets go of a trip whose rift is no longer open: what a failure halfway through a close can leave. */
+    private static void forgetStaleTrip(UUID playerId) {
+        Trip trip = BY_PLAYER.get(playerId);
+        if (trip != null && (trip.bossId() == null || !BY_BOSS.containsKey(trip.bossId()))) {
+            BY_PLAYER.remove(playerId);
+        }
+    }
+
+    /**
+     * How many of this boss' rift's players are online: still in its fight, a dimension away. The
+     * party's health scaling counts them, so a rift does not shrink the boss for as long as it runs.
+     */
+    public static int onlineInside(MinecraftServer server, UUID bossId) {
+        Rift rift = BY_BOSS.get(bossId);
+        if (rift == null || server == null) {
+            return 0;
+        }
+        int online = 0;
+        for (UUID id : rift.inside) {
+            if (server.getPlayerList().getPlayer(id) != null) {
+                online++;
+            }
+        }
+        return online;
     }
 
     private static EntityNPCInterface findBoss(MinecraftServer server, Rift rift) {
@@ -669,14 +711,18 @@ public final class BossRiftManager {
      * dimension, and the ones whose boss stands in it otherwise. No outcome either way.
      */
     public static void clearLevel(ServerLevel level) {
-        if (BY_BOSS.isEmpty()) {
-            return;
-        }
         boolean riftLevel = BossRiftDimension.isRift(level);
         for (Rift rift : List.copyOf(BY_BOSS.values())) {
             if (riftLevel || rift.bossLevel.equals(level.dimension())) {
                 finish(level.getServer(), rift, BossRiftOutcome.Result.EMPTY);
             }
+        }
+        if (riftLevel) {
+            // Nothing can be left open once the rift dimension is gone; whatever a failure left in
+            // the tables goes too, so a singleplayer world does not hand it to the next one.
+            BY_BOSS.clear();
+            BY_PLAYER.clear();
+            MOVING.clear();
         }
     }
 
@@ -744,6 +790,7 @@ public final class BossRiftManager {
      * @return whether they were put back
      */
     public static boolean returnStranded(ServerPlayer player) {
+        forgetStaleTrip(player.getUUID());
         if (BY_PLAYER.containsKey(player.getUUID())) {
             return false;
         }
@@ -756,8 +803,7 @@ public final class BossRiftManager {
         if (server == null) {
             return false;
         }
-        sendBack(server, player, saved.fromLevel(), saved.from(), saved.yaw(), saved.pitch(), null);
-        return true;
+        return sendBack(server, player, saved.fromLevel(), saved.from(), saved.yaw(), saved.pitch(), null);
     }
 
     /** Every online player with a record and no rift holding them, put back. */
@@ -785,11 +831,18 @@ public final class BossRiftManager {
         if (riftLevel == null || BY_PLAYER.containsKey(player.getUUID())) {
             return false;
         }
-        if (!BossRiftDimension.isRift(player.level())) {
+        boolean recorded = !BossRiftDimension.isRift(player.level());
+        if (recorded) {
             writeRecord(player, new Trip(player.getUUID(), null, player.level().dimension(), player.position(),
                     player.getYRot(), player.getXRot()));
         }
-        return move(player, riftLevel, spot, player.getYRot(), player.getXRot());
+        if (move(player, riftLevel, spot, player.getYRot(), player.getXRot())) {
+            return true;
+        }
+        if (recorded) {
+            clearRecord(player);
+        }
+        return false;
     }
 
     /** Read-only status used by the boss diagnostic command, or null when this boss has no rift open. */

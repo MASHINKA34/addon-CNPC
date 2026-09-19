@@ -149,6 +149,9 @@ final class BossHealthScalingRuntime {
             }
             count++;
         }
+        // Whoever the boss' own rift took is still in the fight, a dimension away and coming back:
+        // a rift must not shrink the boss for as long as it runs.
+        count += BossRiftManager.onlineInside(level.getServer(), npc.getUUID());
         return Math.max(1, count);
     }
 

@@ -81,8 +81,8 @@ public final class BossRiftClient {
             return;
         }
         ClientLevel level = Minecraft.getInstance().level;
-        float time = level.getGameTime() + event.getPartialTick().getGameTimeDeltaPartialTick(false);
-        int alpha = Mth.clamp(Math.round(alphaAt(current, time) * 255.0F), 0, 255);
+        int alpha = Mth.clamp(Math.round(alphaAt(current, level.getGameTime(),
+                event.getPartialTick().getGameTimeDeltaPartialTick(false)) * 255.0F), 0, 255);
         if (alpha <= 0) {
             return;
         }
@@ -91,12 +91,17 @@ public final class BossRiftClient {
     }
 
     /** The tint's strength at this moment: the phase's own, or a slow swell under it on the pulse. */
-    private static float alphaAt(State current, float time) {
+    private static float alphaAt(State current, long gameTime, float partialTick) {
         float full = Mth.clamp(current.tintAlpha(), 0, 100) / 100.0F;
-        if (current.pulseTicks() <= 0) {
+        int pulse = current.pulseTicks();
+        if (pulse <= 0) {
             return full;
         }
-        float wave = 0.5F + 0.5F * Mth.sin(time * Mth.TWO_PI / current.pulseTicks());
+        // Where in one pulse this frame is, taken before the float: the world's clock as a float
+        // loses its fractions, and Mth.sin's table index saturates on a large angle, which stops
+        // the pulse dead on any world a day or so old.
+        float phase = (Math.floorMod(gameTime, pulse) + partialTick) / pulse;
+        float wave = 0.5F + 0.5F * Mth.sin(phase * Mth.TWO_PI);
         return full * (1.0F - PULSE_DEPTH * (1.0F - wave));
     }
 
