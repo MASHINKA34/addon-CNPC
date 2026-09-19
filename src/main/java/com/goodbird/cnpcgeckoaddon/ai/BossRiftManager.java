@@ -369,7 +369,7 @@ public final class BossRiftManager {
         if (boss == null) {
             // The boss died, reset or unloaded without its controller saying so: whoever it took
             // comes back, and nobody is owed anything.
-            finish(server, rift, BossRiftOutcome.Result.EMPTY);
+            finish(server, rift, BossRiftOutcome.Result.EMPTY, true);
             return;
         }
         // An arena left with nobody on it stops ticking its entities after fifteen seconds; the
@@ -440,7 +440,7 @@ public final class BossRiftManager {
                 rift.inside.size(), rift.deaths, rift.settings.isFailOnDeath(), rift.minionsReady,
                 rift.minionsSpawned, minionsLeft, crystalsLeft(rift));
         if (result != BossRiftOutcome.Result.RUNNING) {
-            finish(server, rift, result);
+            finish(server, rift, result, false);
         }
     }
 
@@ -578,8 +578,13 @@ public final class BossRiftManager {
         return 0;
     }
 
-    /** Closes a rift: everyone still in it comes back, and the boss gets what the result says. */
-    private static void finish(MinecraftServer server, Rift rift, BossRiftOutcome.Result result) {
+    /**
+     * Closes a rift: everyone still in it comes back, and the boss gets what the result says.
+     *
+     * @param cleanup whether it closes because the fight it belongs to is over - the boss dead,
+     *                reset, on to its next phase or gone - rather than on its own verdict
+     */
+    private static void finish(MinecraftServer server, Rift rift, BossRiftOutcome.Result result, boolean cleanup) {
         if (!BY_BOSS.remove(rift.bossId, rift)) {
             return;
         }
@@ -594,7 +599,9 @@ public final class BossRiftManager {
             }
         }
         rift.inside.clear();
-        if (rift.settings.isMinionRemoveOnEnd()) {
+        // The phase's switch is for a rift that ran its course: one shut because its fight is over
+        // takes its minions with it whatever the switch says.
+        if (cleanup || rift.settings.isMinionRemoveOnEnd()) {
             removeMinions(server, rift);
         }
         rift.minions.clear();
@@ -759,8 +766,8 @@ public final class BossRiftManager {
     }
 
     /**
-     * Closes this boss' rift, if it has one, with everyone brought back and no outcome; and calls
-     * off a failure's hit still waiting for its players to land.
+     * Closes this boss' rift, if it has one, with everyone brought back, its minions taken away and
+     * no outcome; and calls off a failure's hit still waiting for its players to land.
      */
     public static void clearBoss(Entity boss) {
         if ((BY_BOSS.isEmpty() && STRIKES.isEmpty()) || boss == null) {
@@ -770,7 +777,7 @@ public final class BossRiftManager {
         Rift rift = BY_BOSS.get(boss.getUUID());
         MinecraftServer server = boss.getServer();
         if (rift != null && server != null) {
-            finish(server, rift, BossRiftOutcome.Result.EMPTY);
+            finish(server, rift, BossRiftOutcome.Result.EMPTY, true);
         }
     }
 
@@ -783,7 +790,7 @@ public final class BossRiftManager {
         boolean riftLevel = BossRiftDimension.isRift(level);
         for (Rift rift : List.copyOf(BY_BOSS.values())) {
             if (riftLevel || rift.bossLevel.equals(level.dimension())) {
-                finish(level.getServer(), rift, BossRiftOutcome.Result.EMPTY);
+                finish(level.getServer(), rift, BossRiftOutcome.Result.EMPTY, true);
             }
         }
         STRIKES.values().removeIf(strike -> strike.bossLevel().equals(level.dimension()));
