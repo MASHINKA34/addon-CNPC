@@ -13,14 +13,14 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 
 /**
  * How a reality rift looks from inside: the screen washed in the rift's colour, pulsing if the
- * phase says so, the fog closing in in a colour of its own, and a sky with nothing in it.
+ * phase says so, and the fog closing in in a colour of its own. The sky with nothing in it is
+ * {@link BossRiftSkyEffects}, registered with the renderers on the mod bus.
  *
  * <p>Only while the server says a rift holds this player and the player really is in the rift
  * dimension: a packet that never came - a lost connection, a crash on the way out - leaves nothing
@@ -64,15 +64,6 @@ public final class BossRiftClient {
             return null;
         }
         return current;
-    }
-
-    @SubscribeEvent
-    public static void registerSky(final RegisterDimensionSpecialEffectsEvent event) {
-        EventGuard.handle("client.rift.register_sky", event, BossRiftClient::handleRegisterSky);
-    }
-
-    private static void handleRegisterSky(RegisterDimensionSpecialEffectsEvent event) {
-        event.register(BossRiftDimension.ID, new BossRiftSkyEffects());
     }
 
     /** The tint, laid over the world right after the camera's own overlays and under the rest of the HUD. */

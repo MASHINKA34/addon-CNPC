@@ -49,13 +49,19 @@ final class BossRiftRuntime {
             boss.setAbilityScheduleAt(BossAbility.RIFT, gameTime + boss.retryTicks());
             return false;
         }
+        if (BossRiftDimension.level(level.getServer()) == null) {
+            // No pocket dimension in this world - its datapack did not load: nothing to cut into,
+            // said in the log once in ten seconds, and tried again later.
+            boss.setAbilityScheduleAt(BossAbility.RIFT, gameTime + boss.retryTicks());
+            return false;
+        }
         List<LivingEntity> targets = boss.selectAbilityTargets(level, rift.getTargetMode(), reach(data),
                 candidate -> isValidTarget(candidate, data), rift.getTargetCount());
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.RIFT, gameTime + boss.retryTicks());
             return false;
         }
-        soloAtStart = boss.arenaParticipantCount(level, data) <= rift.getSoloMaxPlayers();
+        soloAtStart = BossRiftOutcome.isSolo(boss.arenaParticipantCount(level, data), rift.getSoloMaxPlayers());
         boss.rememberExtraTargets(targets);
         boss.beginAction(BossAbility.RIFT, rift.getAnimation(), rift.getActionDelayTicks(), gameTime,
                 targets.get(0), data, phase);
