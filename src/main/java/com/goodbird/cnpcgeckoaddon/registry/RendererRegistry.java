@@ -6,6 +6,7 @@ import com.goodbird.cnpcgeckoaddon.client.BossRiftSkyEffects;
 import com.goodbird.cnpcgeckoaddon.client.ManualAnimationClient;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossChestRenderer;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderBossBoulder;
+import com.goodbird.cnpcgeckoaddon.client.renderer.RenderBossRiftCrystal;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderCustomModel;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderTileCustomModel;
 import com.goodbird.cnpcgeckoaddon.client.MobModelTextureResolver;
@@ -37,6 +38,7 @@ public class RendererRegistry {
         event.registerEntityRenderer(EntityRegistry.entityBossBoulder, RenderBossBoulder::new);
         // The tether stake is only ever the far end of a beam; the beam is what gets drawn.
         event.registerEntityRenderer(EntityRegistry.entityBossTetherAnchor, NoopRenderer::new);
+        event.registerEntityRenderer(EntityRegistry.entityBossRiftCrystal, RenderBossRiftCrystal::new);
         event.registerBlockEntityRenderer(TileEntityRegistry.bossChest, BossChestRenderer::new);
     }
 

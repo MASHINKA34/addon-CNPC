@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.registry;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
+import com.goodbird.cnpcgeckoaddon.entity.EntityBossRiftCrystal;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossTetherAnchor;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
@@ -25,6 +26,7 @@ public class EntityRegistry {
     public static EntityType<EntityFluidSpit> entityFluidSpit;
     public static EntityType<EntityBossBoulder> entityBossBoulder;
     public static EntityType<EntityBossTetherAnchor> entityBossTetherAnchor;
+    public static EntityType<EntityBossRiftCrystal> entityBossRiftCrystal;
 
     @SubscribeEvent
     public static void registerEntities(RegisterEvent event) {
@@ -49,6 +51,11 @@ public class EntityRegistry {
             // tracker allows; its size only sets where the beam ends, low over the spot. The
             // beam is drawn from the stake, so it is tracked past the longest break distance.
             entityBossTetherAnchor = registerNewentity(helper, "bosstetheranchor", EntityBossTetherAnchor::new, 8, 20, false, 0.5F, 0.5F);
+            // A rift crystal never moves, so it is synced as rarely as the tracker allows; its
+            // turn and its bob are drawn from the tick it was stood up on, so a client needs
+            // nothing after the spawn. The registered size is the default one block: the real
+            // box follows the per-rift scale through EntityBossRiftCrystal#getDimensions.
+            entityBossRiftCrystal = registerNewentity(helper, "bossriftcrystal", EntityBossRiftCrystal::new, 8, 20, false, 1.0F, 1.0F);
         });
     }
 

@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.entity.EntityBossRiftCrystal;
 import com.goodbird.cnpcgeckoaddon.entity.EntityFluidSpit;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
@@ -164,6 +165,14 @@ public final class BossLifecycleEvents {
         // keeps its copies in memory alone, so one let back in would be nobody's. Kept out
         // rather than let in and found later, because its chunk may load long after the boss'.
         if (event.loadedFromDisk() && BossShadowUtil.isShadow(event.getEntity())) {
+            event.setCanceled(true);
+            return;
+        }
+        // A rift's crystal in a save is a crystal of a rift that is over: the rift keeps them in
+        // memory alone and one is never written on purpose, so anything a save does hold - a world
+        // edited by hand, a mod that saves what it is told not to - is kept out here rather than
+        // left hanging over somebody's platform for good.
+        if (event.loadedFromDisk() && event.getEntity() instanceof EntityBossRiftCrystal) {
             event.setCanceled(true);
             return;
         }

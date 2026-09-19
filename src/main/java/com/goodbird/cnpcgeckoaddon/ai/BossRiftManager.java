@@ -128,6 +128,8 @@ public final class BossRiftManager {
         final Set<UUID> minions = new LinkedHashSet<>();
         /** Where each minion was last seen, to tell one that is gone from one whose chunk is. */
         final Map<UUID, BlockPos> minionSpots = new HashMap<>();
+        /** The crystals still hanging, by UUID; a collected one is taken off as it is collected. */
+        final Set<UUID> crystals = new LinkedHashSet<>();
         /** The tick the minions are stood up on: the one after the players landed. */
         final long minionsAt;
         boolean minionsReady;
@@ -196,6 +198,20 @@ public final class BossRiftManager {
     public static boolean isLiveMinion(UUID minionId) {
         for (Rift rift : BY_BOSS.values()) {
             if (rift.minions.contains(minionId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a crystal belongs to a rift that is still open. A crystal is never saved, so this is
+     * only ever asked by the crystal itself, which takes itself out of the level when the answer
+     * has been no for five seconds: whatever the cleanup somehow left standing goes that way.
+     */
+    public static boolean isLiveCrystal(UUID crystalId) {
+        for (Rift rift : BY_BOSS.values()) {
+            if (rift.crystals.contains(crystalId)) {
                 return true;
             }
         }
@@ -605,6 +621,10 @@ public final class BossRiftManager {
             removeMinions(server, rift);
         }
         rift.minions.clear();
+        // The crystals go whatever ended the rift and whatever the minion switch says: they are
+        // the task, and a task nobody is left to do is litter on somebody's platform.
+        removeCrystals(server, rift);
+        rift.crystals.clear();
         ServerLevel arena = server.getLevel(rift.bossLevel);
         if (arena != null) {
             arena.getChunkSource().removeRegionTicket(BOSS_TICKET, rift.bossChunk, BOSS_TICKET_DISTANCE, rift.bossId);
@@ -674,6 +694,20 @@ public final class BossRiftManager {
                     minion.getBbWidth() * 0.5D, minion.getBbHeight() * 0.5D, minion.getBbWidth() * 0.5D, 0.02D,
                     BossAbilityKind.RIFT);
             minion.discard();
+        }
+    }
+
+    /** Takes the rift's crystals away: whatever was not collected simply goes, without a puff. */
+    private static void removeCrystals(MinecraftServer server, Rift rift) {
+        ServerLevel riftLevel = rift.crystals.isEmpty() ? null : server.getLevel(BossRiftDimension.KEY);
+        if (riftLevel == null) {
+            return;
+        }
+        for (UUID id : rift.crystals) {
+            Entity crystal = riftLevel.getEntity(id);
+            if (crystal != null && !crystal.isRemoved()) {
+                crystal.discard();
+            }
         }
     }
 
