@@ -61,6 +61,8 @@ public class NetworkWrapper {
                 PacketSyncBossCaptureState::decode, PacketSyncBossCaptureState::handle);
         registerPacket(registrar, PacketSyncBossSpinState.TYPE, PacketSyncBossSpinState::encode,
                 PacketSyncBossSpinState::decode, PacketSyncBossSpinState::handle);
+        registerPacket(registrar, PacketSyncBossRiftState.TYPE, PacketSyncBossRiftState::encode,
+                PacketSyncBossRiftState::decode, PacketSyncBossRiftState::handle);
         registerPacket(registrar, PacketRestoreBossTotems.TYPE, PacketRestoreBossTotems::encode,
                 PacketRestoreBossTotems::decode, PacketRestoreBossTotems::handle);
         registerPacket(registrar, PacketNpcCarryThrow.TYPE, PacketNpcCarryThrow::encode,

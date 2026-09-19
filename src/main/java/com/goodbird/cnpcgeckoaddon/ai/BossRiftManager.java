@@ -5,6 +5,8 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
+import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
+import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossRiftState;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -71,6 +73,8 @@ public final class BossRiftManager {
     private static final double LANDING_SPREAD = 2.0D;
     /** The countdown in the action bar, once a second. */
     private static final int STATUS_INTERVAL_TICKS = 20;
+    /** The look of the rift sent again every five seconds, for a client that missed it. */
+    private static final int SYNC_INTERVAL_TICKS = 100;
     /**
      * Keeps the boss' own chunk loaded and ticking while its players are away: a solo rift leaves
      * nobody on the arena, and the boss would unload with its chunk and take the rift with it.
@@ -118,6 +122,7 @@ public final class BossRiftManager {
         int taken;
         int deaths;
         long nextStatusAt;
+        long nextSyncAt;
         long nextLoopAt;
         long nextAmbientAt;
 
@@ -136,6 +141,7 @@ public final class BossRiftManager {
             this.endsAt = gameTime + settings.getTimeLimitTicks();
             this.minionsAt = gameTime + 1L;
             this.nextStatusAt = gameTime;
+            this.nextSyncAt = gameTime + SYNC_INTERVAL_TICKS;
             this.nextLoopAt = gameTime + settings.getLoopIntervalTicks();
             this.nextAmbientAt = gameTime;
         }
@@ -279,6 +285,19 @@ public final class BossRiftManager {
         settings.getEnterParticles().emitDust(riftLevel, landing.x, landing.y + 1.0D, landing.z,
                 0.4D, 0.8D, 0.4D, 0.05D, BossAbilityKind.RIFT);
         BossAbilityDamageUtil.applyEffects(player, BossAbilityKind.RIFT, boss, settings.getEffects());
+        sync(player, rift);
+    }
+
+    /** Tells a taken player's client how the rift looks: the tint, the pulse, the fog and the end. */
+    private static void sync(ServerPlayer player, Rift rift) {
+        BossRiftSettings settings = rift.settings;
+        NetworkWrapper.send(player, new PacketSyncBossRiftState(true, settings.getTintColor(), settings.getTintAlpha(),
+                settings.getTintPulseTicks(), settings.getFogColor(), settings.getFogDistance(), rift.endsAt));
+    }
+
+    /** Tells a client its player is out of the rift: the tint and the fog go. */
+    private static void unsync(ServerPlayer player) {
+        NetworkWrapper.send(player, PacketSyncBossRiftState.inactive());
     }
 
     private static double spread(ServerPlayer player) {
@@ -341,6 +360,7 @@ public final class BossRiftManager {
         }
         int minionsLeft = needsMinions(rift) ? minionsLeft(level, rift) : 0;
         boolean status = gameTime >= rift.nextStatusAt;
+        boolean resync = gameTime >= rift.nextSyncAt;
         boolean ambient = gameTime >= rift.nextAmbientAt;
         boolean loop = gameTime >= rift.nextLoopAt;
         for (UUID id : List.copyOf(rift.inside)) {
@@ -369,9 +389,15 @@ public final class BossRiftManager {
             if (status) {
                 player.displayClientMessage(statusLine(rift, gameTime, minionsLeft), true);
             }
+            if (resync) {
+                sync(player, rift);
+            }
         }
         if (status) {
             rift.nextStatusAt = gameTime + STATUS_INTERVAL_TICKS;
+        }
+        if (resync) {
+            rift.nextSyncAt = gameTime + SYNC_INTERVAL_TICKS;
         }
         if (ambient) {
             rift.nextAmbientAt = gameTime + rift.settings.getAmbientIntervalTicks();
@@ -588,6 +614,7 @@ public final class BossRiftManager {
         }
         move(player, home, spot, yaw, pitch);
         clearRecord(player);
+        unsync(player);
         if (settings != null) {
             settings.getExitSound().play(home, spot.x, spot.y, spot.z, SoundSource.HOSTILE);
         }
@@ -605,6 +632,7 @@ public final class BossRiftManager {
 
     /** Lets a player go without taking them anywhere: they left, or died, some other way. */
     private static void drop(ServerPlayer player, boolean died) {
+        unsync(player);
         Trip trip = BY_PLAYER.remove(player.getUUID());
         if (trip != null) {
             Rift rift = BY_BOSS.get(trip.bossId());
@@ -658,7 +686,10 @@ public final class BossRiftManager {
      */
     public static void handleLogin(ServerPlayer player) {
         Trip live = BY_PLAYER.get(player.getUUID());
-        if (live != null && BY_BOSS.containsKey(live.bossId()) && BossRiftDimension.isRift(player.level())) {
+        Rift open = live == null ? null : BY_BOSS.get(live.bossId());
+        if (open != null && BossRiftDimension.isRift(player.level())) {
+            // The client forgot the rift's look when it logged out.
+            sync(player, open);
             return;
         }
         returnStranded(player);
