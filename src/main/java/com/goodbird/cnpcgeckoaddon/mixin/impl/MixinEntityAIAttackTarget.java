@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossMechanicUtil;
+import com.goodbird.cnpcgeckoaddon.ai.NpcRangedAi;
 import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -11,7 +12,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Keeps vanilla chase/look behavior, but replaces its swing and damage with configured boss attacks.
@@ -34,6 +37,30 @@ public abstract class MixinEntityAIAttackTarget {
             target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;moveTo(Lnet/minecraft/world/entity/Entity;D)Z"))
     private boolean cnpcgeckoaddon$holdChaseForCastSpot(PathNavigation navigation, Entity target, double speed) {
         return !cnpcgeckoaddon$boundForCastSpot(npc) && navigation.moveTo(target, speed);
+    }
+
+    /**
+     * Stands the chase down while the addon's ranged AI owns the npc.
+     *
+     * <p>Both goals move the npc, and this one is the better-placed of the two, so without
+     * this the npc would run its target down instead of holding the distance it was given.
+     * The one distance it is let back in at is the one the builder asked for it: a target
+     * nearer than the window while the npc is set to fight in melee. Both sides ask the same
+     * question, so exactly one of the two goals is holding the npc at any distance.</p>
+     */
+    @Inject(method = "canUse", at = @At("HEAD"), cancellable = true)
+    private void cnpcgeckoaddon$standDownForAddonRangedAi(CallbackInfoReturnable<Boolean> cir) {
+        if (cnpcgeckoaddon$addonHoldsTheFight(npc)) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    /** And drops a chase already under way when the switch is turned on mid fight. */
+    @Inject(method = "canContinueToUse", at = @At("HEAD"), cancellable = true)
+    private void cnpcgeckoaddon$endChaseForAddonRangedAi(CallbackInfoReturnable<Boolean> cir) {
+        if (cnpcgeckoaddon$addonHoldsTheFight(npc)) {
+            cir.setReturnValue(false);
+        }
     }
 
     @Redirect(method = "tick", at = @At(value = "INVOKE",
@@ -64,6 +91,20 @@ public abstract class MixinEntityAIAttackTarget {
             return BossMechanicUtil.replacesVanillaAttacks(npc);
         } catch (Throwable error) {
             CrashGuard.caught("mixin.ai.melee_attack", error);
+            return false;
+        }
+    }
+
+    /**
+     * Whether the addon's ranged AI is holding this npc at a distance rather than letting it
+     * close. A failed question leaves the chase to CustomNPCs, which is how it always ran.
+     */
+    @Unique
+    private static boolean cnpcgeckoaddon$addonHoldsTheFight(EntityNPCInterface npc) {
+        try {
+            return NpcRangedAi.runsRangedAi(npc) && !NpcRangedAi.yieldsToMelee(npc);
+        } catch (Throwable error) {
+            CrashGuard.caught("mixin.ai.melee_ranged_addon_ai", error);
             return false;
         }
     }

@@ -1,10 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.mixin.impl;
 
 import com.goodbird.cnpcgeckoaddon.ai.KeepDistanceGoal;
+import com.goodbird.cnpcgeckoaddon.ai.NpcRangedAi;
+import com.goodbird.cnpcgeckoaddon.ai.NpcRangedAttackGoal;
 import com.goodbird.cnpcgeckoaddon.ai.NpcProjectileDamage;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
+import com.goodbird.cnpcgeckoaddon.utils.NpcAimLead;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileShotChoice;
 import net.minecraft.sounds.SoundEvent;
@@ -83,6 +86,10 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
             for (int choices = 0; choices < cnpcgeckoaddon$MAX_SHOT_CHOICES; choices++) {
                 ProjectileShotChoice choice = ProjectileEntityUtil.chooseShot(npc);
                 if (choice == ProjectileShotChoice.CNPC) {
+                    // CustomNPCs is about to build its own projectile out of the npc's item and
+                    // send it at the target's feet; the lead and the fan are put on it as it
+                    // joins the level, which is the first moment it exists to be turned.
+                    NpcRangedAi.expectShot(npc, target);
                     return;
                 }
                 if (choice == ProjectileShotChoice.NONE) {
@@ -134,14 +141,18 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
                 RangedExtraData.MIN_EXPLODE_SIZE, RangedExtraData.MAX_EXPLODE_SIZE);
         int shotCount = Mth.clamp(ranged.getShotCount(),
                 RangedExtraData.MIN_SHOT_COUNT, RangedExtraData.MAX_SHOT_COUNT);
-        double muzzle = extra.getMuzzleHeightTenths() / 10.0D;
+        // Where the shot is pointed: ahead of a target that is running, and one draw of the fan
+        // for each projectile of the volley, so a volley of three is three shots and not one.
+        Vec3 aim = NpcRangedAi.aimPoint(npc, target, extra);
         for (int i = 0; i < shotCount; i++) {
-            double x = npc.getX();
-            double y = npc.getEyeY() + muzzle;
-            double z = npc.getZ();
-            double dx = target.getX() - x;
-            double dy = target.getY(0.5D) - y;
-            double dz = target.getZ() - z;
+            Vec3 from = NpcRangedAi.muzzle(npc, extra);
+            double x = from.x;
+            double y = from.y;
+            double z = from.z;
+            Vec3 direction = NpcAimLead.spread(aim.subtract(from), extra.getSpreadDegrees(), npc.getRandom());
+            double dx = direction.x;
+            double dy = direction.y;
+            double dz = direction.z;
             Entity entity;
             try {
                 if (type == EntityType.FIREBALL) {
@@ -211,10 +222,16 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
     @Inject(method = "setResponse", at = @At("TAIL"), remap = false)
     private void cnpcgeckoaddon$addKeepDistanceGoal(CallbackInfo ci) {
         try {
-            if (ais.onAttack != 0 || cnpcgeckoaddon$rangedExtra().getKeepDistance() <= 0) {
+            if (ais.onAttack != 0) {
                 return;
             }
-            this.goalSelector.addGoal(taskCount++, new KeepDistanceGoal((EntityNPCInterface) (Object) this));
+            EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
+            if (cnpcgeckoaddon$rangedExtra().getKeepDistance() > 0) {
+                this.goalSelector.addGoal(taskCount++, new KeepDistanceGoal(npc));
+            }
+            // Added whatever the switch says and asked on every use instead: the switch is edited
+            // from a screen, and this list is only rebuilt when CustomNPCs decides to.
+            this.goalSelector.addGoal(taskCount++, new NpcRangedAttackGoal(npc));
         } catch (Throwable error) {
             CrashGuard.caught("mixin.npc.keep_distance_goal", error);
         }

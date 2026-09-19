@@ -234,6 +234,28 @@ public final class BossLifecycleEvents {
         projectile.getPersistentData().put(PROJECTILE_EFFECTS_KEY, effects.writeToNBT());
     }
 
+    /**
+     * Turns a projectile CustomNPCs has just fired onto the aim the addon gave its npc.
+     *
+     * <p>Here rather than in the shot itself for the same reason the potions are: CustomNPCs
+     * builds its projectile, aims it at the target's feet and puts it in the level all inside
+     * one method the addon only stands at the head of, so this is the first moment the shot
+     * exists to be turned. It leaves alone every projectile whose npc was given no lead and no
+     * fan, which is every npc saved before either was a setting.</p>
+     */
+    @SubscribeEvent
+    public static void onNpcProjectileAim(final EntityJoinLevelEvent event) {
+        EventGuard.handle("lifecycle.npc_projectile_aim", event, BossLifecycleEvents::handleNpcProjectileAim);
+    }
+
+    private static void handleNpcProjectileAim(EntityJoinLevelEvent event) {
+        if (event.getLevel().isClientSide || event.loadedFromDisk()
+                || !(event.getEntity() instanceof Projectile projectile)) {
+            return;
+        }
+        NpcRangedAi.reaim(projectile);
+    }
+
     @SubscribeEvent
     public static void onProjectileImpact(final ProjectileImpactEvent event) {
         EventGuard.handle("lifecycle.projectile_impact", event, BossLifecycleEvents::handleProjectileImpact);
