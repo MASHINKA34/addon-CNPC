@@ -112,6 +112,7 @@
   "cnpcgeckoaddon.boss.ranged_phase": "Ranged attack - phase",
   "cnpcgeckoaddon.boss.ranged_aim_turn": "Aim turn (degrees per tick)",
   "cnpcgeckoaddon.boss.ranged_lob_share": "Lob beyond (%% of range squared)",
+  "cnpcgeckoaddon.boss.ranged_burst": "Burst: shots / delay (ticks)",
   "cnpcgeckoaddon.boss.melee_phase": "Melee attack - phase",
   "cnpcgeckoaddon.boss.melee_aim_turn": "Aim turn (degrees per tick)",
   "cnpcgeckoaddon.boss.melee_reach_models": "Reach adds both models' width",

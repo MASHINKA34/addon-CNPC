@@ -9,13 +9,12 @@ import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.GuardSelfTest;
+import com.goodbird.cnpcgeckoaddon.utils.NpcAnimationUtil;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickFailureEscalation;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
-import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
-import com.goodbird.cnpcgeckoaddon.network.PacketSyncAnimation;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -32,8 +31,6 @@ import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.bernie.geckolib.animation.Animation;
-import software.bernie.geckolib.animation.RawAnimation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -147,7 +144,7 @@ public final class TeleportPathController {
             Map.entry(BossAbility.GROUND_ATTACK, (controller, level, data, phase, gameTime) ->
                     controller.areaAttack.perform(level, phase)),
             Map.entry(BossAbility.RANGED_ATTACK, (controller, level, data, phase, gameTime) ->
-                    controller.rangedAttack.perform(level, phase)),
+                    controller.rangedAttack.perform(level, phase, gameTime)),
             Map.entry(BossAbility.MELEE_ATTACK, (controller, level, data, phase, gameTime) ->
                     controller.meleeAttack.perform(level, phase)),
             Map.entry(BossAbility.FLUID_SPIT, (controller, level, data, phase, gameTime) ->
@@ -629,6 +626,8 @@ public final class TeleportPathController {
         dash.tick(level, data, gameTime);
         // And a series of cones, which holds the busy gate below shut until its last cone lands.
         cone.tick(level, data, gameTime);
+        // And a burst of shots, which holds it the same way until the last of them leaves.
+        rangedAttack.tick(level, data, gameTime);
         // Again, for the flight, the run and the series that may just have ended: the chains
         // right below have to see the hold on the tick the effect ended, not one tick late.
         tickFinishHold(phase, gameTime);
@@ -2150,6 +2149,7 @@ public final class TeleportPathController {
             case LEAP -> leap.isAirborne();
             case DASH -> dash.isRunning();
             case CONE -> cone.isSequencing();
+            case RANGED_ATTACK -> rangedAttack.isSequencing();
             case PLATFORM -> BossPlatformScheduler.hasPending(npc);
             case HURRICANE -> BossHurricaneScheduler.hasPending(npc);
             case SHADOW -> shadows.hasCopies();
@@ -2345,6 +2345,13 @@ public final class TeleportPathController {
             // still a cast, and the stun's end must not find the cone ready.
             combo.forget(BossAbility.CONE);
             cone.interrupt(settings(), npc.level() instanceof ServerLevel level ? level.getGameTime() : 0L);
+        }
+        if (rangedAttack.isSequencing()) {
+            // And fires nothing more: the rest of a burst goes the way the rest of a series does,
+            // with its cooldown counted from here.
+            combo.forget(BossAbility.RANGED_ATTACK);
+            rangedAttack.interrupt(settings(),
+                    npc.level() instanceof ServerLevel level ? level.getGameTime() : 0L);
         }
         // The follow-up waiting to start goes the way the wind-up does, walk to its spot and all:
         // the stagger breaks the chain it lands in. An effect still running keeps its claim, and
@@ -2715,17 +2722,7 @@ public final class TeleportPathController {
     }
 
     void playAnimation(String animation) {
-        if (animation == null || animation.isBlank()) {
-            return;
-        }
-        try {
-            RawAnimation raw = RawAnimation.begin().then(animation.trim(), Animation.LoopType.PLAY_ONCE);
-            // Only whoever has the boss loaded: a client without it drops the packet anyway.
-            NetworkWrapper.sendToTracking(npc, new PacketSyncAnimation(npc.getId(), raw));
-        } catch (Throwable error) {
-            LOGGER.warn("Could not play boss animation {} for NPC {}: {}", animation,
-                    npc.getName().getString(), error.getMessage());
-        }
+        NpcAnimationUtil.play(npc, animation);
     }
 
     boolean isEncounterParticipant(Player player) {
@@ -2865,6 +2862,8 @@ public final class TeleportPathController {
         rift.clear();
         dash.clear();
         cone.clear();
+        // Nor does a burst of shots: the ones still owed are never fired.
+        rangedAttack.clear();
     }
 
     private void reset() {

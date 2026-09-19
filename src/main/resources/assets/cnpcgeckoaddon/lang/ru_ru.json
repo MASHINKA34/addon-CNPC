@@ -112,6 +112,7 @@
   "cnpcgeckoaddon.boss.ranged_phase": "Дальняя атака - фаза",
   "cnpcgeckoaddon.boss.ranged_aim_turn": "Поворот прицела (градусы за тик)",
   "cnpcgeckoaddon.boss.ranged_lob_share": "Навесом дальше (%% квадрата дальности)",
+  "cnpcgeckoaddon.boss.ranged_burst": "Очередь: выстрелов / пауза (тики)",
   "cnpcgeckoaddon.boss.melee_phase": "Ближняя атака - фаза",
   "cnpcgeckoaddon.boss.melee_aim_turn": "Поворот прицела (градусы за тик)",
   "cnpcgeckoaddon.boss.melee_reach_models": "Дальность плюс ширина моделей",

@@ -20,6 +20,13 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
     private static final int TARGET_MODE_BUTTON = 8;
     private static final int AIM_TURN_FIELD = 9;
     private static final int LOB_SHARE_FIELD = 10;
+    private static final int BURST_SHOTS_FIELD = 11;
+    private static final int BURST_DELAY_FIELD = 12;
+
+    /** Two numbers to a row, the cone screen's columns: the second flush with the right edge. */
+    private static final int PAIR_X = 140;
+    private static final int PAIR_SECOND_X = 194;
+    private static final int PAIR_WIDTH = 48;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -30,9 +37,9 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Two rows taller than the panel it used to be: the aim's own numbers sit under the
-        // rows a builder already knows.
-        imageHeight = 304;
+        // Three rows taller than the panel it used to be: the aim's own numbers and the burst
+        // sit under the rows a builder already knows.
+        imageHeight = 328;
         closeOnEsc = true;
     }
 
@@ -76,12 +83,26 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         addNumberField(LOB_SHARE_FIELD, "cnpcgeckoaddon.boss.ranged_lob_share", y,
                 phase.rangedAttack().getLobSharePercent(), BossRangedAttackSettings.MIN_LOB_SHARE,
                 BossRangedAttackSettings.MAX_LOB_SHARE, 50);
+        y += 24;
+        addLabel(new GuiLabel(BURST_SHOTS_FIELD, "cnpcgeckoaddon.boss.ranged_burst", guiLeft + 8, y + 6));
+        addPairField(BURST_SHOTS_FIELD, guiLeft + PAIR_X, y, phase.rangedAttack().getBurstShots(),
+                BossRangedAttackSettings.MIN_BURST_SHOTS, BossRangedAttackSettings.MAX_BURST_SHOTS, 1);
+        addPairField(BURST_DELAY_FIELD, guiLeft + PAIR_SECOND_X, y, phase.rangedAttack().getBurstDelayTicks(),
+                BossRangedAttackSettings.MIN_BURST_DELAY, BossRangedAttackSettings.MAX_BURST_DELAY, 4);
 
         addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.projectile_hint",
-                guiLeft + 8, guiTop + 260, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 278, 120, 20,
+                guiLeft + 8, guiTop + 284, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 302, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 278, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 302, 60, 20);
+    }
+
+    /** One of the two small numbers a shared label names, at the column it is handed. */
+    private void addPairField(int id, int x, int y, int value, int min, int max, int fallback) {
+        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, PAIR_WIDTH, 20, Integer.toString(value));
+        field.setNumbersOnly();
+        field.setMinMaxDefault(min, max, fallback);
+        addTextField(field);
     }
 
     private void addTargetModeRow(int id, int y, int mode) {
@@ -127,5 +148,7 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         applyNumberField(COOLDOWN_FIELD, phase.rangedAttack()::setCooldownTicks);
         applyNumberField(AIM_TURN_FIELD, phase.rangedAttack()::setAimTurnDegrees);
         applyNumberField(LOB_SHARE_FIELD, phase.rangedAttack()::setLobSharePercent);
+        applyNumberField(BURST_SHOTS_FIELD, phase.rangedAttack()::setBurstShots);
+        applyNumberField(BURST_DELAY_FIELD, phase.rangedAttack()::setBurstDelayTicks);
     }
 }

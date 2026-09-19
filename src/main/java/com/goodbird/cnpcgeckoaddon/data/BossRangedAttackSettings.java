@@ -21,6 +21,11 @@ public final class BossRangedAttackSettings {
     /** A percentage of the squared range past which an arcing shot is used instead of a flat one. */
     public static final int MIN_LOB_SHARE = 10;
     public static final int MAX_LOB_SHARE = 100;
+    /** Shots in one cast, the cone's series over again: one is the single shot it always was. */
+    public static final int MIN_BURST_SHOTS = 1;
+    public static final int MAX_BURST_SHOTS = 10;
+    public static final int MIN_BURST_DELAY = 1;
+    public static final int MAX_BURST_DELAY = 40;
 
     private boolean rangedAttackEnabled;
     private String rangedAttackAnimation = "";
@@ -35,6 +40,9 @@ public final class BossRangedAttackSettings {
     private int rangedAimTurnDegrees = 30;
     /** Past this share of the squared range an arcing shot is used instead of a flat one. */
     private int rangedLobSharePercent = 50;
+    /** How many shots one cast puts in the air, and how far apart they leave. */
+    private int rangedBurstShots = MIN_BURST_SHOTS;
+    private int rangedBurstDelayTicks = 4;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot rangedAttackCastSpot = new BossCastSpot();
 
@@ -93,6 +101,20 @@ public final class BossRangedAttackSettings {
         rangedLobSharePercent = Mth.clamp(value, MIN_LOB_SHARE, MAX_LOB_SHARE);
     }
 
+    /** Shots in one cast; one is the single shot this ability always fired. */
+    public int getBurstShots() { return rangedBurstShots; }
+
+    public void setBurstShots(int value) {
+        rangedBurstShots = Mth.clamp(value, MIN_BURST_SHOTS, MAX_BURST_SHOTS);
+    }
+
+    /** And how far apart they leave, which for a single shot is never read. */
+    public int getBurstDelayTicks() { return rangedBurstDelayTicks; }
+
+    public void setBurstDelayTicks(int value) {
+        rangedBurstDelayTicks = Mth.clamp(value, MIN_BURST_DELAY, MAX_BURST_DELAY);
+    }
+
     /**
      * How far, squared, a victim has to be before the shot is arced over rather than sent
      * flat. Measured off the squared range because that is what the shot itself compares.
@@ -116,6 +138,8 @@ public final class BossRangedAttackSettings {
         tag.put("RangedAttackEffects", rangedAttackEffects.writeToNBT());
         tag.putInt("RangedAimTurn", rangedAimTurnDegrees);
         tag.putInt("RangedLobShare", rangedLobSharePercent);
+        tag.putInt("RangedBurstShots", rangedBurstShots);
+        tag.putInt("RangedBurstDelay", rangedBurstDelayTicks);
         rangedAttackCastSpot.writeToNBT(tag, "RangedAttack");
     }
 
@@ -134,6 +158,9 @@ public final class BossRangedAttackSettings {
         rangedAimTurnDegrees = value(tag, "RangedAimTurn", 30, MIN_AIM_TURN, MAX_AIM_TURN);
         // Half the squared range: what the shot arced past before it was a setting.
         rangedLobSharePercent = value(tag, "RangedLobShare", 50, MIN_LOB_SHARE, MAX_LOB_SHARE);
+        // One shot and four ticks: a boss saved before the series existed fires exactly once.
+        rangedBurstShots = value(tag, "RangedBurstShots", MIN_BURST_SHOTS, MIN_BURST_SHOTS, MAX_BURST_SHOTS);
+        rangedBurstDelayTicks = value(tag, "RangedBurstDelay", 4, MIN_BURST_DELAY, MAX_BURST_DELAY);
         rangedAttackCastSpot.readFromNBT(tag, "RangedAttack");
     }
 }

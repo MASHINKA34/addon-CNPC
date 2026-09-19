@@ -1130,6 +1130,8 @@ class BossPhaseKeyFormatTest {
             "RangedAttackSpotYawMode",
             "RangedAttackSpotZ",
             "RangedAttackTargetMode",
+            "RangedBurstDelay",
+            "RangedBurstShots",
             "RangedLobShare",
             "RiftAbilities",
             "RiftActionDelayTicks",
