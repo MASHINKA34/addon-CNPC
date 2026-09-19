@@ -103,7 +103,14 @@ final class BossRiftRuntime {
         if (victims.isEmpty()) {
             return;
         }
+        // Signed up while they still stand on the arena: once through, they are a level away.
+        for (ServerPlayer victim : victims) {
+            boss.trackParticipant(victim);
+        }
         BossRiftSettings rift = phase.rift();
+        if (BossRiftManager.start(level, npc, rift, victims, soloAtStart, gameTime) <= 0) {
+            return;
+        }
         rift.getCutSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         rift.getCutParticles().emitDust(level, npc.getX(), npc.getY(0.5D), npc.getZ(),
                 npc.getBbWidth() * 0.8D, npc.getBbHeight() * 0.5D, npc.getBbWidth() * 0.8D, 0.1D,
@@ -112,7 +119,29 @@ final class BossRiftRuntime {
 
     /** Whether this boss has a rift open right now. */
     boolean isActive() {
-        return false;
+        return BossRiftManager.isActive(npc.getUUID());
+    }
+
+    /** Closes this boss' rift, with everyone brought back and no outcome: the fight it was part of is over. */
+    void clear() {
+        BossRiftManager.clearBoss(npc);
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
+    String status(long gameTime) {
+        String open = BossRiftManager.status(npc.getUUID(), gameTime);
+        if (open != null) {
+            return open;
+        }
+        BossPhaseData phase = boss.activePhase();
+        if (phase == null || !phase.rift().isEnabled()) {
+            return "Rift: disabled";
+        }
+        if (!phase.rift().canCast()) {
+            return "Rift: no minion clone to stand up";
+        }
+        long remaining = boss.abilityCooldownLeft(BossAbility.RIFT, gameTime);
+        return remaining > 0L ? "Rift: cooldown " + remaining : "Rift: ready";
     }
 
     /**

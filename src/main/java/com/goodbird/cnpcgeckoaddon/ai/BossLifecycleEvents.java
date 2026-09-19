@@ -61,6 +61,8 @@ public final class BossLifecycleEvents {
         BossCocoonManager.onShellDeath(event.getEntity());
         if (event.getEntity() instanceof ServerPlayer player) {
             TeleportPathController.removePlayerFromEncounters(player);
+            // Dying in a rift is leaving it: the vanilla respawn takes over, with no record left.
+            BossRiftManager.handleDeath(player);
         }
         if (BossTotemUtil.isTotem(event.getEntity())) {
             TeleportPathController.onTotemDeath(event.getEntity());

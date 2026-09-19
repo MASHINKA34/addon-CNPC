@@ -653,7 +653,9 @@ public final class TeleportPathController {
         // in a wind-up or has lost sight of its target for a moment.
         shadows.tick(level, gameTime);
 
-        if (data.isCombatOnly() && !hasCombatTarget()) {
+        // A boss whose rift is open has sent its target away on purpose: the fight is not lost,
+        // and whatever the boss may cast meanwhile it casts at whoever is left.
+        if (data.isCombatOnly() && !hasCombatTarget() && !rift.isActive()) {
             cancelPendingAndSchedules();
             return;
         }
@@ -1037,7 +1039,9 @@ public final class TeleportPathController {
     }
 
     private void updatePhase(ServerLevel level, long gameTime, TeleportPathData data) {
-        if (hasCombatTarget()) {
+        // While its rift is open the boss is still fighting, however empty the arena looks: the
+        // players it took are coming back to it.
+        if (hasCombatTarget() || rift.isActive()) {
             outOfCombatSince = NOT_SCHEDULED;
             encounterResetDone = false;
         } else if (outOfCombatSince == NOT_SCHEDULED) {
@@ -2711,6 +2715,11 @@ public final class TeleportPathController {
     }
 
     /** Read-only status used by the boss diagnostic command. */
+    public String riftStatus(long gameTime) {
+        return rift.status(gameTime);
+    }
+
+    /** Read-only status used by the boss diagnostic command. */
     public String seismicStatus(long gameTime) {
         return BossSeismicScheduler.status(npc, gameTime);
     }
@@ -2817,6 +2826,8 @@ public final class TeleportPathController {
         // seismic rings: nothing the boss does interrupts a series, but the fight ending does.
         BossHurricaneScheduler.clearBoss(npc);
         BossSeismicScheduler.clearBoss(npc);
+        // Nor does a rift: whoever it took comes back, with nothing won or lost.
+        rift.clear();
         dash.clear();
         cone.clear();
     }

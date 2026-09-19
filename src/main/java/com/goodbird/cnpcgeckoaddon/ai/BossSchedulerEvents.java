@@ -100,6 +100,10 @@ public final class BossSchedulerEvents {
         if (BossFireTracker.hasPending()) {
             CrashGuard.tick("scheduler.fire", level, BossFireTracker::tick, BossFireTracker::clearLevel);
         }
+        // Only the rift dimension's own tick runs the rifts; a failure there brings everyone home.
+        if (BossRiftManager.hasPending()) {
+            CrashGuard.tick("scheduler.rift", level, BossRiftManager::tick, BossRiftManager::clearLevel);
+        }
         // Last of all, and deliberately so: every warning drawn this tick - by the schedulers
         // above and by the bosses that ticked before them - goes out as one frame per boss,
         // so the shapes of a tick never flicker against each other.
@@ -157,6 +161,7 @@ public final class BossSchedulerEvents {
         CrashGuard.run("unload.tether", level, BossTetherManager::clearLevel);
         CrashGuard.run("unload.cocoon", level, BossCocoonManager::clearLevel);
         CrashGuard.run("unload.fire", level, BossFireTracker::clearLevel);
+        CrashGuard.run("unload.rift", level, BossRiftManager::clearLevel);
         CrashGuard.run("unload.telegraph_frames", level, BossTelegraphFrames::clear);
         CrashGuard.run("unload.owned_entity_index", level, BossSchedulerEvents::invalidateOwnedEntities);
         CrashGuard.run("unload.controllers", level, TeleportPathController::shutdownLevel);

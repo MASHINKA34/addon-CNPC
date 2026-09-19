@@ -133,8 +133,9 @@ final class BossCastSpotRuntime {
             return false;
         }
         // Nailed down by its totems, the boss casts from where it stands: the hold is exactly
-        // what keeps it from going anywhere, however it would get there.
-        if (boss.isTotemHeld()) {
+        // what keeps it from going anywhere, however it would get there. The same while its rift
+        // is open: it waits where it cut the rift for whoever it sent through.
+        if (boss.isTotemHeld() || boss.isRiftActive()) {
             return false;
         }
         // The effect the last cast left is still running: a second sweep on top of the first

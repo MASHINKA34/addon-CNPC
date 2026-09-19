@@ -30,6 +30,35 @@ public final class BossPlayerEvents {
     private static void handlePlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             releaseFromEverything(player);
+            // A rift is the one hold that outlives a logout: its record is saved with the player.
+            BossRiftManager.handleLogout(player);
+        }
+    }
+
+    /**
+     * A player coming in who was in a reality rift: back into it if it is still open, back to
+     * where they were taken from if it closed while they were away.
+     */
+    @SubscribeEvent
+    public static void onPlayerLogin(final PlayerEvent.PlayerLoggedInEvent event) {
+        EventGuard.handle("player.player_login", event, BossPlayerEvents::handlePlayerLogin);
+    }
+
+    private static void handlePlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            BossRiftManager.handleLogin(player);
+        }
+    }
+
+    /** A player respawning with a rift record and no rift to go with it. */
+    @SubscribeEvent
+    public static void onPlayerRespawn(final PlayerEvent.PlayerRespawnEvent event) {
+        EventGuard.handle("player.player_respawn", event, BossPlayerEvents::handlePlayerRespawn);
+    }
+
+    private static void handlePlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            BossRiftManager.handleRespawn(player);
         }
     }
 
@@ -41,6 +70,8 @@ public final class BossPlayerEvents {
     private static void handlePlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             releaseFromEverything(player);
+            // Leaving a rift by any other road than its own lets go of it for good.
+            BossRiftManager.handleDimensionChange(player, event.getFrom(), event.getTo());
         }
     }
 

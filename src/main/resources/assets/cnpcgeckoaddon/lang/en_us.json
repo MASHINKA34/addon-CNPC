@@ -986,6 +986,7 @@
   "cnpcgeckoaddon.boss.rift_exit.both": "Minions and crystals",
   "cnpcgeckoaddon.boss.rift_arena.built": "Built by the addon",
   "cnpcgeckoaddon.boss.rift_arena.prebuilt": "Built by hand at the spot",
+  "cnpcgeckoaddon.boss.rift_status_time": "Rift: %s s left",
   "cnpcgeckoaddon.boss.cast_move_settings": "Movement while casting...",
   "cnpcgeckoaddon.boss.cast_move_title": "Movement while casting",
   "cnpcgeckoaddon.boss.cast_move_rooted": "Stands still",
