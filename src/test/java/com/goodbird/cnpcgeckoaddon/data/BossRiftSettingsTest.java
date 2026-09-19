@@ -61,6 +61,25 @@ class BossRiftSettingsTest {
         assertEquals(3, rift.getMinionCount());
         assertEquals(6, rift.getMinionRadius());
         assertTrue(rift.isMinionRemoveOnEnd());
+        assertEquals(0, rift.getCrystalPoints().size(), "no zones: the crystals stand on a ring");
+        assertEquals(4, rift.getCrystalCount());
+        assertEquals(8, rift.getCrystalRingRadius());
+        assertEquals(20, rift.getCrystalHoverTenths());
+        assertEquals(2.0D, rift.crystalHover(), 1.0E-9D, "two blocks over the floor");
+        assertEquals("minecraft:amethyst_cluster", rift.getCrystalBlock());
+        assertEquals(0xB47AFF, rift.getCrystalColor());
+        assertTrue(rift.isCrystalGlow(), "an absent key is a save from before the crystals: they glow");
+        assertEquals(3, rift.getCrystalSpinDegrees());
+        assertEquals(3, rift.getCrystalBobTenths());
+        assertEquals(40, rift.getCrystalBobPeriodTicks());
+        assertEquals(10, rift.getCrystalScaleTenths());
+        assertEquals(BossRiftSettings.COLLECT_ZONE, rift.getCrystalCollectMode());
+        assertEquals(15, rift.getCrystalCollectRadiusTenths());
+        assertTrue(rift.isCrystalZoneRing());
+        assertEquals(10, rift.getCrystalAmbientIntervalTicks());
+        assertEquals("minecraft:block.amethyst_block.chime", rift.getCrystalCollectSound().getSoundId());
+        assertEquals("minecraft:end_rod", rift.getCrystalCollectParticles().getParticleId());
+        assertEquals(BossParticleCue.DUST_ID, rift.getCrystalAmbientParticles().getParticleId());
         assertFalse(rift.isFailRage());
         assertEquals(0, rift.getFailArenaDamage());
         assertEquals(32, rift.getFailArenaRadius());
@@ -116,14 +135,23 @@ class BossRiftSettingsTest {
         assertTrue(rift.canCast());
 
         assertEquals(BossRiftSettings.EXIT_SURVIVE, BossRiftSettings.effectiveExitMode(BossRiftSettings.EXIT_CRYSTALS, false),
-                "no crystals yet: the crystal way out runs as survival");
+                "a build with no crystals runs the crystal way out as survival");
         assertEquals(BossRiftSettings.EXIT_SURVIVE, BossRiftSettings.effectiveExitMode(BossRiftSettings.EXIT_BOTH, false));
         assertEquals(BossRiftSettings.EXIT_MINIONS, BossRiftSettings.effectiveExitMode(BossRiftSettings.EXIT_MINIONS, false));
         assertEquals(BossRiftSettings.EXIT_CRYSTALS, BossRiftSettings.effectiveExitMode(BossRiftSettings.EXIT_CRYSTALS, true));
         assertEquals(BossRiftSettings.EXIT_BOTH, BossRiftSettings.effectiveExitMode(99, true), "clamped");
+
+        rift.setExitMode(BossRiftSettings.EXIT_CRYSTALS);
+        assertTrue(rift.needsCrystals());
+        assertFalse(rift.needsMinions(), "gathering crystals stands no minions up");
         rift.setMinionCloneName("");
+        assertTrue(rift.isConfigured(), "and needs no clone: the crystals stand on a ring by themselves");
         rift.setExitMode(BossRiftSettings.EXIT_BOTH);
-        assertTrue(rift.isConfigured(), "both, while it runs as survival, needs no clone yet");
+        assertTrue(rift.needsCrystals());
+        assertTrue(rift.needsMinions());
+        assertFalse(rift.isConfigured(), "both asks for the minions' clone as well");
+        rift.setMinionCloneName("guard");
+        assertTrue(rift.isConfigured());
     }
 
     @Test

@@ -75,9 +75,11 @@ class BossRiftOutcomeTest {
         assertEquals(Result.RUNNING, judge(EXIT_BOTH, START + 5, 1, 1, 0, true, 3, 1, 0), "crystals done, minions not");
         assertEquals(Result.SUCCESS, judge(EXIT_BOTH, START + 5, 1, 1, 0, true, 3, 0, 0));
         assertEquals(Result.FAILURE, judge(EXIT_BOTH, END, 1, 1, 0, true, 3, 1, 0));
-        // Until the crystals are in the game the two crystal ways out run as the survival one.
-        assertEquals(EXIT_SURVIVE, BossRiftSettings.effectiveExitMode(EXIT_CRYSTALS, BossRiftSettings.CRYSTALS_AVAILABLE));
-        assertEquals(EXIT_SURVIVE, BossRiftSettings.effectiveExitMode(EXIT_BOTH, BossRiftSettings.CRYSTALS_AVAILABLE));
+        // The crystals are in the game, so both ways out that ask for them run as themselves.
+        assertEquals(EXIT_CRYSTALS, BossRiftSettings.effectiveExitMode(EXIT_CRYSTALS, BossRiftSettings.CRYSTALS_AVAILABLE));
+        assertEquals(EXIT_BOTH, BossRiftSettings.effectiveExitMode(EXIT_BOTH, BossRiftSettings.CRYSTALS_AVAILABLE));
+        assertEquals(EXIT_SURVIVE, BossRiftSettings.effectiveExitMode(EXIT_CRYSTALS, false),
+                "and would fall back to surviving the time in a build that had none");
     }
 
     @Test

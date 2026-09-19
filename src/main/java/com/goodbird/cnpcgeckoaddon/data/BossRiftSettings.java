@@ -37,10 +37,11 @@ public final class BossRiftSettings {
             "cnpcgeckoaddon.boss.rift_exit.both"
     };
     /**
-     * Whether the crystals exist yet. Until they do, the two ways out that ask for them run as
-     * the survival one, and the rift says so in the log.
+     * Whether the crystals exist yet. They do; the flag is kept because the two ways out that ask
+     * for them are read through {@link #effectiveExitMode}, which is what a rift saved under a
+     * build that had no crystals went through.
      */
-    public static final boolean CRYSTALS_AVAILABLE = false;
+    public static final boolean CRYSTALS_AVAILABLE = true;
 
     /** The addon lays the platform in the boss' slot. */
     public static final int ARENA_BUILT = 0;
@@ -76,6 +77,34 @@ public final class BossRiftSettings {
     public static final int MAX_CLONE_TAB = 9;
     public static final int MAX_MINION_COUNT = 16;
     public static final int MAX_MINION_RADIUS = 32;
+    public static final int MAX_CRYSTAL_COUNT = 32;
+    public static final int MIN_CRYSTAL_RING_RADIUS = 2;
+    public static final int MAX_CRYSTAL_RING_RADIUS = 64;
+    /** How high over the floor of its zone a crystal may be asked to hover, in tenths of a block. */
+    public static final int MAX_CRYSTAL_HOVER_TENTHS = 100;
+    public static final int MAX_CRYSTAL_SPIN_DEGREES = 30;
+    public static final int MAX_CRYSTAL_BOB_TENTHS = 20;
+    public static final int MIN_CRYSTAL_BOB_PERIOD_TICKS = 10;
+    public static final int MAX_CRYSTAL_BOB_PERIOD_TICKS = 200;
+    public static final int MIN_CRYSTAL_SCALE_TENTHS = 2;
+    public static final int MAX_CRYSTAL_SCALE_TENTHS = 40;
+    public static final int MIN_CRYSTAL_RADIUS_TENTHS = 5;
+    public static final int MAX_CRYSTAL_RADIUS_TENTHS = 60;
+    /** Faster than the rift's own ambient noises, so the crystals may glitter every half second. */
+    public static final int MIN_CRYSTAL_INTERVAL_TICKS = 1;
+    public static final int MAX_CRYSTAL_INTERVAL_TICKS = 200;
+    /** Walking into the zone the crystal hovers over collects it. */
+    public static final int COLLECT_ZONE = 0;
+    /** Reaching the crystal itself collects it. */
+    public static final int COLLECT_TOUCH = 1;
+    public static final String[] COLLECT_LABELS = {
+            "cnpcgeckoaddon.boss.rift_crystal_collect.zone",
+            "cnpcgeckoaddon.boss.rift_crystal_collect.touch"
+    };
+    public static final String DEFAULT_CRYSTAL_BLOCK = "minecraft:amethyst_cluster";
+    /** What the addon draws a crystal as when the block the builder named is not one. */
+    public static final String FALLBACK_CRYSTAL_BLOCK = "minecraft:amethyst_block";
+    public static final int DEFAULT_CRYSTAL_COLOR = 0xB47AFF;
     public static final int MAX_FAIL_ARENA_DAMAGE = 1000;
     public static final int MAX_FAIL_ARENA_RADIUS = 128;
     public static final int MAX_FAIL_HEAL_PERCENT = 100;
@@ -151,6 +180,30 @@ public final class BossRiftSettings {
     /** The ring round the centre the minions stand on when no point is listed. */
     private int riftMinionRadius = 6;
     private boolean riftMinionRemoveOnEnd = true;
+    /** The zones the crystals stand in; empty stands them on a ring round the platform's centre. */
+    private final BossRiftCrystalList riftCrystalPoints = new BossRiftCrystalList();
+    private int riftCrystalCount = 4;
+    private int riftCrystalRingRadius = 8;
+    /** Two blocks over the floor of its zone, in tenths. */
+    private int riftCrystalHoverTenths = 20;
+    private String riftCrystalBlock = DEFAULT_CRYSTAL_BLOCK;
+    private int riftCrystalColor = DEFAULT_CRYSTAL_COLOR;
+    private boolean riftCrystalGlow = true;
+    /** Nought is a crystal that hangs still. */
+    private int riftCrystalSpinDegrees = 3;
+    /** Nought is a crystal that hangs level; the period is how long one rise and fall takes. */
+    private int riftCrystalBobTenths = 3;
+    private int riftCrystalBobPeriodTicks = 40;
+    private int riftCrystalScaleTenths = 10;
+    private int riftCrystalCollectMode = COLLECT_ZONE;
+    /** How wide the zone is, and how far a hand reaches when touching is what counts. */
+    private int riftCrystalCollectRadiusTenths = 15;
+    private boolean riftCrystalZoneRing = true;
+    private int riftCrystalAmbientIntervalTicks = 10;
+    private final BossSoundCue riftCrystalCollectSound =
+            new BossSoundCue("minecraft:block.amethyst_block.chime", 1.0F, 1.2F);
+    private final BossParticleCue riftCrystalCollectParticles = new BossParticleCue("minecraft:end_rod", 24);
+    private final BossParticleCue riftCrystalAmbientParticles = new BossParticleCue(BossParticleCue.DUST_ID, 2);
     private boolean riftFailRage;
     /** Nought hits nobody, though the failure's potions still land. */
     private int riftFailArenaDamage;
@@ -374,6 +427,99 @@ public final class BossRiftSettings {
 
     public void setMinionRemoveOnEnd(boolean value) { riftMinionRemoveOnEnd = value; }
 
+    /** Whether this rift's way out, as it runs today, asks for crystals to be gathered. */
+    public boolean needsCrystals() {
+        int mode = effectiveExitMode(riftExitMode, CRYSTALS_AVAILABLE);
+        return mode == EXIT_CRYSTALS || mode == EXIT_BOTH;
+    }
+
+    /** The zones the crystals stand in; an empty list stands them on a ring. */
+    public BossRiftCrystalList getCrystalPoints() { return riftCrystalPoints; }
+
+    public int getCrystalCount() { return riftCrystalCount; }
+
+    public void setCrystalCount(int value) { riftCrystalCount = Mth.clamp(value, 1, MAX_CRYSTAL_COUNT); }
+
+    public int getCrystalRingRadius() { return riftCrystalRingRadius; }
+
+    public void setCrystalRingRadius(int value) {
+        riftCrystalRingRadius = Mth.clamp(value, MIN_CRYSTAL_RING_RADIUS, MAX_CRYSTAL_RING_RADIUS);
+    }
+
+    public int getCrystalHoverTenths() { return riftCrystalHoverTenths; }
+
+    public void setCrystalHoverTenths(int value) {
+        riftCrystalHoverTenths = Mth.clamp(value, 0, MAX_CRYSTAL_HOVER_TENTHS);
+    }
+
+    /** How high over the floor of its zone a crystal hovers, in blocks. */
+    public double crystalHover() { return riftCrystalHoverTenths / 10.0D; }
+
+    public String getCrystalBlock() { return riftCrystalBlock; }
+
+    public void setCrystalBlock(String value) { riftCrystalBlock = blockOrDefault(value, DEFAULT_CRYSTAL_BLOCK); }
+
+    public int getCrystalColor() { return riftCrystalColor; }
+
+    public void setCrystalColor(int value) { riftCrystalColor = Mth.clamp(value, 0, MAX_COLOR); }
+
+    public boolean isCrystalGlow() { return riftCrystalGlow; }
+
+    public void setCrystalGlow(boolean value) { riftCrystalGlow = value; }
+
+    public int getCrystalSpinDegrees() { return riftCrystalSpinDegrees; }
+
+    public void setCrystalSpinDegrees(int value) {
+        riftCrystalSpinDegrees = Mth.clamp(value, 0, MAX_CRYSTAL_SPIN_DEGREES);
+    }
+
+    public int getCrystalBobTenths() { return riftCrystalBobTenths; }
+
+    public void setCrystalBobTenths(int value) { riftCrystalBobTenths = Mth.clamp(value, 0, MAX_CRYSTAL_BOB_TENTHS); }
+
+    public int getCrystalBobPeriodTicks() { return riftCrystalBobPeriodTicks; }
+
+    public void setCrystalBobPeriodTicks(int value) {
+        riftCrystalBobPeriodTicks = Mth.clamp(value, MIN_CRYSTAL_BOB_PERIOD_TICKS, MAX_CRYSTAL_BOB_PERIOD_TICKS);
+    }
+
+    public int getCrystalScaleTenths() { return riftCrystalScaleTenths; }
+
+    public void setCrystalScaleTenths(int value) {
+        riftCrystalScaleTenths = Mth.clamp(value, MIN_CRYSTAL_SCALE_TENTHS, MAX_CRYSTAL_SCALE_TENTHS);
+    }
+
+    public int getCrystalCollectMode() { return riftCrystalCollectMode; }
+
+    public void setCrystalCollectMode(int value) {
+        riftCrystalCollectMode = Mth.clamp(value, COLLECT_ZONE, COLLECT_TOUCH);
+    }
+
+    public int getCrystalCollectRadiusTenths() { return riftCrystalCollectRadiusTenths; }
+
+    public void setCrystalCollectRadiusTenths(int value) {
+        riftCrystalCollectRadiusTenths = Mth.clamp(value, MIN_CRYSTAL_RADIUS_TENTHS, MAX_CRYSTAL_RADIUS_TENTHS);
+    }
+
+    /** How wide a zone is in blocks, unless the zone names its own. */
+    public double crystalCollectRadius() { return riftCrystalCollectRadiusTenths / 10.0D; }
+
+    public boolean isCrystalZoneRing() { return riftCrystalZoneRing; }
+
+    public void setCrystalZoneRing(boolean value) { riftCrystalZoneRing = value; }
+
+    public int getCrystalAmbientIntervalTicks() { return riftCrystalAmbientIntervalTicks; }
+
+    public void setCrystalAmbientIntervalTicks(int value) {
+        riftCrystalAmbientIntervalTicks = Mth.clamp(value, MIN_CRYSTAL_INTERVAL_TICKS, MAX_CRYSTAL_INTERVAL_TICKS);
+    }
+
+    public BossSoundCue getCrystalCollectSound() { return riftCrystalCollectSound; }
+
+    public BossParticleCue getCrystalCollectParticles() { return riftCrystalCollectParticles; }
+
+    public BossParticleCue getCrystalAmbientParticles() { return riftCrystalAmbientParticles; }
+
     public boolean isFailRage() { return riftFailRage; }
 
     public void setFailRage(boolean value) { riftFailRage = value; }
@@ -535,6 +681,24 @@ public final class BossRiftSettings {
         tag.put("RiftMinionPoints", riftMinionPoints.writeToNBT());
         tag.putInt("RiftMinionRadius", riftMinionRadius);
         tag.putBoolean("RiftMinionRemoveOnEnd", riftMinionRemoveOnEnd);
+        tag.put("RiftCrystalPoints", riftCrystalPoints.writeToNBT());
+        tag.putInt("RiftCrystalCount", riftCrystalCount);
+        tag.putInt("RiftCrystalRingRadius", riftCrystalRingRadius);
+        tag.putInt("RiftCrystalHoverTenths", riftCrystalHoverTenths);
+        tag.putString("RiftCrystalBlock", riftCrystalBlock);
+        tag.putInt("RiftCrystalColor", riftCrystalColor);
+        tag.putBoolean("RiftCrystalGlow", riftCrystalGlow);
+        tag.putInt("RiftCrystalSpinDegrees", riftCrystalSpinDegrees);
+        tag.putInt("RiftCrystalBobTenths", riftCrystalBobTenths);
+        tag.putInt("RiftCrystalBobPeriodTicks", riftCrystalBobPeriodTicks);
+        tag.putInt("RiftCrystalScaleTenths", riftCrystalScaleTenths);
+        tag.putInt("RiftCrystalCollectMode", riftCrystalCollectMode);
+        tag.putInt("RiftCrystalCollectRadiusTenths", riftCrystalCollectRadiusTenths);
+        tag.putBoolean("RiftCrystalZoneRing", riftCrystalZoneRing);
+        tag.putInt("RiftCrystalAmbientIntervalTicks", riftCrystalAmbientIntervalTicks);
+        riftCrystalCollectSound.writeToNBT(tag, "RiftCrystalCollectSound");
+        riftCrystalCollectParticles.writeToNBT(tag, "RiftCrystalCollectParticles");
+        riftCrystalAmbientParticles.writeToNBT(tag, "RiftCrystalAmbientParticles");
         tag.putBoolean("RiftFailRage", riftFailRage);
         tag.putInt("RiftFailArenaDamage", riftFailArenaDamage);
         tag.putInt("RiftFailArenaRadius", riftFailArenaRadius);
@@ -601,6 +765,31 @@ public final class BossRiftSettings {
         riftMinionPoints.readFromNBT(tag, "RiftMinionPoints");
         riftMinionRadius = value(tag, "RiftMinionRadius", 6, 1, MAX_MINION_RADIUS);
         riftMinionRemoveOnEnd = !tag.contains("RiftMinionRemoveOnEnd") || tag.getBoolean("RiftMinionRemoveOnEnd");
+        riftCrystalPoints.readFromNBT(tag, "RiftCrystalPoints");
+        riftCrystalCount = value(tag, "RiftCrystalCount", 4, 1, MAX_CRYSTAL_COUNT);
+        riftCrystalRingRadius = value(tag, "RiftCrystalRingRadius", 8,
+                MIN_CRYSTAL_RING_RADIUS, MAX_CRYSTAL_RING_RADIUS);
+        riftCrystalHoverTenths = value(tag, "RiftCrystalHoverTenths", 20, 0, MAX_CRYSTAL_HOVER_TENTHS);
+        riftCrystalBlock = tag.contains("RiftCrystalBlock")
+                ? blockOrDefault(tag.getString("RiftCrystalBlock"), DEFAULT_CRYSTAL_BLOCK) : DEFAULT_CRYSTAL_BLOCK;
+        riftCrystalColor = value(tag, "RiftCrystalColor", DEFAULT_CRYSTAL_COLOR, 0, MAX_COLOR);
+        // The two that default to on: an absent key is a rift saved before the crystals existed.
+        riftCrystalGlow = !tag.contains("RiftCrystalGlow") || tag.getBoolean("RiftCrystalGlow");
+        riftCrystalSpinDegrees = value(tag, "RiftCrystalSpinDegrees", 3, 0, MAX_CRYSTAL_SPIN_DEGREES);
+        riftCrystalBobTenths = value(tag, "RiftCrystalBobTenths", 3, 0, MAX_CRYSTAL_BOB_TENTHS);
+        riftCrystalBobPeriodTicks = value(tag, "RiftCrystalBobPeriodTicks", 40,
+                MIN_CRYSTAL_BOB_PERIOD_TICKS, MAX_CRYSTAL_BOB_PERIOD_TICKS);
+        riftCrystalScaleTenths = value(tag, "RiftCrystalScaleTenths", 10,
+                MIN_CRYSTAL_SCALE_TENTHS, MAX_CRYSTAL_SCALE_TENTHS);
+        riftCrystalCollectMode = value(tag, "RiftCrystalCollectMode", COLLECT_ZONE, COLLECT_ZONE, COLLECT_TOUCH);
+        riftCrystalCollectRadiusTenths = value(tag, "RiftCrystalCollectRadiusTenths", 15,
+                MIN_CRYSTAL_RADIUS_TENTHS, MAX_CRYSTAL_RADIUS_TENTHS);
+        riftCrystalZoneRing = !tag.contains("RiftCrystalZoneRing") || tag.getBoolean("RiftCrystalZoneRing");
+        riftCrystalAmbientIntervalTicks = value(tag, "RiftCrystalAmbientIntervalTicks", 10,
+                MIN_CRYSTAL_INTERVAL_TICKS, MAX_CRYSTAL_INTERVAL_TICKS);
+        riftCrystalCollectSound.readFromNBT(tag, "RiftCrystalCollectSound");
+        riftCrystalCollectParticles.readFromNBT(tag, "RiftCrystalCollectParticles");
+        riftCrystalAmbientParticles.readFromNBT(tag, "RiftCrystalAmbientParticles");
         riftFailRage = tag.getBoolean("RiftFailRage");
         riftFailArenaDamage = value(tag, "RiftFailArenaDamage", 0, 0, MAX_FAIL_ARENA_DAMAGE);
         riftFailArenaRadius = value(tag, "RiftFailArenaRadius", 32, 1, MAX_FAIL_ARENA_RADIUS);

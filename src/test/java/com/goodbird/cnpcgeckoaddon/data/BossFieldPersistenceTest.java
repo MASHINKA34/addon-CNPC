@@ -196,6 +196,17 @@ class BossFieldPersistenceTest {
     }
 
     /**
+     * The same sweep over one of a rift's crystal zones, which lives in a list inside the rift's
+     * settings and writes a compound of its own, the way a platform's zone does.
+     */
+    @Test
+    @DisplayName("every rift crystal zone field reaches the save tag")
+    void everyRiftCrystalPointFieldIsPersisted() {
+        assertPersisted(BossRiftCrystalPoint.class, BossFieldPersistenceTest::hostWithRiftCrystalPoint,
+                data -> data.getPhase(1).rift().getCrystalPoints().get(0));
+    }
+
+    /**
      * The same sweep over the boss-wide tuning, which is a final field of {@link TeleportPathData}
      * and so skipped by the sweep above as a nested object.
      */
@@ -257,6 +268,12 @@ class BossFieldPersistenceTest {
     private static TeleportPathData hostWithPlatformZone() {
         TeleportPathData data = configuredHost();
         data.getPhase(1).platform().getZones().add();
+        return data;
+    }
+
+    private static TeleportPathData hostWithRiftCrystalPoint() {
+        TeleportPathData data = configuredHost();
+        data.getPhase(1).rift().getCrystalPoints().add();
         return data;
     }
 

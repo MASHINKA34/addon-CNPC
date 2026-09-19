@@ -986,6 +986,8 @@
   "cnpcgeckoaddon.boss.rift_exit.both": "Миньоны и кристаллы",
   "cnpcgeckoaddon.boss.rift_arena.built": "Строит аддон",
   "cnpcgeckoaddon.boss.rift_arena.prebuilt": "Построена руками в точке",
+  "cnpcgeckoaddon.boss.rift_crystal_collect.zone": "Входом в зону",
+  "cnpcgeckoaddon.boss.rift_crystal_collect.touch": "Касанием кристалла",
   "cnpcgeckoaddon.boss.rift_status_time": "Разрез: осталось %s с",
   "cnpcgeckoaddon.boss.rift_status_minions": "Миньонов осталось: %s",
   "cnpcgeckoaddon.boss.rift_settings": "Разрез реальности…",

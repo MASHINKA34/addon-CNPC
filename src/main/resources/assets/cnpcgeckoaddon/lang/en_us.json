@@ -986,6 +986,8 @@
   "cnpcgeckoaddon.boss.rift_exit.both": "Minions and crystals",
   "cnpcgeckoaddon.boss.rift_arena.built": "Built by the addon",
   "cnpcgeckoaddon.boss.rift_arena.prebuilt": "Built by hand at the spot",
+  "cnpcgeckoaddon.boss.rift_crystal_collect.zone": "Entering the zone",
+  "cnpcgeckoaddon.boss.rift_crystal_collect.touch": "Touching the crystal",
   "cnpcgeckoaddon.boss.rift_status_time": "Rift: %s s left",
   "cnpcgeckoaddon.boss.rift_status_minions": "Minions left: %s",
   "cnpcgeckoaddon.boss.rift_settings": "Reality rift...",
