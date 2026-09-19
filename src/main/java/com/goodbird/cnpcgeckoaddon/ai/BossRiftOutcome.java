@@ -38,6 +38,13 @@ public final class BossRiftOutcome {
         HEAL
     }
 
+    /**
+     * The longest a failure's hit on the arena waits for the players its rift sent back to land. A
+     * client that never confirms its teleport keeps its player out of harm's way for good, and must
+     * not keep the hit off everyone else with it.
+     */
+    public static final int STRIKE_WAIT_TICKS = 40;
+
     private BossRiftOutcome() {
     }
 
@@ -119,6 +126,24 @@ public final class BossRiftOutcome {
     public static Set<Penalty> penalties(BossRiftSettings settings) {
         return penalties(settings.isFailRage(), settings.getFailArenaDamage(),
                 settings.getFailEffects().isAnyEnabled(), settings.getFailHealPercent());
+    }
+
+    /** Whether a failure owes the arena a hit: its damage, its potions or both. */
+    public static boolean hitsArena(Set<Penalty> penalties) {
+        return penalties.contains(Penalty.ARENA_DAMAGE) || penalties.contains(Penalty.EFFECTS);
+    }
+
+    /**
+     * Whether a failure's hit on the arena lands now. Vanilla keeps a player who has just changed
+     * dimension out of harm's way until their client confirms the teleport, a tick later at the
+     * soonest, and the hit is meant for the players the rift sent back as much as for whoever
+     * stayed: it waits until none of them is still on the way, or {@link #STRIKE_WAIT_TICKS} at most.
+     *
+     * @param closedAt     the tick the rift closed and sent its players back on
+     * @param stillLanding how many of them have not landed yet
+     */
+    public static boolean strikesNow(long gameTime, long closedAt, int stillLanding) {
+        return stillLanding <= 0 || gameTime - closedAt >= STRIKE_WAIT_TICKS;
     }
 
     /** How much a failure heals the boss: its share of the maximum. */

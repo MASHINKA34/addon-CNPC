@@ -129,16 +129,25 @@ final class BossRiftRuntime {
         return BossRiftManager.isActive(npc.getUUID());
     }
 
-    /** Closes this boss' rift, with everyone brought back and no outcome: the fight it was part of is over. */
+    /** Whether a failed rift of this boss still owes the arena its hit, waiting for its players to land. */
+    boolean owesStrike() {
+        return BossRiftManager.owesStrike(npc.getUUID());
+    }
+
+    /**
+     * Closes this boss' rift, with everyone brought back and no outcome, and calls off a failure's
+     * hit still owed: the fight it was part of is over.
+     */
     void clear() {
         BossRiftManager.clearBoss(npc);
     }
 
     /**
-     * What the fight turns into once a rift has closed with its players home: a solo success
+     * What the fight turns into once a rift has closed and sent its players home: a solo success
      * leaves the boss exposed, a group's success simply lifts the cut on its damage, and a failure
-     * costs whatever the phase switched on - the enrage, a hit on everyone within reach with its
-     * potions, the boss healing. Then the usual pause after anything the boss does.
+     * costs whatever the phase switched on - the enrage and the boss healing here, the hit on
+     * everyone within reach with its potions once the players are back on their feet
+     * ({@link #strike}). Then the usual pause after anything the boss does.
      *
      * @param settings the rules the rift opened under, which it closes under too
      */
@@ -159,24 +168,39 @@ final class BossRiftRuntime {
             if (penalties.contains(BossRiftOutcome.Penalty.RAGE) && data.isRageEnabled() && !boss.isRageActive()) {
                 boss.beginRage(level, gameTime, data);
             }
-            boolean damage = penalties.contains(BossRiftOutcome.Penalty.ARENA_DAMAGE);
-            boolean effects = penalties.contains(BossRiftOutcome.Penalty.EFFECTS);
-            if (damage || effects) {
-                int amount = damage ? boss.damageUp(settings.getFailArenaDamage()) : 0;
-                for (LivingEntity target : boss.getTargetsAround(level, npc.position(),
-                        settings.getFailArenaRadius(), BossAbilityKind.RIFT)) {
-                    if (boss.matchesAbilityTargetKind(target, data)) {
-                        BossAbilityDamageUtil.hit(target, BossAbilityKind.RIFT, npc, amount,
-                                effects ? settings.getFailEffects() : null, 0, 0.0D, 0.0D);
-                    }
-                }
-            }
+            // The hit on the arena and its potions are not dealt here: the rift's manager owes them
+            // until the players it sent back have landed, and hands them to strike() then.
             if (penalties.contains(BossRiftOutcome.Penalty.HEAL)) {
                 // Through heal(), so a boss sharing its health with others shares this too.
                 npc.heal(BossRiftOutcome.healAmount(npc.getMaxHealth(), settings.getFailHealPercent()));
             }
         }
         boss.lockActionsUntil(gameTime + boss.postActionLockTicks());
+    }
+
+    /**
+     * A failure's hit on the arena: everyone fighting within its reach of the boss, hurt and given
+     * its potions as the phase switched them on. Dealt once the players the rift sent back have
+     * landed - until their clients confirm the teleport vanilla lets nothing hurt them - so it
+     * falls on them as well as on whoever stayed.
+     *
+     * @param settings the rules the rift opened under
+     */
+    void strike(ServerLevel level, BossRiftSettings settings) {
+        TeleportPathData data = boss.settings();
+        Set<BossRiftOutcome.Penalty> penalties = BossRiftOutcome.penalties(settings);
+        boolean damage = penalties.contains(BossRiftOutcome.Penalty.ARENA_DAMAGE);
+        boolean effects = penalties.contains(BossRiftOutcome.Penalty.EFFECTS);
+        if (damage || effects) {
+            int amount = damage ? boss.damageUp(settings.getFailArenaDamage()) : 0;
+            for (LivingEntity target : boss.getTargetsAround(level, npc.position(),
+                    settings.getFailArenaRadius(), BossAbilityKind.RIFT)) {
+                if (boss.matchesAbilityTargetKind(target, data)) {
+                    BossAbilityDamageUtil.hit(target, BossAbilityKind.RIFT, npc, amount,
+                            effects ? settings.getFailEffects() : null, 0, 0.0D, 0.0D);
+                }
+            }
+        }
     }
 
     /** Read-only status used by the boss diagnostic command. */

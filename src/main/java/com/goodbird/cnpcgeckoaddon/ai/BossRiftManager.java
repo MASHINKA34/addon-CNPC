@@ -90,9 +90,22 @@ public final class BossRiftManager {
     private static final Map<UUID, Trip> BY_PLAYER = new HashMap<>();
     /** Players the rift is moving right now, whose change of dimension is its own doing. */
     private static final Set<UUID> MOVING = new HashSet<>();
+    /** Failures' hits on the arena still waiting for the players their rift sent back to land, by boss. */
+    private static final Map<UUID, Strike> STRIKES = new LinkedHashMap<>();
 
     /** One taken player: where they came from, and whose rift took them. */
     record Trip(UUID playerId, UUID bossId, ResourceKey<Level> fromLevel, Vec3 from, float yaw, float pitch) {
+    }
+
+    /**
+     * A failure's hit on the arena, owed until the players its rift sent back have landed.
+     *
+     * @param settings the rules the rift opened under
+     * @param landing  the players it sent back, whom the hit waits for
+     * @param closedAt the tick the rift closed on
+     */
+    record Strike(UUID bossId, ResourceKey<Level> bossLevel, BossRiftSettings settings, List<UUID> landing,
+                  long closedAt) {
     }
 
     /** One open rift. */
@@ -150,9 +163,14 @@ public final class BossRiftManager {
     private BossRiftManager() {
     }
 
-    /** Whether any rift is open at all, so an idle server skips the walk below. */
+    /** Whether any rift is open, or any failure's hit still owed, so an idle server skips the walk below. */
     public static boolean hasPending() {
-        return !BY_BOSS.isEmpty();
+        return !BY_BOSS.isEmpty() || !STRIKES.isEmpty();
+    }
+
+    /** Whether a failed rift of this boss still owes the arena its hit, waiting for its players to land. */
+    public static boolean owesStrike(UUID bossId) {
+        return STRIKES.containsKey(bossId);
     }
 
     /** Whether this boss has a rift open. */
@@ -332,15 +350,17 @@ public final class BossRiftManager {
         return player.level() == level;
     }
 
-    /** Runs every open rift, on the rift dimension's own tick. */
+    /** Runs every open rift, and lands every hit a failure owes, on the rift dimension's own tick. */
     public static void tick(ServerLevel level) {
-        if (BY_BOSS.isEmpty() || !BossRiftDimension.isRift(level)) {
+        if (!hasPending() || !BossRiftDimension.isRift(level)) {
             return;
         }
         long gameTime = level.getGameTime();
         for (Rift rift : List.copyOf(BY_BOSS.values())) {
             tickRift(level, rift, gameTime);
         }
+        // After the rifts, so a failure that sent nobody back hits on the tick it closed on.
+        tickStrikes(level.getServer(), gameTime);
     }
 
     private static void tickRift(ServerLevel level, Rift rift, long gameTime) {
@@ -563,12 +583,14 @@ public final class BossRiftManager {
         if (!BY_BOSS.remove(rift.bossId, rift)) {
             return;
         }
+        List<UUID> returned = new ArrayList<>();
         for (UUID id : List.copyOf(rift.inside)) {
             Trip trip = BY_PLAYER.remove(id);
             ServerPlayer player = server.getPlayerList().getPlayer(id);
             // An offline player keeps their record, and comes back with it when they log in.
-            if (trip != null && player != null) {
-                sendBack(server, player, trip.fromLevel(), trip.from(), trip.yaw(), trip.pitch(), rift.settings);
+            if (trip != null && player != null && sendBack(server, player, trip.fromLevel(), trip.from(),
+                    trip.yaw(), trip.pitch(), rift.settings)) {
+                returned.add(id);
             }
         }
         rift.inside.clear();
@@ -580,15 +602,53 @@ public final class BossRiftManager {
         if (arena != null) {
             arena.getChunkSource().removeRegionTicket(BOSS_TICKET, rift.bossChunk, BOSS_TICKET_DISTANCE, rift.bossId);
         }
-        // Last, with everyone home: a failure's hit on the arena lands on the players it just
-        // brought back as well as on whoever stayed.
+        // Last, with everyone on the way home. A failure's hit on the arena is only owed here, not
+        // dealt: vanilla keeps a player who has just changed dimension out of harm's way until their
+        // client confirms the teleport, and the hit is meant for the players sent back as well as
+        // for whoever stayed. It lands once they have landed; see tickStrikes.
         if (result == BossRiftOutcome.Result.SUCCESS || result == BossRiftOutcome.Result.FAILURE) {
             EntityNPCInterface boss = findBoss(server, rift);
             TeleportPathController controller = controllerOf(boss);
             if (controller != null && boss.level() instanceof ServerLevel bossLevel) {
                 controller.onRiftFinished(bossLevel, result, rift.solo, rift.settings);
+                if (result == BossRiftOutcome.Result.FAILURE
+                        && BossRiftOutcome.hitsArena(BossRiftOutcome.penalties(rift.settings))) {
+                    STRIKES.put(rift.bossId, new Strike(rift.bossId, rift.bossLevel, rift.settings, returned,
+                            bossLevel.getGameTime()));
+                }
             }
         }
+    }
+
+    /** Lands every failure's hit whose players have landed, or that has waited as long as it may. */
+    private static void tickStrikes(MinecraftServer server, long gameTime) {
+        if (STRIKES.isEmpty()) {
+            return;
+        }
+        for (Strike strike : List.copyOf(STRIKES.values())) {
+            if (!BossRiftOutcome.strikesNow(gameTime, strike.closedAt(), stillLanding(server, strike))) {
+                continue;
+            }
+            // Off the table before it is dealt, so a hit that throws is not dealt again next tick.
+            STRIKES.remove(strike.bossId(), strike);
+            EntityNPCInterface boss = findBoss(server, strike.bossLevel(), strike.bossId());
+            TeleportPathController controller = controllerOf(boss);
+            if (controller != null && boss.level() instanceof ServerLevel bossLevel) {
+                controller.onRiftStrike(bossLevel, strike.settings());
+            }
+        }
+    }
+
+    /** How many of the players a hit waits for are still between dimensions; one gone offline is not waited for. */
+    private static int stillLanding(MinecraftServer server, Strike strike) {
+        int landing = 0;
+        for (UUID id : strike.landing()) {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            if (player != null && player.isChangingDimension()) {
+                landing++;
+            }
+        }
+        return landing;
     }
 
     /** Takes the rift's minions away, the way a boss' minions are taken: a puff, and gone. */
@@ -689,16 +749,24 @@ public final class BossRiftManager {
     }
 
     private static EntityNPCInterface findBoss(MinecraftServer server, Rift rift) {
-        ServerLevel level = server.getLevel(rift.bossLevel);
-        Entity entity = level == null ? null : level.getEntity(rift.bossId);
+        return findBoss(server, rift.bossLevel, rift.bossId);
+    }
+
+    private static EntityNPCInterface findBoss(MinecraftServer server, ResourceKey<Level> levelKey, UUID bossId) {
+        ServerLevel level = server.getLevel(levelKey);
+        Entity entity = level == null ? null : level.getEntity(bossId);
         return entity instanceof EntityNPCInterface npc && npc.isAlive() && !npc.isRemoved() ? npc : null;
     }
 
-    /** Closes this boss' rift, if it has one, with everyone brought back and no outcome. */
+    /**
+     * Closes this boss' rift, if it has one, with everyone brought back and no outcome; and calls
+     * off a failure's hit still waiting for its players to land.
+     */
     public static void clearBoss(Entity boss) {
-        if (BY_BOSS.isEmpty() || boss == null) {
+        if ((BY_BOSS.isEmpty() && STRIKES.isEmpty()) || boss == null) {
             return;
         }
+        STRIKES.remove(boss.getUUID());
         Rift rift = BY_BOSS.get(boss.getUUID());
         MinecraftServer server = boss.getServer();
         if (rift != null && server != null) {
@@ -708,7 +776,8 @@ public final class BossRiftManager {
 
     /**
      * Closes every rift a level going away takes with it: every one of them when it is the rift
-     * dimension, and the ones whose boss stands in it otherwise. No outcome either way.
+     * dimension, and the ones whose boss stands in it otherwise. No outcome either way, and no hit
+     * owed for a failure to a boss in that level.
      */
     public static void clearLevel(ServerLevel level) {
         boolean riftLevel = BossRiftDimension.isRift(level);
@@ -717,11 +786,13 @@ public final class BossRiftManager {
                 finish(level.getServer(), rift, BossRiftOutcome.Result.EMPTY);
             }
         }
+        STRIKES.values().removeIf(strike -> strike.bossLevel().equals(level.dimension()));
         if (riftLevel) {
             // Nothing can be left open once the rift dimension is gone; whatever a failure left in
             // the tables goes too, so a singleplayer world does not hand it to the next one.
             BY_BOSS.clear();
             BY_PLAYER.clear();
+            STRIKES.clear();
             MOVING.clear();
         }
     }

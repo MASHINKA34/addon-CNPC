@@ -657,7 +657,11 @@ public final class TeleportPathController {
         // A boss whose rift is open has sent its target away on purpose: the fight is not lost,
         // and whatever the boss may cast meanwhile it casts at whoever is left.
         if (data.isCombatOnly() && !hasCombatTarget() && !rift.isActive()) {
-            cancelPendingAndSchedules();
+            // Nor while a failed rift's hit waits for the players it sent back to land: they are
+            // nobody's target yet, and calling the fight off here would call the hit off with it.
+            if (!rift.owesStrike()) {
+                cancelPendingAndSchedules();
+            }
             return;
         }
         if (gameTime < busyUntil) {
@@ -1412,6 +1416,13 @@ public final class TeleportPathController {
     void onRiftFinished(ServerLevel level, BossRiftOutcome.Result result, boolean solo, BossRiftSettings settings) {
         if (active) {
             rift.onFinished(level, result, solo, settings);
+        }
+    }
+
+    /** A failed rift's hit on the arena, once the players it sent back have landed or it has waited long enough. */
+    void onRiftStrike(ServerLevel level, BossRiftSettings settings) {
+        if (active) {
+            rift.strike(level, settings);
         }
     }
 

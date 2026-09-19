@@ -122,6 +122,28 @@ class BossRiftOutcomeTest {
     }
 
     @Test
+    @DisplayName("a failure's hit waits for the players sent back to land, and never longer than its cap")
+    void failureHitWaitsForTheLanding() {
+        long closed = END;
+        int cap = BossRiftOutcome.STRIKE_WAIT_TICKS;
+        assertFalse(BossRiftOutcome.strikesNow(closed, closed, 1),
+                "not on the tick they were sent back, while vanilla still keeps them out of harm's way");
+        assertFalse(BossRiftOutcome.strikesNow(closed + 3, closed, 1), "nor while one of them is still on the way");
+        assertTrue(BossRiftOutcome.strikesNow(closed + 3, closed, 0), "but as soon as everyone has landed");
+        assertTrue(BossRiftOutcome.strikesNow(closed, closed, 0), "nobody sent back: at once, on whoever stayed");
+        assertFalse(BossRiftOutcome.strikesNow(closed + cap - 1, closed, 2));
+        assertTrue(BossRiftOutcome.strikesNow(closed + cap, closed, 2),
+                "a client that never confirms its teleport does not hold the hit back for good");
+        assertTrue(cap >= 20, "the cap leaves a slow connection a second at least to confirm the teleport");
+
+        assertTrue(BossRiftOutcome.hitsArena(EnumSet.of(Penalty.ARENA_DAMAGE)));
+        assertTrue(BossRiftOutcome.hitsArena(EnumSet.of(Penalty.EFFECTS)), "the potions alone are a hit to wait for");
+        assertTrue(BossRiftOutcome.hitsArena(EnumSet.allOf(Penalty.class)));
+        assertFalse(BossRiftOutcome.hitsArena(EnumSet.of(Penalty.RAGE, Penalty.HEAL)),
+                "an enrage and a heal owe the arena nothing");
+    }
+
+    @Test
     @DisplayName("a solo success exposes the boss when the window is not nought; nothing else does")
     void onlyASoloSuccessExposes() {
         assertTrue(BossRiftOutcome.exposes(Result.SUCCESS, true, 200));
