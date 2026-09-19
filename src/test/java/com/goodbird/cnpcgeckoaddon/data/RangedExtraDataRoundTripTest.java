@@ -33,6 +33,11 @@ class RangedExtraDataRoundTripTest {
             if (Modifier.isStatic(field.getModifiers())) {
                 continue;
             }
+            // A final field is a cue, which saves itself under its own prefix; the test below
+            // asks that of both of them by name, since nothing can be set into a final field here.
+            if (Modifier.isFinal(field.getModifiers())) {
+                continue;
+            }
             List<Object> candidates = candidatesFor(field.getType());
             assertFalse(candidates.isEmpty(), "no probe values for " + field.getName());
             checked++;
@@ -121,9 +126,57 @@ class RangedExtraDataRoundTripTest {
                 "the default belongs to a save without the key, not to one that says \"nothing\"");
     }
 
+    @Test
+    @DisplayName("both cues of the ranged fight reach the save tag and come back")
+    void theCuesArePersisted() {
+        RangedExtraData first = new RangedExtraData();
+        first.getReloadSound().setEnabled(false);
+        first.getReloadSound().setVolume(3);
+        first.getLobWarnParticles().setCount(40);
+        CompoundTag once = first.writeToNBT(new CompoundTag());
+        assertFalse(once.equals(new RangedExtraData().writeToNBT(new CompoundTag())),
+                "an edited cue should change the saved tag");
+
+        RangedExtraData reread = new RangedExtraData();
+        reread.readFromNBT(once);
+        assertFalse(reread.getReloadSound().isEnabled());
+        assertEquals(3, reread.getReloadSound().getVolume());
+        assertEquals(40, reread.getLobWarnParticles().getCount());
+        assertEquals(once, reread.writeToNBT(new CompoundTag()));
+    }
+
+    @Test
+    @DisplayName("an npc saved before the addon ran ranged fights reads the switch off and the old figures")
+    void aTagWithoutTheRangedAiKeysReadsTheSwitchOff() {
+        RangedExtraData reread = new RangedExtraData();
+        reread.setRangedAddonEnabled(true);
+        reread.setEngageMinTenths(60);
+        reread.setEngageMaxTenths(140);
+        reread.setLeadPercent(100);
+        reread.setSpreadDegrees(20);
+        reread.setBurstShots(3);
+        reread.setReloadTicks(40);
+        reread.setLosMode(RangedExtraData.LOS_LOB);
+        reread.readFromNBT(new CompoundTag());
+        assertFalse(reread.isRangedAddonEnabled(), "the switch is off for a save that never had it");
+        assertEquals(0, reread.getEngageMinTenths());
+        assertEquals(0, reread.getEngageMaxTenths());
+        assertEquals(0, reread.getLeadPercent(), "no lead: the shot flies where it always did");
+        assertEquals(0, reread.getSpreadDegrees());
+        assertEquals(0, reread.getBurstShots(), "the volley stays CustomNPCs'");
+        assertEquals(RangedExtraData.DEFAULT_BURST_DELAY_TICKS, reread.getBurstDelayTicks());
+        assertEquals(0, reread.getReloadTicks());
+        assertEquals(RangedExtraData.LOS_CUSTOMNPCS, reread.getLosMode());
+        assertEquals(RangedExtraData.DEFAULT_LOB_WARN_TICKS, reread.getLobWarnTicks());
+        assertEquals(RangedExtraData.DEFAULT_LOB_WARN_RADIUS_TENTHS, reread.getLobWarnRadiusTenths());
+    }
+
     private static List<Object> candidatesFor(Class<?> type) {
         if (type == int.class) {
             return List.of(17, 7, 1, 0, -7);
+        }
+        if (type == boolean.class) {
+            return List.of(true, false);
         }
         if (type == String.class) {
             return List.of("minecraft:arrow", "");

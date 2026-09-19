@@ -78,6 +78,26 @@ class NpcDataFieldRangeTest {
         bounds.put("GeckoNpcRangedShotVolume", new Bound(0.0D, RangedExtraData.MAX_SHOT_VOLUME));
         bounds.put("GeckoNpcRangedShotPitch",
                 new Bound(RangedExtraData.MIN_SHOT_PITCH, RangedExtraData.MAX_SHOT_PITCH));
+        bounds.put("GeckoNpcRangedEngageMin", new Bound(0.0D, RangedExtraData.MAX_ENGAGE_TENTHS));
+        bounds.put("GeckoNpcRangedEngageMax", new Bound(0.0D, RangedExtraData.MAX_ENGAGE_TENTHS));
+        bounds.put("GeckoNpcRangedTooFar",
+                new Bound(RangedExtraData.TOO_FAR_APPROACH, RangedExtraData.TOO_FAR_WAIT));
+        bounds.put("GeckoNpcRangedTooClose",
+                new Bound(RangedExtraData.TOO_CLOSE_RETREAT, RangedExtraData.TOO_CLOSE_FIRE));
+        bounds.put("GeckoNpcRangedLead", new Bound(0.0D, RangedExtraData.MAX_LEAD_PERCENT));
+        bounds.put("GeckoNpcRangedBurstShots", new Bound(0.0D, RangedExtraData.MAX_BURST_SHOTS));
+        bounds.put("GeckoNpcRangedBurstDelay",
+                new Bound(RangedExtraData.MIN_BURST_DELAY_TICKS, RangedExtraData.MAX_BURST_DELAY_TICKS));
+        bounds.put("GeckoNpcRangedSpread", new Bound(0.0D, RangedExtraData.MAX_SPREAD_DEGREES));
+        bounds.put("GeckoNpcRangedReload", new Bound(0.0D, RangedExtraData.MAX_RELOAD_TICKS));
+        bounds.put("GeckoNpcRangedLos", new Bound(RangedExtraData.LOS_CUSTOMNPCS, RangedExtraData.LOS_LOB));
+        bounds.put("GeckoNpcRangedLobWarn", new Bound(0.0D, RangedExtraData.MAX_LOB_WARN_TICKS));
+        bounds.put("GeckoNpcRangedLobWarnRadius", new Bound(RangedExtraData.MIN_LOB_WARN_RADIUS_TENTHS,
+                RangedExtraData.MAX_LOB_WARN_RADIUS_TENTHS));
+        bounds.put("GeckoNpcRangedReloadSoundVolume", new Bound(BossSoundCue.MIN_VOLUME, BossSoundCue.MAX_VOLUME));
+        bounds.put("GeckoNpcRangedReloadSoundPitch", new Bound(BossSoundCue.MIN_PITCH, BossSoundCue.MAX_PITCH));
+        bounds.put("GeckoNpcRangedLobWarnParticlesCount",
+                new Bound(BossParticleCue.MIN_COUNT, BossParticleCue.MAX_COUNT));
         bounds.put("GeckoNpcCarrySlow", new Bound(0.0D, NpcCarryData.MAX_SLOWNESS_PERCENT));
         bounds.put("GeckoNpcCarryLeash", new Bound(0.0D, NpcCarryData.MAX_LEASH_RADIUS));
         bounds.put("GeckoNpcCarryThrowSpeed", new Bound(NpcCarryData.MIN_THROW_SPEED, NpcCarryData.MAX_THROW_SPEED));
