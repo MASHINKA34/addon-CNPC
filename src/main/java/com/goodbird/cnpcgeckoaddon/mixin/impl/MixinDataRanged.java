@@ -56,4 +56,9 @@ public class MixinDataRanged implements IRangedData {
     public RangedExtraData getRangedExtraData() {
         return cnpcgeckoaddon$rangedExtraData;
     }
+
+    @Unique
+    public EntityNPCInterface getRangedNpc() {
+        return npc;
+    }
 }

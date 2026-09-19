@@ -27,6 +27,11 @@ public class KeepDistanceGoal extends Goal {
         if (distance <= 0 || npc.isKilled()) {
             return false;
         }
+        // The addon's ranged AI backs off on its own terms - the window's near edge - and would
+        // be walked over by this goal, which sits ahead of it in the list; one of them keeps the distance.
+        if (NpcRangedAi.runsRangedAi(npc)) {
+            return false;
+        }
         LivingEntity entity = npc.getTarget();
         if (entity == null || !entity.isAlive()) {
             return false;
