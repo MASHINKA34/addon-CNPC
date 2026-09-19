@@ -40,6 +40,7 @@ public final class SubGuiBossRift extends SubGuiFieldScreen {
     private static final int MINIONS_BUTTON = 20;
     private static final int FAIL_BUTTON = 21;
     private static final int TUNING_BUTTON = 22;
+    private static final int CRYSTALS_BUTTON = 23;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final int TITLE_LABEL = 30;
@@ -146,6 +147,7 @@ public final class SubGuiBossRift extends SubGuiFieldScreen {
                 0, BossRiftSettings.MAX_WALL_HEIGHT, 4);
         y = wide(place, ABILITIES_BUTTON, "cnpcgeckoaddon.boss.rift_abilities", y);
         y = wide(place, MINIONS_BUTTON, "cnpcgeckoaddon.boss.rift_minions", y);
+        y = wide(place, CRYSTALS_BUTTON, "cnpcgeckoaddon.boss.rift_crystals", y);
         y = wide(place, FAIL_BUTTON, "cnpcgeckoaddon.boss.rift_fail", y);
         y = wide(place, TUNING_BUTTON, "cnpcgeckoaddon.boss.rift_tuning", y);
 
@@ -275,6 +277,9 @@ public final class SubGuiBossRift extends SubGuiFieldScreen {
         } else if (button.id == MINIONS_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossRiftMinions(npc, phase, phaseIndex));
+        } else if (button.id == CRYSTALS_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossRiftCrystals(npc, phase, phaseIndex));
         } else if (button.id == FAIL_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossRiftFail(phase, phaseIndex));
