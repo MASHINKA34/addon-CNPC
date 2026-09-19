@@ -89,7 +89,8 @@ public abstract class MixinEntityNPCInterfaceRanged extends PathfinderMob implem
                     // CustomNPCs is about to build its own projectile out of the npc's item and
                     // send it at the target's feet; the lead and the fan are put on it as it
                     // joins the level, which is the first moment it exists to be turned.
-                    NpcRangedAi.expectShot(npc, target);
+                    // A distance factor of one is how CustomNPCs asks for a lob.
+                    NpcRangedAi.expectShot(npc, target, distanceFactor == 1.0F);
                     return;
                 }
                 if (choice == ProjectileShotChoice.NONE) {

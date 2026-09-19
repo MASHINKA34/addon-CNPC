@@ -52,7 +52,11 @@ public final class NpcRangedAttackGoal extends Goal {
 
     public NpcRangedAttackGoal(EntityNPCInterface npc) {
         this.npc = npc;
-        setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
+        // The legs only, the way CustomNPCs' own ranged goal claims them: the head is turned
+        // through the look control, which needs no flag, and a goal that claimed the look as
+        // well could never start while one of the idle look-around goals ahead of it in the
+        // list held it.
+        setFlags(EnumSet.of(Flag.MOVE));
     }
 
     @Override
@@ -147,6 +151,8 @@ public final class NpcRangedAttackGoal extends Goal {
      * control walks there without one.
      */
     private void retreat() {
+        // A path still being walked would tug the move control back toward the target every tick.
+        npc.getNavigation().stop();
         Vec3 away = npc.position().subtract(target.position());
         if (away.horizontalDistanceSqr() < 1.0E-4D) {
             // Standing inside the npc: any direction will do, and none is already chosen.

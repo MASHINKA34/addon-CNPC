@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
 import com.goodbird.cnpcgeckoaddon.utils.NpcAimLead;
+import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -32,10 +33,11 @@ public final class NpcRangedAi {
      *
      * @param tick    the tick the attack was made on, so a record left over by a shot that
      *                never spawned anything cannot steer the next one
-     * @param aim     the point in the world the shot is meant for, lead and all
-     * @param spread  how wide that shot may stray, in degrees
+     * @param aim      the point in the world the shot is meant for, lead and all
+     * @param spread   how wide that shot may stray, in degrees
+     * @param indirect whether the shot was asked for as a lob, which picks the high arc
      */
-    private record Aim(long tick, Vec3 aim, int spread) {
+    private record Aim(long tick, Vec3 aim, int spread, boolean indirect) {
     }
 
     /**
@@ -56,11 +58,14 @@ public final class NpcRangedAi {
      * Whether the addon runs this npc's ranged fight.
      *
      * <p>A boss is never one: its attacks are its controller's, on its own schedule, and the
-     * two firing at once would double every volley.</p>
+     * two firing at once would double every volley. Nor is an npc with nothing to shoot - no
+     * entity, no item, no fallback: taking its melee away as well would leave it harmless, so it
+     * fights the way it did before the switch, and the shot it cannot make says so in the log.</p>
      */
     public static boolean runsRangedAi(EntityNPCInterface npc) {
         return npc != null && extra(npc).isRangedAddonEnabled()
-                && !BossMechanicUtil.replacesVanillaAttacks(npc);
+                && !BossMechanicUtil.replacesVanillaAttacks(npc)
+                && ProjectileEntityUtil.canShoot(npc);
     }
 
     /**
@@ -68,12 +73,10 @@ public final class NpcRangedAi {
      * the window and the npc is set to fight it with its hands.
      *
      * <p>Asked from both sides - the addon's goal gives the movement up, CustomNPCs' takes it
-     * back - so that exactly one of them is holding the npc at any distance.</p>
+     * back - so that exactly one of them is holding the npc at any distance. Only meaningful
+     * for an npc {@link #runsRangedAi} says yes to, which both sides ask first.</p>
      */
     public static boolean yieldsToMelee(EntityNPCInterface npc) {
-        if (!runsRangedAi(npc)) {
-            return false;
-        }
         RangedExtraData extra = extra(npc);
         if (extra.getTooCloseMode() != RangedExtraData.TOO_CLOSE_MELEE) {
             return false;
@@ -146,7 +149,7 @@ public final class NpcRangedAi {
      * and the projectile is turned onto it as it joins the level - which is also where the boss'
      * potions are hung on it, and is the only moment both halves of a shot exist at once.</p>
      */
-    public static void expectShot(EntityNPCInterface npc, LivingEntity target) {
+    public static void expectShot(EntityNPCInterface npc, LivingEntity target, boolean indirect) {
         RangedExtraData extra = extra(npc);
         if (extra.getLeadPercent() <= 0 && extra.getSpreadDegrees() <= 0) {
             // Nothing to turn it onto: the shot goes exactly where it always did.
@@ -154,7 +157,7 @@ public final class NpcRangedAi {
             return;
         }
         AIMS.put(npc, new Aim(npc.level().getGameTime(), aimPoint(npc, target, extra),
-                extra.getSpreadDegrees()));
+                extra.getSpreadDegrees(), indirect));
     }
 
     /**
@@ -183,11 +186,12 @@ public final class NpcRangedAi {
         }
         // Fired again through CustomNPCs' own aiming rather than by setting a velocity: for a
         // projectile with gravity the fourth argument is the launch pitch it works out from the
-        // arc, not a speed - the speed is the projectile's own - so an arcing shot keeps its arc.
+        // arc, not a speed - the speed is the projectile's own - so an arcing shot keeps its arc,
+        // the high one when the shot was asked for as a lob.
         float gravityFactor = shot.hasGravity()
                 ? (float) Math.sqrt(direction.x * direction.x + direction.z * direction.z) : 0.0F;
         float angle = shot.getAngleForXYZ(direction.x, direction.y, direction.z,
-                gravityFactor, shot.hasGravity());
+                gravityFactor, aim.indirect());
         // The accuracy the npc was set to, exactly as CustomNPCs works it out, so re-aiming a
         // shot does not quietly make the npc a better marksman than its own editor says.
         float inaccuracy = 20.0F - Mth.floor(Mth.clamp(npc.stats.ranged.getAccuracy(), 0, 100) / 5.0F);
