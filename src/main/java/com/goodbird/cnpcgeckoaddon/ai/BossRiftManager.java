@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
@@ -18,6 +19,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -105,6 +107,14 @@ public final class BossRiftManager {
         final long endsAt;
         /** Everyone still in it, online or not. */
         final Set<UUID> inside = new LinkedHashSet<>();
+        /** The minions still standing, by UUID; a dead one is taken off as it dies. */
+        final Set<UUID> minions = new LinkedHashSet<>();
+        /** Where each minion was last seen, to tell one that is gone from one whose chunk is. */
+        final Map<UUID, BlockPos> minionSpots = new HashMap<>();
+        /** The tick the minions are stood up on: the one after the players landed. */
+        final long minionsAt;
+        boolean minionsReady;
+        int minionsSpawned;
         int taken;
         int deaths;
         long nextStatusAt;
@@ -124,6 +134,7 @@ public final class BossRiftManager {
             this.landing = BossRiftDimension.standingSpot(centre);
             this.startedAt = gameTime;
             this.endsAt = gameTime + settings.getTimeLimitTicks();
+            this.minionsAt = gameTime + 1L;
             this.nextStatusAt = gameTime;
             this.nextLoopAt = gameTime + settings.getLoopIntervalTicks();
             this.nextAmbientAt = gameTime;
@@ -146,6 +157,35 @@ public final class BossRiftManager {
     /** Whether this player is in a rift right now. */
     public static boolean isTaken(UUID playerId) {
         return BY_PLAYER.containsKey(playerId);
+    }
+
+    /**
+     * What this boss takes of every hit right now: the group's share while a group's rift is open,
+     * all of it otherwise.
+     */
+    public static int damagePercent(UUID bossId) {
+        Rift rift = BY_BOSS.get(bossId);
+        return rift == null ? 100 : BossRiftOutcome.damagePercent(rift.solo, rift.settings.getGroupDamagePercent());
+    }
+
+    /** Whether a minion belongs to a rift that is still open, so a chunk loading it back lets it in. */
+    public static boolean isLiveMinion(UUID minionId) {
+        for (Rift rift : BY_BOSS.values()) {
+            if (rift.minions.contains(minionId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A rift minion dying: one fewer between its rift's players and the way home. */
+    public static void onMinionDeath(Entity minion) {
+        for (Rift rift : BY_BOSS.values()) {
+            if (rift.minions.remove(minion.getUUID())) {
+                rift.minionSpots.remove(minion.getUUID());
+                return;
+            }
+        }
     }
 
     /** Where a rift of these settings puts its platform: the builder's spot, or the boss' slot. */
@@ -291,6 +331,15 @@ public final class BossRiftManager {
         if (boss.level() instanceof ServerLevel arena) {
             arena.resetEmptyTime();
         }
+        // A tick after the players, so they are standing on the platform - and its chunks are
+        // loaded round them - before anything is stood up to fight them.
+        if (!rift.minionsReady && gameTime >= rift.minionsAt) {
+            rift.minionsReady = true;
+            if (needsMinions(rift)) {
+                spawnMinions(level, rift, boss);
+            }
+        }
+        int minionsLeft = needsMinions(rift) ? minionsLeft(level, rift) : 0;
         boolean status = gameTime >= rift.nextStatusAt;
         boolean ambient = gameTime >= rift.nextAmbientAt;
         boolean loop = gameTime >= rift.nextLoopAt;
@@ -318,7 +367,7 @@ public final class BossRiftManager {
                         SoundSource.AMBIENT);
             }
             if (status) {
-                player.displayClientMessage(statusLine(rift, gameTime), true);
+                player.displayClientMessage(statusLine(rift, gameTime, minionsLeft), true);
             }
         }
         if (status) {
@@ -331,7 +380,8 @@ public final class BossRiftManager {
             rift.nextLoopAt = gameTime + rift.settings.getLoopIntervalTicks();
         }
         BossRiftOutcome.Result result = BossRiftOutcome.judge(rift.exitMode, gameTime, rift.endsAt, rift.taken,
-                rift.inside.size(), rift.deaths, rift.settings.isFailOnDeath(), true, 0, 0, crystalsLeft(rift));
+                rift.inside.size(), rift.deaths, rift.settings.isFailOnDeath(), rift.minionsReady,
+                rift.minionsSpawned, minionsLeft, crystalsLeft(rift));
         if (result != BossRiftOutcome.Result.RUNNING) {
             finish(server, rift, result);
         }
@@ -352,10 +402,115 @@ public final class BossRiftManager {
     }
 
     /** The countdown line: the time left, and whatever the way out is counting. */
-    private static Component statusLine(Rift rift, long gameTime) {
+    private static Component statusLine(Rift rift, long gameTime, int minionsLeft) {
         MutableComponent line = Component.translatable("cnpcgeckoaddon.boss.rift_status_time",
                 String.valueOf(BossRiftOutcome.secondsLeft(gameTime, rift.endsAt)));
+        if (needsMinions(rift) && rift.minionsSpawned > 0) {
+            line.append("  ").append(Component.translatable("cnpcgeckoaddon.boss.rift_status_minions",
+                    minionsLeft + "/" + rift.minionsSpawned));
+        }
         return line.withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.RIFT)));
+    }
+
+    private static boolean needsMinions(Rift rift) {
+        return rift.exitMode == BossRiftSettings.EXIT_MINIONS || rift.exitMode == BossRiftSettings.EXIT_BOTH;
+    }
+
+    /**
+     * Stands the rift's minions up: on the builder's points in turn - offsets from the platform's
+     * centre, or fixed spots in the rift dimension - or on a ring round the centre when the phase
+     * lists none, each one set on the nearest of the taken players.
+     */
+    private static void spawnMinions(ServerLevel level, Rift rift, EntityNPCInterface boss) {
+        BossRiftSettings settings = rift.settings;
+        List<BossMinionSpawnPoint> points = new ArrayList<>();
+        for (BossMinionSpawnPoint point : settings.getMinionPoints().entries()) {
+            if (point.isEnabled()) {
+                points.add(point);
+            }
+        }
+        int count = settings.getMinionCount();
+        double turn = level.getRandom().nextDouble() * Math.PI * 2.0D;
+        for (int i = 0; i < count; i++) {
+            String cloneName = settings.getMinionCloneName();
+            int cloneTab = settings.getMinionCloneTab();
+            float yaw = Float.NaN;
+            Vec3 spot;
+            if (!points.isEmpty()) {
+                BossMinionSpawnPoint point = points.get(i % points.size());
+                spot = point.getCoordinateMode() == BossMinionSpawnPoint.COORDINATE_FIXED
+                        ? new Vec3(point.getX() + 0.5D, point.getY(), point.getZ() + 0.5D)
+                        : rift.landing.add(point.getX(), point.getY(), point.getZ());
+                if (!point.getCloneNameOverride().isEmpty()) {
+                    cloneName = point.getCloneNameOverride();
+                }
+                if (point.getCloneTabOverride() > 0) {
+                    cloneTab = point.getCloneTabOverride();
+                }
+                yaw = point.getYaw();
+            } else {
+                double angle = turn + Math.PI * 2.0D * i / count;
+                double radius = settings.getMinionRadius();
+                spot = rift.landing.add(Math.cos(angle) * radius, 0.0D, Math.sin(angle) * radius);
+            }
+            Entity minion = BossRiftMinionUtil.spawn(level, boss, cloneName, cloneTab, spot, yaw,
+                    nearestInside(level, rift, spot));
+            if (minion != null) {
+                rift.minions.add(minion.getUUID());
+                rift.minionSpots.put(minion.getUUID(), minion.blockPosition());
+                rift.minionsSpawned++;
+            }
+        }
+        if (rift.minionsSpawned == 0) {
+            BossRiftDimension.warn("minions:" + rift.bossId, "Reality rift of {}: none of its minions could be "
+                    + "stood up, so it runs as 'survive the time'", rift.bossName);
+        }
+    }
+
+    private static LivingEntity nearestInside(ServerLevel level, Rift rift, Vec3 spot) {
+        ServerPlayer nearest = null;
+        double best = Double.MAX_VALUE;
+        for (UUID id : rift.inside) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(id);
+            if (player != null && player.level() == level && player.isAlive()) {
+                double distance = player.distanceToSqr(spot);
+                if (distance < best) {
+                    best = distance;
+                    nearest = player;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    /**
+     * How many of the rift's minions still stand. One whose chunk is not loaded is counted as
+     * standing - it may well be - and one missing from a chunk whose entities are all there was
+     * taken away some other road than death, and is counted as gone.
+     */
+    private static int minionsLeft(ServerLevel level, Rift rift) {
+        int left = 0;
+        for (UUID id : List.copyOf(rift.minions)) {
+            Entity minion = level.getEntity(id);
+            if (minion != null) {
+                if (minion.isAlive() && !minion.isRemoved()) {
+                    left++;
+                    rift.minionSpots.put(id, minion.blockPosition());
+                } else {
+                    rift.minions.remove(id);
+                    rift.minionSpots.remove(id);
+                }
+                continue;
+            }
+            BlockPos last = rift.minionSpots.get(id);
+            if (last != null && level.areEntitiesLoaded(ChunkPos.asLong(last))) {
+                rift.minions.remove(id);
+                rift.minionSpots.remove(id);
+            } else {
+                left++;
+            }
+        }
+        return left;
     }
 
     /**
@@ -380,9 +535,41 @@ public final class BossRiftManager {
             }
         }
         rift.inside.clear();
+        if (rift.settings.isMinionRemoveOnEnd()) {
+            removeMinions(server, rift);
+        }
+        rift.minions.clear();
         ServerLevel arena = server.getLevel(rift.bossLevel);
         if (arena != null) {
             arena.getChunkSource().removeRegionTicket(BOSS_TICKET, rift.bossChunk, BOSS_TICKET_DISTANCE, rift.bossId);
+        }
+        // Last, with everyone home: a failure's hit on the arena lands on the players it just
+        // brought back as well as on whoever stayed.
+        if (result == BossRiftOutcome.Result.SUCCESS || result == BossRiftOutcome.Result.FAILURE) {
+            EntityNPCInterface boss = findBoss(server, rift);
+            TeleportPathController controller = controllerOf(boss);
+            if (controller != null && boss.level() instanceof ServerLevel bossLevel) {
+                controller.onRiftFinished(bossLevel, result, rift.solo, rift.settings);
+            }
+        }
+    }
+
+    /** Takes the rift's minions away, the way a boss' minions are taken: a puff, and gone. */
+    private static void removeMinions(MinecraftServer server, Rift rift) {
+        ServerLevel riftLevel = server.getLevel(BossRiftDimension.KEY);
+        if (riftLevel == null) {
+            return;
+        }
+        for (UUID id : rift.minions) {
+            Entity minion = riftLevel.getEntity(id);
+            if (minion == null || minion.isRemoved()) {
+                // Not loaded: its chunk lets it back in only while its rift is open, which is no more.
+                continue;
+            }
+            rift.settings.getEnterParticles().emitDust(riftLevel, minion.getX(), minion.getY(0.5D), minion.getZ(),
+                    minion.getBbWidth() * 0.5D, minion.getBbHeight() * 0.5D, minion.getBbWidth() * 0.5D, 0.02D,
+                    BossAbilityKind.RIFT);
+            minion.discard();
         }
     }
 

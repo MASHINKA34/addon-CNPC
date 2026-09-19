@@ -69,6 +69,10 @@ public final class BossLifecycleEvents {
             BossCloneRespawnGuard.retire(event.getEntity());
             return;
         }
+        if (BossRiftMinionUtil.isRiftMinion(event.getEntity())) {
+            // One minion fewer between the rift's players and the way home.
+            BossRiftManager.onMinionDeath(event.getEntity());
+        }
         if (BossMinionUtil.isMinion(event.getEntity())) {
             // No early return: a summoned clone can be a boss in its own right, and its own
             // death handling below still has to run.
@@ -160,6 +164,13 @@ public final class BossLifecycleEvents {
         // keeps its copies in memory alone, so one let back in would be nobody's. Kept out
         // rather than let in and found later, because its chunk may load long after the boss'.
         if (event.loadedFromDisk() && BossShadowUtil.isShadow(event.getEntity())) {
+            event.setCanceled(true);
+            return;
+        }
+        // A rift's minion in a save is one of a rift that has since shut, or that died with the
+        // server: kept out, unless its rift is still open and only its chunk went away meanwhile.
+        if (event.loadedFromDisk() && BossRiftMinionUtil.isRiftMinion(event.getEntity())
+                && !BossRiftManager.isLiveMinion(event.getEntity().getUUID())) {
             event.setCanceled(true);
             return;
         }

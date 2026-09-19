@@ -114,6 +114,17 @@ public final class NpcDamageInfoManager {
                 + format(event.getAmount()) + " (" + percent + "%)").withStyle(ChatFormatting.GRAY));
     }
 
+    /** Chats what a boss' open group rift took off a hit: the share it lets through. */
+    public static void reportRiftGroup(LivingIncomingDamageEvent event, float before, int percent) {
+        if (ENABLED.isEmpty() || !(event.getSource().getEntity() instanceof ServerPlayer player)
+                || !ENABLED.contains(player.getUUID())) {
+            return;
+        }
+        float after = event.isCanceled() ? 0.0F : event.getAmount();
+        player.sendSystemMessage(Component.literal("rift: group rift open, " + format(before) + " -> "
+                + format(after) + " (" + percent + "%)").withStyle(ChatFormatting.GRAY));
+    }
+
     /**
      * Chats why a totem refused a hit: the same breakdown, ending in the ability that was
      * behind it and is not on that slot's list.

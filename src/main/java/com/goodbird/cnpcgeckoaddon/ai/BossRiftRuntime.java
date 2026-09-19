@@ -12,6 +12,7 @@ import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The reality rift as the boss casts it: who it picks, the wind-up, and the cut that sends them
@@ -125,6 +126,51 @@ final class BossRiftRuntime {
     /** Closes this boss' rift, with everyone brought back and no outcome: the fight it was part of is over. */
     void clear() {
         BossRiftManager.clearBoss(npc);
+    }
+
+    /**
+     * What the fight turns into once a rift has closed with its players home: a solo success
+     * leaves the boss exposed, a group's success simply lifts the cut on its damage, and a failure
+     * costs whatever the phase switched on - the enrage, a hit on everyone within reach with its
+     * potions, the boss healing. Then the usual pause after anything the boss does.
+     *
+     * @param settings the rules the rift opened under, which it closes under too
+     */
+    void onFinished(ServerLevel level, BossRiftOutcome.Result result, boolean solo, BossRiftSettings settings) {
+        long gameTime = level.getGameTime();
+        TeleportPathData data = boss.settings();
+        if (result == BossRiftOutcome.Result.SUCCESS) {
+            settings.getSuccessSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+            if (BossRiftOutcome.exposes(result, solo, settings.getSoloVulnerableTicks())) {
+                boss.exposeAfterRift(level, gameTime + settings.getSoloVulnerableTicks(),
+                        settings.getSoloVulnerablePercent());
+            }
+        } else if (result == BossRiftOutcome.Result.FAILURE) {
+            settings.getFailSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+            Set<BossRiftOutcome.Penalty> penalties = BossRiftOutcome.penalties(settings);
+            // An enrage the boss has no timer for is taken off again by its own clock on the next
+            // tick, and an enraged boss has nothing left to set off.
+            if (penalties.contains(BossRiftOutcome.Penalty.RAGE) && data.isRageEnabled() && !boss.isRageActive()) {
+                boss.beginRage(level, gameTime, data);
+            }
+            boolean damage = penalties.contains(BossRiftOutcome.Penalty.ARENA_DAMAGE);
+            boolean effects = penalties.contains(BossRiftOutcome.Penalty.EFFECTS);
+            if (damage || effects) {
+                int amount = damage ? boss.damageUp(settings.getFailArenaDamage()) : 0;
+                for (LivingEntity target : boss.getTargetsAround(level, npc.position(),
+                        settings.getFailArenaRadius(), BossAbilityKind.RIFT)) {
+                    if (boss.matchesAbilityTargetKind(target, data)) {
+                        BossAbilityDamageUtil.hit(target, BossAbilityKind.RIFT, npc, amount,
+                                effects ? settings.getFailEffects() : null, 0, 0.0D, 0.0D);
+                    }
+                }
+            }
+            if (penalties.contains(BossRiftOutcome.Penalty.HEAL)) {
+                // Through heal(), so a boss sharing its health with others shares this too.
+                npc.heal(BossRiftOutcome.healAmount(npc.getMaxHealth(), settings.getFailHealPercent()));
+            }
+        }
+        boss.lockActionsUntil(gameTime + boss.postActionLockTicks());
     }
 
     /** Read-only status used by the boss diagnostic command. */

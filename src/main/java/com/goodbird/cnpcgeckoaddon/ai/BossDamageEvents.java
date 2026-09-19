@@ -135,10 +135,52 @@ public final class BossDamageEvents {
             GuardSelfTest.trip(selfTestWire(event.getEntity()));
         }
         if (blockTotemsOwnSwing(event) || blockProtectedBoss(event) || blockDownedBoss(event)
-                || blockOutsideAggroZone(event) || blockTotemVulnerability(event)) {
+                || blockOutsideAggroZone(event) || scaleDuringGroupRift(event)
+                || blockTotemVulnerability(event)) {
             return;
         }
         blockBlastImmunity(event);
+    }
+
+    /**
+     * Cuts every hit on a boss whose group rift is open down to the share the phase set, the zone
+     * check's neighbour: the boss is fighting fewer people than it faces, and holds out the longer
+     * for it. A share of nought turns the hit away whole, the protections' way.
+     *
+     * <p>After the protections and the zone, so an immune or downed boss answers the way it always
+     * did, and before the resistances and the barrier, which take what this leaves. /kill goes
+     * through, the escape hatch every stage here leaves.</p>
+     *
+     * @return true when the hit was turned away whole
+     */
+    private static boolean scaleDuringGroupRift(LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof EntityNPCInterface npc)
+                || !(npc instanceof IBossController holder)
+                || event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return false;
+        }
+        TeleportPathController controller = holder.cnpcgeckoaddon$getTeleportPathController();
+        if (controller == null) {
+            return false;
+        }
+        int percent = controller.riftDamagePercent();
+        if (percent >= 100) {
+            return false;
+        }
+        float before = event.getAmount();
+        if (percent <= 0) {
+            // Cancelling means LivingDamageEvent.Post never runs, so whoever swung still has to
+            // be signed up for the fight here.
+            if (event.getSource().getEntity() instanceof ServerPlayer player) {
+                trackParticipant(npc, player);
+            }
+            event.setCanceled(true);
+            controller.playInvulnerableHitFeedback();
+        } else {
+            event.setAmount(before * percent / 100.0F);
+        }
+        NpcDamageInfoManager.reportRiftGroup(event, before, percent);
+        return event.isCanceled();
     }
 
     /**

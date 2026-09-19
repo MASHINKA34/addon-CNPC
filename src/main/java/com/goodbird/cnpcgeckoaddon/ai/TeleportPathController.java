@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
@@ -1400,6 +1401,29 @@ public final class TeleportPathController {
     /** Whether this boss has a rift open right now, holding it on its spot. */
     public boolean isRiftActive() {
         return active && rift.isActive();
+    }
+
+    /** What the boss takes of every hit while a group's rift is open, as a percentage; 100 otherwise. */
+    public int riftDamagePercent() {
+        return active ? BossRiftManager.damagePercent(npc.getUUID()) : 100;
+    }
+
+    /** A rift of this boss has closed with its players home: the fight turns the way the result says. */
+    void onRiftFinished(ServerLevel level, BossRiftOutcome.Result result, boolean solo, BossRiftSettings settings) {
+        if (active) {
+            rift.onFinished(level, result, solo, settings);
+        }
+    }
+
+    /**
+     * Opens the window a solo rift's success leaves: the barrier's own - the boss pinned, silent
+     * and taking {@code percent} of every hit until {@code until} - with the same interrupt and
+     * the same word in the action bar, so a phase change, a reset or a death shut it the same way.
+     */
+    void exposeAfterRift(ServerLevel level, long until, int percent) {
+        barrierRuntime.expose(until, percent);
+        interruptForBarrierStun(until);
+        barrierRuntime.announceExposed(level);
     }
 
     /** Adds the whole nearby group before a lock-at-start encounter takes its snapshot. */
