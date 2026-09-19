@@ -5,8 +5,12 @@ import com.goodbird.cnpcgeckoaddon.ai.BossDamageEvents;
 import com.goodbird.cnpcgeckoaddon.ai.BossSchedulerEvents;
 import com.goodbird.cnpcgeckoaddon.ai.NpcDamageInfoManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossHurricaneScheduler;
+import com.goodbird.cnpcgeckoaddon.ai.BossRiftDimension;
+import com.goodbird.cnpcgeckoaddon.ai.BossRiftManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossShadowUtil;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
+import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
@@ -19,12 +23,14 @@ import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.goodbird.cnpcgeckoaddon.utils.GuardSelfTest;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -48,6 +54,8 @@ public class GeckoAddonCommand {
     private static final int MAX_REPORTED_GUARD_SITES = 20;
     /** How far the controller drill looks for a boss to fail. */
     private static final double SELF_TEST_BOSS_RANGE = 64.0D;
+    /** How far the rift commands look for the boss whose settings they borrow. */
+    private static final double RIFT_BOSS_RANGE = 64.0D;
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
@@ -65,6 +73,17 @@ public class GeckoAddonCommand {
         root.then(Commands.literal("guards")
                 .executes(context -> showGuards(context.getSource()))
                 .then(Commands.literal("reset").executes(context -> resetGuards(context.getSource()))));
+        root.then(Commands.literal("rift")
+                .then(Commands.literal("tp")
+                        .executes(context -> riftTp(context.getSource(), -1))
+                        .then(Commands.argument("slot", IntegerArgumentType.integer(0, BossRiftSettings.MAX_SLOT))
+                                .executes(context -> riftTp(context.getSource(),
+                                        IntegerArgumentType.getInteger(context, "slot")))))
+                .then(Commands.literal("return").executes(context -> riftReturn(context.getSource())))
+                .then(Commands.literal("build")
+                        .then(Commands.argument("slot", IntegerArgumentType.integer(0, BossRiftSettings.MAX_SLOT))
+                                .executes(context -> riftBuild(context.getSource(),
+                                        IntegerArgumentType.getInteger(context, "slot"))))));
         root.then(Commands.literal("selftest")
                 .then(Commands.argument("site", StringArgumentType.word())
                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(GuardSelfTest.SITES, builder))
@@ -174,6 +193,85 @@ public class GeckoAddonCommand {
         return nearest;
     }
 
+    /** A boss and the rift settings of the phase it fights in now, or its first one. */
+    private record RiftSource(EntityNPCInterface boss, BossRiftSettings settings) {
+    }
+
+    /**
+     * The rift settings of the configured boss nearest the command, within reach: the phase it
+     * fights in now, or its first one while it is idle. A fresh set when there is no boss near.
+     */
+    private static RiftSource nearestRiftSource(CommandSourceStack source) {
+        EntityNPCInterface nearest = null;
+        double best = RIFT_BOSS_RANGE * RIFT_BOSS_RANGE;
+        for (Entity entity : source.getLevel().getAllEntities()) {
+            if (entity instanceof EntityNPCInterface npc && !BossShadowUtil.isShadow(npc)
+                    && ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData().isEnabled()) {
+                double distance = npc.distanceToSqr(source.getPosition());
+                if (distance <= best) {
+                    best = distance;
+                    nearest = npc;
+                }
+            }
+        }
+        if (nearest == null) {
+            return new RiftSource(null, new BossRiftSettings());
+        }
+        TeleportPathController controller = nearest instanceof IBossController holder
+                ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
+        BossPhaseData phase = controller == null ? null : controller.activePhase();
+        if (phase == null) {
+            phase = ((ITeleportPathData) nearest.ais).cnpcgeckoaddon$getTeleportPathData().getPhase(0);
+        }
+        return new RiftSource(nearest, phase.rift());
+    }
+
+    /**
+     * Takes the sender to a platform of the rift dimension to look it over or build it: a slot's,
+     * or with none named the nearest boss' own. They go back with rift return, a relog or a death.
+     */
+    private static int riftTp(CommandSourceStack source, int slot) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (BossRiftDimension.level(source.getServer()) == null) {
+            source.sendFailure(Component.translatable("cnpcgeckoaddon.cmd.rift_no_dimension"));
+            return 0;
+        }
+        RiftSource rift = nearestRiftSource(source);
+        BlockPos centre = slot >= 0 || rift.boss() == null
+                ? BossRiftDimension.slotCentre(Math.max(0, slot), rift.settings().getPlatformY())
+                : BossRiftManager.centreOf(rift.settings(), rift.boss().getUUID());
+        if (!BossRiftManager.visit(player, BossRiftDimension.standingSpot(centre))) {
+            source.sendFailure(Component.translatable("cnpcgeckoaddon.cmd.rift_tp_failed"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.rift_tp",
+                String.valueOf(centre.getX()), String.valueOf(centre.getY() + 1), String.valueOf(centre.getZ())), false);
+        return 1;
+    }
+
+    /** Puts every online player stranded in the rift dimension back where their record says. */
+    private static int riftReturn(CommandSourceStack source) {
+        int returned = BossRiftManager.returnStranded(source.getServer());
+        source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.rift_return", String.valueOf(returned)), true);
+        return returned;
+    }
+
+    /** Lays a slot's platform afresh with the nearest boss' blocks and sizes, or the defaults. */
+    private static int riftBuild(CommandSourceStack source, int slot) {
+        ServerLevel riftLevel = BossRiftDimension.level(source.getServer());
+        if (riftLevel == null) {
+            source.sendFailure(Component.translatable("cnpcgeckoaddon.cmd.rift_no_dimension"));
+            return 0;
+        }
+        BossRiftSettings settings = nearestRiftSource(source).settings();
+        BlockPos centre = BossRiftDimension.slotCentre(slot, settings.getPlatformY());
+        BossRiftManager.ensurePlatform(riftLevel, centre, settings, true);
+        source.sendSuccess(() -> Component.translatable("cnpcgeckoaddon.cmd.rift_build", String.valueOf(slot),
+                String.valueOf(centre.getX()), String.valueOf(centre.getY()), String.valueOf(centre.getZ()),
+                String.valueOf(settings.getPlatformRadius())), true);
+        return 1;
+    }
+
     private static int toggleCarry(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         boolean enabled = NpcCarryManager.toggleMode(player);
@@ -263,6 +361,8 @@ public class GeckoAddonCommand {
                         : controller.shadowStatus(level.getGameTime());
                 String seismicLine = controller == null ? "Seismic: idle"
                         : controller.seismicStatus(level.getGameTime());
+                String riftLine = controller == null ? "Rift: idle"
+                        : controller.riftStatus(level.getGameTime());
                 String castSpotLine = controller == null ? "Cast spot: free"
                         : controller.castSpotStatus(level.getGameTime());
                 String finishLine = controller == null ? "Finish: free"
@@ -293,6 +393,7 @@ public class GeckoAddonCommand {
                 source.sendSuccess(() -> Component.literal(hurricaneLine), false);
                 source.sendSuccess(() -> Component.literal(shadowLine), false);
                 source.sendSuccess(() -> Component.literal(seismicLine), false);
+                source.sendSuccess(() -> Component.literal(riftLine), false);
                 source.sendSuccess(() -> Component.literal(castSpotLine), false);
                 source.sendSuccess(() -> Component.literal(finishLine), false);
                 source.sendSuccess(() -> Component.literal(comboLine), false);
