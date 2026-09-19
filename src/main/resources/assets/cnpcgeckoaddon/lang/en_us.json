@@ -990,6 +990,7 @@
   "cnpcgeckoaddon.boss.rift_crystal_collect.touch": "Touching the crystal",
   "cnpcgeckoaddon.boss.rift_status_time": "Rift: %s s left",
   "cnpcgeckoaddon.boss.rift_status_minions": "Minions left: %s",
+  "cnpcgeckoaddon.boss.rift_status_crystals": "Crystals: %s of %s",
   "cnpcgeckoaddon.boss.rift_settings": "Reality rift...",
   "cnpcgeckoaddon.boss.rift_phase": "Reality rift - phase",
   "cnpcgeckoaddon.boss.rift_targets": "Who is taken: mode / count",

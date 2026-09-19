@@ -990,6 +990,7 @@
   "cnpcgeckoaddon.boss.rift_crystal_collect.touch": "Касанием кристалла",
   "cnpcgeckoaddon.boss.rift_status_time": "Разрез: осталось %s с",
   "cnpcgeckoaddon.boss.rift_status_minions": "Миньонов осталось: %s",
+  "cnpcgeckoaddon.boss.rift_status_crystals": "Кристаллы: %s из %s",
   "cnpcgeckoaddon.boss.rift_settings": "Разрез реальности…",
   "cnpcgeckoaddon.boss.rift_phase": "Разрез реальности — фаза",
   "cnpcgeckoaddon.boss.rift_targets": "Кого уносит: режим / сколько",

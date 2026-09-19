@@ -4,9 +4,11 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
+import com.goodbird.cnpcgeckoaddon.entity.EntityBossRiftCrystal;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossRiftState;
+import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -73,6 +75,11 @@ public final class BossRiftManager {
     private static final double LANDING_SPREAD = 2.0D;
     /** The countdown in the action bar, once a second. */
     private static final int STATUS_INTERVAL_TICKS = 20;
+    /**
+     * How often a crystal's zone is outlined. Every other tick: often enough that the ring reads
+     * as steady rather than as a flicker, and half the dust of painting it on every one.
+     */
+    private static final int ZONE_RING_INTERVAL_TICKS = 2;
     /** The look of the rift sent again every five seconds, for a client that missed it. */
     private static final int SYNC_INTERVAL_TICKS = 100;
     /**
@@ -117,7 +124,13 @@ public final class BossRiftManager {
         /** What the phase said when the rift opened; it closes under the same rules. */
         final BossRiftSettings settings;
         final boolean solo;
-        final int exitMode;
+        /**
+         * The way out as it runs. Not final: a rift that could stand no crystal up - every zone
+         * over a hole, a ring wider than its platform - lowers it the way a minion rift with no
+         * clone to spawn from runs as a survival one, rather than asking its players for something
+         * that is not there.
+         */
+        int exitMode;
         final BlockPos centre;
         final Vec3 landing;
         final long startedAt;
@@ -130,10 +143,17 @@ public final class BossRiftManager {
         final Map<UUID, BlockPos> minionSpots = new HashMap<>();
         /** The crystals still hanging, by UUID; a collected one is taken off as it is collected. */
         final Set<UUID> crystals = new LinkedHashSet<>();
+        /** The zone each of them hangs over, for the collecting and the outline. */
+        final Map<UUID, BossRiftCrystalPlacement.Spot> crystalZones = new LinkedHashMap<>();
         /** The tick the minions are stood up on: the one after the players landed. */
         final long minionsAt;
         boolean minionsReady;
         int minionsSpawned;
+        /** Whether the crystals have been stood up yet; before that there is nothing to gather. */
+        boolean crystalsReady;
+        int crystalsPlaced;
+        int crystalsCollected;
+        long nextCrystalGlitterAt;
         int taken;
         int deaths;
         long nextStatusAt;
@@ -159,6 +179,7 @@ public final class BossRiftManager {
             this.nextSyncAt = gameTime + SYNC_INTERVAL_TICKS;
             this.nextLoopAt = gameTime + settings.getLoopIntervalTicks();
             this.nextAmbientAt = gameTime;
+            this.nextCrystalGlitterAt = gameTime;
         }
     }
 
@@ -278,8 +299,10 @@ public final class BossRiftManager {
         BossRiftSettings settings = live.copy();
         int exitMode = BossRiftSettings.effectiveExitMode(settings.getExitMode(), BossRiftSettings.CRYSTALS_AVAILABLE);
         if (exitMode != settings.getExitMode()) {
-            BossRiftDimension.warn("crystals", "Reality rift of {}: its way out needs crystals, which are not in "
-                    + "the game yet, so it runs as 'survive the time'", boss.getName().getString());
+            // Only a build with the crystals switched off wholesale can land here now; kept so
+            // that build still opens rifts instead of hanging its players on an empty task.
+            BossRiftDimension.warn("crystals", "Reality rift of {}: its way out asks for crystals, which this build "
+                    + "does not have, so it runs as 'survive the time'", boss.getName().getString());
         }
         BlockPos centre = centreOf(settings, boss.getUUID());
         if (!settings.isPrebuilt()) {
@@ -400,6 +423,17 @@ public final class BossRiftManager {
             if (needsMinions(rift)) {
                 spawnMinions(level, rift, boss);
             }
+            // After the minions, on the same tick: a crystal is stood on the floor of its zone and
+            // a minion is stood beside the players, so nothing either of them does depends on the
+            // other - but the log reads in the order the platform was furnished.
+            rift.crystalsReady = true;
+            if (needsCrystals(rift)) {
+                placeCrystals(level, rift);
+            }
+        }
+        // Before the status line below, so the count a player reads is the one that just changed.
+        if (!rift.crystals.isEmpty()) {
+            tickCrystals(level, rift, boss, gameTime);
         }
         int minionsLeft = needsMinions(rift) ? minionsLeft(level, rift) : 0;
         boolean status = gameTime >= rift.nextStatusAt;
@@ -482,11 +516,19 @@ public final class BossRiftManager {
             line.append("  ").append(Component.translatable("cnpcgeckoaddon.boss.rift_status_minions",
                     minionsLeft + "/" + rift.minionsSpawned));
         }
+        if (needsCrystals(rift) && rift.crystalsPlaced > 0) {
+            line.append("  ").append(Component.translatable("cnpcgeckoaddon.boss.rift_status_crystals",
+                    String.valueOf(rift.crystalsCollected), String.valueOf(rift.crystalsPlaced)));
+        }
         return line.withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.RIFT)));
     }
 
     private static boolean needsMinions(Rift rift) {
         return rift.exitMode == BossRiftSettings.EXIT_MINIONS || rift.exitMode == BossRiftSettings.EXIT_BOTH;
+    }
+
+    private static boolean needsCrystals(Rift rift) {
+        return rift.exitMode == BossRiftSettings.EXIT_CRYSTALS || rift.exitMode == BossRiftSettings.EXIT_BOTH;
     }
 
     /**
@@ -587,11 +629,129 @@ public final class BossRiftManager {
     }
 
     /**
-     * Crystals still to gather. Always none until prompt 90 puts crystals into the rift; the
-     * ways out that ask for them run as the survival one meanwhile.
+     * Hangs the rift's crystals over their zones: one to each zone the builder listed - an offset
+     * from the middle of the platform, or a fixed spot in the rift dimension - or on a ring round
+     * the middle when the phase lists none, each of them over whatever floor is under it.
+     *
+     * <p>A rift that could stand none of them up asks its players for nothing they can do, so its
+     * way out is lowered the way a minion rift with no clone to spawn from runs as a survival one.</p>
+     */
+    private static void placeCrystals(ServerLevel level, Rift rift) {
+        BossRiftSettings settings = rift.settings;
+        double turn = level.getRandom().nextDouble() * Math.PI * 2.0D;
+        List<BossRiftCrystalPlacement.Spot> spots = BossRiftCrystalPlacement.plan(settings,
+                rift.landing.x, rift.centre.getY(), rift.landing.z, turn,
+                (x, z, fromY) -> {
+                    BlockPos floor = BossFloorUtil.findFloor(level, x, fromY, z);
+                    return floor == null ? null : (double) (floor.getY() + 1);
+                });
+        BlockState fallback = BossRiftDimension.blockOrDefault(settings.getCrystalBlock(),
+                BossRiftDimension.blockOrDefault(BossRiftSettings.FALLBACK_CRYSTAL_BLOCK,
+                        Blocks.AMETHYST_BLOCK.defaultBlockState(), "crystal"), "crystal");
+        for (BossRiftCrystalPlacement.Spot spot : spots) {
+            BlockState block = spot.block().isEmpty() ? fallback
+                    : BossRiftDimension.blockOrDefault(spot.block(), fallback, "crystal zone");
+            EntityBossRiftCrystal crystal = EntityBossRiftCrystal.place(level, rift.bossId, spot, block, settings);
+            if (crystal != null) {
+                rift.crystals.add(crystal.getUUID());
+                rift.crystalZones.put(crystal.getUUID(), spot);
+                rift.crystalsPlaced++;
+            }
+        }
+        if (rift.crystalsPlaced == 0) {
+            rift.exitMode = rift.exitMode == BossRiftSettings.EXIT_BOTH
+                    ? BossRiftSettings.EXIT_MINIONS : BossRiftSettings.EXIT_SURVIVE;
+            BossRiftDimension.warn("crystals:" + rift.bossId, "Reality rift of {}: not one of its crystals could "
+                    + "be hung - no floor under the zones or the ring - so its way out runs without them",
+                    rift.bossName);
+        }
+    }
+
+    /**
+     * The crystals on one tick: whoever has reached one collects it, the rest glitter and have
+     * their zones outlined for as long as they hang there.
+     */
+    private static void tickCrystals(ServerLevel level, Rift rift, EntityNPCInterface boss, long gameTime) {
+        BossRiftSettings settings = rift.settings;
+        boolean glitter = gameTime >= rift.nextCrystalGlitterAt;
+        boolean outline = settings.isCrystalZoneRing() && gameTime % ZONE_RING_INTERVAL_TICKS == 0L;
+        BossTelegraphPaint.Settings paint = outline ? BossTelegraphPaint.Settings.of(boss) : null;
+        for (UUID id : List.copyOf(rift.crystals)) {
+            BossRiftCrystalPlacement.Spot zone = rift.crystalZones.get(id);
+            Entity entity = zone == null ? null : level.getEntity(id);
+            if (entity == null || entity.isRemoved()) {
+                // One whose chunk is away is counted as still hanging - it is - the way a minion
+                // out of sight is; one missing from a chunk that is all there went some other road
+                // than being collected, and is no longer anybody's to gather.
+                if (zone != null && entity == null && !level.areEntitiesLoaded(ChunkPos.asLong(
+                        BlockPos.containing(zone.x(), zone.y(), zone.z())))) {
+                    continue;
+                }
+                rift.crystals.remove(id);
+                rift.crystalZones.remove(id);
+                rift.crystalsPlaced = Math.max(rift.crystalsCollected, rift.crystalsPlaced - 1);
+                continue;
+            }
+            if (collector(level, rift, zone) != null) {
+                collect(level, rift, entity, zone);
+                continue;
+            }
+            if (glitter) {
+                settings.getCrystalAmbientParticles().emitDust(level, entity.getX(),
+                        entity.getY() + entity.getBbHeight() * 0.5D, entity.getZ(),
+                        0.3D, 0.3D, 0.3D, 0.01D, BossTelegraphUtil.dustOf(zone.color()));
+            }
+            if (paint != null) {
+                // Painted round the crystal rather than round the boss: the boss is a dimension
+                // away, and a drawn band is sent to whoever is near the thing it is drawn on.
+                BossTelegraphUtil.ring(level, new Vec3(zone.x(), zone.floorTop(), zone.z()), zone.radius(),
+                        BossTelegraphPaint.of(paint, entity, BossTelegraphPaint.CHANNEL_RIFT_CRYSTAL,
+                                BossAbilityKind.RIFT, BossTelegraphPaint.NO_END));
+            }
+        }
+        if (glitter) {
+            rift.nextCrystalGlitterAt = gameTime + settings.getCrystalAmbientIntervalTicks();
+        }
+    }
+
+    /** Whichever of the rift's players has reached this crystal, or null while none has. */
+    private static ServerPlayer collector(ServerLevel level, Rift rift, BossRiftCrystalPlacement.Spot zone) {
+        for (UUID id : rift.inside) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(id);
+            if (player == null || player.level() != level || !player.isAlive()) {
+                continue;
+            }
+            if (BossRiftCrystalPlacement.collects(zone, rift.settings.getCrystalCollectMode(),
+                    player.getX(), player.getY(), player.getZ(), player.getBbHeight())) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    /** One crystal collected: the chime, the puff, and one fewer between its players and the way home. */
+    private static void collect(ServerLevel level, Rift rift, Entity crystal, BossRiftCrystalPlacement.Spot zone) {
+        BossRiftSettings settings = rift.settings;
+        double y = crystal.getY() + crystal.getBbHeight() * 0.5D;
+        settings.getCrystalCollectSound().play(level, crystal.getX(), y, crystal.getZ(), SoundSource.HOSTILE);
+        settings.getCrystalCollectParticles().emitDust(level, crystal.getX(), y, crystal.getZ(),
+                0.4D, 0.4D, 0.4D, 0.08D, BossTelegraphUtil.dustOf(zone.color()));
+        crystal.discard();
+        rift.crystals.remove(crystal.getUUID());
+        rift.crystalZones.remove(crystal.getUUID());
+        rift.crystalsCollected++;
+    }
+
+    /**
+     * Crystals still to gather. Nothing is decided before they are hung - a rift whose first tick
+     * read nought would be over before its players saw it - and a rift that hung none has had its
+     * way out lowered by then, so what this answers no longer matters to it.
      */
     static int crystalsLeft(Rift rift) {
-        return 0;
+        if (!rift.crystalsReady) {
+            return Math.max(1, rift.settings.getCrystalCount());
+        }
+        return rift.crystals.size();
     }
 
     /**
@@ -969,6 +1129,9 @@ public final class BossRiftManager {
             case BossRiftSettings.EXIT_BOTH -> "minions and crystals";
             default -> "survive";
         };
+        if (needsCrystals(rift)) {
+            mode += " (crystals " + rift.crystalsCollected + "/" + rift.crystalsPlaced + ")";
+        }
         String rule = rift.solo ? "solo"
                 : "group (boss takes " + BossRiftOutcome.damagePercent(false, rift.settings.getGroupDamagePercent())
                 + "% meanwhile)";

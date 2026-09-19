@@ -28,6 +28,12 @@ public final class BossTelegraphPaint {
     public static final byte CHANNEL_GRAVITY = 6;
     /** The rings of a seismic series, outlined before each one hits. */
     public static final byte CHANNEL_SEISMIC = 7;
+    /**
+     * The zone under a reality rift's crystal, outlined for as long as the crystal hangs there.
+     * Its owner is the crystal rather than the boss: the boss is a dimension away, and a drawn
+     * band is sent to whoever is near the thing it is drawn on.
+     */
+    public static final byte CHANNEL_RIFT_CRYSTAL = 8;
 
     /** A warning with nothing to count towards: an open hazard, a platform already alight. */
     public static final float NO_END = -1.0F;
