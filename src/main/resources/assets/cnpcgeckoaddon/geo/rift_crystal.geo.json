@@ -1,0 +1,218 @@
+{
+	"format_version": "1.12.0",
+	"minecraft:geometry": [
+		{
+			"description": {
+				"identifier": "geometry.rift_crystal",
+				"texture_width": 64,
+				"texture_height": 64,
+				"visible_bounds_width": 4,
+				"visible_bounds_height": 4.5,
+				"visible_bounds_offset": [0, 1.5, 0]
+			},
+			"bones": [
+				{
+					"name": "crystal",
+					"pivot": [0, 0, 0]
+				},
+				{
+					"name": "core",
+					"parent": "crystal",
+					"pivot": [0, 11, 0],
+					"cubes": [
+						{
+							"origin": [-1.5, 4, -1.5],
+							"size": [3, 14, 3],
+							"pivot": [0, 11, 0],
+							"rotation": [0, -45, 0],
+							"uv": {
+								"north": {"uv": [0, 0], "uv_size": [3, 14]},
+								"east": {"uv": [8, 0], "uv_size": [3, 14]},
+								"south": {"uv": [4, 0], "uv_size": [3, 14]},
+								"west": {"uv": [12, 0], "uv_size": [3, 14]},
+								"up": {"uv": [19, 3], "uv_size": [-3, -3]},
+								"down": {"uv": [23, 3], "uv_size": [-3, -3]}
+							}
+						},
+						{
+							"origin": [-1.5, 1.06066, -1.5],
+							"size": [3, 3, 3],
+							"pivot": [0, 2.56066, 0],
+							"rotation": [0, -45, 45],
+							"uv": {
+								"north": {"uv": [24, 0], "uv_size": [3, 3]},
+								"east": {"uv": [32, 0], "uv_size": [3, 3]},
+								"south": {"uv": [28, 0], "uv_size": [3, 3]},
+								"west": {"uv": [36, 0], "uv_size": [3, 3]},
+								"up": {"uv": [43, 3], "uv_size": [-3, -3]},
+								"down": {"uv": [47, 3], "uv_size": [-3, -3]}
+							}
+						},
+						{
+							"origin": [-1.5, 17.93934, -1.5],
+							"size": [3, 3, 3],
+							"pivot": [0, 19.43934, 0],
+							"rotation": [0, -45, 45],
+							"uv": {
+								"north": {"uv": [48, 0], "uv_size": [3, 3]},
+								"east": {"uv": [56, 0], "uv_size": [3, 3]},
+								"south": {"uv": [52, 0], "uv_size": [3, 3]},
+								"west": {"uv": [60, 0], "uv_size": [3, 3]},
+								"up": {"uv": [3, 18], "uv_size": [-3, -3]},
+								"down": {"uv": [7, 18], "uv_size": [-3, -3]}
+							}
+						}
+					]
+				},
+				{
+					"name": "shards",
+					"parent": "crystal",
+					"pivot": [0, 11, 0]
+				},
+				{
+					"name": "shard_north",
+					"parent": "shards",
+					"pivot": [0, 11, 0],
+					"cubes": [
+						{
+							"origin": [-1.5, 4, -4.2],
+							"size": [3, 13, 2],
+							"pivot": [0, 10.5, -3.2],
+							"rotation": [9, 0, 0],
+							"uv": {
+								"north": {"uv": [8, 15], "uv_size": [3, 13]},
+								"east": {"uv": [16, 15], "uv_size": [2, 13]},
+								"south": {"uv": [12, 15], "uv_size": [3, 13]},
+								"west": {"uv": [19, 15], "uv_size": [2, 13]},
+								"up": {"uv": [25, 17], "uv_size": [-3, -2]},
+								"down": {"uv": [29, 17], "uv_size": [-3, -2]}
+							}
+						},
+						{
+							"origin": [-1.5, 16, -4.7],
+							"size": [3, 3, 2],
+							"pivot": [0, 17.5, -3.7],
+							"rotation": [0, 0, 45],
+							"uv": {
+								"north": {"uv": [30, 15], "uv_size": [3, 3]},
+								"east": {"uv": [38, 15], "uv_size": [2, 3]},
+								"south": {"uv": [34, 15], "uv_size": [3, 3]},
+								"west": {"uv": [41, 15], "uv_size": [2, 3]},
+								"up": {"uv": [47, 17], "uv_size": [-3, -2]},
+								"down": {"uv": [51, 17], "uv_size": [-3, -2]}
+							}
+						}
+					]
+				},
+				{
+					"name": "shard_east",
+					"parent": "shards",
+					"pivot": [0, 11, 0],
+					"rotation": [0, -90, 0],
+					"cubes": [
+						{
+							"origin": [-1.5, 4, -4.2],
+							"size": [3, 13, 2],
+							"pivot": [0, 10.5, -3.2],
+							"rotation": [9, 0, 0],
+							"uv": {
+								"north": {"uv": [52, 15], "uv_size": [3, 13]},
+								"east": {"uv": [60, 15], "uv_size": [2, 13]},
+								"south": {"uv": [56, 15], "uv_size": [3, 13]},
+								"west": {"uv": [0, 29], "uv_size": [2, 13]},
+								"up": {"uv": [6, 31], "uv_size": [-3, -2]},
+								"down": {"uv": [10, 31], "uv_size": [-3, -2]}
+							}
+						},
+						{
+							"origin": [-1.5, 16, -4.7],
+							"size": [3, 3, 2],
+							"pivot": [0, 17.5, -3.7],
+							"rotation": [0, 0, 45],
+							"uv": {
+								"north": {"uv": [11, 29], "uv_size": [3, 3]},
+								"east": {"uv": [19, 29], "uv_size": [2, 3]},
+								"south": {"uv": [15, 29], "uv_size": [3, 3]},
+								"west": {"uv": [22, 29], "uv_size": [2, 3]},
+								"up": {"uv": [28, 31], "uv_size": [-3, -2]},
+								"down": {"uv": [32, 31], "uv_size": [-3, -2]}
+							}
+						}
+					]
+				},
+				{
+					"name": "shard_south",
+					"parent": "shards",
+					"pivot": [0, 11, 0],
+					"rotation": [0, -180, 0],
+					"cubes": [
+						{
+							"origin": [-1.5, 4, -4.2],
+							"size": [3, 13, 2],
+							"pivot": [0, 10.5, -3.2],
+							"rotation": [9, 0, 0],
+							"uv": {
+								"north": {"uv": [33, 29], "uv_size": [3, 13]},
+								"east": {"uv": [41, 29], "uv_size": [2, 13]},
+								"south": {"uv": [37, 29], "uv_size": [3, 13]},
+								"west": {"uv": [44, 29], "uv_size": [2, 13]},
+								"up": {"uv": [50, 31], "uv_size": [-3, -2]},
+								"down": {"uv": [54, 31], "uv_size": [-3, -2]}
+							}
+						},
+						{
+							"origin": [-1.5, 16, -4.7],
+							"size": [3, 3, 2],
+							"pivot": [0, 17.5, -3.7],
+							"rotation": [0, 0, 45],
+							"uv": {
+								"north": {"uv": [55, 29], "uv_size": [3, 3]},
+								"east": {"uv": [0, 43], "uv_size": [2, 3]},
+								"south": {"uv": [59, 29], "uv_size": [3, 3]},
+								"west": {"uv": [3, 43], "uv_size": [2, 3]},
+								"up": {"uv": [9, 45], "uv_size": [-3, -2]},
+								"down": {"uv": [13, 45], "uv_size": [-3, -2]}
+							}
+						}
+					]
+				},
+				{
+					"name": "shard_west",
+					"parent": "shards",
+					"pivot": [0, 11, 0],
+					"rotation": [0, -270, 0],
+					"cubes": [
+						{
+							"origin": [-1.5, 4, -4.2],
+							"size": [3, 13, 2],
+							"pivot": [0, 10.5, -3.2],
+							"rotation": [9, 0, 0],
+							"uv": {
+								"north": {"uv": [14, 43], "uv_size": [3, 13]},
+								"east": {"uv": [22, 43], "uv_size": [2, 13]},
+								"south": {"uv": [18, 43], "uv_size": [3, 13]},
+								"west": {"uv": [25, 43], "uv_size": [2, 13]},
+								"up": {"uv": [31, 45], "uv_size": [-3, -2]},
+								"down": {"uv": [35, 45], "uv_size": [-3, -2]}
+							}
+						},
+						{
+							"origin": [-1.5, 16, -4.7],
+							"size": [3, 3, 2],
+							"pivot": [0, 17.5, -3.7],
+							"rotation": [0, 0, 45],
+							"uv": {
+								"north": {"uv": [36, 43], "uv_size": [3, 3]},
+								"east": {"uv": [44, 43], "uv_size": [2, 3]},
+								"south": {"uv": [40, 43], "uv_size": [3, 3]},
+								"west": {"uv": [47, 43], "uv_size": [2, 3]},
+								"up": {"uv": [53, 45], "uv_size": [-3, -2]},
+								"down": {"uv": [57, 45], "uv_size": [-3, -2]}
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}
