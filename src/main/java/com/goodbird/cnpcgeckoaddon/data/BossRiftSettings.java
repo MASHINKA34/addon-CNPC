@@ -101,6 +101,14 @@ public final class BossRiftSettings {
             "cnpcgeckoaddon.boss.rift_crystal_collect.zone",
             "cnpcgeckoaddon.boss.rift_crystal_collect.touch"
     };
+    /** A crystal is one scaled block, painted in the rift's colour: what it has always been. */
+    public static final int LOOK_BLOCK = 0;
+    /** A crystal is the addon's own drawn model, turning and pulsing through its own clip. */
+    public static final int LOOK_MODEL = 1;
+    public static final String[] LOOK_LABELS = {
+            "cnpcgeckoaddon.boss.rift_crystal_look.block",
+            "cnpcgeckoaddon.boss.rift_crystal_look.model"
+    };
     public static final String DEFAULT_CRYSTAL_BLOCK = "minecraft:amethyst_cluster";
     /** What the addon draws a crystal as when the block the builder named is not one. */
     public static final String FALLBACK_CRYSTAL_BLOCK = "minecraft:amethyst_block";
@@ -186,6 +194,10 @@ public final class BossRiftSettings {
     private int riftCrystalRingRadius = 8;
     /** Two blocks over the floor of its zone, in tenths. */
     private int riftCrystalHoverTenths = 20;
+    /** Which of the two ways a crystal is drawn; the block one is what every old save reads as. */
+    private int riftCrystalLook = LOOK_BLOCK;
+    /** Which drawing the model is dressed in; only read while the look is the model. */
+    private String riftCrystalSkin = RiftCrystalContract.DEFAULT_SKIN;
     private String riftCrystalBlock = DEFAULT_CRYSTAL_BLOCK;
     private int riftCrystalColor = DEFAULT_CRYSTAL_COLOR;
     private boolean riftCrystalGlow = true;
@@ -455,6 +467,18 @@ public final class BossRiftSettings {
     /** How high over the floor of its zone a crystal hovers, in blocks. */
     public double crystalHover() { return riftCrystalHoverTenths / 10.0D; }
 
+    /** {@link #LOOK_BLOCK} or {@link #LOOK_MODEL}. */
+    public int getCrystalLook() { return riftCrystalLook; }
+
+    public void setCrystalLook(int value) { riftCrystalLook = Mth.clamp(value, LOOK_BLOCK, LOOK_MODEL); }
+
+    /** Whether this rift's crystals are drawn as the addon's own model rather than as a block. */
+    public boolean isCrystalModel() { return riftCrystalLook == LOOK_MODEL; }
+
+    public String getCrystalSkin() { return riftCrystalSkin; }
+
+    public void setCrystalSkin(String value) { riftCrystalSkin = RiftCrystalContract.cleanSkin(value); }
+
     public String getCrystalBlock() { return riftCrystalBlock; }
 
     public void setCrystalBlock(String value) { riftCrystalBlock = blockOrDefault(value, DEFAULT_CRYSTAL_BLOCK); }
@@ -685,6 +709,8 @@ public final class BossRiftSettings {
         tag.putInt("RiftCrystalCount", riftCrystalCount);
         tag.putInt("RiftCrystalRingRadius", riftCrystalRingRadius);
         tag.putInt("RiftCrystalHoverTenths", riftCrystalHoverTenths);
+        tag.putInt("RiftCrystalLook", riftCrystalLook);
+        tag.putString("RiftCrystalSkin", riftCrystalSkin);
         tag.putString("RiftCrystalBlock", riftCrystalBlock);
         tag.putInt("RiftCrystalColor", riftCrystalColor);
         tag.putBoolean("RiftCrystalGlow", riftCrystalGlow);
@@ -770,6 +796,9 @@ public final class BossRiftSettings {
         riftCrystalRingRadius = value(tag, "RiftCrystalRingRadius", 8,
                 MIN_CRYSTAL_RING_RADIUS, MAX_CRYSTAL_RING_RADIUS);
         riftCrystalHoverTenths = value(tag, "RiftCrystalHoverTenths", 20, 0, MAX_CRYSTAL_HOVER_TENTHS);
+        // An absent key is a rift saved before the model existed: it is drawn as a block, as it was.
+        riftCrystalLook = value(tag, "RiftCrystalLook", LOOK_BLOCK, LOOK_BLOCK, LOOK_MODEL);
+        riftCrystalSkin = RiftCrystalContract.cleanSkin(tag.getString("RiftCrystalSkin"));
         riftCrystalBlock = tag.contains("RiftCrystalBlock")
                 ? blockOrDefault(tag.getString("RiftCrystalBlock"), DEFAULT_CRYSTAL_BLOCK) : DEFAULT_CRYSTAL_BLOCK;
         riftCrystalColor = value(tag, "RiftCrystalColor", DEFAULT_CRYSTAL_COLOR, 0, MAX_COLOR);

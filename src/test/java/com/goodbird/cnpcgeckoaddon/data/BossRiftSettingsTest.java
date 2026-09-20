@@ -66,6 +66,9 @@ class BossRiftSettingsTest {
         assertEquals(8, rift.getCrystalRingRadius());
         assertEquals(20, rift.getCrystalHoverTenths());
         assertEquals(2.0D, rift.crystalHover(), 1.0E-9D, "two blocks over the floor");
+        assertEquals(BossRiftSettings.LOOK_BLOCK, rift.getCrystalLook(),
+                "an absent key is a save from before the model: the crystals are blocks");
+        assertEquals("amethyst", rift.getCrystalSkin());
         assertEquals("minecraft:amethyst_cluster", rift.getCrystalBlock());
         assertEquals(0xB47AFF, rift.getCrystalColor());
         assertTrue(rift.isCrystalGlow(), "an absent key is a save from before the crystals: they glow");
