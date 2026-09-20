@@ -29,6 +29,8 @@ public final class SubGuiBossRiftCrystals extends SubGuiFieldScreen {
     private static final int COUNT_FIELD = 1;
     private static final int RING_FIELD = 2;
     private static final int HOVER_FIELD = 3;
+    private static final int LOOK_BUTTON = 20;
+    private static final int SKIN_FIELD = 21;
     private static final int BLOCK_FIELD = 4;
     private static final int BLOCK_SELECT_BUTTON = 5;
     private static final int COLOR_FIELD = 6;
@@ -48,6 +50,8 @@ public final class SubGuiBossRiftCrystals extends SubGuiFieldScreen {
 
     private static final int TITLE_LABEL = 30;
     private static final int HINT_LABEL = 40;
+    /** Where the lines of the look's own hint are counted from, clear of the one at the foot. */
+    private static final int LOOK_HINT_LABEL = 50;
     /** Where the second lines of wrapped row labels are counted from. */
     private static final int WRAPPED_LABEL = 80;
 
@@ -75,6 +79,7 @@ public final class SubGuiBossRiftCrystals extends SubGuiFieldScreen {
     private static final int BOTTOM_MARGIN = 8;
 
     private static final String HINT = "cnpcgeckoaddon.boss.rift_crystal_hint";
+    private static final String LOOK_HINT = "cnpcgeckoaddon.boss.rift_crystal_look_hint";
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -118,6 +123,15 @@ public final class SubGuiBossRiftCrystals extends SubGuiFieldScreen {
                 BossRiftSettings.MAX_CRYSTAL_RING_RADIUS, 8);
         y = single(place, HOVER_FIELD, "cnpcgeckoaddon.boss.rift_crystal_hover", y, rift.getCrystalHoverTenths(),
                 0, BossRiftSettings.MAX_CRYSTAL_HOVER_TENTHS, 20);
+        y = choice(place, LOOK_BUTTON, "cnpcgeckoaddon.boss.rift_crystal_look", y,
+                BossRiftSettings.LOOK_LABELS, rift.getCrystalLook());
+        y = text(place, SKIN_FIELD, "cnpcgeckoaddon.boss.rift_crystal_skin", y, rift.getCrystalSkin());
+        // The hint belongs under the two rows it explains rather than with the one at the foot:
+        // which skins there are, and what a look with no artwork behind it draws instead.
+        if (place) {
+            addWrappedHint(LOOK_HINT_LABEL, LOOK_HINT, guiTop + y);
+        }
+        y += wrappedHintHeight(LOOK_HINT) + HINT_GAP;
         y = select(place, BLOCK_FIELD, BLOCK_SELECT_BUTTON, "cnpcgeckoaddon.boss.rift_crystal_block", y,
                 rift.getCrystalBlock());
         y = hex(place, COLOR_FIELD, "cnpcgeckoaddon.boss.rift_crystal_color", y, rift.getCrystalColor());
@@ -207,6 +221,16 @@ public final class SubGuiBossRiftCrystals extends SubGuiFieldScreen {
         return y + ROW;
     }
 
+    /** A line of text typed in, taking the whole width the block row's field and picker share. */
+    private int text(boolean place, int id, String key, int y, String value) {
+        if (place) {
+            rowLabel(id, key, y, SELECT_FIELD_X);
+            addTextField(new GuiTextFieldNop(id, this, guiLeft + SELECT_FIELD_X, guiTop + y,
+                    RIGHT_EDGE - SELECT_FIELD_X, CONTROL_HEIGHT, value));
+        }
+        return y + ROW;
+    }
+
     /** A colour typed as six hex digits, where a lone number would sit. */
     private int hex(boolean place, int id, String key, int y, int color) {
         if (place) {
@@ -270,7 +294,9 @@ public final class SubGuiBossRiftCrystals extends SubGuiFieldScreen {
     @Override
     public void buttonEvent(GuiButtonNop button) {
         BossRiftSettings rift = phase.rift();
-        if (button.id == GLOW_BUTTON) {
+        if (button.id == LOOK_BUTTON) {
+            rift.setCrystalLook(button.getValue());
+        } else if (button.id == GLOW_BUTTON) {
             rift.setCrystalGlow(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == ZONE_RING_BUTTON) {
             rift.setCrystalZoneRing(((GuiButtonYesNo) button).getBoolean());
@@ -305,6 +331,7 @@ public final class SubGuiBossRiftCrystals extends SubGuiFieldScreen {
         applyNumberField(COUNT_FIELD, rift::setCrystalCount);
         applyNumberField(RING_FIELD, rift::setCrystalRingRadius);
         applyNumberField(HOVER_FIELD, rift::setCrystalHoverTenths);
+        applySkin(rift);
         applyBlock(rift);
         GuiTextFieldNop color = getTextField(COLOR_FIELD);
         if (color != null) {
@@ -317,6 +344,20 @@ public final class SubGuiBossRiftCrystals extends SubGuiFieldScreen {
         applyNumberField(SCALE_FIELD, rift::setCrystalScaleTenths);
         applyNumberField(RADIUS_FIELD, rift::setCrystalCollectRadiusTenths);
         applyNumberField(INTERVAL_FIELD, rift::setCrystalAmbientIntervalTicks);
+    }
+
+    /**
+     * Reads the skin back, and shows what it was cleaned to: the id becomes part of a texture
+     * path, so "Ember" is kept as "ember" and a field left empty snaps back to the default skin
+     * rather than to a crystal with no drawing at all.
+     */
+    private void applySkin(BossRiftSettings rift) {
+        GuiTextFieldNop field = getTextField(SKIN_FIELD);
+        if (field == null) {
+            return;
+        }
+        rift.setCrystalSkin(field.getValue());
+        field.setValue(rift.getCrystalSkin());
     }
 
     /** Keeps a typed block only when the game has it; otherwise the field snaps back. */
