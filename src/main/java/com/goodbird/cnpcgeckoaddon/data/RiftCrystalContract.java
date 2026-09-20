@@ -24,6 +24,12 @@ public final class RiftCrystalContract {
     public static final String ANIMATION_PATH = "animations/rift_crystal.animation.json";
     /** The skin's own drawing; {@code %s} is the skin id, already cleaned. */
     public static final String TEXTURE_PATH_FORMAT = "textures/entity/rift_crystal/%s.png";
+    /**
+     * The default skin's drawing, spelt out: it is the one every other skin falls back to, so
+     * the client builds it once at class load rather than through the format above, where a
+     * fallback would have nothing to fall back to. Kept honest by the contract's own test.
+     */
+    public static final String DEFAULT_TEXTURE_PATH = "textures/entity/rift_crystal/amethyst.png";
 
     /** The one controller the crystal animates through, and the two clips it knows. */
     public static final String CONTROLLER = "main";

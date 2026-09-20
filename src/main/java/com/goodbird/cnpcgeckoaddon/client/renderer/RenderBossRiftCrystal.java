@@ -1,6 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.renderer;
 
+import com.goodbird.cnpcgeckoaddon.client.model.ModelRiftCrystal;
+import com.goodbird.cnpcgeckoaddon.data.RiftCrystalContract;
 import com.goodbird.cnpcgeckoaddon.entity.EntityBossRiftCrystal;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -13,26 +16,47 @@ import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import software.bernie.geckolib.cache.GeckoLibCache;
+import software.bernie.geckolib.cache.object.BakedGeoModel;
+import software.bernie.geckolib.renderer.GeoEntityRenderer;
+import software.bernie.geckolib.util.Color;
 
 /**
- * Draws a rift crystal: one block, scaled, painted in the rift's colour, turning on the spot and
- * riding up and down.
+ * Draws a rift crystal: either the addon's own drawn model, turning and pulsing through its own
+ * clip, or - the default, and the fallback whenever the model's files are not there - one block,
+ * scaled, painted in the rift's colour, turning on the spot and riding up and down.
  *
  * <p>Deliberately the only class that knows what a crystal looks like, the boulder's way: the
- * entity carries a block id, a colour and four numbers, so swapping this for a model later means
- * replacing this renderer in the registry and touching nothing of the mechanic.</p>
+ * entity carries a block id, a colour, a look, a skin and four numbers, and which of the two
+ * ways it is drawn is settled here and nowhere else.</p>
  *
- * <p>The turn and the bob are worked out here from the tick the crystal was stood up on rather
- * than sent: nothing about a crystal ever changes after its spawn packet, and a score of them
- * hanging on a platform for a minute would otherwise be a score of packets a tick.</p>
+ * <p>The model is drawn through a {@link GeoEntityRenderer} held inside this one rather than by
+ * this class becoming one: the block path is what a crystal falls back to when the artwork has
+ * not shipped, and it has to keep working exactly as it did, which it cannot do from inside a
+ * renderer that draws a model it has not got.</p>
+ *
+ * <p>Under the block look the turn and the bob are worked out here from the tick the crystal was
+ * stood up on rather than sent: nothing about a crystal ever changes after its spawn packet, and
+ * a score of them hanging on a platform for a minute would otherwise be a score of packets a
+ * tick. Under the model look neither is applied at all - both are in the clip.</p>
  */
 public class RenderBossRiftCrystal extends EntityRenderer<EntityBossRiftCrystal> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcgeckoaddon");
+
+    /** The next moment a crystal asking for a model nobody has drawn is worth a line in the log. */
+    private static long nextMissingWarningAt;
+    private static boolean warnedOnce;
+
     private final BlockRenderDispatcher blockRenderer;
+    private final RiftCrystalGeoRenderer modelRenderer;
 
     public RenderBossRiftCrystal(EntityRendererProvider.Context context) {
         super(context);
         blockRenderer = context.getBlockRenderDispatcher();
+        modelRenderer = new RiftCrystalGeoRenderer(context);
     }
 
     @Override
@@ -40,6 +64,14 @@ public class RenderBossRiftCrystal extends EntityRenderer<EntityBossRiftCrystal>
                        PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
         float size = crystal.scale();
         int light = crystal.glows() ? LightTexture.FULL_BRIGHT : packedLight;
+        if (crystal.wantsModel()) {
+            if (modelIsLoaded()) {
+                // Its own renderer draws the name plate as well, so this one adds nothing after.
+                modelRenderer.render(crystal, entityYaw, partialTick, poseStack, buffer, light);
+                return;
+            }
+            warnModelMissing();
+        }
         poseStack.pushPose();
         // The bob first, then the turn about the crystal's own upright axis, then the block: it is
         // drawn from its corner, so half of it back in x and z puts it round that axis, and its
@@ -57,7 +89,68 @@ public class RenderBossRiftCrystal extends EntityRenderer<EntityBossRiftCrystal>
 
     @Override
     public ResourceLocation getTextureLocation(EntityBossRiftCrystal crystal) {
-        return TextureAtlas.LOCATION_BLOCKS;
+        return crystal.wantsModel() && modelIsLoaded()
+                ? ModelRiftCrystal.texture(crystal.skin()) : TextureAtlas.LOCATION_BLOCKS;
+    }
+
+    /**
+     * Whether both halves of the artwork are loaded. Asked per frame rather than cached: the
+     * two maps are already the cache, a resource reload refills them, and a crystal is not a
+     * thing there are thousands of on screen.
+     */
+    private static boolean modelIsLoaded() {
+        return RiftCrystalContract.drawsModel(true,
+                GeckoLibCache.getBakedModels().containsKey(RiftCrystalGeoRenderer.GEO),
+                GeckoLibCache.getBakedAnimations().containsKey(RiftCrystalGeoRenderer.ANIMATIONS));
+    }
+
+    /**
+     * One line in the log for a rift whose crystals were set to a model that has not shipped,
+     * at most once every ten seconds for the whole class: it is a frame, so it happens again
+     * sixty times a second, and the block drawn instead is a working crystal, not a failure.
+     */
+    private static void warnModelMissing() {
+        long now = System.nanoTime();
+        // Compared by difference: nanoTime is only meaningful that way, and may be negative.
+        if (warnedOnce && now - nextMissingWarningAt < 0L) {
+            return;
+        }
+        warnedOnce = true;
+        nextMissingWarningAt = now + CrashGuard.LOG_INTERVAL_NANOS;
+        LOGGER.warn("rift crystal model missing, drawing the block: {} and {} are not loaded",
+                RiftCrystalGeoRenderer.GEO, RiftCrystalGeoRenderer.ANIMATIONS);
+    }
+
+    /**
+     * The drawn crystal itself: the rift's colour multiplied over the skin, the rift's size, and
+     * the light the outer renderer worked out - full brightness for a glowing one.
+     */
+    private static final class RiftCrystalGeoRenderer extends GeoEntityRenderer<EntityBossRiftCrystal> {
+
+        static final ResourceLocation GEO = ResourceLocation.fromNamespaceAndPath(
+                RiftCrystalContract.NAMESPACE, RiftCrystalContract.GEO_PATH);
+        static final ResourceLocation ANIMATIONS = ResourceLocation.fromNamespaceAndPath(
+                RiftCrystalContract.NAMESPACE, RiftCrystalContract.ANIMATION_PATH);
+
+        RiftCrystalGeoRenderer(EntityRendererProvider.Context context) {
+            super(context, new ModelRiftCrystal());
+        }
+
+        @Override
+        public Color getRenderColor(EntityBossRiftCrystal crystal, float partialTick, int packedLight) {
+            // Multiplied over the drawing the same way the block look's tint is, so a purple
+            // crystal reads as purple and a green one as a green crystal of the same shape.
+            return Color.ofOpaque(crystal.tint());
+        }
+
+        @Override
+        public void preRender(PoseStack poseStack, EntityBossRiftCrystal crystal, BakedGeoModel model,
+                              MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender,
+                              float partialTick, int packedLight, int packedOverlay, int renderColor) {
+            withScale(crystal.scale());
+            super.preRender(poseStack, crystal, model, bufferSource, buffer, isReRender,
+                    partialTick, packedLight, packedOverlay, renderColor);
+        }
     }
 
     /**

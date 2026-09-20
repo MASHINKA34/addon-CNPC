@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.ai.BossRiftDimension;
 import com.goodbird.cnpcgeckoaddon.client.BossRiftSkyEffects;
 import com.goodbird.cnpcgeckoaddon.client.ManualAnimationClient;
+import com.goodbird.cnpcgeckoaddon.client.model.ModelRiftCrystal;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossChestRenderer;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderBossBoulder;
 import com.goodbird.cnpcgeckoaddon.client.renderer.RenderBossRiftCrystal;
@@ -70,6 +71,11 @@ public class RendererRegistry {
                                       reloadProfiler, backgroundExecutor, gameExecutor) ->
                 // Clear after the barrier: only then are the new resources actually live,
                 // so a lookup racing the reload cannot re-cache the old contents.
-                preparationBarrier.<Void>wait(null).thenRun(MobModelTextureResolver::invalidate));
+                preparationBarrier.<Void>wait(null).thenRun(() -> {
+                    MobModelTextureResolver.invalidate();
+                    // Which crystal skins have a drawing is memoized the same way, and a pack
+                    // that has just added one is only found once the old answer is dropped.
+                    ModelRiftCrystal.invalidate();
+                }));
     }
 }

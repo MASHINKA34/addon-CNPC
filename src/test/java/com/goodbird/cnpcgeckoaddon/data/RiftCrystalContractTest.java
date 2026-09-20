@@ -36,6 +36,10 @@ class RiftCrystalContractTest {
         assertEquals("textures/entity/rift_crystal/ember.png", RiftCrystalContract.texturePath("ember"));
         assertEquals("textures/entity/rift_crystal/void.png", RiftCrystalContract.texturePath("void"));
         assertEquals("textures/entity/rift_crystal/ice.png", RiftCrystalContract.texturePath("ice"));
+        assertEquals("textures/entity/rift_crystal/amethyst.png", RiftCrystalContract.DEFAULT_TEXTURE_PATH);
+        assertEquals(RiftCrystalContract.texturePath(RiftCrystalContract.DEFAULT_SKIN),
+                RiftCrystalContract.DEFAULT_TEXTURE_PATH,
+                "the spelt-out fallback path has drifted from the one the format builds");
     }
 
     @Test
