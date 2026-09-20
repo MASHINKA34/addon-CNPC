@@ -1,0 +1,18 @@
+GIMP Palette
+Name: Rift Crystal void
+Columns: 7
+# 14 hand-picked hue-shifted colours; opaque UV faces
+ 13  20  28	void 01
+ 24  59  73	void 02
+ 32  82  96	void 03
+ 40 108 119	void 04
+  8 133 145	void 05
+ 33 163 168	void 06
+ 67 189 186	void 07
+118 222 208	void 08
+172 243 221	void 09
+ 42 152 124	void 10
+ 87 201 149	void 11
+146 234 174	void 12
+200 251 194	void 13
+236 255 225	void 14
