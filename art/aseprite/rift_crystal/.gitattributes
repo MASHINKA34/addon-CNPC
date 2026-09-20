@@ -1,0 +1,4 @@
+# Keep the generated palette bytes identical on Windows and Linux checkouts.
+*.gpl text eol=lf
+*.aseprite binary
+preview/*.png binary
