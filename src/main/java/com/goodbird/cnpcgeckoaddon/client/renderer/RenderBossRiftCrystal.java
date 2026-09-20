@@ -98,10 +98,10 @@ public class RenderBossRiftCrystal extends EntityRenderer<EntityBossRiftCrystal>
      * two maps are already the cache, a resource reload refills them, and a crystal is not a
      * thing there are thousands of on screen.
      */
-    private static boolean modelIsLoaded() {
+    static boolean modelIsLoaded() {
         return RiftCrystalContract.drawsModel(true,
-                GeckoLibCache.getBakedModels().containsKey(RiftCrystalGeoRenderer.GEO),
-                GeckoLibCache.getBakedAnimations().containsKey(RiftCrystalGeoRenderer.ANIMATIONS));
+                GeckoLibCache.getBakedModels().containsKey(ModelRiftCrystal.GEO),
+                GeckoLibCache.getBakedAnimations().containsKey(ModelRiftCrystal.ANIMATIONS));
     }
 
     /**
@@ -117,8 +117,8 @@ public class RenderBossRiftCrystal extends EntityRenderer<EntityBossRiftCrystal>
         }
         warnedOnce = true;
         nextMissingWarningAt = now + CrashGuard.LOG_INTERVAL_NANOS;
-        LOGGER.warn("rift crystal model missing, drawing the block: {} and {} are not loaded",
-                RiftCrystalGeoRenderer.GEO, RiftCrystalGeoRenderer.ANIMATIONS);
+        LOGGER.warn("rift crystal model missing, drawing the block: {} and {} are not both loaded",
+                ModelRiftCrystal.GEO, ModelRiftCrystal.ANIMATIONS);
     }
 
     /**
@@ -126,11 +126,6 @@ public class RenderBossRiftCrystal extends EntityRenderer<EntityBossRiftCrystal>
      * the light the outer renderer worked out - full brightness for a glowing one.
      */
     private static final class RiftCrystalGeoRenderer extends GeoEntityRenderer<EntityBossRiftCrystal> {
-
-        static final ResourceLocation GEO = ResourceLocation.fromNamespaceAndPath(
-                RiftCrystalContract.NAMESPACE, RiftCrystalContract.GEO_PATH);
-        static final ResourceLocation ANIMATIONS = ResourceLocation.fromNamespaceAndPath(
-                RiftCrystalContract.NAMESPACE, RiftCrystalContract.ANIMATION_PATH);
 
         RiftCrystalGeoRenderer(EntityRendererProvider.Context context) {
             super(context, new ModelRiftCrystal());

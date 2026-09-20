@@ -25,9 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ModelRiftCrystal extends GeoModel<EntityBossRiftCrystal> {
 
-    private static final ResourceLocation GEO = ResourceLocation.fromNamespaceAndPath(
+    /** The one geometry and the one animation file, shared with whoever asks whether they loaded. */
+    public static final ResourceLocation GEO = ResourceLocation.fromNamespaceAndPath(
             RiftCrystalContract.NAMESPACE, RiftCrystalContract.GEO_PATH);
-    private static final ResourceLocation ANIMATIONS = ResourceLocation.fromNamespaceAndPath(
+    public static final ResourceLocation ANIMATIONS = ResourceLocation.fromNamespaceAndPath(
             RiftCrystalContract.NAMESPACE, RiftCrystalContract.ANIMATION_PATH);
     private static final ResourceLocation DEFAULT_TEXTURE = ResourceLocation.fromNamespaceAndPath(
             RiftCrystalContract.NAMESPACE, RiftCrystalContract.DEFAULT_TEXTURE_PATH);
