@@ -80,4 +80,21 @@ public final class RiftCrystalContract {
     public static boolean isKnownSkin(String skin) {
         return SKINS.contains(cleanSkin(skin));
     }
+
+    /**
+     * Whether a crystal is drawn as the model right now.
+     *
+     * <p>Both halves of the artwork have to be loaded, not just the geometry: a model with no
+     * animation file draws as a still lump, which reads as broken rather than as artwork that
+     * has not arrived. Either one missing falls back to the block, which is what a builder who
+     * asked for the model before it shipped sees.</p>
+     */
+    public static boolean drawsModel(boolean wantsModel, boolean geoReady, boolean animationReady) {
+        return wantsModel && geoReady && animationReady;
+    }
+
+    /** Whether a crystal collected on {@code collectedAtTick} has played its clip out by now. */
+    public static boolean lingerOver(long collectedAtTick, long gameTime) {
+        return gameTime - collectedAtTick >= COLLECT_LINGER_TICKS;
+    }
 }

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -76,6 +77,23 @@ class RiftCrystalContractTest {
     void theLingerMatchesTheClip() {
         assertEquals(10, RiftCrystalContract.COLLECT_LINGER_TICKS);
         assertEquals(32, RiftCrystalContract.MAX_SKIN_LENGTH);
+        assertFalse(RiftCrystalContract.lingerOver(1000L, 1000L), "the tick it was collected on");
+        assertFalse(RiftCrystalContract.lingerOver(1000L, 1009L), "one tick of clip still to run");
+        assertTrue(RiftCrystalContract.lingerOver(1000L, 1010L), "the clip has run");
+        assertTrue(RiftCrystalContract.lingerOver(1000L, 5000L), "a tick that was missed is not a crystal for ever");
+        assertFalse(RiftCrystalContract.lingerOver(1000L, 900L),
+                "a clock that went backwards holds it rather than taking it early");
+    }
+
+    @Test
+    @DisplayName("the model is only drawn when it was asked for and both of its files are loaded")
+    void bothHalvesOfTheArtworkAreNeeded() {
+        assertTrue(RiftCrystalContract.drawsModel(true, true, true));
+        assertFalse(RiftCrystalContract.drawsModel(true, false, true), "no geometry: the block is drawn");
+        assertFalse(RiftCrystalContract.drawsModel(true, true, false), "no animation: the block is drawn");
+        assertFalse(RiftCrystalContract.drawsModel(true, false, false));
+        assertFalse(RiftCrystalContract.drawsModel(false, true, true), "the block look is never overruled");
+        assertFalse(RiftCrystalContract.drawsModel(false, false, false));
     }
 
     @Test

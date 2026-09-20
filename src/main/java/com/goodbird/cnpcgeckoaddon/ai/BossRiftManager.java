@@ -729,14 +729,25 @@ public final class BossRiftManager {
         return false;
     }
 
-    /** One crystal collected: the chime, the puff, and one fewer between its players and the way home. */
+    /**
+     * One crystal collected: the chime, the puff, and one fewer between its players and the way home.
+     *
+     * <p>A crystal drawn as the model is not taken away here but told it has been collected: it
+     * plays its half-second clip out and takes itself away after. It is off the rift's books
+     * either way from this line on, so nothing collects it twice and the cleanup no longer
+     * knows it - which is what lets it hang on for those ten ticks.</p>
+     */
     private static void collect(ServerLevel level, Rift rift, Entity crystal, BossRiftCrystalPlacement.Spot zone) {
         BossRiftSettings settings = rift.settings;
         double y = crystal.getY() + crystal.getBbHeight() * 0.5D;
         settings.getCrystalCollectSound().play(level, crystal.getX(), y, crystal.getZ(), SoundSource.HOSTILE);
         settings.getCrystalCollectParticles().emitDust(level, crystal.getX(), y, crystal.getZ(),
                 0.4D, 0.4D, 0.4D, 0.08D, BossTelegraphUtil.dustOf(zone.color()));
-        crystal.discard();
+        if (crystal instanceof EntityBossRiftCrystal drawn && drawn.wantsModel()) {
+            drawn.collected(level.getGameTime());
+        } else {
+            crystal.discard();
+        }
         rift.crystals.remove(crystal.getUUID());
         rift.crystalZones.remove(crystal.getUUID());
         rift.crystalsCollected++;
