@@ -1,0 +1,18 @@
+GIMP Palette
+Name: Rift Crystal ember
+Columns: 7
+# 14 hand-picked hue-shifted colours; opaque UV faces
+ 23  23  23	ember 01
+ 72  38  52	ember 02
+115  48  64	ember 03
+163  58  59	ember 04
+203  74  55	ember 05
+233 102  50	ember 06
+245 137  60	ember 07
+255 173  80	ember 08
+255 212 119	ember 09
+237 142  71	ember 10
+255 192  90	ember 11
+255 227 138	ember 12
+255 244 189	ember 13
+255 255 225	ember 14
