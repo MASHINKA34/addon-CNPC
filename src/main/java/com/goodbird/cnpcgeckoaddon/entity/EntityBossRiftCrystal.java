@@ -26,6 +26,7 @@ import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.AnimatableManager;
 import software.bernie.geckolib.animation.AnimationController;
+import software.bernie.geckolib.animation.AnimationState;
 import software.bernie.geckolib.animation.PlayState;
 import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
@@ -223,7 +224,7 @@ public final class EntityBossRiftCrystal extends Entity implements GeoEntity {
     }
 
     /** The turn, the pulse and the bob, for as long as it hangs; the collect clip cuts in over it. */
-    private static PlayState idle(software.bernie.geckolib.animation.AnimationState<EntityBossRiftCrystal> state) {
+    private static PlayState idle(AnimationState<EntityBossRiftCrystal> state) {
         state.getController().setAnimation(IDLE);
         return PlayState.CONTINUE;
     }
