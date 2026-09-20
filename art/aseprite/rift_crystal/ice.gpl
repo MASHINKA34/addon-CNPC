@@ -1,0 +1,18 @@
+GIMP Palette
+Name: Rift Crystal ice
+Columns: 7
+# 14 hand-picked hue-shifted colours; opaque UV faces
+ 51  75 126	ice 01
+ 73 104 148	ice 02
+ 99 137 177	ice 03
+123 166 200	ice 04
+148 191 219	ice 05
+175 215 233	ice 06
+200 232 241	ice 07
+221 246 249	ice 08
+241 255 255	ice 09
+112 181 223	ice 10
+139 212 241	ice 11
+176 234 255	ice 12
+220 248 255	ice 13
+255 255 255	ice 14
