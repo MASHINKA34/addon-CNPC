@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.MobModelTextureResolver;
 import com.goodbird.cnpcgeckoaddon.client.ModelSelectionHelper;
 import com.goodbird.cnpcgeckoaddon.client.model.GeckoModelBounds;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
@@ -7,7 +8,6 @@ import com.goodbird.cnpcgeckoaddon.data.GeckoGeometryBounds;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
-import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -65,8 +65,6 @@ public class GuiModelSelection extends GuiNPCInterface {
             "cnpcgeckoaddon", "animations/none.animation.json");
     private static final ResourceLocation FALLBACK_MODEL = ResourceLocation.fromNamespaceAndPath(
             "cnpcgeckoaddon", "geo/modelnotfound.geo.json");
-    private static final ResourceLocation DEFAULT_NPC_TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            "customnpcs", "textures/entity/humanmale/steve.png");
 
     private static final Comparator<ResourceLocation> MODEL_ORDER = Comparator
             .comparing(ResourceLocation::getNamespace, String.CASE_INSENSITIVE_ORDER)
@@ -335,11 +333,11 @@ public class GuiModelSelection extends GuiNPCInterface {
         }
 
         ModelSelectionHelper.ModelResources resources = ModelSelectionHelper.resolve(model);
-        ResourceLocation npcTexture = currentNpcTexture();
 
         previewEntity.modelResLoc = model;
-        previewEntity.textureResLoc = resources.defaultTexture() != null
-                ? resources.defaultTexture() : npcTexture;
+        // The skin the npc will carry once this model is applied; ModelCustom resolves it through
+        // the same MobModelTextureResolver it resolves the npc's own skin through in the world.
+        previewEntity.textureResLoc = ModelSelectionHelper.skinAfterApply(targetNpc, model, null);
         previewEntity.animResLoc = resources.animation() == null ? NO_OP_ANIMATION : resources.animation();
         previewEntity.idleAnim = compatibleIdleAnimation(resources.animation());
 
@@ -353,15 +351,6 @@ public class GuiModelSelection extends GuiNPCInterface {
         }
     }
 
-    private ResourceLocation currentNpcTexture() {
-        ResourceLocation npcTexture = AnimationFileUtil.parse(targetNpc.display.getSkinTexture());
-        if (npcTexture == null
-                && targetNpc.modelData.getEntity(targetNpc) instanceof EntityCustomModel currentModel) {
-            npcTexture = currentModel.textureResLoc;
-        }
-        return npcTexture == null ? DEFAULT_NPC_TEXTURE : npcTexture;
-    }
-
     private GeckoGeometryBounds.Bounds boundsFor(ResourceLocation model) {
         return boundsCache.computeIfAbsent(model, location -> {
             BakedGeoModel bakedModel = GeckoLibCache.getBakedModels().get(location);
@@ -372,7 +361,9 @@ public class GuiModelSelection extends GuiNPCInterface {
     private void activatePreviewFallback() {
         previewFallbackActive = true;
         previewEntity.modelResLoc = FALLBACK_MODEL;
-        previewEntity.textureResLoc = currentNpcTexture();
+        // What ModelCustom draws on an npc whose model is missing: the not-found model in the
+        // missing-texture sheet.
+        previewEntity.textureResLoc = MobModelTextureResolver.MISSING_TEXTURE;
         previewEntity.animResLoc = NO_OP_ANIMATION;
         previewEntity.idleAnim = "";
         previewRenderedModel = FALLBACK_MODEL;

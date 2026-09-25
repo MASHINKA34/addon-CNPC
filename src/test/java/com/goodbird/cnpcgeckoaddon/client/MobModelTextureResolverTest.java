@@ -84,5 +84,75 @@ class MobModelTextureResolverTest {
         assertFalse(MobModelTextureResolver.isBundledModel(own));
         assertEquals(skin, MobModelTextureResolver.resolve(own, skin));
         assertEquals(skin, MobModelTextureResolver.resolve(null, skin));
+        assertEquals(MobModelTextureResolver.Source.NPC, MobModelTextureResolver.explain(own, skin).source());
+    }
+
+    private static final ResourceLocation STEVE =
+            ResourceLocation.fromNamespaceAndPath("customnpcs", "textures/entity/humanmale/steve.png");
+    private static final ResourceLocation BUNDLED_MODEL =
+            ResourceLocation.fromNamespaceAndPath("cataclysm", "geo/ignis_model.geo.json");
+    private static final ResourceLocation FOREIGN_MODEL =
+            ResourceLocation.fromNamespaceAndPath("somemod", "geo/wraith.geo.json");
+
+    private static MobModelTextureResolver.Resolution own(String namespace, String path,
+                                                          MobModelTextureResolver.Source source) {
+        return new MobModelTextureResolver.Resolution(ResourceLocation.fromNamespaceAndPath(namespace, path), source);
+    }
+
+    @Test
+    @DisplayName("a default skin gives way to the model's own sheet, found either way")
+    void aDefaultSkinGivesWayToTheOwnSheet() {
+        MobModelTextureResolver.Resolution mapped = own("cataclysm", "textures/entity/ignis.png",
+                MobModelTextureResolver.Source.MAP);
+        assertEquals(mapped, MobModelTextureResolver.decide(BUNDLED_MODEL, STEVE, mapped, true));
+        assertEquals(mapped, MobModelTextureResolver.decide(BUNDLED_MODEL, null, mapped, true));
+
+        MobModelTextureResolver.Resolution named = own("somemod", "textures/entity/wraith.png",
+                MobModelTextureResolver.Source.NAME);
+        assertEquals(named, MobModelTextureResolver.decide(FOREIGN_MODEL, STEVE, named, false),
+                "another mod's model is dressed in the png named after it too");
+    }
+
+    @Test
+    @DisplayName("a bundled model with no sheet shows as missing rather than as a stretched default skin")
+    void aBundledModelWithoutASheetShowsAsMissing() {
+        MobModelTextureResolver.Resolution missing = MobModelTextureResolver.decide(BUNDLED_MODEL, STEVE, null, true);
+        assertEquals(MobModelTextureResolver.MISSING_TEXTURE, missing.texture());
+        assertEquals(MobModelTextureResolver.Source.NONE, missing.source());
+        assertEquals(MobModelTextureResolver.Source.NONE,
+                MobModelTextureResolver.decide(BUNDLED_MODEL, null, null, true).source());
+    }
+
+    @Test
+    @DisplayName("another mod's model with no sheet keeps the default skin it was made for")
+    void aForeignModelWithoutASheetKeepsTheDefaultSkin() {
+        assertEquals(new MobModelTextureResolver.Resolution(STEVE, MobModelTextureResolver.Source.NPC),
+                MobModelTextureResolver.decide(FOREIGN_MODEL, STEVE, null, false));
+    }
+
+    @Test
+    @DisplayName("a skin somebody chose is kept over the model's own sheet")
+    void aChosenSkinIsKept() {
+        ResourceLocation chosen = ResourceLocation.fromNamespaceAndPath("cataclysm", "textures/entity/ignis/ignis_idle_0.png");
+        MobModelTextureResolver.Resolution mapped = own("cataclysm", "textures/entity/ignis.png",
+                MobModelTextureResolver.Source.MAP);
+        assertEquals(new MobModelTextureResolver.Resolution(chosen, MobModelTextureResolver.Source.NPC),
+                MobModelTextureResolver.decide(BUNDLED_MODEL, chosen, mapped, true));
+        assertEquals(new MobModelTextureResolver.Resolution(chosen, MobModelTextureResolver.Source.NPC),
+                MobModelTextureResolver.decide(BUNDLED_MODEL, chosen, null, true),
+                "a model with no sheet of its own wears a chosen one");
+    }
+
+    @Test
+    @DisplayName("another bundled model's recorded sheet or a render layer left in the skin gives way")
+    void staleSheetsGiveWay() {
+        MobModelTextureResolver.Resolution mapped = own("cataclysm", "textures/entity/ignis.png",
+                MobModelTextureResolver.Source.MAP);
+        ResourceLocation recorded = ResourceLocation.parse(TsvResource.read(TEXTURES).getFirst().value());
+        assertTrue(MobModelTextureResolver.isRecordedDefault(recorded));
+        assertEquals(mapped, MobModelTextureResolver.decide(BUNDLED_MODEL, recorded, mapped, true));
+
+        ResourceLocation layer = ResourceLocation.fromNamespaceAndPath("cataclysm", "textures/entity/ignis_glow.png");
+        assertEquals(mapped, MobModelTextureResolver.decide(BUNDLED_MODEL, layer, mapped, true));
     }
 }
