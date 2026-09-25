@@ -2782,6 +2782,11 @@ public final class TeleportPathController {
         return targeting.platformVictims(level, box);
     }
 
+    /** Everyone reaching into a vent's volume that the vents may hit; see BossTargetingRuntime. */
+    List<LivingEntity> ventVictims(ServerLevel level, AABB volume) {
+        return targeting.ventVictims(level, volume);
+    }
+
     public boolean isBoulderVictim(LivingEntity target, int ability) {
         return targeting.isBoulderVictim(target, ability);
     }

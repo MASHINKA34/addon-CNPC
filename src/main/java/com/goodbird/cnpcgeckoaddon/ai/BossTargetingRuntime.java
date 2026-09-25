@@ -396,6 +396,25 @@ final class BossTargetingRuntime {
                         && isAbilityTarget(target, BossAbilityKind.PLATFORM));
     }
 
+    /**
+     * Everyone a vent reaches: whoever's box reaches into the volume in front of its face.
+     *
+     * <p>The platforms' rule for who counts, since a vent is a box of the builder's the way a
+     * platform is: players of this fight, npcs by the kind the boss aims its abilities at, and
+     * nobody hidden by their own totems. Box against box rather than feet in the box, because a
+     * flame out of a wall at head height burns the head that is in it.</p>
+     */
+    List<LivingEntity> ventVictims(ServerLevel level, AABB volume) {
+        TeleportPathData data = boss.settings();
+        return level.getEntitiesOfClass(LivingEntity.class, volume, target ->
+                target != npc && target.isAlive()
+                        && BossVentGeometry.inVolume(volume, target.getBoundingBox())
+                        && (!(target instanceof Player player) || boss.isEncounterParticipant(player))
+                        && matchesAbilityTargetKind(target, data)
+                        && !BossMechanicUtil.hiddenByTotems(target)
+                        && isAbilityTarget(target, BossAbilityKind.VENT));
+    }
+
     boolean isBoulderVictim(LivingEntity target, int ability) {
         return target != npc && target.isAlive()
                 && matchesAbilityTargetKind(target, boss.settings())

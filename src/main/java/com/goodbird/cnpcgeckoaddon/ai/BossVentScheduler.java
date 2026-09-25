@@ -6,20 +6,27 @@ import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.BossVentSettings;
+import com.goodbird.cnpcgeckoaddon.data.BossVentZone;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Runs the vents' timers: on each beat the vents the pattern picks are outlined and hiss for
@@ -45,6 +52,31 @@ public final class BossVentScheduler {
     private static final int MAX_PER_TICK = 32;
     /** How far out of its face a vent's particles start, so they come out of the grate and not inside it. */
     private static final double FACE_SKIN = 0.1D;
+    /**
+     * How many ticks' worth of its speed a flame out of a vent travels before it goes out.
+     *
+     * <p>A flame keeps 0.96 of its speed a tick and lives twenty ticks on average, which carries it
+     * about fourteen ticks' worth; sent at the reach over twelve, a stream reads as reaching about
+     * as far as the vent really burns, where the reach over ten overshot it by nearly half.</p>
+     */
+    private static final double FLAME_TRAVEL_TICKS = 12.0D;
+    /** How far a flame of the stream strays sideways, as a share of its speed: fire, not rails. */
+    private static final double FLAME_SPREAD = 0.15D;
+    /**
+     * Blocks a tick a blast out of the floor throws a victim up at, or one out of the ceiling slams
+     * them down at, per point of knockback: one is a hop, three sends them a dozen blocks high.
+     */
+    private static final double BLAST_LIFT_PER_KNOCKBACK = 0.5D;
+    /**
+     * What the server's own pass over a player takes off a vertical speed before the tracker sends
+     * it: drag, and one tick of gravity before that. See BossGravityScheduler for the same sum.
+     */
+    private static final double VERTICAL_DRAG = 0.98D;
+    private static final double GRAVITY = 0.08D;
+    /** How long after somebody a vent threw up has come down their landing is still forgiven. */
+    private static final int LANDING_GRACE_TICKS = 40;
+    /** A throw that never lands - into water, off the map - is forgotten after this. */
+    private static final int LANDING_TIMEOUT_TICKS = 600;
 
     /**
      * What a cast hands the timer: the vents it resolved and the numbers the enrage and the
@@ -142,7 +174,24 @@ public final class BossVentScheduler {
         }
     }
 
+    /** Somebody a vent threw or carried up, until they come down: their landing is the vent's, not a fall. */
+    private static final class Landing {
+        private final ResourceKey<Level> dimension;
+        /** The last tick a vent sent them up. */
+        private long sentAt;
+        /** Seen off the floor since; only then does being down again count as landing. */
+        private boolean airborne;
+        /** When they were seen down, or -1 while still in the air. */
+        private long landedAt = -1L;
+
+        private Landing(ResourceKey<Level> dimension, long sentAt) {
+            this.dimension = dimension;
+            this.sentAt = sentAt;
+        }
+    }
+
     private static final TickQueue<Run> RUNS = new TickQueue<>("boss vent timers", MAX_PER_TICK);
+    private static final Map<UUID, Landing> LANDINGS = new HashMap<>();
 
     private BossVentScheduler() {
     }
@@ -169,7 +218,7 @@ public final class BossVentScheduler {
     }
 
     public static boolean hasPending() {
-        return !RUNS.isEmpty();
+        return !RUNS.isEmpty() || !LANDINGS.isEmpty();
     }
 
     /**
@@ -189,11 +238,29 @@ public final class BossVentScheduler {
     public static void tick(ServerLevel level) {
         long gameTime = level.getGameTime();
         RUNS.sweep(run -> run.dimension.equals(level.dimension()), run -> tickRun(level, run, gameTime));
+        tickLandings(level, gameTime);
     }
 
-    /** Drops every timer in a level that is going away. */
+    /** Drops every timer in a level that is going away, and the landings it was waiting on there. */
     public static void clear(ServerLevel level) {
         RUNS.removeIf(run -> run.dimension.equals(level.dimension()));
+        LANDINGS.values().removeIf(landing -> landing.dimension.equals(level.dimension()));
+    }
+
+    /**
+     * Whether this landing is somebody a vent sent up coming down, and so not a fall to be hurt by.
+     *
+     * <p>Called from the fall event. The record is taken out here, so the fall after this one is
+     * their own again. The landings outlive the timer that sent them up: whoever a blast threw
+     * as the boss died still comes down on its account.</p>
+     */
+    public static boolean forgiveFall(LivingEntity victim) {
+        // Server state; the fall event fires on the client too, and on an integrated server that
+        // is the same static map from another thread.
+        if (victim.level().isClientSide || LANDINGS.isEmpty()) {
+            return false;
+        }
+        return LANDINGS.remove(victim.getUUID()) != null;
     }
 
     /**
@@ -218,7 +285,7 @@ public final class BossVentScheduler {
         if (controller == null || !run.boss.isAlive() || run.boss.isRemoved() || run.boss.level() != level) {
             return false;
         }
-        run.clock.tick(gameTime, new WorldSink(level, run));
+        run.clock.tick(gameTime, new WorldSink(level, controller, run));
         if (gameTime % controller.telegraphIntervalTicks() == 0L) {
             paintWarnings(level, run, gameTime);
         }
@@ -254,10 +321,12 @@ public final class BossVentScheduler {
     /** The clock's hands in the world. */
     private static final class WorldSink implements BossVentPlan.Sink {
         private final ServerLevel level;
+        private final TeleportPathController controller;
         private final Run run;
 
-        private WorldSink(ServerLevel level, Run run) {
+        private WorldSink(ServerLevel level, TeleportPathController controller, Run run) {
             this.level = level;
+            this.controller = controller;
             this.run = run;
         }
 
@@ -270,14 +339,179 @@ public final class BossVentScheduler {
 
         @Override
         public void fire(long now, BossVentPlan.Activation activation) {
+            if (activation.mode() == BossVentSettings.MODE_BURST) {
+                blast(level, controller, run, run.vents.get(activation.vent()), now);
+            }
         }
 
         @Override
         public void act(long now, BossVentPlan.Activation activation) {
+            if (activation.mode() == BossVentSettings.MODE_FLAME) {
+                flame(level, controller, run, run.vents.get(activation.vent()), activation.elapsed(now));
+            }
         }
 
         @Override
         public void end(long now, BossVentPlan.Activation activation) {
+        }
+    }
+
+    /**
+     * A vent going off at once: the wave across the floor and the lava off the face with the bang,
+     * and then everyone in front of it hit and thrown away from the face along the way it fires.
+     *
+     * <p>Everything seen and heard goes out before the hits, so it leaves at the moment the damage
+     * lands rather than a tick behind it. The wave is a floor's: a floor vent's spreads from its
+     * grate, a ceiling vent's across the floor under its reach, and a wall's has no floor of its own
+     * to run on, so the lava alone says it went.</p>
+     */
+    private static void blast(ServerLevel level, TeleportPathController controller, Run run,
+                              BossVentGeometry.Vent vent, long gameTime) {
+        Look look = run.look;
+        Vec3 face = faceCentre(vent);
+        if (vent.face() == BossVentZone.FACE_FLOOR || vent.face() == BossVentZone.FACE_CEILING) {
+            double out = vent.face() == BossVentZone.FACE_FLOOR ? 0.0D : vent.reach();
+            BossAreaVfxScheduler.schedule(level, BossVentGeometry.planeCentre(vent.box(), vent.face(), out),
+                    look.burstVfx, vent.reach(), look.burstVfxTicks, false, look.wave);
+        }
+        ParticleOptions lava = particle(look.burstParticles);
+        if (lava != null && seen(level, run, vent)) {
+            scatter(level, vent, lava,
+                    BossVentGeometry.shareBudget(look.particleBudget, look.burstParticles.getCount())[0],
+                    FACE_SKIN, null);
+        }
+        look.burstSound.play(level, face.x, face.y, face.z, SoundSource.HOSTILE);
+        for (LivingEntity victim : controller.ventVictims(level, vent.volume())) {
+            // The throw is this blast's own half rather than something on top of the hit, the
+            // platform's rule: a totem this vent may not break is left standing, not thrown.
+            if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.VENT)) {
+                continue;
+            }
+            BossAbilityDamageUtil.hit(victim, BossAbilityKind.VENT, run.boss, look.damage, look.effects,
+                    0, 0.0D, 0.0D);
+            throwOff(level, victim, vent, look.knockback, gameTime);
+        }
+    }
+
+    /**
+     * A blast's throw, whether its damage landed or not: out of a wall along the way it fires, the
+     * way a knockback shoves; out of the floor straight up, with the landing forgiven; out of the
+     * ceiling straight down.
+     */
+    private static void throwOff(ServerLevel level, LivingEntity victim, BossVentGeometry.Vent vent, int knockback,
+                                 long gameTime) {
+        if (knockback <= 0) {
+            return;
+        }
+        Vec3 dir = vent.dir();
+        if (BossVentGeometry.axis(vent.face()) != Direction.Axis.Y) {
+            // Vanilla shoves against the vector it is handed, so the way back into the wall
+            // throws the victim out along the way the vent fires.
+            BossConeRuntime.shove(victim, knockback, -dir.x, -dir.z);
+            return;
+        }
+        double speed = dir.y * knockback * BLAST_LIFT_PER_KNOCKBACK;
+        // Their own run is kept: a player's as their client reported it, a mob's as it moves.
+        Vec3 own = victim instanceof ServerPlayer player ? player.getKnownMovement() : victim.getDeltaMovement();
+        // For a player the server's own pass runs before the send and takes a tick of gravity off
+        // the throw, so that tick is put back in advance; a mob moves by exactly what it is handed.
+        double y = victim instanceof ServerPlayer ? speed / VERTICAL_DRAG + GRAVITY : speed;
+        victim.setDeltaMovement(own.x, y, own.z);
+        if (speed > 0.0D) {
+            victim.fallDistance = 0.0F;
+            owesLanding(level, victim, gameTime);
+        }
+        // Players simulate their own movement, so the server has to push the new velocity to them
+        // explicitly. hurtMarked is what makes ServerEntity send it.
+        victim.hurtMarked = true;
+    }
+
+    /**
+     * One tick of a vent's flame: everyone in front of it hit on the interval from the tick it
+     * went, the roar on its own interval, and the stream itself - fire out of the face along the
+     * way the vent fires, and smoke where it gives out at the far side - within the budget.
+     */
+    private static void flame(ServerLevel level, TeleportPathController controller, Run run,
+                              BossVentGeometry.Vent vent, long elapsed) {
+        Look look = run.look;
+        if (elapsed % look.hitIntervalTicks == 0L) {
+            for (LivingEntity victim : controller.ventVictims(level, vent.volume())) {
+                // No throw: a flame burns whoever stands in it, it does not shove them out of it.
+                BossAbilityDamageUtil.hit(victim, BossAbilityKind.VENT, run.boss, look.damage, look.effects,
+                        0, 0.0D, 0.0D);
+            }
+        }
+        if (elapsed % look.flameSoundIntervalTicks == 0L) {
+            Vec3 face = faceCentre(vent);
+            look.flameSound.play(level, face.x, face.y, face.z, SoundSource.HOSTILE);
+        }
+        if (!seen(level, run, vent)) {
+            return;
+        }
+        ParticleOptions fire = particle(look.flameParticles);
+        ParticleOptions smoke = particle(look.smokeParticles);
+        int[] counts = BossVentGeometry.shareBudget(look.particleBudget,
+                fire == null ? 0 : look.flameParticles.getCount(), smoke == null ? 0 : look.smokeParticles.getCount());
+        if (fire != null) {
+            stream(level, vent, fire, counts[0]);
+        }
+        if (smoke != null) {
+            scatter(level, vent, smoke, counts[1], vent.reach(), null);
+        }
+    }
+
+    /** {@code count} flames out of random spots of the face, each sent off along the way the vent fires. */
+    private static void stream(ServerLevel level, BossVentGeometry.Vent vent, ParticleOptions fire, int count) {
+        RandomSource random = level.getRandom();
+        Vec3 along = vent.dir().scale(vent.reach() / FLAME_TRAVEL_TICKS);
+        double spread = along.length() * FLAME_SPREAD;
+        for (int i = 0; i < count; i++) {
+            Vec3 at = BossVentGeometry.planePoint(vent.box(), vent.face(), FACE_SKIN,
+                    random.nextDouble(), random.nextDouble());
+            Vec3 velocity = along.add((random.nextDouble() - 0.5D) * spread, (random.nextDouble() - 0.5D) * spread,
+                    (random.nextDouble() - 0.5D) * spread);
+            level.sendParticles(fire, at.x, at.y, at.z, 0, velocity.x, velocity.y, velocity.z, 1.0D);
+        }
+    }
+
+    /** Remembers that somebody a vent sent up owes the vent their landing, not a fall. */
+    private static void owesLanding(ServerLevel level, LivingEntity victim, long gameTime) {
+        Landing landing = LANDINGS.get(victim.getUUID());
+        if (landing == null || !landing.dimension.equals(level.dimension())) {
+            LANDINGS.put(victim.getUUID(), new Landing(level.dimension(), gameTime));
+            return;
+        }
+        landing.sentAt = gameTime;
+        landing.landedAt = -1L;
+    }
+
+    /**
+     * Landings the fall event never reports - a splash, a slow slide down a ledge - are watched for
+     * from the tick instead: down again after having been seen off the floor, and forgotten a little
+     * after that, or after long enough whatever happened.
+     */
+    private static void tickLandings(ServerLevel level, long gameTime) {
+        if (LANDINGS.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<UUID, Landing> entry : List.copyOf(LANDINGS.entrySet())) {
+            Landing landing = entry.getValue();
+            if (!landing.dimension.equals(level.dimension())) {
+                continue;
+            }
+            LivingEntity victim = level.getEntity(entry.getKey()) instanceof LivingEntity found ? found : null;
+            if (victim == null || !victim.isAlive() || victim.isRemoved()
+                    || gameTime - landing.sentAt > LANDING_TIMEOUT_TICKS
+                    || landing.landedAt >= 0L && gameTime - landing.landedAt > LANDING_GRACE_TICKS) {
+                LANDINGS.remove(entry.getKey(), landing);
+                continue;
+            }
+            boolean down = victim.onGround() || victim.isInWater() || victim.isInLava();
+            if (!down) {
+                landing.airborne = true;
+            } else if (landing.airborne && landing.landedAt < 0L) {
+                landing.landedAt = gameTime;
+            }
         }
     }
 

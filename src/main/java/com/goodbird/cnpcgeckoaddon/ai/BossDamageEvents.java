@@ -614,6 +614,7 @@ public final class BossDamageEvents {
         landSeismicSlam(event);
         cancelLaunchPadFall(event);
         cancelHurricaneFall(event);
+        cancelVentFall(event);
         cancelOwnLeapFall(event);
     }
 
@@ -635,6 +636,16 @@ public final class BossDamageEvents {
      */
     private static void cancelHurricaneFall(LivingFallEvent event) {
         if (BossHurricaneScheduler.forgiveFall(event.getEntity())) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * Whoever a vent threw or carried up comes down unhurt: the height was the vent's doing, and
+     * what it owed them it dealt as it went.
+     */
+    private static void cancelVentFall(LivingFallEvent event) {
+        if (BossVentScheduler.forgiveFall(event.getEntity())) {
             event.setCanceled(true);
         }
     }
