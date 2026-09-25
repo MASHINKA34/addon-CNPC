@@ -453,7 +453,7 @@ public final class TeleportPathController {
         this.meleeAttack = new BossMeleeAttackRuntime(this, npc);
         this.summonRuntime = new BossSummonRuntime(this, npc);
         this.telegraphs = new BossTelegraphRuntime(this, npc, coverRuntime, huntRuntime, leap, dash, cone,
-                platform, minionSpawns);
+                platform, minionSpawns, vent);
         this.castSpots = new BossCastSpotRuntime(this, npc);
         INSTANCES.add(this);
     }

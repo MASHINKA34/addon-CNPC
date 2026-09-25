@@ -96,6 +96,17 @@ final class BossVentRuntime {
                 boss.rageUp(vent.getKnockback()), boss.rageUp(vent.getWallPushTenths())), gameTime);
     }
 
+    /**
+     * The volume in front of every vent the cast being wound up starts the timer on, for its
+     * warning: the same outline each beat's warning draws, so the party learns the vents off the
+     * cast. Nothing for a cast that stops the timer - there is nothing to dodge.
+     */
+    void drawCommitted(ServerLevel level, BossTelegraphPaint paint) {
+        for (BossVentGeometry.Vent vent : committed) {
+            BossTelegraphUtil.box(level, vent.volume(), paint);
+        }
+    }
+
     /** Drops the vents a wind-up picked; a wind-up that was called off starts and stops nothing. */
     void clear() {
         committed.clear();

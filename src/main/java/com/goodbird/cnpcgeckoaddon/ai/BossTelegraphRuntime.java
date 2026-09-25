@@ -54,10 +54,12 @@ final class BossTelegraphRuntime {
     private final BossConeRuntime cone;
     private final BossPlatformRuntime platform;
     private final BossMinionSpawnRuntime minionSpawns;
+    private final BossVentRuntime vent;
 
     BossTelegraphRuntime(TeleportPathController boss, EntityNPCInterface npc, BossCoverRuntime coverRuntime,
                          BossHuntRuntime huntRuntime, BossLeapRuntime leap, BossDashRuntime dash,
-                         BossConeRuntime cone, BossPlatformRuntime platform, BossMinionSpawnRuntime minionSpawns) {
+                         BossConeRuntime cone, BossPlatformRuntime platform, BossMinionSpawnRuntime minionSpawns,
+                         BossVentRuntime vent) {
         this.boss = boss;
         this.npc = npc;
         this.coverRuntime = coverRuntime;
@@ -67,6 +69,7 @@ final class BossTelegraphRuntime {
         this.cone = cone;
         this.platform = platform;
         this.minionSpawns = minionSpawns;
+        this.vent = vent;
     }
 
     void tick(ServerLevel level, TeleportPathData data, long gameTime, Cast cast) {
@@ -169,6 +172,9 @@ final class BossTelegraphRuntime {
             // The outline of every platform the cast sets alight, the arena hazard's box; the fuse
             // after the wind-up flashes the same outline whatever the warnings say.
             case PLATFORM -> platform.drawCommitted(level, paint, phase.platform().edgeSpacing());
+            // The volume in front of every vent the cast starts the timer on, each outlined in the
+            // air: a vent in a wall is as much about the height it reaches as about the floor.
+            case VENT -> vent.drawCommitted(level, paint);
             // The path of each storm, as wide as its reach, along the axes the cast committed to; a
             // spiral and a typhoon have no paths, so the ring of the ground they will roam is drawn.
             case HURRICANE -> {
