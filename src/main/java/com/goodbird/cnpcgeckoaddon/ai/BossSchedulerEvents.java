@@ -88,6 +88,11 @@ public final class BossSchedulerEvents {
         if (BossPlatformScheduler.hasPending()) {
             CrashGuard.tick("scheduler.platform", level, BossPlatformScheduler::tick, BossPlatformScheduler::clear);
         }
+        // Beside the platforms, whose boxes they share, and before the capture for the field's
+        // reason: a vent's wall never moves a captured victim, and the capture's pin lands last.
+        if (BossVentScheduler.hasPending()) {
+            CrashGuard.tick("scheduler.vent", level, BossVentScheduler::tick, BossVentScheduler::clear);
+        }
         if (BossCaptureManager.hasPending()) {
             CrashGuard.tick("scheduler.capture", level, BossCaptureManager::tick, BossCaptureManager::clearLevel);
         }
@@ -155,6 +160,7 @@ public final class BossSchedulerEvents {
         CrashGuard.run("unload.hurricane", level, BossHurricaneScheduler::clear);
         CrashGuard.run("unload.beam", level, BossBeamScheduler::clear);
         CrashGuard.run("unload.platform", level, BossPlatformScheduler::clear);
+        CrashGuard.run("unload.vent", level, BossVentScheduler::clear);
         CrashGuard.run("unload.clone_respawn_guard", level, BossCloneRespawnGuard::clear);
         CrashGuard.run("unload.minion_removal", level, BossMinionUtil::clearPending);
         CrashGuard.run("unload.capture", level, BossCaptureManager::clearLevel);

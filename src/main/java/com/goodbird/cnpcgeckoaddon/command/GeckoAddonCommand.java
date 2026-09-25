@@ -8,6 +8,7 @@ import com.goodbird.cnpcgeckoaddon.ai.BossHurricaneScheduler;
 import com.goodbird.cnpcgeckoaddon.ai.BossRiftDimension;
 import com.goodbird.cnpcgeckoaddon.ai.BossRiftManager;
 import com.goodbird.cnpcgeckoaddon.ai.BossShadowUtil;
+import com.goodbird.cnpcgeckoaddon.ai.BossVentScheduler;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
@@ -363,6 +364,7 @@ public class GeckoAddonCommand {
                         : controller.seismicStatus(level.getGameTime());
                 String riftLine = controller == null ? "Rift: idle"
                         : controller.riftStatus(level.getGameTime());
+                String ventLine = BossVentScheduler.status(npc, level.getGameTime());
                 String castSpotLine = controller == null ? "Cast spot: free"
                         : controller.castSpotStatus(level.getGameTime());
                 String finishLine = controller == null ? "Finish: free"
@@ -394,6 +396,7 @@ public class GeckoAddonCommand {
                 source.sendSuccess(() -> Component.literal(shadowLine), false);
                 source.sendSuccess(() -> Component.literal(seismicLine), false);
                 source.sendSuccess(() -> Component.literal(riftLine), false);
+                source.sendSuccess(() -> Component.literal(ventLine), false);
                 source.sendSuccess(() -> Component.literal(castSpotLine), false);
                 source.sendSuccess(() -> Component.literal(finishLine), false);
                 source.sendSuccess(() -> Component.literal(comboLine), false);

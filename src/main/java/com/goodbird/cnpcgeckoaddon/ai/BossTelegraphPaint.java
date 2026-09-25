@@ -34,6 +34,8 @@ public final class BossTelegraphPaint {
      * band is sent to whoever is near the thing it is drawn on.
      */
     public static final byte CHANNEL_RIFT_CRYSTAL = 8;
+    /** The vents a timer is about to fire, each outlined for its warning. */
+    public static final byte CHANNEL_VENT = 9;
 
     /** A warning with nothing to count towards: an open hazard, a platform already alight. */
     public static final float NO_END = -1.0F;

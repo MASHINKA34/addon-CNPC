@@ -140,8 +140,11 @@ final class BossCastSpotRuntime {
         }
         // The effect the last cast left is still running: a second sweep on top of the first
         // would double the hits, and the beam's own starter refuses that anyway. Looked at
-        // again shortly, the way a starter that found a sweep already turning does.
-        if (boss.isAbilityRunning(ability, gameTime)) {
+        // again shortly, the way a starter that found a sweep already turning does. The vents
+        // are the one exception: a cast while their timer runs starts it over or stops it, when
+        // the phase says so, and that cast is as worth walking to as the first.
+        if (boss.isAbilityRunning(ability, gameTime)
+                && !(ability == BossAbility.VENT && BossVentRuntime.castsWhileRunning(phase))) {
             boss.setAbilityScheduleAt(ability, gameTime + boss.retryLongTicks());
             return false;
         }

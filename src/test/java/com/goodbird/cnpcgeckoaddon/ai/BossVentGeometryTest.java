@@ -2,12 +2,17 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossVentZone;
 import com.goodbird.cnpcgeckoaddon.data.BossVentZoneList;
+import com.goodbird.cnpcgeckoaddon.utils.TelegraphLineGeometry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -216,6 +221,35 @@ class BossVentGeometryTest {
         }
         assertTrue(total <= 10, "never over the budget: " + total);
         assertArrayEquals(new int[]{0, 0}, BossVentGeometry.shareBudget(48, 0, -3), "nothing asked is nothing given");
+    }
+
+    @Test
+    @DisplayName("a box standing in the air is outlined by its twelve edges, each running the length of one axis")
+    void theOutlineIsTwelveEdges() {
+        AABB volume = new AABB(0, 64, 0, 3, 67, 6);
+        List<TelegraphLineGeometry.Edge> edges = TelegraphLineGeometry.boxEdges(volume);
+        assertEquals(12, edges.size());
+        Set<Vec3> corners = new HashSet<>();
+        int[] perAxis = new int[3];
+        for (TelegraphLineGeometry.Edge edge : edges) {
+            Vec3 span = edge.to().subtract(edge.from());
+            int moving = (span.x != 0 ? 1 : 0) + (span.y != 0 ? 1 : 0) + (span.z != 0 ? 1 : 0);
+            assertEquals(1, moving, "an edge runs along exactly one axis: " + edge);
+            if (span.x != 0) {
+                assertEquals(3.0D, span.x, EPSILON);
+                perAxis[0]++;
+            } else if (span.y != 0) {
+                assertEquals(3.0D, span.y, EPSILON);
+                perAxis[1]++;
+            } else {
+                assertEquals(6.0D, span.z, EPSILON);
+                perAxis[2]++;
+            }
+            corners.add(edge.from());
+            corners.add(edge.to());
+        }
+        assertArrayEquals(new int[]{4, 4, 4}, perAxis, "four edges along each axis");
+        assertEquals(8, corners.size(), "and between them every corner of the box");
     }
 
     @Test

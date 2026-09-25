@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
+import com.goodbird.cnpcgeckoaddon.utils.TelegraphLineGeometry;
 import com.goodbird.cnpcgeckoaddon.utils.TelegraphShape;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -10,9 +11,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -260,6 +263,34 @@ public final class BossTelegraphUtil {
             return;
         }
         BossTelegraphFrames.add(level, paint, TelegraphShape.link(from, to, paint.rgb(), false));
+    }
+
+    /**
+     * The twelve edges of a box standing in the air: a vent's column, or the slab of air in front
+     * of a wall it fires out of. A flat outline would say where on the floor it is and nothing of
+     * how high it reaches, and a vent in a wall is as much about the height as the floor.
+     *
+     * <p>Twelve links when drawn as bands, each a figure of its own in the air; dust otherwise,
+     * walked at the hazard edge's spacing so a box as long as a wall does not cost a ring's worth
+     * of dust per edge.</p>
+     */
+    public static void box(ServerLevel level, AABB box, BossTelegraphPaint paint) {
+        List<TelegraphLineGeometry.Edge> edges = TelegraphLineGeometry.boxEdges(box);
+        if (paint.lines()) {
+            for (TelegraphLineGeometry.Edge edge : edges) {
+                BossTelegraphFrames.add(level, paint, TelegraphShape.link(edge.from(), edge.to(), paint.rgb(), false));
+            }
+            return;
+        }
+        DustParticleOptions dust = paint.dust();
+        for (TelegraphLineGeometry.Edge edge : edges) {
+            Vec3 step = edge.to().subtract(edge.from());
+            int points = Mth.clamp((int) Math.round(step.length() / EDGE_EMIT_SPACING), 1, MAX_LINE_POINTS);
+            for (int i = 0; i <= points; i++) {
+                Vec3 point = edge.from().add(step.scale((double) i / points));
+                level.sendParticles(dust, point.x, point.y, point.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+            }
+        }
     }
 
     /** A full circle lying on the floor, walked the way the area attack's wave is. */

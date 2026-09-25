@@ -2162,6 +2162,8 @@ public final class TeleportPathController {
             case SHADOW -> shadows.hasCopies();
             case SEISMIC -> BossSeismicScheduler.hasPending(npc);
             case RIFT -> rift.isActive();
+            // Until the timer is spent, stopped or dropped, and its last vent has gone out.
+            case VENT -> BossVentScheduler.hasPending(npc);
             case GEYSER -> BossGeyserScheduler.hasPending(npc);
             case BOULDER_RAIN -> BossBoulderRainScheduler.hasPending(npc);
             case TETHER -> BossTetherManager.countForBoss(npc.getUUID()) > 0;
@@ -2867,6 +2869,9 @@ public final class TeleportPathController {
         // seismic rings: nothing the boss does interrupts a series, but the fight ending does.
         BossHurricaneScheduler.clearBoss(npc);
         BossSeismicScheduler.clearBoss(npc);
+        // Nor does the vents' timer: it keeps its own beat through whatever the boss casts, but
+        // not past the phase, the fight or the boss that started it.
+        BossVentScheduler.clearBoss(npc);
         // Nor does a rift: whoever it took comes back, with nothing won or lost.
         rift.clear();
         dash.clear();

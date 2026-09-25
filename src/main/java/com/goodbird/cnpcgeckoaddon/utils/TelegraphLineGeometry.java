@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.utils;
 
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -82,6 +83,38 @@ public final class TelegraphLineGeometry {
         public double length() {
             return Math.max(0.0D, to - from);
         }
+    }
+
+    /** One straight edge of a shape that stands in the air rather than lying on the floor. */
+    public record Edge(Vec3 from, Vec3 to) {
+    }
+
+    /**
+     * The twelve edges of a box: four along each axis, each from the box's low side on that axis
+     * to its high one. What outlines a volume in the air - a vent's column or the slab of air in
+     * front of a wall - where a shape on the floor would say nothing about its height.
+     */
+    public static List<Edge> boxEdges(AABB box) {
+        List<Edge> edges = new ArrayList<>(12);
+        double[] xs = {box.minX, box.maxX};
+        double[] ys = {box.minY, box.maxY};
+        double[] zs = {box.minZ, box.maxZ};
+        for (double y : ys) {
+            for (double z : zs) {
+                edges.add(new Edge(new Vec3(box.minX, y, z), new Vec3(box.maxX, y, z)));
+            }
+        }
+        for (double x : xs) {
+            for (double z : zs) {
+                edges.add(new Edge(new Vec3(x, box.minY, z), new Vec3(x, box.maxY, z)));
+            }
+        }
+        for (double x : xs) {
+            for (double y : ys) {
+                edges.add(new Edge(new Vec3(x, y, box.minZ), new Vec3(x, y, box.maxZ)));
+            }
+        }
+        return edges;
     }
 
     /** Every line a shape's outline is drawn as. */
