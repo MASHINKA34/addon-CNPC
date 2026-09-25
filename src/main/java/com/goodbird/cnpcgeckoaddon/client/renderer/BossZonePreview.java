@@ -189,6 +189,10 @@ public final class BossZonePreview {
         AABB whole = ZoneCoordinates.blockBox(corner1, corner2);
         AABB cut = ZoneCoordinates.clampToBuildHeight(whole, level.getMinBuildHeight(), level.getMaxBuildHeight());
         String title = I18n.get("cnpcgeckoaddon.boss.aggro_zone_title");
+        // A press takes down what the last one put up, as the button always has, so the zone just
+        // corrected is not drawn beside the one it replaces for the rest of its ten seconds. This
+        // button is the only thing that puts shapes up for a time.
+        TIMED.clear();
         show(cut == null ? KIND_INVALID : KIND_AGGRO, title, cut == null ? whole : cut);
         show(KIND_AGGRO, "1", marker(corner1));
         show(KIND_AGGRO, "2", marker(corner2));
