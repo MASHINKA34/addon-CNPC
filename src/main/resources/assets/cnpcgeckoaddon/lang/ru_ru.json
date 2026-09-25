@@ -1641,5 +1641,7 @@
   "cnpcgeckoaddon.zone.cancelled": "Выделение отменено.",
   "cnpcgeckoaddon.boss.zones_preview": "Зоны в мире: %s",
   "cnpcgeckoaddon.boss.zones_preview.on": "показывать",
-  "cnpcgeckoaddon.boss.zones_preview.off": "скрыть"
+  "cnpcgeckoaddon.boss.zones_preview.off": "скрыть",
+  "cnpcgeckoaddon.zone.select_box": "Выделить в мире…",
+  "cnpcgeckoaddon.zone.select_point": "Указать в мире…"
 }

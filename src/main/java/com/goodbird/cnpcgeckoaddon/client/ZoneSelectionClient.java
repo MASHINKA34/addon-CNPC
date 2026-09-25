@@ -47,6 +47,9 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 public final class ZoneSelectionClient {
 
     public static final String CANCELLED = "cnpcgeckoaddon.zone.cancelled";
+    /** What the button of an editor with a box to pick reads, and of one with a spot to pick. */
+    public static final String SELECT_BOX = "cnpcgeckoaddon.zone.select_box";
+    public static final String SELECT_POINT = "cnpcgeckoaddon.zone.select_point";
 
     /**
      * How far the crosshair reaches for a block while picking. Much further than a hand does:

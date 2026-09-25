@@ -1,8 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.BossCastSpot;
 import com.goodbird.cnpcgeckoaddon.data.NpcLaunchPadData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcLaunchPadData;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -30,6 +33,7 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
     private static final int LAUNCH_SOUND_BUTTON = 14;
     private static final int LAUNCH_PARTICLES_BUTTON = 15;
     private static final int EXPIRE_PARTICLES_BUTTON = 16;
+    private static final int SELECT_BUTTON = 17;
     private static final int TITLE_LABEL = 30;
     private static final int FIRST_HINT_LABEL = 40;
     private static final int SECOND_HINT_LABEL = 50;
@@ -76,6 +80,8 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
         addTextField(coordinateField(Z_FIELD, guiLeft + 188, y, 52, data.getZ()));
         y += ROW_HEIGHT;
 
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, y, 100, BUTTON_HEIGHT,
+                ZoneSelectionClient.SELECT_POINT));
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 112, y, 130, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
         y += ROW_HEIGHT;
@@ -142,6 +148,15 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
             data.setCoordinateMode(button.getValue());
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // The block clicked itself, not the one in front of it: the pad lands players on top of
+            // the block it names, the one "use my position" takes from under the feet.
+            ZoneSelectionClient.selectPoint(BossZonePreview.KIND_PLAIN, (picked, anchor) -> {
+                BlockPos at = ZoneCoordinates.toStored(picked.block(),
+                        data.getCoordinateMode() == NpcLaunchPadData.COORDINATE_ABSOLUTE, anchor);
+                data.setPosition(at.getX(), at.getY(), at.getZ());
+            });
         } else if (button.id == NO_FALL_BUTTON) {
             data.setNoFallDamage(((GuiButtonYesNo) button).getBoolean());
         } else if (button.id == SOUND_BUTTON) {

@@ -1,7 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -18,6 +20,7 @@ public final class SubGuiBossChestPlace extends SubGuiFieldScreen implements Bos
     private static final int Y_FIELD = 4;
     private static final int Z_FIELD = 5;
     private static final int HERE_BUTTON = 6;
+    private static final int SELECT_BUTTON = 7;
 
     private final TeleportPathData data;
 
@@ -44,8 +47,11 @@ public final class SubGuiBossChestPlace extends SubGuiFieldScreen implements Bos
         addTextField(coordinateField(Y_FIELD, guiLeft + 90, guiTop + 68, 74, 0));
         addTextField(coordinateField(Z_FIELD, guiLeft + 172, guiTop + 68, 70, 0));
 
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 94, 234, 20,
+        // Two to the row: "use my position" takes 117 of its 124 in Russian.
+        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 94, 124, 20,
                 "cnpcgeckoaddon.boss.chest_here"));
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 136, guiTop + 94, 106, 20,
+                ZoneSelectionClient.SELECT_POINT));
         addDoneButton(guiLeft + 182, guiTop + 130, 60, 20);
 
         refresh();
@@ -72,6 +78,11 @@ public final class SubGuiBossChestPlace extends SubGuiFieldScreen implements Bos
             // of a few blocks, and standing somewhere says nothing about what that should be.
             here.setEnabled(fixed);
         }
+        GuiButtonNop select = getButton(SELECT_BUTTON);
+        if (select != null) {
+            // The arena's offset has an anchor to measure a picked block from; the death spot's has not.
+            select.setEnabled(fixed || data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_ARENA);
+        }
     }
 
     private void showValue(int id, int value, boolean editable) {
@@ -92,6 +103,18 @@ public final class SubGuiBossChestPlace extends SubGuiFieldScreen implements Bos
             refresh();
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // The block the chest is set down in: where it is, or its offset from the arena.
+            ZoneSelectionClient.selectPoint(BossZonePreview.KIND_CHEST, (picked, anchor) -> {
+                BlockPos at = picked.inFront();
+                if (data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_FIXED) {
+                    data.setChestFixed(at.getX(), at.getY(), at.getZ());
+                } else if (data.getChestPlacement() == TeleportPathData.CHEST_PLACEMENT_ARENA) {
+                    BlockPos offset = ZoneCoordinates.fixedToOffset(at, anchor);
+                    data.setChestOffset(offset.getX(), offset.getY(), offset.getZ());
+                }
+            });
         }
     }
 

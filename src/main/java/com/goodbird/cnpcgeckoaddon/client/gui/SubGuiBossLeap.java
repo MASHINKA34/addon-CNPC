@@ -1,7 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -29,6 +32,7 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
     private static final int Y_FIELD = 11;
     private static final int Z_FIELD = 12;
     private static final int HERE_BUTTON = 13;
+    private static final int SELECT_BUTTON = 16;
     private static final int IMPACT_BUTTON = 14;
     private static final int TUNING_BUTTON = 15;
     private static final int EFFECTS_BUTTON = 67;
@@ -44,7 +48,7 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
         imageWidth = 256;
         // A row taller than the panel it used to be: the fine-tuning button sits under the
         // rest, so every row above it stays exactly where a builder is used to finding it.
-        imageHeight = 282;
+        imageHeight = 306;
         closeOnEsc = true;
     }
 
@@ -104,7 +108,10 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.chest_here"));
         addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 256, 236, 20,
+        // The pick under "use my position", and the fine-tuning a row further down for it.
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 6, guiTop + 256, 236, 20,
+                ZoneSelectionClient.SELECT_POINT));
+        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 280, 236, 20,
                 "cnpcgeckoaddon.boss.leap_tuning"));
 
         refresh();
@@ -130,6 +137,11 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
             // Only the fixed mode has somewhere to put a position. The offset is measured
             // from the arena spot, and standing somewhere says nothing about what it is.
             here.setEnabled(fixed);
+        }
+        GuiButtonNop select = getButton(SELECT_BUTTON);
+        if (select != null) {
+            // The arena offset has an anchor to measure a picked block from, unlike standing there.
+            select.setEnabled(fixed || arena);
         }
     }
 
@@ -186,6 +198,18 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
             phase.leap().setTargetMode(button.getValue());
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // The block the boss comes down in: where it is, or its offset from the arena spot.
+            ZoneSelectionClient.selectPoint(BossAbilityKind.LEAP, (picked, anchor) -> {
+                BlockPos at = picked.inFront();
+                if (phase.leap().getMode() == BossPhaseData.LEAP_MODE_FIXED) {
+                    phase.leap().setFixed(at.getX(), at.getY(), at.getZ());
+                } else if (phase.leap().getMode() == BossPhaseData.LEAP_MODE_ARENA_OFFSET) {
+                    BlockPos offset = ZoneCoordinates.fixedToOffset(at, anchor);
+                    phase.leap().setOffset(offset.getX(), offset.getY(), offset.getZ());
+                }
+            });
         } else if (button.id == ANIMATION_FIELD) {
             setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.leap_animation",
                     BossAnimationGuiUtil.getAnimations(npc), name -> {

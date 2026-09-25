@@ -1,8 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -28,6 +31,7 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen implements Bos
     private static final int DELETE_BUTTON = 12;
     private static final int VULNERABILITY_BUTTON = 13;
     private static final int VULNERABILITY_PICK_BUTTON = 14;
+    private static final int SELECT_BUTTON = 15;
     private static final int BEAM_WIDTH_HINT_LABEL = 40;
 
     /** Where the beam-width hint starts, from the panel's top: under the last row. */
@@ -131,6 +135,8 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen implements Bos
         // line says so, and the value the field shows after Done is what was really kept.
         addWrappedHint(BEAM_WIDTH_HINT_LABEL, BEAM_WIDTH_HINT, guiTop + HINT_Y);
 
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + selectY(), 234, 20,
+                ZoneSelectionClient.SELECT_POINT));
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + buttonsY(), 92, 20,
                 "cnpcgeckoaddon.boss.totem_here"));
         addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + buttonsY(), 72, 20,
@@ -138,9 +144,14 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen implements Bos
         addDoneButton(guiLeft + 182, guiTop + buttonsY(), 60, 20);
     }
 
-    /** Where the bottom row goes, from the panel's top: under the hint, however it wraps. */
-    private int buttonsY() {
+    /** Where the pick in the world goes, from the panel's top: under the hint, however it wraps. */
+    private int selectY() {
         return HINT_Y + wrappedHintHeight(BEAM_WIDTH_HINT) + 4;
+    }
+
+    /** Where the bottom row goes, from the panel's top: under the pick. */
+    private int buttonsY() {
+        return selectY() + 24;
     }
 
     /** The ability list is only ever read in the listed mode, so it only shows up there. */
@@ -189,6 +200,15 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen implements Bos
             entry.setBeamStyleOverride(selected == 0 ? "" : HookCordStyles.values().get(selected - 1).id());
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // The block the totem is to stand in, in the entry's own mode, facing the way the builder looked.
+            ZoneSelectionClient.selectPoint(BossZonePreview.KIND_TOTEM, (picked, anchor) -> {
+                BlockPos at = ZoneCoordinates.toStored(picked.inFront(),
+                        entry.getCoordinateMode() == BossTotemEntry.COORDINATE_FIXED, anchor);
+                entry.setPosition(at.getX(), at.getY(), at.getZ());
+                entry.setYaw(picked.yaw());
+            });
         } else if (button.id == DELETE_BUTTON) {
             data.getTotems().remove(index);
             super.close();

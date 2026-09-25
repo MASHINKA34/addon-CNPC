@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.Minecraft;
@@ -28,6 +29,7 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
     private static final int SHOW_BUTTON = 13;
     private static final int EXCLUSIVE_BUTTON = 14;
     private static final int BLOCK_OUTSIDE_BUTTON = 15;
+    private static final int SELECT_BUTTON = 16;
     /** Where the hints start, under the show button. */
     private static final int HINTS_Y = 255;
     private static final int BUTTON_HEIGHT = 20;
@@ -82,8 +84,11 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, guiTop + 203,
                 data.getAggroZoneX2(), data.getAggroZoneY2(), data.getAggroZoneZ2());
 
-        addButton(new GuiButtonNop(this, SHOW_BUTTON, guiLeft + 8, guiTop + 229, 234, 20,
+        // Show and select share the row: the show button's longest translation takes 117 of its 124.
+        addButton(new GuiButtonNop(this, SHOW_BUTTON, guiLeft + 8, guiTop + 229, 124, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_show"));
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 136, guiTop + 229, 106, 20,
+                ZoneSelectionClient.SELECT_BOX));
         // Wrapped, both: a single label never wraps, and the second hint is wider than the panel.
         int hintY = addWrappedHint(33, HINT, guiTop + HINTS_Y);
         addWrappedHint(40, EXCLUSIVE_HINT, hintY);
@@ -125,6 +130,13 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         } else if (button.id == SHOW_BUTTON) {
             applyFields();
             BossZonePreview.showAggroZone(data);
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // The zone keeps world blocks, so the two corners go in as they were clicked.
+            ZoneSelectionClient.selectBox(BossZonePreview.KIND_AGGRO, (box, anchor) -> {
+                data.setAggroZoneCorner1(box.min().getX(), box.min().getY(), box.min().getZ());
+                data.setAggroZoneCorner2(box.max().getX(), box.max().getY(), box.max().getZ());
+            });
         }
     }
 

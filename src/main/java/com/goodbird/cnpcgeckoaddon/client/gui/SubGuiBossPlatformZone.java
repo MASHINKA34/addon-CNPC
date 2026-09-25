@@ -1,7 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformZone;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -31,6 +34,7 @@ public final class SubGuiBossPlatformZone extends SubGuiFieldScreen implements B
     private static final int WEIGHT_FIELD = 13;
     private static final int DELETE_BUTTON = 14;
     private static final int ARENA_HINT_LABEL = 15;
+    private static final int SELECT_BUTTON = 16;
     private static final int TITLE_LABEL = 30;
 
     /** The rows, the hint and the buttons, packed so the whole platform fits one panel. */
@@ -40,9 +44,11 @@ public final class SubGuiBossPlatformZone extends SubGuiFieldScreen implements B
     private static final int CORNER2_Y = 101;
     /** How far under a corner's label its fields start. */
     private static final int CORNER_FIELDS_DROP = 12;
-    private static final int WEIGHT_Y = 137;
-    private static final int HINT_Y = 162;
-    private static final int BUTTONS_Y = 180;
+    /** The pick in the world, on a row of its own under the corners it fills. */
+    private static final int SELECT_Y = 137;
+    private static final int WEIGHT_Y = 159;
+    private static final int HINT_Y = 184;
+    private static final int BUTTONS_Y = 202;
 
     private static final String[] COORDINATE_LABELS = {
             "cnpcgeckoaddon.boss.minion_spawn_arena",
@@ -92,6 +98,9 @@ public final class SubGuiBossPlatformZone extends SubGuiFieldScreen implements B
         addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, guiTop + CORNER2_Y + CORNER_FIELDS_DROP,
                 zone.getX2(), zone.getY2(), zone.getZ2());
 
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
+                ZoneSelectionClient.SELECT_BOX));
+
         addNumberField(WEIGHT_FIELD, "cnpcgeckoaddon.boss.platform_zone_weight", guiTop + WEIGHT_Y,
                 zone.getWeight(), BossPlatformZone.MIN_WEIGHT, BossPlatformZone.MAX_WEIGHT, BossPlatformZone.MIN_WEIGHT);
 
@@ -137,6 +146,17 @@ public final class SubGuiBossPlatformZone extends SubGuiFieldScreen implements B
                 zone.setCorner2(here.getX(), here.getY(), here.getZ());
                 showCorner(X2_FIELD, Y2_FIELD, Z2_FIELD, zone.getX2(), zone.getY2(), zone.getZ2());
             }
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // Written in the platform's own mode, an offset measured from the same block "use my
+            // position" measures from.
+            ZoneSelectionClient.selectBox(BossAbilityKind.PLATFORM, (box, anchor) -> {
+                boolean fixed = zone.getCoordinateMode() == BossPlatformZone.COORDINATE_FIXED;
+                BlockPos min = ZoneCoordinates.toStored(box.min(), fixed, anchor);
+                BlockPos max = ZoneCoordinates.toStored(box.max(), fixed, anchor);
+                zone.setCorner1(min.getX(), min.getY(), min.getZ());
+                zone.setCorner2(max.getX(), max.getY(), max.getZ());
+            });
         } else if (button.id == DELETE_BUTTON) {
             phase.platform().getZones().remove(index);
             close();

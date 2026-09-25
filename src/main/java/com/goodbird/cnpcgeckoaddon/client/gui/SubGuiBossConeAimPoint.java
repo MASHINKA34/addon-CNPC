@@ -1,7 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossConeAimPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -25,11 +28,14 @@ public final class SubGuiBossConeAimPoint extends SubGuiFieldScreen implements B
     private static final int HERE_BUTTON = 10;
     private static final int DELETE_BUTTON = 11;
     private static final int ARENA_HINT_LABEL = 12;
+    private static final int SELECT_BUTTON = 13;
     private static final int TITLE_LABEL = 30;
 
     /** Three rows, the hint and the buttons: the summon point's screen without its clone rows. */
     private static final int HINT_Y = 97;
-    private static final int BUTTONS_Y = 112;
+    /** The pick in the world, on a row of its own between the hint and the buttons. */
+    private static final int SELECT_Y = 112;
+    private static final int BUTTONS_Y = 136;
 
     private static final String[] COORDINATE_LABELS = {
             "cnpcgeckoaddon.boss.minion_spawn_arena",
@@ -77,6 +83,8 @@ public final class SubGuiBossConeAimPoint extends SubGuiFieldScreen implements B
 
         addLabel(new GuiLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
                 guiLeft + 8, guiTop + HINT_Y, 0xA0A0A0));
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
+                ZoneSelectionClient.SELECT_POINT));
         // Wider than the summon point's: "use my position" runs past 92 pixels in Russian.
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + BUTTONS_Y, 110, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_here"));
@@ -103,6 +111,13 @@ public final class SubGuiBossConeAimPoint extends SubGuiFieldScreen implements B
             updateCoordinateHint();
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            ZoneSelectionClient.selectPoint(BossAbilityKind.CONE, (picked, anchor) -> {
+                BlockPos at = ZoneCoordinates.toStored(picked.inFront(),
+                        point.getCoordinateMode() == BossConeAimPoint.COORDINATE_FIXED, anchor);
+                point.setPosition(at.getX(), at.getY(), at.getZ());
+            });
         } else if (button.id == DELETE_BUTTON) {
             phase.cone().getPoints().remove(index);
             close();

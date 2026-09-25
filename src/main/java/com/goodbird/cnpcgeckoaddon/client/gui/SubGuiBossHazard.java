@@ -1,5 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -35,6 +37,8 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
     private static final int Z2_FIELD = 22;
     private static final int CORNER2_HERE_BUTTON = 23;
     private static final int TUNING_BUTTON = 24;
+    private static final int SELECT_BOX_BUTTON = 25;
+    private static final int SELECT_CENTER_BUTTON = 26;
     private static final int EFFECTS_BUTTON = 67;
 
     private final BossPhaseData phase;
@@ -44,7 +48,8 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 272;
+        // A row taller than it used to be: the pick in the world sits under the shape's rows.
+        imageHeight = 293;
         closeOnEsc = true;
     }
 
@@ -96,6 +101,14 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
                 phase.hazard().getShrinkTicks(), 20, 24000, 1200);
         y += 21;
 
+        // A fifth row under both shapes: the box picks its two corners in the world, the ring its
+        // fixed centre. Both buttons share it, and only the one the shape in force reads is shown.
+        addButton(new GuiButtonNop(this, SELECT_BOX_BUTTON, guiLeft + 6, y, 236, 20,
+                ZoneSelectionClient.SELECT_BOX));
+        addButton(new GuiButtonNop(this, SELECT_CENTER_BUTTON, guiLeft + 6, y, 236, 20,
+                ZoneSelectionClient.SELECT_POINT));
+        y += 21;
+
         // The box is measured the way the aggro zone is: two corners, either order.
         int boxY = shapeY;
         addLabel(new GuiLabel(CORNER1_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner1", guiLeft + 6, boxY + 6));
@@ -135,6 +148,8 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
         showField(CENTER_X_FIELD, point);
         showField(CENTER_Z_FIELD, point);
         showButton(CENTER_HERE_BUTTON, point);
+        showButton(SELECT_CENTER_BUTTON, point);
+        showButton(SELECT_BOX_BUTTON, !ring);
         showLabel(START_RADIUS_FIELD, ring);
         showField(START_RADIUS_FIELD, ring);
         showField(END_RADIUS_FIELD, ring);
@@ -238,6 +253,19 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
         } else if (button.id == CENTER_BUTTON) {
             phase.hazard().setCenterMode(button.getValue());
             applyModeRows();
+        } else if (button.id == SELECT_BOX_BUTTON) {
+            applyFields();
+            // The box keeps world blocks, so the two corners go in as they were clicked.
+            ZoneSelectionClient.selectBox(BossAbilityKind.HAZARD, (box, anchor) -> {
+                phase.hazard().setCorner1(box.min().getX(), box.min().getY(), box.min().getZ());
+                phase.hazard().setCorner2(box.max().getX(), box.max().getY(), box.max().getZ());
+            });
+        } else if (button.id == SELECT_CENTER_BUTTON) {
+            applyFields();
+            ZoneSelectionClient.selectPoint(BossAbilityKind.HAZARD, (picked, anchor) -> {
+                BlockPos centre = picked.inFront();
+                phase.hazard().setCenter(centre.getX(), centre.getZ());
+            });
         } else if (button.id == CENTER_HERE_BUTTON) {
             BlockPos pos = playerPosition();
             if (pos != null) {

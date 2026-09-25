@@ -1,9 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossAbility;
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossCastSpot;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.resources.language.I18n;
@@ -36,6 +38,7 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen implements BossZ
     private static final int REPATH_FIELD = 13;
     private static final int RETRY_FIELD = 14;
     private static final int WALK_SPEED_FIELD = 15;
+    private static final int SELECT_BUTTON = 16;
     private static final int TITLE_LABEL = 30;
     private static final int FIRST_HINT_LABEL = 40;
 
@@ -77,6 +80,8 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen implements BossZ
         addTextField(coordinateField(Z_FIELD, guiLeft + 188, y, 52, spot.getZ()));
         y += ROW_HEIGHT;
 
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, y, 100, 20,
+                ZoneSelectionClient.SELECT_POINT));
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 112, y, 130, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_here"));
         y += ROW_HEIGHT;
@@ -138,6 +143,16 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen implements BossZ
             spot.setCoordinateMode(button.getValue());
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // The block the boss is to stand in, in the spot's own mode; the fixed facing takes the
+            // way the builder looked, and is read only when the facing is set to fixed.
+            ZoneSelectionClient.selectPoint(ability.kind(), (picked, anchor) -> {
+                BlockPos at = ZoneCoordinates.toStored(picked.inFront(),
+                        spot.getCoordinateMode() == BossCastSpot.COORDINATE_ABSOLUTE, anchor);
+                spot.setPosition(at.getX(), at.getY(), at.getZ());
+                spot.setYaw(picked.yaw());
+            });
         } else if (button.id == YAW_MODE_BUTTON) {
             spot.setYawMode(button.getValue());
         } else if (button.id == STAY_MODE_BUTTON) {

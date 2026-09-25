@@ -1,9 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossRiftDimension;
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftCrystalPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -31,16 +34,19 @@ public final class SubGuiBossRiftCrystalPoint extends SubGuiFieldScreen implemen
     private static final int COLOR_FIELD = 10;
     private static final int DELETE_BUTTON = 11;
     private static final int ARENA_HINT_LABEL = 12;
+    private static final int SELECT_BUTTON = 13;
     private static final int TITLE_LABEL = 30;
 
     private static final int ENABLED_Y = 22;
     private static final int COORDINATE_Y = 44;
     private static final int POSITION_Y = 66;
-    private static final int RADIUS_Y = 88;
-    private static final int BLOCK_Y = 110;
-    private static final int COLOR_Y = 132;
-    private static final int HINT_Y = 158;
-    private static final int BUTTONS_Y = 176;
+    /** The pick in the world, on a row of its own under the position it fills. */
+    private static final int SELECT_Y = 88;
+    private static final int RADIUS_Y = 110;
+    private static final int BLOCK_Y = 132;
+    private static final int COLOR_Y = 154;
+    private static final int HINT_Y = 180;
+    private static final int BUTTONS_Y = 198;
 
     private static final int CONTROL_HEIGHT = 20;
     private static final int LABEL_X = 8;
@@ -90,6 +96,9 @@ public final class SubGuiBossRiftCrystalPoint extends SubGuiFieldScreen implemen
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 142, guiTop + POSITION_Y, 100, CONTROL_HEIGHT,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
 
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + LABEL_X, guiTop + SELECT_Y, 234, CONTROL_HEIGHT,
+                ZoneSelectionClient.SELECT_POINT));
+
         addNumberField(RADIUS_FIELD, "cnpcgeckoaddon.boss.rift_crystal_point_radius", guiTop + RADIUS_Y,
                 point.getRadiusTenths(), 0, BossRiftCrystalPoint.MAX_RADIUS_TENTHS, 0);
 
@@ -121,6 +130,15 @@ public final class SubGuiBossRiftCrystalPoint extends SubGuiFieldScreen implemen
             point.setCoordinateMode(button.getValue());
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // An offset is the shape marked out round the boss, which the rift lays out round the
+            // middle of its platform - the same rule "use my position" follows.
+            ZoneSelectionClient.selectPoint(BossAbilityKind.RIFT, (picked, anchor) -> {
+                BlockPos at = ZoneCoordinates.toStored(picked.inFront(),
+                        point.getCoordinateMode() == BossRiftCrystalPoint.COORDINATE_FIXED, anchor);
+                point.setPosition(at.getX(), at.getY(), at.getZ());
+            });
         } else if (button.id == BLOCK_SELECT_BUTTON) {
             applyFields();
             setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.string_picker.rift_crystal_block",

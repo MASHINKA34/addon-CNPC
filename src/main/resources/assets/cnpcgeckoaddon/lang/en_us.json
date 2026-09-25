@@ -1641,5 +1641,7 @@
   "cnpcgeckoaddon.zone.cancelled": "Selection cancelled.",
   "cnpcgeckoaddon.boss.zones_preview": "Zones in the world: %s",
   "cnpcgeckoaddon.boss.zones_preview.on": "shown",
-  "cnpcgeckoaddon.boss.zones_preview.off": "hidden"
+  "cnpcgeckoaddon.boss.zones_preview.off": "hidden",
+  "cnpcgeckoaddon.zone.select_box": "Select in the world...",
+  "cnpcgeckoaddon.zone.select_point": "Point in the world..."
 }

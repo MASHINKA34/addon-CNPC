@@ -1,8 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnList;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -26,6 +29,7 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen implemen
     private static final int HERE_BUTTON = 10;
     private static final int DELETE_BUTTON = 11;
     private static final int ARENA_HINT_LABEL = 12;
+    private static final int SELECT_BUTTON = 13;
 
     private static final String[] COORDINATE_LABELS = {
             "cnpcgeckoaddon.boss.minion_spawn_arena",
@@ -110,6 +114,9 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen implemen
 
         addLabel(new GuiLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
                 guiLeft + 8, guiTop + 181, 0xA0A0A0));
+        // In the gap between the hint and the bottom row, which was empty.
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + 204, 234, 20,
+                ZoneSelectionClient.SELECT_POINT));
         addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 230, 92, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_here"));
         addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + 230, 72, 20,
@@ -147,10 +154,28 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen implemen
             updateCoordinateHint();
         } else if (button.id == HERE_BUTTON) {
             takePlayerPosition();
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // The block in front of the face clicked - on a floor, the block a clone stands in -
+            // in the point's own mode, facing the way the builder looked.
+            ZoneSelectionClient.selectPoint(pointKind(), (picked, anchor) -> {
+                BlockPos at = ZoneCoordinates.toStored(picked.inFront(),
+                        point.getCoordinateMode() == BossMinionSpawnPoint.COORDINATE_FIXED, anchor);
+                point.setPosition(at.getX(), at.getY(), at.getZ());
+                point.setYaw(picked.yaw());
+            });
         } else if (button.id == DELETE_BUTTON) {
             points.remove(index);
             super.close();
         }
+    }
+
+    /** The ability whose list this point is on, which the pick is outlined in the colour of. */
+    private int pointKind() {
+        if (points == phase.shadow().getPoints()) {
+            return BossAbilityKind.SHADOW;
+        }
+        return points == phase.rift().getMinionPoints() ? BossAbilityKind.RIFT : BossAbilityKind.SUMMON;
     }
 
     private void takePlayerPosition() {

@@ -1,7 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossVentZone;
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -35,6 +38,7 @@ public final class SubGuiBossVentZone extends SubGuiFieldScreen implements BossZ
     private static final int WEIGHT_FIELD = 17;
     private static final int DELETE_BUTTON = 18;
     private static final int ARENA_HINT_LABEL = 19;
+    private static final int SELECT_BUTTON = 20;
     private static final int TITLE_LABEL = 30;
     private static final int FIRST_HINT_LABEL = 40;
 
@@ -45,13 +49,15 @@ public final class SubGuiBossVentZone extends SubGuiFieldScreen implements BossZ
     private static final int CORNER2_Y = 101;
     /** How far under a corner's label its fields start. */
     private static final int CORNER_FIELDS_DROP = 12;
-    private static final int FACE_Y = 137;
-    private static final int REACH_Y = 159;
-    private static final int MODE_Y = 181;
-    private static final int DELAY_Y = 203;
-    private static final int WEIGHT_Y = 225;
-    private static final int ARENA_HINT_Y = 250;
-    private static final int HINT_Y = 262;
+    /** The pick in the world, on a row of its own under the corners it fills. */
+    private static final int SELECT_Y = 137;
+    private static final int FACE_Y = 159;
+    private static final int REACH_Y = 181;
+    private static final int MODE_Y = 203;
+    private static final int DELAY_Y = 225;
+    private static final int WEIGHT_Y = 247;
+    private static final int ARENA_HINT_Y = 272;
+    private static final int HINT_Y = 284;
     private static final int BUTTONS_GAP = 4;
     private static final int BOTTOM_MARGIN = 6;
     private static final String HINT = "cnpcgeckoaddon.boss.vent_zone_hint";
@@ -104,6 +110,9 @@ public final class SubGuiBossVentZone extends SubGuiFieldScreen implements BossZ
                 guiTop + CORNER2_Y + 2));
         addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, guiTop + CORNER2_Y + CORNER_FIELDS_DROP,
                 zone.getX2(), zone.getY2(), zone.getZ2());
+
+        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
+                ZoneSelectionClient.SELECT_BOX));
 
         addLabel(new GuiLabel(FACE_BUTTON, "cnpcgeckoaddon.boss.vent_zone_face", guiLeft + 8,
                 guiTop + FACE_Y + 6));
@@ -172,6 +181,16 @@ public final class SubGuiBossVentZone extends SubGuiFieldScreen implements BossZ
                 zone.setCorner2(here.getX(), here.getY(), here.getZ());
                 showCorner(X2_FIELD, Y2_FIELD, Z2_FIELD, zone.getX2(), zone.getY2(), zone.getZ2());
             }
+        } else if (button.id == SELECT_BUTTON) {
+            applyFields();
+            // Written in the vent's own mode, the way a platform's pick is.
+            ZoneSelectionClient.selectBox(BossAbilityKind.VENT, (box, anchor) -> {
+                boolean fixed = zone.getCoordinateMode() == BossVentZone.COORDINATE_FIXED;
+                BlockPos min = ZoneCoordinates.toStored(box.min(), fixed, anchor);
+                BlockPos max = ZoneCoordinates.toStored(box.max(), fixed, anchor);
+                zone.setCorner1(min.getX(), min.getY(), min.getZ());
+                zone.setCorner2(max.getX(), max.getY(), max.getZ());
+            });
         } else if (button.id == DELETE_BUTTON) {
             phase.vent().getZones().remove(index);
             close();
