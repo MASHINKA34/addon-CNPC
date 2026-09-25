@@ -165,6 +165,65 @@ class BossVentGeometryTest {
     }
 
     @Test
+    @DisplayName("a pinned body is put back onto the far side if it went past, and left where something stopped it short")
+    void thePinSettlesOnTheFarSide() {
+        AABB north = new AABB(0, 64, -1, 3, 67, 0);
+        Vec3 past = BossVentGeometry.pinAt(new Vec3(1.5, 64, 6.1), north, BossVentZone.FACE_NORTH, 6,
+                player(1.5, 64, 6.1));
+        assertEquals(5.7D, past.z, 1.0E-6D, "moved back so its leading side rests on the far side");
+        assertEquals(1.5D, past.x, EPSILON, "and nowhere else");
+        assertEquals(64.0D, past.y, EPSILON);
+        Vec3 stopped = BossVentGeometry.pinAt(new Vec3(1.5, 64, 3), north, BossVentZone.FACE_NORTH, 6,
+                player(1.5, 64, 3));
+        assertEquals(new Vec3(1.5, 64, 3), stopped, "short of the far side it is held where it was stopped");
+        // A floor vent holds a player with their head at the top of its column.
+        AABB grate = new AABB(0, 64, 0, 3, 65, 3);
+        Vec3 up = BossVentGeometry.pinAt(new Vec3(1.5, 67.5, 1.5), grate, BossVentZone.FACE_FLOOR, 4,
+                player(1.5, 67.5, 1.5));
+        assertEquals(67.2D, up.y, 1.0E-6D);
+    }
+
+    @Test
+    @DisplayName("a wall carries a body at least at its own speed its way, and leaves anything faster or crosswise alone")
+    void aWallCarriesAtLeastItsOwnSpeed() {
+        assertEquals(0.8D, BossVentGeometry.carriedBy(0.1D, 0.8D), EPSILON, "a slow body is brought up to the wall");
+        assertEquals(1.5D, BossVentGeometry.carriedBy(1.5D, 0.8D), EPSILON, "a faster one keeps its own");
+        assertEquals(0.8D, BossVentGeometry.carriedBy(-0.4D, 0.8D), EPSILON, "walking into the wall is turned round");
+        assertEquals(-0.8D, BossVentGeometry.carriedBy(0.3D, -0.8D), EPSILON, "the same the other way");
+        assertEquals(0.3D, BossVentGeometry.carriedBy(0.3D, 0.0D), EPSILON, "an axis the wall does not move on is left");
+        assertEquals(new Vec3(0.2, 0.8, -0.1), BossVentGeometry.mobCarry(new Vec3(0.2, -0.3, -0.1), new Vec3(0, 0.8, 0)));
+    }
+
+    @Test
+    @DisplayName("what is set on a player arrives, after the server's own pass, as the wall's push on top of their own run")
+    void aPlayerIsCarriedThroughTheServersPass() {
+        double drag = BossVentGeometry.GROUND_DRAG;
+        Vec3 step = new Vec3(0.2, 0.0, 0.1);
+        Vec3 set = BossVentGeometry.playerCarry(step, -0.0784D, new Vec3(0, 0, 0.8), drag);
+        // The server wears the sideways speed by the drag once more before it is sent.
+        assertEquals(0.2D * drag, set.x * drag, 1.0E-9D, "their own run sideways, as their client would have it");
+        assertEquals(0.8D, set.z * drag, 1.0E-9D, "and the wall's speed along it");
+        assertEquals(-0.0784D, set.y, EPSILON, "the height they move at is left alone by a wall that does not lift");
+        // Straight up: set so that the server's drag and gravity leave exactly the push.
+        Vec3 lifted = BossVentGeometry.playerCarry(step, 0.0D, new Vec3(0, 1.0, 0), BossVentGeometry.AIR_DRAG);
+        assertEquals(1.0D, (lifted.y - BossVentGeometry.GRAVITY) * BossVentGeometry.VERTICAL_DRAG, 1.0E-9D);
+        assertEquals(0.2D, lifted.x, 1.0E-9D, "no sideways push is their own step, worn once by the server");
+    }
+
+    @Test
+    @DisplayName("a pinned player is sent a share of the way back to their spot, never faster than the hold allows")
+    void aPinnedPlayerIsServoedBack() {
+        double drag = BossVentGeometry.GROUND_DRAG;
+        Vec3 set = BossVentGeometry.playerHold(new Vec3(0, 64, 5.0), new Vec3(0, 64, 5.7), drag);
+        assertEquals(0.35D, set.z * drag, 1.0E-9D, "half the gap this tick");
+        assertEquals(0.0D, set.x, EPSILON);
+        assertEquals(0.0D, (set.y - BossVentGeometry.GRAVITY) * BossVentGeometry.VERTICAL_DRAG, 1.0E-9D,
+                "held at their height");
+        Vec3 far = BossVentGeometry.playerHold(new Vec3(0, 64, 0), new Vec3(0, 64, 10), drag);
+        assertEquals(BossVentGeometry.HOLD_MAX_SPEED, far.z * drag, 1.0E-9D, "a long way off is still one step at a time");
+    }
+
+    @Test
     @DisplayName("points over the vent lie on the plane asked for, across the whole cross-section")
     void planePointsSpanTheCrossSection() {
         AABB north = new AABB(0, 64, -1, 3, 67, 0);

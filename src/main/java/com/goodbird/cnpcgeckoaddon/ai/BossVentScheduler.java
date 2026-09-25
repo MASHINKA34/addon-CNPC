@@ -17,6 +17,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -24,8 +25,12 @@ import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -67,12 +72,14 @@ public final class BossVentScheduler {
      * them down at, per point of knockback: one is a hop, three sends them a dozen blocks high.
      */
     private static final double BLAST_LIFT_PER_KNOCKBACK = 0.5D;
+    /** How many ticks a wall's front takes to come out of its face to the far side. */
+    private static final int WALL_TRAVEL_TICKS = 5;
     /**
-     * What the server's own pass over a player takes off a vertical speed before the tracker sends
-     * it: drag, and one tick of gravity before that. See BossGravityScheduler for the same sum.
+     * How far ahead of a body a wall looks for something that stops it: pressed against a real
+     * wall, or a floor a ceiling vent presses it onto, it is as pinned as it will get.
      */
-    private static final double VERTICAL_DRAG = 0.98D;
-    private static final double GRAVITY = 0.08D;
+    private static final double BLOCK_PROBE = 0.1D;
+    private static final double POSITION_EPSILON_SQUARED = 1.0E-8D;
     /** How long after somebody a vent threw up has come down their landing is still forgiven. */
     private static final int LANDING_GRACE_TICKS = 40;
     /** A throw that never lands - into water, off the map - is forgotten after this. */
@@ -163,6 +170,8 @@ public final class BossVentScheduler {
         /** The vents in the world, by the place the clock knows each one by. */
         private final List<BossVentGeometry.Vent> vents;
         private final BossVentPlan clock;
+        /** Per wall still standing, whoever it has pinned and the spot it holds each of them on. */
+        private final Map<BossVentPlan.Activation, Map<UUID, Vec3>> pins = new IdentityHashMap<>();
 
         private Run(ResourceKey<Level> dimension, EntityNPCInterface boss, Look look,
                     List<BossVentGeometry.Vent> vents, BossVentPlan clock) {
@@ -192,6 +201,13 @@ public final class BossVentScheduler {
 
     private static final TickQueue<Run> RUNS = new TickQueue<>("boss vent timers", MAX_PER_TICK);
     private static final Map<UUID, Landing> LANDINGS = new HashMap<>();
+    /**
+     * This tick's walls, worked out while the timers tick and applied once all of them have: what
+     * each victim is carried along at, summed over every wall that has them, and where each pinned
+     * victim is held - a pin wins over any carry on the same tick.
+     */
+    private static final Map<LivingEntity, Vec3> CARRIES = new LinkedHashMap<>();
+    private static final Map<LivingEntity, Vec3> HOLDS = new LinkedHashMap<>();
 
     private BossVentScheduler() {
     }
@@ -237,7 +253,16 @@ public final class BossVentScheduler {
 
     public static void tick(ServerLevel level) {
         long gameTime = level.getGameTime();
-        RUNS.sweep(run -> run.dimension.equals(level.dimension()), run -> tickRun(level, run, gameTime));
+        // Emptied first as well as after: a timer that threw last tick left whatever it had added.
+        CARRIES.clear();
+        HOLDS.clear();
+        try {
+            RUNS.sweep(run -> run.dimension.equals(level.dimension()), run -> tickRun(level, run, gameTime));
+            applyWalls(level);
+        } finally {
+            CARRIES.clear();
+            HOLDS.clear();
+        }
         tickLandings(level, gameTime);
     }
 
@@ -275,6 +300,11 @@ public final class BossVentScheduler {
         Run run = RUNS.find(candidate -> candidate.boss == boss);
         if (run != null) {
             run.clock.stop();
+            // Whoever its walls hold is let go of now rather than left hanging for a tick that
+            // will never come.
+            if (boss.level() instanceof ServerLevel level) {
+                releaseAll(level, run, level.getGameTime());
+            }
         }
         RUNS.removeIf(candidate -> candidate.boss == boss);
     }
@@ -283,6 +313,7 @@ public final class BossVentScheduler {
     private static boolean tickRun(ServerLevel level, Run run, long gameTime) {
         TeleportPathController controller = controllerOf(run.boss);
         if (controller == null || !run.boss.isAlive() || run.boss.isRemoved() || run.boss.level() != level) {
+            releaseAll(level, run, gameTime);
             return false;
         }
         run.clock.tick(gameTime, new WorldSink(level, controller, run));
@@ -339,20 +370,29 @@ public final class BossVentScheduler {
 
         @Override
         public void fire(long now, BossVentPlan.Activation activation) {
+            BossVentGeometry.Vent vent = run.vents.get(activation.vent());
             if (activation.mode() == BossVentSettings.MODE_BURST) {
-                blast(level, controller, run, run.vents.get(activation.vent()), now);
+                blast(level, controller, run, vent, now);
+            } else if (activation.mode() == BossVentSettings.MODE_WALL) {
+                // One thud as the wall comes out; its front is what shows it standing after.
+                Vec3 face = faceCentre(vent);
+                run.look.wallSound.play(level, face.x, face.y, face.z, SoundSource.HOSTILE);
             }
         }
 
         @Override
         public void act(long now, BossVentPlan.Activation activation) {
+            BossVentGeometry.Vent vent = run.vents.get(activation.vent());
             if (activation.mode() == BossVentSettings.MODE_FLAME) {
-                flame(level, controller, run, run.vents.get(activation.vent()), activation.elapsed(now));
+                flame(level, controller, run, vent, activation.elapsed(now));
+            } else if (activation.mode() == BossVentSettings.MODE_WALL) {
+                wall(level, controller, run, activation, vent, now);
             }
         }
 
         @Override
         public void end(long now, BossVentPlan.Activation activation) {
+            release(level, run, activation, now);
         }
     }
 
@@ -415,7 +455,8 @@ public final class BossVentScheduler {
         Vec3 own = victim instanceof ServerPlayer player ? player.getKnownMovement() : victim.getDeltaMovement();
         // For a player the server's own pass runs before the send and takes a tick of gravity off
         // the throw, so that tick is put back in advance; a mob moves by exactly what it is handed.
-        double y = victim instanceof ServerPlayer ? speed / VERTICAL_DRAG + GRAVITY : speed;
+        double y = victim instanceof ServerPlayer
+                ? speed / BossVentGeometry.VERTICAL_DRAG + BossVentGeometry.GRAVITY : speed;
         victim.setDeltaMovement(own.x, y, own.z);
         if (speed > 0.0D) {
             victim.fallDistance = 0.0F;
@@ -471,6 +512,169 @@ public final class BossVentScheduler {
             Vec3 velocity = along.add((random.nextDouble() - 0.5D) * spread, (random.nextDouble() - 0.5D) * spread,
                     (random.nextDouble() - 0.5D) * spread);
             level.sendParticles(fire, at.x, at.y, at.z, 0, velocity.x, velocity.y, velocity.z, 1.0D);
+        }
+    }
+
+    /**
+     * One tick of a vent's wall: its front coming out of the face and standing at the far side,
+     * and everyone in front of it carried along the way it fires - out past the far side, or to
+     * the far side and held there, hit on the interval while they are.
+     *
+     * <p>Nothing here moves anybody yet. What each victim is owed is written down and applied once
+     * every timer of the level has had its tick, so two walls meeting on one victim push together
+     * rather than one after the other, and a pin always has the last word.</p>
+     *
+     * <p>Whoever something else already holds - a capture, a storm's ride - is left to it: two pins
+     * on one body only tell the client one thing and the server another.</p>
+     */
+    private static void wall(ServerLevel level, TeleportPathController controller, Run run,
+                             BossVentPlan.Activation activation, BossVentGeometry.Vent vent, long gameTime) {
+        Look look = run.look;
+        long elapsed = activation.elapsed(gameTime);
+        boolean pins = look.wallMode == BossVentSettings.WALL_PIN;
+        boolean floor = vent.face() == BossVentZone.FACE_FLOOR;
+        boolean bites = pins && look.wallDamage > 0 && elapsed % look.hitIntervalTicks == 0L;
+        double lift = floor ? look.wallLift : 0.0D;
+        Map<UUID, Vec3> pinned = run.pins.computeIfAbsent(activation, key -> new HashMap<>());
+        Set<UUID> inFront = new HashSet<>();
+        for (LivingEntity victim : controller.ventVictims(level, vent.volume())) {
+            UUID id = victim.getUUID();
+            if (BossAbilityDamageUtil.passesBy(victim, BossAbilityKind.VENT)
+                    || BossCaptureManager.isCaptured(id) || BossHurricaneScheduler.isHeld(id)) {
+                continue;
+            }
+            inFront.add(id);
+            AABB body = victim.getBoundingBox();
+            Vec3 spot = pinned.get(id);
+            if (pins && spot == null
+                    && (BossVentGeometry.atFarSide(vent.box(), vent.face(), vent.reach(), body) || blocked(level, victim, vent))) {
+                spot = BossVentGeometry.pinAt(victim.position(), vent.box(), vent.face(), vent.reach(), body);
+                pinned.put(id, spot);
+            }
+            if (spot != null) {
+                // The hit lands before the hold, so the shove vanilla puts on a hurt body is wiped by
+                // the hold rather than sent to the client as a tick of knockback it then undoes.
+                if (bites) {
+                    BossAbilityDamageUtil.hit(victim, BossAbilityKind.VENT, run.boss, look.wallDamage, look.effects,
+                            0, 0.0D, 0.0D);
+                }
+                if (victim.isAlive()) {
+                    HOLDS.put(victim, spot);
+                }
+            } else {
+                // A wall that pins slows to a stop at the far side rather than carrying anybody past it.
+                double speed = pins ? Math.min(look.wallPush + lift,
+                        Math.max(0.0D, BossVentGeometry.remaining(vent.box(), vent.face(), vent.reach(), body)))
+                        : look.wallPush;
+                Vec3 push = pins ? vent.dir().scale(speed) : BossVentGeometry.push(vent.face(), speed, lift);
+                CARRIES.merge(victim, push, Vec3::add);
+            }
+            if (floor) {
+                owesLanding(level, victim, gameTime);
+            }
+        }
+        // Whoever has left the front since - walked out along it, thrown clear, dead - is let go of.
+        pinned.keySet().retainAll(inFront);
+        ParticleOptions front = particle(look.wallParticles);
+        if (front != null && seen(level, run, vent)) {
+            scatter(level, vent, front,
+                    BossVentGeometry.shareBudget(look.particleBudget, look.wallParticles.getCount())[0],
+                    BossVentGeometry.wallFront(vent.reach(), elapsed, WALL_TRAVEL_TICKS), null);
+        }
+    }
+
+    /** Whether something solid stops this body going any further the way the wall pushes. */
+    private static boolean blocked(ServerLevel level, LivingEntity victim, BossVentGeometry.Vent vent) {
+        return !level.noBlockCollision(victim, victim.getBoundingBox().move(vent.dir().scale(BLOCK_PROBE)));
+    }
+
+    /** Sends every wall's victim what this tick's walls owe them: the holds, then the carries of the rest. */
+    private static void applyWalls(ServerLevel level) {
+        for (Map.Entry<LivingEntity, Vec3> entry : HOLDS.entrySet()) {
+            hold(level, entry.getKey(), entry.getValue());
+        }
+        for (Map.Entry<LivingEntity, Vec3> entry : CARRIES.entrySet()) {
+            if (!HOLDS.containsKey(entry.getKey())) {
+                carry(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    /**
+     * Keeps a pinned body on its spot, the capture's way without its packet: a mob is put back and
+     * stopped, which its tracker shows; a player is sent a share of the way back each tick, since
+     * their own client is what moves them and a position the server sets is simply overwritten.
+     */
+    private static void hold(ServerLevel level, LivingEntity victim, Vec3 spot) {
+        victim.fallDistance = 0.0F;
+        if (victim instanceof ServerPlayer player) {
+            double drag = player.onGround() ? BossVentGeometry.GROUND_DRAG : BossVentGeometry.AIR_DRAG;
+            victim.setDeltaMovement(BossVentGeometry.playerHold(victim.position(), spot, drag));
+            victim.hurtMarked = true;
+            return;
+        }
+        boolean moved = victim.position().distanceToSqr(spot) > POSITION_EPSILON_SQUARED;
+        boolean hadMotion = victim.getDeltaMovement().lengthSqr() > POSITION_EPSILON_SQUARED;
+        // Put back only where it fits: a spot inside a block is held from where the body is instead.
+        if (moved && level.noBlockCollision(victim, victim.getBoundingBox().move(spot.subtract(victim.position())))) {
+            victim.setPos(spot);
+        }
+        victim.setDeltaMovement(Vec3.ZERO);
+        victim.hurtMarked |= moved || hadMotion;
+        // A path left running would re-apply movement on the victim's own next tick.
+        if (victim instanceof Mob mob) {
+            mob.getNavigation().stop();
+        }
+    }
+
+    /**
+     * Carries a body along at a wall's speed: a player through the arithmetic that survives the
+     * server's own pass over them, a mob as it is, its own tick having already run.
+     */
+    private static void carry(LivingEntity victim, Vec3 push) {
+        if (victim instanceof ServerPlayer player) {
+            double drag = player.onGround() ? BossVentGeometry.GROUND_DRAG : BossVentGeometry.AIR_DRAG;
+            victim.setDeltaMovement(BossVentGeometry.playerCarry(player.getKnownMovement(),
+                    victim.getDeltaMovement().y, push, drag));
+        } else {
+            victim.setDeltaMovement(BossVentGeometry.mobCarry(victim.getDeltaMovement(), push));
+        }
+        if (push.y > 0.0D) {
+            victim.fallDistance = 0.0F;
+        }
+        // Players simulate their own movement, so the server has to push the new velocity to them
+        // explicitly. hurtMarked is what makes ServerEntity send it.
+        victim.hurtMarked = true;
+    }
+
+    /**
+     * Lets go of whoever one wall held, where they are, with the capture's nudge so a client sees
+     * a drop begin rather than a body hanging where it was pinned; a floor vent's owe it their
+     * landing, however high it held them.
+     */
+    private static void release(ServerLevel level, Run run, BossVentPlan.Activation activation, long gameTime) {
+        Map<UUID, Vec3> pinned = run.pins.remove(activation);
+        if (pinned == null || pinned.isEmpty()) {
+            return;
+        }
+        boolean floor = run.vents.get(activation.vent()).face() == BossVentZone.FACE_FLOOR;
+        for (UUID id : pinned.keySet()) {
+            if (!(level.getEntity(id) instanceof LivingEntity victim) || !victim.isAlive()) {
+                continue;
+            }
+            victim.setDeltaMovement(0.0D, -0.05D, 0.0D);
+            victim.fallDistance = 0.0F;
+            victim.hurtMarked = true;
+            if (floor) {
+                owesLanding(level, victim, gameTime);
+            }
+        }
+    }
+
+    /** Lets go of everyone every wall of one timer held: the timer is being dropped. */
+    private static void releaseAll(ServerLevel level, Run run, long gameTime) {
+        for (BossVentPlan.Activation activation : List.copyOf(run.pins.keySet())) {
+            release(level, run, activation, gameTime);
         }
     }
 

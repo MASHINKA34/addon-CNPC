@@ -24,6 +24,24 @@ final class BossVentGeometry {
 
     /** A body this close to its resting place is on it: what a pin settles for. */
     static final double REST_EPSILON = 1.0E-3D;
+    /**
+     * What a player keeps of their sideways speed between the server's pass over them and their
+     * own client's: block friction times the air drag on the floor, the air drag alone off it.
+     * See BossGravityScheduler for why a speed set on a player is set over it.
+     */
+    static final double GROUND_DRAG = 0.6D * 0.91D;
+    static final double AIR_DRAG = 0.91D;
+    /** What every tick takes off a vertical speed, and what it takes off before that: vanilla's own two numbers. */
+    static final double VERTICAL_DRAG = 0.98D;
+    static final double GRAVITY = 0.08D;
+    /**
+     * How much of the way back to where a wall pins them a player is sent each tick. Less than
+     * all of it: the server sees where a player is a tick or two late, and sending the whole gap
+     * every tick would throw them past the spot and back.
+     */
+    static final double HOLD_GAIN = 0.5D;
+    /** The fastest a pinned player is sent back towards their spot, in blocks a tick. */
+    static final double HOLD_MAX_SPEED = 1.0D;
 
     /**
      * One vent resolved into the world on a cast: its box, the face it fires out of, how far it
@@ -156,6 +174,68 @@ final class BossVentGeometry {
     static Vec3 push(int face, double push, double lift) {
         Vec3 along = dir(face).scale(push);
         return face == BossVentZone.FACE_FLOOR ? along.add(0.0D, lift, 0.0D) : along;
+    }
+
+    /**
+     * Where a body a wall has carried to its far side is held: moved back onto the far side if it
+     * went past, and left where it is if something stopped it short - a real wall or the floor
+     * it is pressed against is as far as a wall carries anybody.
+     */
+    static Vec3 pinAt(Vec3 position, AABB box, int face, double reach, AABB body) {
+        return position.add(dir(face).scale(Math.min(0.0D, remaining(box, face, reach, body))));
+    }
+
+    /**
+     * One axis of a speed a wall carries a body along at: at least the wall's own its way, and
+     * whatever faster the body already had that way left alone. A wall that does not move on this
+     * axis leaves it as it was.
+     */
+    static double carriedBy(double own, double push) {
+        if (push > 0.0D) {
+            return Math.max(own, push);
+        }
+        if (push < 0.0D) {
+            return Math.min(own, push);
+        }
+        return own;
+    }
+
+    /** What a wall carrying a mob sets on it: its own speed, carried along on every axis the wall moves on. */
+    static Vec3 mobCarry(Vec3 own, Vec3 push) {
+        return new Vec3(carriedBy(own.x, push.x), carriedBy(own.y, push.y), carriedBy(own.z, push.z));
+    }
+
+    /**
+     * What a wall carrying a player sets on them, so that what reaches their client after the
+     * server's own pass is the wall's push on top of their own run.
+     *
+     * <p>Sideways, the step their client reported is worn by the drag the client applies anyway,
+     * carried along, and set over the drag the server is about to apply once more; with no push
+     * that sideways is exactly their own run. Upward or downward, the push is set as it has to be
+     * for the server's drag and gravity to leave it as the push; with none, the height they are
+     * already moving at is left alone, since the server's idea of a player's fall runs behind.</p>
+     *
+     * @param step     the movement their client last reported
+     * @param vertical the vertical speed the server holds for them now
+     * @param drag     {@link #GROUND_DRAG} on the floor, {@link #AIR_DRAG} off it
+     */
+    static Vec3 playerCarry(Vec3 step, double vertical, Vec3 push, double drag) {
+        double x = carriedBy(step.x * drag, push.x) / drag;
+        double z = carriedBy(step.z * drag, push.z) / drag;
+        double y = push.y == 0.0D ? vertical : push.y / VERTICAL_DRAG + GRAVITY;
+        return new Vec3(x, y, z);
+    }
+
+    /**
+     * What a wall holding a player sets on them: a share of the way back to where they are
+     * pinned, on every axis, set over the server's own pass the way a carry is.
+     */
+    static Vec3 playerHold(Vec3 position, Vec3 anchor, double drag) {
+        Vec3 gap = anchor.subtract(position);
+        double x = Mth.clamp(gap.x * HOLD_GAIN, -HOLD_MAX_SPEED, HOLD_MAX_SPEED) / drag;
+        double y = Mth.clamp(gap.y * HOLD_GAIN, -HOLD_MAX_SPEED, HOLD_MAX_SPEED) / VERTICAL_DRAG + GRAVITY;
+        double z = Mth.clamp(gap.z * HOLD_GAIN, -HOLD_MAX_SPEED, HOLD_MAX_SPEED) / drag;
+        return new Vec3(x, y, z);
     }
 
     /**
