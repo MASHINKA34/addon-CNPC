@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -132,8 +133,10 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
             BossZonePreview.showAggroZone(data);
         } else if (button.id == SELECT_BUTTON) {
             applyFields();
-            // The zone keeps world blocks, so the two corners go in as they were clicked.
-            ZoneSelectionClient.selectBox(BossZonePreview.KIND_AGGRO, (box, anchor) -> {
+            // The zone keeps world blocks, cornered on the blocks in front of the faces clicked -
+            // the blocks "use my position" takes, the ones the feet are in, which is where the
+            // zone looks for whoever stands in it.
+            ZoneSelectionClient.selectBox(BossZonePreview.KIND_AGGRO, ZoneSelection.Pick.IN_FRONT, (box, anchor) -> {
                 data.setAggroZoneCorner1(box.min().getX(), box.min().getY(), box.min().getZ());
                 data.setAggroZoneCorner2(box.max().getX(), box.max().getY(), box.max().getZ());
             });

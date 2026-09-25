@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -255,8 +256,10 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
             applyModeRows();
         } else if (button.id == SELECT_BOX_BUTTON) {
             applyFields();
-            // The box keeps world blocks, so the two corners go in as they were clicked.
-            ZoneSelectionClient.selectBox(BossAbilityKind.HAZARD, (box, anchor) -> {
+            // The box keeps world blocks, cornered on the blocks in front of the faces clicked - the
+            // blocks "use my position" takes, the ones the feet are in, which is where the fire
+            // looks for whoever stands in it.
+            ZoneSelectionClient.selectBox(BossAbilityKind.HAZARD, ZoneSelection.Pick.IN_FRONT, (box, anchor) -> {
                 phase.hazard().setCorner1(box.min().getX(), box.min().getY(), box.min().getZ());
                 phase.hazard().setCorner2(box.max().getX(), box.max().getY(), box.max().getZ());
             });

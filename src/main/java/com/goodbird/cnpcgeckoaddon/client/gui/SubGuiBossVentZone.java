@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -183,8 +184,9 @@ public final class SubGuiBossVentZone extends SubGuiFieldScreen implements BossZ
             }
         } else if (button.id == SELECT_BUTTON) {
             applyFields();
-            // Written in the vent's own mode, the way a platform's pick is.
-            ZoneSelectionClient.selectBox(BossAbilityKind.VENT, (box, anchor) -> {
+            // Written in the vent's own mode, the way a platform's pick is, but cornered on the
+            // blocks clicked themselves: a vent is the stretch of wall or floor it fires out of.
+            ZoneSelectionClient.selectBox(BossAbilityKind.VENT, ZoneSelection.Pick.CLICKED, (box, anchor) -> {
                 boolean fixed = zone.getCoordinateMode() == BossVentZone.COORDINATE_FIXED;
                 BlockPos min = ZoneCoordinates.toStored(box.min(), fixed, anchor);
                 BlockPos max = ZoneCoordinates.toStored(box.max(), fixed, anchor);

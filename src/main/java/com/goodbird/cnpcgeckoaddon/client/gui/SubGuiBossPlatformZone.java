@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -149,8 +150,10 @@ public final class SubGuiBossPlatformZone extends SubGuiFieldScreen implements B
         } else if (button.id == SELECT_BUTTON) {
             applyFields();
             // Written in the platform's own mode, an offset measured from the same block "use my
-            // position" measures from.
-            ZoneSelectionClient.selectBox(BossAbilityKind.PLATFORM, (box, anchor) -> {
+            // position" measures from, and cornered on the blocks in front of the faces clicked -
+            // the blocks "use my position" takes, the ones the feet are in: a platform burns
+            // whoever's feet are inside, and a box of the floor blocks themselves holds nobody.
+            ZoneSelectionClient.selectBox(BossAbilityKind.PLATFORM, ZoneSelection.Pick.IN_FRONT, (box, anchor) -> {
                 boolean fixed = zone.getCoordinateMode() == BossPlatformZone.COORDINATE_FIXED;
                 BlockPos min = ZoneCoordinates.toStored(box.min(), fixed, anchor);
                 BlockPos max = ZoneCoordinates.toStored(box.max(), fixed, anchor);

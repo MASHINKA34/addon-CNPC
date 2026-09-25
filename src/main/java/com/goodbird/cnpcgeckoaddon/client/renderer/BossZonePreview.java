@@ -24,6 +24,7 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -282,9 +283,11 @@ public final class BossZonePreview {
     }
 
     /**
-     * The pick under way: the block under the crosshair before the first corner, the box from the
-     * first corner to it after, and for a point the post where it would stand. Measured as it
-     * goes - the box's size, the spot's block - so the builder can count without the fields.
+     * The pick under way: the block the first click would make a corner, the box from the first
+     * corner to the one the next click would make after it - by the rule the clicks go by, so
+     * what is outlined is what will be written - and for a point the post where it would stand.
+     * Measured as it goes - the box's size, the spot's block - so the builder can count without
+     * the fields.
      */
     private static void addPickShapes(List<Shape> shapes, float partialTick) {
         ZoneSelection selection = ZoneSelectionClient.selection();
@@ -294,6 +297,7 @@ public final class BossZonePreview {
         int kind = ZoneSelectionClient.kind();
         BlockHitResult aim = ZoneSelectionClient.aimedBlock(partialTick);
         BlockPos aimed = aim == null ? null : aim.getBlockPos();
+        Direction face = aim == null ? null : aim.getDirection();
         if (selection.isPoint()) {
             if (aim != null) {
                 BlockPos spot = aim.getBlockPos().relative(aim.getDirection());
@@ -303,11 +307,12 @@ public final class BossZonePreview {
             }
             return;
         }
-        ZoneSelection.Box box = selection.liveBox(aimed);
+        ZoneSelection.Box box = selection.liveBox(aimed, face);
         if (box == null) {
             if (aimed != null) {
-                shapes.add(Shape.box(kind, aimed.getX() + " " + aimed.getY() + " " + aimed.getZ(),
-                        ZoneCoordinates.blockBox(aimed, aimed), true));
+                BlockPos corner = selection.picked(aimed, face);
+                shapes.add(Shape.box(kind, corner.getX() + " " + corner.getY() + " " + corner.getZ(),
+                        ZoneCoordinates.blockBox(corner, corner), true));
             }
             return;
         }

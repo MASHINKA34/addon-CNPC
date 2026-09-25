@@ -7,12 +7,14 @@ import net.minecraft.util.Mth;
 /**
  * The clicks behind "select in the world", with nothing of the game around them.
  *
- * <p>A box takes two blocks and comes back as its lowest and its highest corner, whichever
+ * <p>A box takes two clicks and comes back as its lowest and its highest corner, whichever
  * order the builder clicked them in: every box a boss keeps is read with both corners
  * inclusive and in either order, so handing it the minimum and the maximum is the one form
- * nobody has to think about. A point takes one block, the face it was clicked on and the way
- * the builder was looking at the time. Kept apart from the client so the order of the clicks,
- * the swap of the corners and the angle can be checked without a game running.</p>
+ * nobody has to think about. Which block a click makes a corner is the box's {@link Pick}, and
+ * the outline between the clicks follows the same rule, so it shows the box that will be
+ * written. A point takes one block, the face it was clicked on and the way the builder was
+ * looking at the time. Kept apart from the client so the order of the clicks, the swap of the
+ * corners, the block a click stands for and the angle can be checked without a game running.</p>
  */
 public final class ZoneSelection {
 
@@ -34,6 +36,29 @@ public final class ZoneSelection {
         CANCELLED
     }
 
+    /** Which block a click on a face of a block stands for. */
+    public enum Pick {
+        /**
+         * The block clicked itself: for a zone made of the blocks it names, like a vent - the
+         * stretch of wall or floor it fires out of.
+         */
+        CLICKED,
+        /**
+         * The block in front of the face clicked, the one a block placed there would fill: on a
+         * floor, the block the feet of somebody standing on it are in; under a ceiling, the block
+         * below it; on a wall from inside, the block before the wall. A zone somebody stands in is
+         * checked at the feet, with the top of its highest block already outside it, so a box
+         * cornered on the floor blocks themselves would hold nobody; and it is the block every
+         * "use my position" button writes.
+         */
+        IN_FRONT;
+
+        /** The block a click on {@code face} of {@code block} stands for. */
+        public BlockPos of(BlockPos block, Direction face) {
+            return this == IN_FRONT ? block.relative(face) : block.immutable();
+        }
+    }
+
     /** A finished box: its lowest corner and its highest, both inclusive. */
     public record Box(BlockPos min, BlockPos max) {
     }
@@ -52,24 +77,26 @@ public final class ZoneSelection {
     }
 
     private final boolean pointMode;
+    private final Pick pick;
     private Stage stage;
     private BlockPos first;
     private Box box;
     private Point point;
 
-    private ZoneSelection(Stage stage) {
+    private ZoneSelection(Stage stage, Pick pick) {
         this.stage = stage;
         this.pointMode = stage == Stage.POINT;
+        this.pick = pick;
     }
 
-    /** A selection of two corners. */
-    public static ZoneSelection box() {
-        return new ZoneSelection(Stage.FIRST_CORNER);
+    /** A selection of two corners, each the block {@code corners} makes of its click. */
+    public static ZoneSelection box(Pick corners) {
+        return new ZoneSelection(Stage.FIRST_CORNER, corners);
     }
 
     /** A selection of one block. */
     public static ZoneSelection point() {
-        return new ZoneSelection(Stage.POINT);
+        return new ZoneSelection(Stage.POINT, Pick.IN_FRONT);
     }
 
     /**
@@ -83,12 +110,12 @@ public final class ZoneSelection {
     public boolean click(BlockPos block, Direction face, float yRot) {
         switch (stage) {
             case FIRST_CORNER -> {
-                first = block.immutable();
+                first = pick.of(block, face);
                 stage = Stage.SECOND_CORNER;
                 return false;
             }
             case SECOND_CORNER -> {
-                box = normalize(first, block);
+                box = normalize(first, pick.of(block, face));
                 stage = Stage.DONE;
                 return true;
             }
@@ -150,16 +177,22 @@ public final class ZoneSelection {
         };
     }
 
+    /** The block a click on {@code face} of {@code block} stands for, by this selection's rule. */
+    public BlockPos picked(BlockPos block, Direction face) {
+        return pick.of(block, face);
+    }
+
     /**
-     * The box the two clicks would make if the second landed on {@code aimed}: what the outline
-     * between the clicks follows. Null before the first corner, and just that corner when the
-     * crosshair is on no block.
+     * The box the two clicks would make if the second landed on {@code face} of {@code aimed}:
+     * what the outline between the clicks follows, by the rule the clicks go by, so it is the box
+     * that will be written. Null before the first corner, and just that corner when the crosshair
+     * is on no block.
      */
-    public Box liveBox(BlockPos aimed) {
+    public Box liveBox(BlockPos aimed, Direction face) {
         if (first == null) {
             return null;
         }
-        return normalize(first, aimed == null ? first : aimed);
+        return normalize(first, aimed == null ? first : pick.of(aimed, face));
     }
 
     /** Two corners in either order as the lowest and the highest, axis by axis. */

@@ -109,11 +109,13 @@ public final class ZoneSelectionClient {
     /**
      * Starts picking two corners for the editor on screen.
      *
-     * @param kind  what the outline is coloured as, the preview's kinds
-     * @param apply writes the box into the editor's settings; called once, on the second click
+     * @param kind    what the outline is coloured as, the preview's kinds
+     * @param corners which block a click makes a corner: the one in front of the face clicked for a
+     *                zone somebody stands in, the one clicked for a zone made of the blocks it names
+     * @param apply   writes the box into the editor's settings; called once, on the second click
      */
-    public static void selectBox(int kind, BoxPicked apply) {
-        begin(ZoneSelection.box(), kind, apply, null);
+    public static void selectBox(int kind, ZoneSelection.Pick corners, BoxPicked apply) {
+        begin(ZoneSelection.box(corners), kind, apply, null);
     }
 
     /** Starts picking one block for the editor on screen; {@code apply} is called on the click. */

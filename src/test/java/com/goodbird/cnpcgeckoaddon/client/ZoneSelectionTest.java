@@ -1,7 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client;
 
+import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +25,7 @@ class ZoneSelectionTest {
     @Test
     @DisplayName("a box takes a first corner, then a second, then is done")
     void firstCornerThenSecondThenDone() {
-        ZoneSelection selection = ZoneSelection.box();
+        ZoneSelection selection = ZoneSelection.box(ZoneSelection.Pick.CLICKED);
         assertTrue(selection.isActive());
         assertFalse(selection.isPoint());
         assertEquals(ZoneSelection.Stage.FIRST_CORNER, selection.stage());
@@ -66,7 +68,7 @@ class ZoneSelectionTest {
     @Test
     @DisplayName("a cancel leaves nothing behind, at either corner, and later clicks change nothing")
     void cancelLeavesNoResult() {
-        ZoneSelection beforeAny = ZoneSelection.box();
+        ZoneSelection beforeAny = ZoneSelection.box(ZoneSelection.Pick.CLICKED);
         beforeAny.cancel();
         assertEquals(ZoneSelection.Stage.CANCELLED, beforeAny.stage());
         assertFalse(beforeAny.isActive());
@@ -74,7 +76,7 @@ class ZoneSelectionTest {
         assertNull(beforeAny.result());
         assertNull(beforeAny.hintKey());
 
-        ZoneSelection halfway = ZoneSelection.box();
+        ZoneSelection halfway = ZoneSelection.box(ZoneSelection.Pick.CLICKED);
         halfway.click(A, Direction.UP, 0.0F);
         halfway.cancel();
         assertEquals(ZoneSelection.Stage.CANCELLED, halfway.stage());
@@ -91,7 +93,7 @@ class ZoneSelectionTest {
     @Test
     @DisplayName("a finished selection keeps its result through a late cancel and a stray click")
     void doneIsFinal() {
-        ZoneSelection selection = ZoneSelection.box();
+        ZoneSelection selection = ZoneSelection.box(ZoneSelection.Pick.CLICKED);
         selection.click(A, Direction.UP, 0.0F);
         selection.click(B, Direction.UP, 0.0F);
         ZoneSelection.Box box = selection.result();
@@ -108,7 +110,7 @@ class ZoneSelectionTest {
         assertTrue(selection.isPoint());
         assertEquals(ZoneSelection.Stage.POINT, selection.stage());
         assertEquals(ZoneSelection.HINT_POINT, selection.hintKey());
-        assertNull(selection.liveBox(A), "a point has no box to outline");
+        assertNull(selection.liveBox(A, Direction.UP), "a point has no box to outline");
 
         assertTrue(selection.click(A, Direction.UP, 45.0F), "one click finishes a point");
         assertEquals(ZoneSelection.Stage.DONE, selection.stage());
@@ -142,18 +144,76 @@ class ZoneSelectionTest {
     @Test
     @DisplayName("between the clicks the outline runs from the first corner to the block aimed at")
     void liveBoxFollowsTheAim() {
-        ZoneSelection selection = ZoneSelection.box();
-        assertNull(selection.liveBox(B), "nothing to outline before the first corner");
+        ZoneSelection selection = ZoneSelection.box(ZoneSelection.Pick.CLICKED);
+        assertNull(selection.liveBox(B, Direction.UP), "nothing to outline before the first corner");
         selection.click(A, Direction.UP, 0.0F);
-        assertEquals(ZoneSelection.normalize(A, B), selection.liveBox(B));
-        assertEquals(new ZoneSelection.Box(A, A), selection.liveBox(null),
+        assertEquals(ZoneSelection.normalize(A, B), selection.liveBox(B, Direction.UP));
+        assertEquals(new ZoneSelection.Box(A, A), selection.liveBox(null, null),
                 "with the crosshair on no block, the outline is the first corner alone");
     }
 
+    @Test
+    @DisplayName("a zone somebody stands in is cornered on the blocks in front of the faces clicked")
+    void standingZoneTakesTheBlocksInFront() {
+        BlockPos floorA = new BlockPos(10, 64, -5);
+        BlockPos floorB = new BlockPos(-3, 64, 12);
+        ZoneSelection.Box onFloor = select(ZoneSelection.Pick.IN_FRONT, floorA, Direction.UP, floorB, Direction.UP);
+        assertEquals(new BlockPos(-3, 65, -5), onFloor.min(), "clicked on a floor, a corner is a block higher");
+        assertEquals(new BlockPos(10, 65, 12), onFloor.max());
+
+        // The fight's own test - the feet inside, the top face of the highest block outside - on
+        // somebody standing on the floor clicked: inside this box, and not in one of the floor itself.
+        Vec3 feet = new Vec3(0.5D, 65.0D, 0.5D);
+        assertTrue(ZoneCoordinates.blockBox(onFloor.min(), onFloor.max()).contains(feet));
+        ZoneSelection.Box floorItself = select(ZoneSelection.Pick.CLICKED, floorA, Direction.UP, floorB, Direction.UP);
+        assertFalse(ZoneCoordinates.blockBox(floorItself.min(), floorItself.max()).contains(feet));
+
+        // Under a ceiling, the block below it; on a wall from inside, the block before the wall.
+        ZoneSelection.Box room = select(ZoneSelection.Pick.IN_FRONT,
+                new BlockPos(0, 70, 0), Direction.DOWN, new BlockPos(8, 66, 3), Direction.WEST);
+        assertEquals(new BlockPos(0, 66, 0), room.min());
+        assertEquals(new BlockPos(7, 69, 3), room.max());
+    }
+
+    @Test
+    @DisplayName("a zone made of the blocks it names, a vent, is cornered on the blocks clicked, unshifted")
+    void blockZoneTakesTheBlocksClicked() {
+        ZoneSelection.Box floor = select(ZoneSelection.Pick.CLICKED,
+                new BlockPos(10, 64, -5), Direction.UP, new BlockPos(-3, 64, 12), Direction.UP);
+        assertEquals(new BlockPos(-3, 64, -5), floor.min(), "a vent in the floor is the floor blocks");
+        assertEquals(new BlockPos(10, 64, 12), floor.max());
+
+        ZoneSelection.Box wall = select(ZoneSelection.Pick.CLICKED,
+                new BlockPos(8, 66, 3), Direction.WEST, new BlockPos(8, 68, 6), Direction.WEST);
+        assertEquals(new BlockPos(8, 66, 3), wall.min(), "a vent in a wall is the wall blocks");
+        assertEquals(new BlockPos(8, 68, 6), wall.max());
+    }
+
+    @Test
+    @DisplayName("the outline takes its corners by the rule the clicks go by, and is the box they write")
+    void liveBoxFollowsThePickRule() {
+        ZoneSelection selection = ZoneSelection.box(ZoneSelection.Pick.IN_FRONT);
+        assertEquals(A.above(), selection.picked(A, Direction.UP),
+                "before the first click, the block it would make a corner");
+        selection.click(A, Direction.UP, 0.0F);
+        assertEquals(A.above(), selection.firstCorner());
+        assertEquals(new ZoneSelection.Box(A.above(), A.above()), selection.liveBox(null, null));
+
+        ZoneSelection.Box outlined = selection.liveBox(B, Direction.NORTH);
+        assertEquals(ZoneSelection.normalize(A.above(), B.north()), outlined);
+        selection.click(B, Direction.NORTH, 0.0F);
+        assertEquals(outlined, selection.result(), "the outline before the second click is the box it writes");
+    }
+
     private static ZoneSelection.Box select(BlockPos first, BlockPos second) {
-        ZoneSelection selection = ZoneSelection.box();
-        selection.click(first, Direction.UP, 0.0F);
-        selection.click(second, Direction.UP, 0.0F);
+        return select(ZoneSelection.Pick.CLICKED, first, Direction.UP, second, Direction.UP);
+    }
+
+    private static ZoneSelection.Box select(ZoneSelection.Pick corners, BlockPos first, Direction firstFace,
+                                            BlockPos second, Direction secondFace) {
+        ZoneSelection selection = ZoneSelection.box(corners);
+        selection.click(first, firstFace, 0.0F);
+        selection.click(second, secondFace, 0.0F);
         return selection.result();
     }
 
