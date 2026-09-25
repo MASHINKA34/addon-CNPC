@@ -13,7 +13,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Coordinates, clone override, facing, and weight for one stable point. */
-public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
+public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int COORDINATE_BUTTON = 2;
     private static final int X_FIELD = 3;
@@ -185,4 +185,9 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen {
         applyNumberField(WEIGHT_FIELD, point::setWeight);
     }
 
+    /** The spot being edited. */
+    @Override
+    public Object zoneFocus() {
+        return point;
+    }
 }

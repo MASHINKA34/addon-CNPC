@@ -15,7 +15,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
  * fixed blocks - with "use my position" beside each corner, the face it fires out of and how far
  * out it reaches, a mode of its own, its shift in a volley, its random weight and its switch.
  */
-public final class SubGuiBossVentZone extends SubGuiFieldScreen {
+public final class SubGuiBossVentZone extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int COORDINATE_BUTTON = 2;
     private static final int CORNER1_LABEL = 3;
@@ -208,5 +208,11 @@ public final class SubGuiBossVentZone extends SubGuiFieldScreen {
         applyNumberField(REACH_FIELD, zone::setReach);
         applyNumberField(DELAY_FIELD, zone::setDelayTicks);
         applyNumberField(WEIGHT_FIELD, zone::setWeight);
+    }
+
+    /** The vent being edited. */
+    @Override
+    public Object zoneFocus() {
+        return zone;
     }
 }

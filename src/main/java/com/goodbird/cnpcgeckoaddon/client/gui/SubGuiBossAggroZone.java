@@ -1,6 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
-import com.goodbird.cnpcgeckoaddon.client.renderer.BossAggroZonePreview;
+import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -12,7 +12,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 /** Edits the two-corner volume which can start a boss encounter without an opening hit. */
-public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITextfieldListener {
+public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITextfieldListener, BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int TARGET_BUTTON = 2;
     private static final int INTERVAL_FIELD = 3;
@@ -124,7 +124,7 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
             takePlayerPosition(false);
         } else if (button.id == SHOW_BUTTON) {
             applyFields();
-            BossAggroZonePreview.show(data);
+            BossZonePreview.showAggroZone(data);
         }
     }
 
@@ -156,4 +156,9 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         data.setAggroZoneCorner2(signed(X2_FIELD), signed(Y2_FIELD), signed(Z2_FIELD));
     }
 
+    /** The aggro zone, which the boss keeps in no object of its own. */
+    @Override
+    public Object zoneFocus() {
+        return BossZonePreview.Focus.AGGRO_ZONE;
+    }
 }

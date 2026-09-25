@@ -15,7 +15,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
  * One platform: its two corners, given the way a summon's point is - as an offset from the arena
  * or as fixed blocks - with "use my position" beside each corner, its random weight and its switch.
  */
-public final class SubGuiBossPlatformZone extends SubGuiFieldScreen {
+public final class SubGuiBossPlatformZone extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int COORDINATE_BUTTON = 2;
     private static final int CORNER1_LABEL = 3;
@@ -171,5 +171,11 @@ public final class SubGuiBossPlatformZone extends SubGuiFieldScreen {
         zone.setCorner1(signed(X1_FIELD), signed(Y1_FIELD), signed(Z1_FIELD));
         zone.setCorner2(signed(X2_FIELD), signed(Y2_FIELD), signed(Z2_FIELD));
         applyNumberField(WEIGHT_FIELD, zone::setWeight);
+    }
+
+    /** The platform being edited. */
+    @Override
+    public Object zoneFocus() {
+        return zone;
     }
 }

@@ -10,7 +10,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Arena hazard: the ground itself turning dangerous for a phase, as a closing ring or a box. */
-public final class SubGuiBossHazard extends SubGuiFieldScreen {
+public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int MODE_BUTTON = 2;
     private static final int DELAY_FIELD = 3;
@@ -291,4 +291,9 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen {
         phase.hazard().setCorner2(signed(X2_FIELD), signed(Y2_FIELD), signed(Z2_FIELD));
     }
 
+    /** The hazard of this phase, box or ring. */
+    @Override
+    public Object zoneFocus() {
+        return phase.hazard();
+    }
 }

@@ -1638,5 +1638,8 @@
   "cnpcgeckoaddon.zone.hint_first": "ЛКМ по блоку — первый угол. ПКМ или Esc — отмена.",
   "cnpcgeckoaddon.zone.hint_second": "ЛКМ по блоку — второй угол.",
   "cnpcgeckoaddon.zone.hint_point": "ЛКМ по блоку — точка.",
-  "cnpcgeckoaddon.zone.cancelled": "Выделение отменено."
+  "cnpcgeckoaddon.zone.cancelled": "Выделение отменено.",
+  "cnpcgeckoaddon.boss.zones_preview": "Зоны в мире: %s",
+  "cnpcgeckoaddon.boss.zones_preview.on": "показывать",
+  "cnpcgeckoaddon.boss.zones_preview.off": "скрыть"
 }

@@ -1,7 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
+import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -9,7 +11,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
-public final class SubGuiTeleportPath extends SubGuiFieldScreen {
+public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int COMBAT_ONLY_BUTTON = 2;
     private static final int STATIONARY_BUTTON = 3;
@@ -23,6 +25,7 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
     private static final int TELEGRAPH_BUTTON = 29;
     private static final int HEALTH_LINK_BUTTON = 30;
     private static final int TUNING_BUTTON = 31;
+    private static final int ZONES_BUTTON = 32;
 
     private final TeleportPathData data;
     private final EntityNPCInterface npc;
@@ -88,6 +91,9 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
                 "cnpcgeckoaddon.boss.health_link_settings"));
         addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 8, guiTop + 272, 234, 20,
                 "cnpcgeckoaddon.boss.tuning_settings"));
+        // Beside Done, where the row was empty: whether this client draws the boss' zones in the
+        // world while any of its screens is open.
+        addButton(new GuiButtonNop(this, ZONES_BUTTON, guiLeft + 8, guiTop + 294, 170, 20, zonesLabel()));
         addDoneButton(guiLeft + 182, guiTop + 294, 60, 20);
     }
 
@@ -139,7 +145,27 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen {
         } else if (button.id == TUNING_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossTuning(data.tuning()));
+        } else if (button.id == ZONES_BUTTON) {
+            BossZonePreview.setShown(!BossZonePreview.isShown());
+            button.setDisplayText(zonesLabel());
         }
+    }
+
+    /** "Zones in the world: shown", or hidden: what the preview's switch reads. */
+    private static String zonesLabel() {
+        return Component.translatable("cnpcgeckoaddon.boss.zones_preview", Component.translatable(
+                BossZonePreview.isShown() ? "cnpcgeckoaddon.boss.zones_preview.on"
+                        : "cnpcgeckoaddon.boss.zones_preview.off")).getString();
+    }
+
+    @Override
+    public TeleportPathData zoneBoss() {
+        return data;
+    }
+
+    @Override
+    public EntityNPCInterface zoneNpc() {
+        return npc;
     }
 
     @Override

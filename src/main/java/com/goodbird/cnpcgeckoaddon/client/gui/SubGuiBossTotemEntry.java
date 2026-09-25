@@ -13,7 +13,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Exact clone, anchor, facing, and per-link overrides for one stable slot. */
-public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
+public final class SubGuiBossTotemEntry extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int CLONE_TAB_FIELD = 2;
     private static final int CLONE_NAME_FIELD = 3;
@@ -233,4 +233,9 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen {
         }
     }
 
+    /** The totem being edited. */
+    @Override
+    public Object zoneFocus() {
+        return entry;
+    }
 }

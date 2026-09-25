@@ -18,7 +18,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
  * of the rift's platform or as a fixed spot in the rift dimension - with "use my position", its own
  * radius, block and colour where it wants one, and its switch.
  */
-public final class SubGuiBossRiftCrystalPoint extends SubGuiFieldScreen {
+public final class SubGuiBossRiftCrystalPoint extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int COORDINATE_BUTTON = 2;
     private static final int X_FIELD = 3;
@@ -180,5 +180,11 @@ public final class SubGuiBossRiftCrystalPoint extends SubGuiFieldScreen {
                     : BossRiftSettings.parseHex(value, point.getColorOverride()));
             color.setValue(point.getColorOverride() < 0 ? "" : BossRiftSettings.hex(point.getColorOverride()));
         }
+    }
+
+    /** The crystal zone being edited. */
+    @Override
+    public Object zoneFocus() {
+        return point;
     }
 }

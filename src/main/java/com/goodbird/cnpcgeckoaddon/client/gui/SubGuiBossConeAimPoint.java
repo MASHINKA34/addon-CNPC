@@ -16,7 +16,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
  * summon's point is - as an offset from the arena or a fixed block - with the same "use my
  * position".
  */
-public final class SubGuiBossConeAimPoint extends SubGuiFieldScreen {
+public final class SubGuiBossConeAimPoint extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int COORDINATE_BUTTON = 2;
     private static final int X_FIELD = 3;
@@ -132,5 +132,11 @@ public final class SubGuiBossConeAimPoint extends SubGuiFieldScreen {
     @Override
     protected void applyFields() {
         point.setPosition(signed(X_FIELD), signed(Y_FIELD), signed(Z_FIELD));
+    }
+
+    /** The spot being edited. */
+    @Override
+    public Object zoneFocus() {
+        return point;
     }
 }

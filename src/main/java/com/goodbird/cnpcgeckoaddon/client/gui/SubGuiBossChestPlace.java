@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -10,7 +11,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Where a boss puts its loot chest down. */
-public final class SubGuiBossChestPlace extends SubGuiFieldScreen {
+public final class SubGuiBossChestPlace extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int MODE_BUTTON = 1;
     private static final int COORDS_LABEL = 2;
     private static final int X_FIELD = 3;
@@ -119,4 +120,9 @@ public final class SubGuiBossChestPlace extends SubGuiFieldScreen {
         }
     }
 
+    /** The chest, which the boss keeps in no object of its own. */
+    @Override
+    public Object zoneFocus() {
+        return BossZonePreview.Focus.CHEST;
+    }
 }

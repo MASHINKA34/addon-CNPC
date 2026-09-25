@@ -1638,5 +1638,8 @@
   "cnpcgeckoaddon.zone.hint_first": "Left-click a block: first corner. Right-click or Esc cancels.",
   "cnpcgeckoaddon.zone.hint_second": "Left-click a block: second corner.",
   "cnpcgeckoaddon.zone.hint_point": "Left-click a block: the point.",
-  "cnpcgeckoaddon.zone.cancelled": "Selection cancelled."
+  "cnpcgeckoaddon.zone.cancelled": "Selection cancelled.",
+  "cnpcgeckoaddon.boss.zones_preview": "Zones in the world: %s",
+  "cnpcgeckoaddon.boss.zones_preview.on": "shown",
+  "cnpcgeckoaddon.boss.zones_preview.off": "hidden"
 }

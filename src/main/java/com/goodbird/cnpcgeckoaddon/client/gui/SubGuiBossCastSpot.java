@@ -20,7 +20,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
  * <p>How the boss gets there - a blink, a walk, or not at all - is chosen on the row that
  * opened this screen, so the row reads at a glance which abilities send the boss anywhere.</p>
  */
-public final class SubGuiBossCastSpot extends SubGuiFieldScreen {
+public final class SubGuiBossCastSpot extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int COORDINATE_BUTTON = 1;
     private static final int X_FIELD = 2;
     private static final int Y_FIELD = 3;
@@ -179,5 +179,11 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen {
         applyNumberField(REPATH_FIELD, spot::setRepathInterval);
         applyNumberField(RETRY_FIELD, spot::setRetryTicks);
         applyNumberField(WALK_SPEED_FIELD, spot::setWalkSpeedPercent);
+    }
+
+    /** The spot being edited. */
+    @Override
+    public Object zoneFocus() {
+        return spot;
     }
 }

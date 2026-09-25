@@ -9,7 +9,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Compact phase menu. Every ability opens its own fully configurable screen. */
-public final class SubGuiBossPhase extends SubGuiFieldScreen {
+public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int THRESHOLD_FIELD = 1;
     private static final int THRESHOLD_HINT_LABEL = 40;
 
@@ -203,5 +203,11 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen {
         if (threshold != null) {
             threshold.setValue(Integer.toString(phase.getStartHealthPercent()));
         }
+    }
+
+    /** Below a phase's menu the world shows that phase's zones, not every phase's at once. */
+    @Override
+    public int zonePhase() {
+        return phaseIndex;
     }
 }

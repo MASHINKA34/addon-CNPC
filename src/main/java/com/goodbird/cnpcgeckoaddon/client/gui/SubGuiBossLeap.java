@@ -15,7 +15,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import java.util.function.Consumer;
 
 /** Leap slam: the boss jumps - up, at someone, or onto a spot - and hits the ground. */
-public final class SubGuiBossLeap extends SubGuiFieldScreen {
+public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int LAND_ANIMATION_FIELD = 3;
@@ -246,4 +246,9 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen {
         else field.setValue(current);
     }
 
+    /** Where this phase's leap lands, when it lands anywhere fixed. */
+    @Override
+    public Object zoneFocus() {
+        return phase.leap();
+    }
 }

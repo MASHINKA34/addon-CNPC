@@ -9,7 +9,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Take cover: a long wind-up, then a hit on the whole arena that spares only whoever hid. */
-public final class SubGuiBossCover extends SubGuiFieldScreen {
+public final class SubGuiBossCover extends SubGuiFieldScreen implements BossZoneScreen {
     private static final int ENABLED_BUTTON = 1;
     private static final int ANIMATION_FIELD = 2;
     private static final int MODE_BUTTON = 3;
@@ -236,5 +236,11 @@ public final class SubGuiBossCover extends SubGuiFieldScreen {
         }
         applyNumberField(ACTION_DELAY_FIELD, phase.cover()::setActionDelayTicks);
         applyNumberField(COOLDOWN_FIELD, phase.cover()::setCooldownTicks);
+    }
+
+    /** How far this phase's strike reaches, drawn round the boss. */
+    @Override
+    public Object zoneFocus() {
+        return phase.cover();
     }
 }
