@@ -1634,5 +1634,9 @@
   "cnpcgeckoaddon.npc_ranged.cnpc_sound_ground": "Ground",
   "cnpcgeckoaddon.npc_ranged.shot_sound_hint": "Volume and pitch of the fire sound above, in tenths; 20 / 10 is what CustomNPCs plays.",
   "cnpcgeckoaddon.string_picker.reload_animation": "Selecting reload animation:",
-  "cnpcgeckoaddon.string_picker.npc_sound": "Selecting sound:"
+  "cnpcgeckoaddon.string_picker.npc_sound": "Selecting sound:",
+  "cnpcgeckoaddon.zone.hint_first": "Left-click a block: first corner. Right-click or Esc cancels.",
+  "cnpcgeckoaddon.zone.hint_second": "Left-click a block: second corner.",
+  "cnpcgeckoaddon.zone.hint_point": "Left-click a block: the point.",
+  "cnpcgeckoaddon.zone.cancelled": "Selection cancelled."
 }

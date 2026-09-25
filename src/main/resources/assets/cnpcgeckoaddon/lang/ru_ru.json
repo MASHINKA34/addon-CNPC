@@ -1634,5 +1634,9 @@
   "cnpcgeckoaddon.npc_ranged.cnpc_sound_ground": "Земля",
   "cnpcgeckoaddon.npc_ranged.shot_sound_hint": "Громкость и высота звука выстрела выше, в десятых; 20 / 10 — как играет CustomNPCs.",
   "cnpcgeckoaddon.string_picker.reload_animation": "Выбор анимации перезарядки:",
-  "cnpcgeckoaddon.string_picker.npc_sound": "Выбор звука:"
+  "cnpcgeckoaddon.string_picker.npc_sound": "Выбор звука:",
+  "cnpcgeckoaddon.zone.hint_first": "ЛКМ по блоку — первый угол. ПКМ или Esc — отмена.",
+  "cnpcgeckoaddon.zone.hint_second": "ЛКМ по блоку — второй угол.",
+  "cnpcgeckoaddon.zone.hint_point": "ЛКМ по блоку — точка.",
+  "cnpcgeckoaddon.zone.cancelled": "Выделение отменено."
 }
