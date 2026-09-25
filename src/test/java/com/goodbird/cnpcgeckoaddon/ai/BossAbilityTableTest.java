@@ -159,6 +159,14 @@ class BossAbilityTableTest {
                     phase -> phase.rift().setEnabled(true),
                     (phase, ticks) -> phase.rift().setCooldownTicks(ticks),
                     phase -> phase.rift().castSpot())),
+            Map.entry(BossAbility.VENT, new Wiring(
+                    phase -> {
+                        phase.vent().setEnabled(true);
+                        // Vents with none to fire are not an ability yet.
+                        phase.vent().getZones().add();
+                    },
+                    (phase, ticks) -> phase.vent().setCooldownTicks(ticks),
+                    phase -> phase.vent().castSpot())),
             Map.entry(BossAbility.SUMMON, new Wiring(
                     phase -> {
                         phase.summon().setEnabled(true);
@@ -195,6 +203,8 @@ class BossAbilityTableTest {
                         phase.rift().setExitMode(BossRiftSettings.EXIT_MINIONS);
                         phase.rift().setMinionCloneName("");
                     }),
+            BossAbility.VENT, new Setup(phase -> phase.vent().getZones().add(),
+                    phase -> phase.vent().getZones().clear()),
             BossAbility.SUMMON, new Setup(phase -> phase.summon().setCloneName("minion"),
                     phase -> phase.summon().setCloneName(""))));
 

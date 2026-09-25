@@ -90,6 +90,10 @@ public enum BossAbility {
     RIFT(BossAbilityKind.RIFT, phase -> phase.rift().canCast(),
             phase -> phase.rift().isConfigured(),
             phase -> phase.rift().getCooldownTicks(), phase -> phase.rift().castSpot()),
+    // Configured once a vent is switched on: the platforms' rule, since the boxes are the ability.
+    VENT(BossAbilityKind.VENT, phase -> phase.vent().canCast(),
+            phase -> phase.vent().isConfigured(),
+            phase -> phase.vent().getCooldownTicks(), phase -> phase.vent().castSpot()),
     SUMMON(BossAbilityKind.SUMMON, phase -> phase.summon().canSummon(),
             phase -> phase.summon().isConfigured(),
             phase -> phase.summon().getCooldownTicks(), phase -> phase.summon().castSpot()),

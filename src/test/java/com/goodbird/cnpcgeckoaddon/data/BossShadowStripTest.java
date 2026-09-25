@@ -105,6 +105,7 @@ class BossShadowStripTest {
         assertFalse(shadow.castsAbility(BossAbilityKind.HAZARD));
         assertFalse(shadow.castsAbility(BossAbilityKind.BLAST));
         assertTrue(shadow.castsAbility(BossAbilityKind.MELEE));
+        assertTrue(shadow.castsAbility(BossAbilityKind.VENT), "a copy may start the vents' timer of its own");
     }
 
     @Test

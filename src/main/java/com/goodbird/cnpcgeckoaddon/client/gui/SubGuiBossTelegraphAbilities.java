@@ -17,12 +17,13 @@ public final class SubGuiBossTelegraphAbilities extends SubGuiFieldScreen {
     private static final int FIRST_ABILITY_BUTTON = 100;
 
     /**
-     * Two columns, the way the npc immunity screen lists the same abilities. Thirteen rows: the
+     * Two columns, the way the npc immunity screen lists the same abilities. Fourteen rows: the
      * platforms made it twenty-one and the rain of stones twenty-two, two full columns of
-     * eleven, the hurricane and the shadow copies twenty-four, two of twelve, and the seismic
-     * waves twenty-five, which opens a thirteenth row; Done keeps a line of its own under the grid.
+     * eleven, the hurricane and the shadow copies twenty-four, two of twelve, the seismic
+     * waves twenty-five, which opened a thirteenth row, and the vents twenty-seven, which open
+     * a fourteenth; Done keeps a line of its own under the grid.
      */
-    private static final int ROWS_PER_COLUMN = 13;
+    private static final int ROWS_PER_COLUMN = 14;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
     private static final int DONE_Y = 24 + ROWS_PER_COLUMN * ROW_HEIGHT + 4;

@@ -160,10 +160,10 @@ class BossTelegraphMaskMigrationTest {
                         .anyMatch(ability -> ability == BossAbilityKind.BOULDER_RAIN),
                 "the rain has a row on the warning screen");
         // The rain was appended after the platforms, the hurricane after it, the shadow copies
-        // after that, the seismic waves after them and the rift last, so its row is exactly where
-        // the saves that know it left it: four before the end.
+        // after that, the seismic waves after them, the rift after those and the vents last, so
+        // its row is exactly where the saves that know it left it: five before the end.
         assertEquals(BossAbilityKind.BOULDER_RAIN,
-                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 5],
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 6],
                 "appended after the platforms, so no existing row moved");
         assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.BOULDER_RAIN),
                 "and a new boss warns for it until its builder says otherwise");
@@ -173,7 +173,7 @@ class BossTelegraphMaskMigrationTest {
     @DisplayName("the hurricane warns too, appended after the rain, and a stamped save fills it in")
     void theHurricaneIsOnTheWarningList() {
         assertEquals(BossAbilityKind.HURRICANE,
-                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 4],
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 5],
                 "appended after the rain, so no existing row moved");
         assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.HURRICANE),
                 "and a new boss warns for it until its builder says otherwise");
@@ -192,7 +192,7 @@ class BossTelegraphMaskMigrationTest {
     @DisplayName("the shadow copies warn too, appended after the hurricane, and a stamped save fills them in")
     void theShadowCopiesAreOnTheWarningList() {
         assertEquals(BossAbilityKind.SHADOW,
-                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 3],
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 4],
                 "appended after the hurricane, so no existing row moved");
         assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.SHADOW),
                 "and a new boss warns for them until its builder says otherwise");
@@ -211,7 +211,7 @@ class BossTelegraphMaskMigrationTest {
     @DisplayName("the seismic waves warn too, appended after the shadow copies, and a stamped save fills them in")
     void theSeismicWavesAreOnTheWarningList() {
         assertEquals(BossAbilityKind.SEISMIC,
-                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 2],
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 3],
                 "appended after the copies, so no existing row moved");
         assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.SEISMIC),
                 "and a new boss warns for them until its builder says otherwise");
@@ -230,19 +230,39 @@ class BossTelegraphMaskMigrationTest {
     @DisplayName("the rift warns too, appended after the seismic waves, and a stamped save fills it in")
     void theRiftIsOnTheWarningList() {
         assertEquals(BossAbilityKind.RIFT,
-                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 1],
-                "appended, so no existing row moved");
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 2],
+                "appended after the waves, so no existing row moved");
         assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.RIFT),
                 "and a new boss warns for it until its builder says otherwise");
         // A save from between the waves and the rift knew everything but the rift, and warned
         // for all of it: the stamp says so, and the rift joins the rest.
-        long known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1L << BossAbilityKind.RIFT);
+        long known = TeleportPathData.TELEGRAPH_ALL_ABILITIES
+                & ~(1L << BossAbilityKind.RIFT) & ~(1L << BossAbilityKind.VENT);
         assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES,
                 rereadStamped(known, known).getTelegraphAbilities(),
                 "everything the save knew about was on, so everything is on");
         long chosen = known & ~(1L << BossAbilityKind.SEISMIC);
         assertEquals(chosen, rereadStamped(chosen, known).getTelegraphAbilities(),
                 "a choice is kept bit for bit, and the rift stays off with it");
+    }
+
+    @Test
+    @DisplayName("the vents warn too, appended after the rift, and a stamped save fills them in")
+    void theVentsAreOnTheWarningList() {
+        assertEquals(BossAbilityKind.VENT,
+                TeleportPathData.TELEGRAPH_ABILITIES[TeleportPathData.TELEGRAPH_ABILITIES.length - 1],
+                "appended, so no existing row moved");
+        assertTrue(new TeleportPathData().isTelegraphAbility(BossAbilityKind.VENT),
+                "and a new boss warns for them until its builder says otherwise");
+        // A save from between the rift and the vents knew everything but the vents, and warned
+        // for all of it: the stamp says so, and the vents join the rest.
+        long known = TeleportPathData.TELEGRAPH_ALL_ABILITIES & ~(1L << BossAbilityKind.VENT);
+        assertEquals(TeleportPathData.TELEGRAPH_ALL_ABILITIES,
+                rereadStamped(known, known).getTelegraphAbilities(),
+                "everything the save knew about was on, so everything is on");
+        long chosen = known & ~(1L << BossAbilityKind.RIFT);
+        assertEquals(chosen, rereadStamped(chosen, known).getTelegraphAbilities(),
+                "a choice is kept bit for bit, and the vents stay off with it");
     }
 
     @Test

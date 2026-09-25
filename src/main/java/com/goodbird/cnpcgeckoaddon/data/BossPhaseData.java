@@ -421,7 +421,8 @@ public final class BossPhaseData {
      * copies fight on their own feet once they stand. The seismic waves' bit likewise only
      * holds the wind-up: whether the boss stands still for the series is the ability's own
      * switch. So does the rift's: while its victims are away the boss is held on its spot by
-     * the rift itself, whatever this says.</p>
+     * the rift itself, whatever this says. And the vents': their timer keeps its own beat
+     * wherever the boss walks off to.</p>
      */
     public static final int[] CAST_ROOT_ABILITIES = {
             BossAbilityKind.AREA, BossAbilityKind.RANGED, BossAbilityKind.MELEE,
@@ -432,7 +433,7 @@ public final class BossPhaseData {
             BossAbilityKind.HUNT, BossAbilityKind.BEAM, BossAbilityKind.COCOON,
             BossAbilityKind.DASH, BossAbilityKind.CONE, BossAbilityKind.PLATFORM,
             BossAbilityKind.HURRICANE, BossAbilityKind.SHADOW, BossAbilityKind.SEISMIC,
-            BossAbilityKind.RIFT
+            BossAbilityKind.RIFT, BossAbilityKind.VENT
     };
 
     /**
@@ -509,6 +510,7 @@ public final class BossPhaseData {
     private final BossSummonSettings summon = new BossSummonSettings();
     private final BossTeleportSettings teleport = new BossTeleportSettings();
     private final BossTetherSettings tether = new BossTetherSettings();
+    private final BossVentSettings vent = new BossVentSettings();
 
     /** The hit that goes off all round the boss, and the wave of floor it lifts. */
     public BossAreaAttackSettings areaAttack() {
@@ -645,6 +647,11 @@ public final class BossPhaseData {
         return shadow;
     }
 
+    /** The builder's vents in the floor, ceiling and walls, and the timer of their own they fire on. */
+    public BossVentSettings vent() {
+        return vent;
+    }
+
     /** The clones the boss calls for, and where it puts them. */
     public BossSummonSettings summon() {
         return summon;
@@ -687,6 +694,7 @@ public final class BossPhaseData {
             case BossAbilityKind.SHADOW -> shadow.setEnabled(value);
             case BossAbilityKind.SEISMIC -> seismic.setEnabled(value);
             case BossAbilityKind.RIFT -> rift.setEnabled(value);
+            case BossAbilityKind.VENT -> vent.setEnabled(value);
             default -> {
             }
         }
@@ -890,6 +898,7 @@ public final class BossPhaseData {
         summon.writeToNBT(tag);
         teleport.writeToNBT(tag);
         tether.writeToNBT(tag);
+        vent.writeToNBT(tag);
         return tag;
     }
 
@@ -967,6 +976,10 @@ public final class BossPhaseData {
         if (!tag.contains("RiftEnabled")) {
             castRootMask |= 1L << BossAbilityKind.RIFT;
         }
+        // And for the vents, whose bit only pins the wind-up: their timer keeps its own beat.
+        if (!tag.contains("VentEnabled")) {
+            castRootMask |= 1L << BossAbilityKind.VENT;
+        }
         // Unlike the root, an absent key reads as nothing marked: a boss saved before the choice
         // existed never waited for an effect to end, and must not start freezing mid fight. A
         // save from when only the lasting abilities could be marked holds zeros in every other
@@ -1021,5 +1034,6 @@ public final class BossPhaseData {
         summon.readFromNBT(tag);
         teleport.readFromNBT(tag);
         tether.readFromNBT(tag);
+        vent.readFromNBT(tag);
     }
 }

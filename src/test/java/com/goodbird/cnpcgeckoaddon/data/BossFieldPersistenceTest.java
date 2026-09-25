@@ -124,7 +124,8 @@ class BossFieldPersistenceTest {
                         Map.entry(BossRangedAttackSettings.class, BossPhaseData::rangedAttack),
                         Map.entry(BossSummonSettings.class, BossPhaseData::summon),
                         Map.entry(BossTeleportSettings.class, BossPhaseData::teleport),
-                        Map.entry(BossTetherSettings.class, BossPhaseData::tether));
+                        Map.entry(BossTetherSettings.class, BossPhaseData::tether),
+                        Map.entry(BossVentSettings.class, BossPhaseData::vent));
     }
 
     /**
@@ -164,6 +165,7 @@ class BossFieldPersistenceTest {
                         Map.entry("Seismic", phase -> phase.seismic().castSpot()),
                         Map.entry("Rift", phase -> phase.rift().castSpot()),
                         Map.entry("Shadow", phase -> phase.shadow().castSpot()),
+                        Map.entry("Vent", phase -> phase.vent().castSpot()),
                         Map.entry("Summon", phase -> phase.summon().castSpot()))
                 .map(entry -> DynamicTest.dynamicTest(entry.getKey() + " cast spot",
                         () -> assertPersisted(BossCastSpot.class, BossFieldPersistenceTest::configuredHost,
@@ -193,6 +195,17 @@ class BossFieldPersistenceTest {
     void everyPlatformZoneFieldIsPersisted() {
         assertPersisted(BossPlatformZone.class, BossFieldPersistenceTest::hostWithPlatformZone,
                 data -> data.getPhase(1).platform().getZones().get(0));
+    }
+
+    /**
+     * The same sweep over one of the vents, which lives in a list inside the vents' settings and
+     * writes a compound of its own, the way a platform's zone does.
+     */
+    @Test
+    @DisplayName("every vent field reaches the save tag")
+    void everyVentZoneFieldIsPersisted() {
+        assertPersisted(BossVentZone.class, BossFieldPersistenceTest::hostWithVentZone,
+                data -> data.getPhase(1).vent().getZones().get(0));
     }
 
     /**
@@ -268,6 +281,12 @@ class BossFieldPersistenceTest {
     private static TeleportPathData hostWithPlatformZone() {
         TeleportPathData data = configuredHost();
         data.getPhase(1).platform().getZones().add();
+        return data;
+    }
+
+    private static TeleportPathData hostWithVentZone() {
+        TeleportPathData data = configuredHost();
+        data.getPhase(1).vent().getZones().add();
         return data;
     }
 

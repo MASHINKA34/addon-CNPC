@@ -17,7 +17,7 @@ public final class SubGuiBossRiftAbilities extends SubGuiFieldScreen {
     private static final int FIRST_ABILITY_BUTTON = 100;
     private static final int HINT_LABEL = 40;
 
-    /** Two columns of twelve: twenty-three abilities may be cast meanwhile today. */
+    /** Two columns of twelve: twenty-four abilities may be cast meanwhile today, the vents the last. */
     private static final int ROWS_PER_COLUMN = 12;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;

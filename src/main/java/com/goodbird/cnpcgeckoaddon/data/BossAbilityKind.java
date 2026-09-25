@@ -95,7 +95,13 @@ public final class BossAbilityKind {
      * for it if they failed.
      */
     public static final int RIFT = 27;
-    public static final int COUNT = 28;
+    /**
+     * The builder's vents in the arena's floor, ceiling and walls, going off on a timer of their
+     * own the cast only starts: a blast, a flame held for a while, or a wall that shoves or pins
+     * whoever stands in front of them.
+     */
+    public static final int VENT = 28;
+    public static final int COUNT = 29;
 
     public static final String[] LABELS = {
             "cnpcgeckoaddon.boss.ability.area",
@@ -125,7 +131,8 @@ public final class BossAbilityKind {
             "cnpcgeckoaddon.boss.ability.hurricane",
             "cnpcgeckoaddon.boss.ability.shadow",
             "cnpcgeckoaddon.boss.ability.seismic",
-            "cnpcgeckoaddon.boss.ability.rift"
+            "cnpcgeckoaddon.boss.ability.rift",
+            "cnpcgeckoaddon.boss.ability.vent"
     };
 
     static {
@@ -152,7 +159,7 @@ public final class BossAbilityKind {
     public static final int[] IMMUNITY_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, LEAP, LINE, BLAST, GEYSER, BOULDER,
             BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HAZARD, HUNT, BEAM, COCOON, DASH, CONE,
-            PLATFORM, HURRICANE, SEISMIC, RIFT
+            PLATFORM, HURRICANE, SEISMIC, RIFT, VENT
     };
 
     /**
@@ -164,7 +171,8 @@ public final class BossAbilityKind {
      * fight until their time runs out, they are taken back or they are killed. And the seismic
      * waves: a series of rings runs on the level tick for seconds after the cast that set it off.
      * And the rift: its victims stay in the pocket dimension until they are done there, however
-     * long after the cut that took them.
+     * long after the cut that took them. And the vents: the cast only starts their timer, which
+     * then keeps its own beat until its cycles run out or something stops it.
      *
      * <p>The leap is absent because its flight already keeps the boss busy until it lands,
      * the dash because its run does the same until it stops, the cone strike because a series
@@ -175,7 +183,7 @@ public final class BossAbilityKind {
      */
     public static final int[] LASTING_ABILITIES = {
             HOOK, CAPTURE, GEYSER, BOULDER_RAIN, TETHER, GRAVITY, MARK, BEAM, COCOON, PLATFORM,
-            HURRICANE, SHADOW, SEISMIC, RIFT
+            HURRICANE, SHADOW, SEISMIC, RIFT, VENT
     };
 
     /** Every bit {@link #LASTING_ABILITIES} owns: the marked abilities whose wait is an effect rather than a hold. */
@@ -190,7 +198,7 @@ public final class BossAbilityKind {
     public static final int[] COMBO_ABILITIES = {
             AREA, RANGED, MELEE, FLUID, HOOK, CAPTURE, SUMMON, LEAP, LINE, GEYSER, BOULDER,
             BOULDER_RAIN, TETHER, GRAVITY, MARK, COVER, HUNT, BEAM, COCOON, DASH, CONE, PLATFORM,
-            HURRICANE, SHADOW, SEISMIC, RIFT
+            HURRICANE, SHADOW, SEISMIC, RIFT, VENT
     };
 
     /** Every bit {@link #COMBO_ABILITIES} owns: the kinds a chain slot may belong to and point at. */

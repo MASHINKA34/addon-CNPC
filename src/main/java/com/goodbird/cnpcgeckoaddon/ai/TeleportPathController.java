@@ -118,6 +118,8 @@ public final class TeleportPathController {
                     controller.seismic.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.RIFT, (controller, level, data, phase, gameTime) ->
                     controller.rift.tryStart(level, data, phase, gameTime)),
+            Map.entry(BossAbility.VENT, (controller, level, data, phase, gameTime) ->
+                    controller.vent.tryStart(level, data, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.tryStart(level, data, phase, gameTime))));
 
@@ -191,6 +193,8 @@ public final class TeleportPathController {
                     controller.seismic.perform(level, phase, gameTime)),
             Map.entry(BossAbility.RIFT, (controller, level, data, phase, gameTime) ->
                     controller.rift.perform(level, phase, gameTime)),
+            Map.entry(BossAbility.VENT, (controller, level, data, phase, gameTime) ->
+                    controller.vent.perform(level, phase, gameTime)),
             Map.entry(BossAbility.SUMMON, (controller, level, data, phase, gameTime) ->
                     controller.summonRuntime.perform(level, phase)),
             Map.entry(BossAbility.TELEPORT, (controller, level, data, phase, gameTime) ->
@@ -312,6 +316,8 @@ public final class TeleportPathController {
     private final BossSeismicRuntime seismic;
     /** The cut that takes victims to the boss' pocket dimension, and who it picks. */
     private final BossRiftRuntime rift;
+    /** Which of the builder's vents a cast hands to their timer. */
+    private final BossVentRuntime vent;
     /** The circle handed to a victim that goes off wherever they take it. */
     private final BossMarkRuntime mark;
     /** The leash tied to the boss, to a spot or between two victims. */
@@ -434,6 +440,7 @@ public final class TeleportPathController {
         this.shadows = new BossShadowRuntime(this, npc);
         this.seismic = new BossSeismicRuntime(this, npc);
         this.rift = new BossRiftRuntime(this, npc);
+        this.vent = new BossVentRuntime(this, npc);
         this.mark = new BossMarkRuntime(this, npc);
         this.tether = new BossTetherCastRuntime(this, npc);
         this.gravity = new BossGravityCastRuntime(this, npc);
@@ -2539,8 +2546,9 @@ public final class TeleportPathController {
             // fan empty, or with the target out of reach - the rule the cone started with.
             case CONE -> cone.stillValid(level, settings(), target, phase);
             // The platforms were picked when the warning went up, and nobody is aimed at: jumping
-            // off the one that burns is the dodge, and it is judged when the fuse runs out.
-            case PLATFORM -> true;
+            // off the one that burns is the dodge, and it is judged when the fuse runs out. The
+            // vents the same: the cast only starts their timer, and each volley warns for itself.
+            case PLATFORM, VENT -> true;
             // And the rain is not aimed at anybody at all: the ring is centred on the boss
             // and lands on ground, so there is nobody in particular who could have left it.
             case BOULDER_RAIN -> true;
@@ -2825,6 +2833,7 @@ public final class TeleportPathController {
         committedYaw = 0.0F;
         coverRuntime.clear();
         platform.clear();
+        vent.clear();
         leap.forgetPlanIfGrounded();
     }
 

@@ -15,7 +15,7 @@ import noppes.npcs.shared.client.gui.components.GuiLabel;
 public final class SubGuiBossShadowAbilities extends SubGuiFieldScreen {
     private static final int FIRST_ABILITY_BUTTON = 100;
 
-    /** Two columns of twelve: twenty-three abilities may be handed to a copy today. */
+    /** Two columns of twelve: twenty-four abilities may be handed to a copy today, the vents the last. */
     private static final int ROWS_PER_COLUMN = 12;
     private static final int COLUMN_WIDTH = 117;
     private static final int ROW_HEIGHT = 22;
