@@ -73,6 +73,8 @@ public final class ZoneSelectionClient {
         private final ZoneSelection selection;
         private final int kind;
         private final Screen screen;
+        /** The editor whose button started the pick, on top of {@link #screen}'s stack. */
+        private final Screen editor;
         private final BoxPicked onBox;
         private final PointPicked onPoint;
         private boolean hidden;
@@ -84,6 +86,7 @@ public final class ZoneSelectionClient {
             this.selection = selection;
             this.kind = kind;
             this.screen = screen;
+            this.editor = topOf(screen);
             this.onBox = onBox;
             this.onPoint = onPoint;
         }
@@ -225,8 +228,9 @@ public final class ZoneSelectionClient {
             return;
         }
         if (!current.hidden) {
-            if (minecraft.screen != current.screen) {
-                // The editor went away before it could step aside; there is nothing to come back to.
+            if (minecraft.screen != current.screen || topOf(minecraft.screen) != current.editor) {
+                // The editor was closed - Done, Escape, Delete - before it could step aside: there
+                // is nothing to pick for, and nothing to come back to.
                 session = null;
                 return;
             }
@@ -336,6 +340,16 @@ public final class ZoneSelectionClient {
 
     private static void tell(Minecraft minecraft, String key) {
         minecraft.gui.setOverlayMessage(Component.translatable(key), false);
+    }
+
+    /** The screen on top of a stack of sub-screens: the one the builder is looking at. */
+    private static Screen topOf(Screen screen) {
+        Screen top = screen;
+        // Bounded, against a stack that loops back on itself.
+        for (int depth = 0; top instanceof GuiBasic basic && basic.getSubGui() != null && depth < 32; depth++) {
+            top = basic.getSubGui();
+        }
+        return top;
     }
 
     /**
