@@ -48,7 +48,10 @@ public class GuiModelSelection extends GuiNPCInterface {
     private static final int BUTTON_ZOOM_OUT = 5;
     private static final int BUTTON_ZOOM_IN = 6;
     private static final int BUTTON_AUTO_FIT = 7;
+    private static final int BUTTON_TEXTURE = 8;
     private static final int MARGIN = 8;
+    /** The widest the row of zoom, fit and texture buttons under the preview grows. */
+    private static final int MAX_CONTROLS_WIDTH = 240;
     private static final int COLUMN_GAP = 8;
     private static final float MIN_SCALE_PERCENT = 5.0F;
     private static final float MAX_SCALE_PERCENT = 800.0F;
@@ -77,12 +80,17 @@ public class GuiModelSelection extends GuiNPCInterface {
     private final List<String> namespaces;
     private final List<String> visibleModels = new ArrayList<>();
     private final Map<ResourceLocation, Optional<GeckoGeometryBounds.Bounds>> boundsCache = new HashMap<>();
+    /** Textures picked by hand, per model, until the picker closes; the selected model's goes on the npc. */
+    private final Map<ResourceLocation, ResourceLocation> chosenTextures = new HashMap<>();
 
     private ModelList modelList;
     private EntityCustomModel previewEntity;
     private ResourceLocation previewRequestedModel;
     private ResourceLocation previewRenderedModel;
     private GeckoGeometryBounds.Bounds previewBounds;
+    /** What the previewed model is dressed in and why, for the status line under the preview. */
+    private MobModelTextureResolver.Resolution previewTexture;
+    private int textureStatusY;
     private String selectedModel;
     private String searchText = "";
     private int namespaceIndex;
@@ -159,17 +167,23 @@ public class GuiModelSelection extends GuiNPCInterface {
         addWidget(modelList);
 
         this.previewTop = searchTop + 23;
-        this.previewBottom = Math.max(previewTop + 48, height - 58);
+        // One line under the preview says where its texture came from.
+        int statusRow = font.lineHeight + 4;
+        this.previewBottom = Math.max(previewTop + 48, height - 58 - statusRow);
+        this.textureStatusY = previewBottom + 3;
 
-        int previewControlsY = previewBottom + 4;
-        int controlsWidth = Math.min(rightWidth, 126);
+        int previewControlsY = previewBottom + statusRow + 4;
+        int controlsWidth = Math.min(rightWidth, MAX_CONTROLS_WIDTH);
         int controlsX = rightX + (rightWidth - controlsWidth) / 2;
+        int fitWidth = (controlsWidth - 57) / 2;
         addButton(new GuiButtonNop(this, BUTTON_ZOOM_OUT, controlsX, previewControlsY,
                 24, 20, "−"));
         addButton(new GuiButtonNop(this, BUTTON_ZOOM_IN, controlsX + 27, previewControlsY,
                 24, 20, "+"));
         addButton(new GuiButtonNop(this, BUTTON_AUTO_FIT, controlsX + 54, previewControlsY,
-                controlsWidth - 54, 20, "cnpcgeckoaddon.model_picker.auto_fit"));
+                fitWidth, 20, "cnpcgeckoaddon.model_picker.auto_fit"));
+        addButton(new GuiButtonNop(this, BUTTON_TEXTURE, controlsX + 57 + fitWidth, previewControlsY,
+                controlsWidth - 57 - fitWidth, 20, "cnpcgeckoaddon.model_picker.texture_pick"));
 
         int bottomWidth = Math.min(100, (availableWidth - 8) / 2);
         int bottomY = height - 28;
@@ -181,6 +195,14 @@ public class GuiModelSelection extends GuiNPCInterface {
 
         ensurePreviewEntity();
         applyFilters();
+        updateTextureButton();
+    }
+
+    private void updateTextureButton() {
+        GuiButtonNop textureButton = getButton(BUTTON_TEXTURE);
+        if (textureButton != null) {
+            textureButton.setEnabled(previewRequestedModel != null && previewEntity != null);
+        }
     }
 
     private String namespaceButtonText() {
@@ -250,9 +272,36 @@ public class GuiModelSelection extends GuiNPCInterface {
         if (location == null) {
             return;
         }
-        ModelSelectionHelper.applyToNpc(targetNpc, location);
+        ModelSelectionHelper.applyToNpc(targetNpc, location, chosenTextures.get(location));
         selectionAction.accept(location.toString());
         close();
+    }
+
+    /**
+     * Lists every png of the previewed model's namespace; the one picked dresses the preview at
+     * once and goes on the npc with the model, the way CustomNPCs' own texture picker sets it.
+     */
+    private void openTexturePicker() {
+        ResourceLocation model = previewRequestedModel;
+        if (model == null) {
+            return;
+        }
+        Map<String, ResourceLocation> byLabel = new HashMap<>();
+        for (ResourceLocation texture : MobModelTextureResolver.texturesOf(model.getNamespace())) {
+            String path = texture.getPath();
+            byLabel.put(path.startsWith("textures/") ? path.substring("textures/".length()) : path, texture);
+        }
+        String title = Component.translatable("cnpcgeckoaddon.model_picker.texture_pick_title",
+                model.getNamespace()).getString();
+        setSubGui(new GuiStringSelection(this, title, new ArrayList<>(byLabel.keySet()), label -> {
+            ResourceLocation picked = byLabel.get(label);
+            if (picked != null) {
+                chosenTextures.put(model, picked);
+                if (model.equals(previewRequestedModel)) {
+                    refreshPreviewTexture();
+                }
+            }
+        }));
     }
 
     @Override
@@ -272,6 +321,8 @@ public class GuiModelSelection extends GuiNPCInterface {
         } else if (button.id == BUTTON_AUTO_FIT) {
             scalePercent = 100.0F;
             previewYaw = START_YAW;
+        } else if (button.id == BUTTON_TEXTURE) {
+            openTexturePicker();
         }
     }
 
@@ -282,15 +333,23 @@ public class GuiModelSelection extends GuiNPCInterface {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Under the texture list nothing answers the mouse, and the model is not drawn: the
+        // list covers the whole screen, and super draws it last, over everything drawn so far.
+        boolean covered = hasSubGui();
         renderBackground(graphics, mouseX, mouseY, partialTick);
         graphics.fill(leftX - 2, 23, leftX + leftWidth + 2, height - 32, 0x99000000);
         graphics.fill(rightX - 2, 23, rightX + rightWidth + 2, height - 32, 0x99000000);
         if (modelList != null) {
-            modelList.render(graphics, mouseX, mouseY, partialTick);
+            modelList.render(graphics, covered ? -1 : mouseX, covered ? -1 : mouseY, partialTick);
         }
         graphics.renderOutline(rightX, previewTop, rightWidth, previewBottom - previewTop, 0xFF808080);
-        renderPreview(graphics);
+        if (!covered) {
+            renderPreview(graphics);
+        }
         super.render(graphics, mouseX, mouseY, partialTick);
+        if (covered) {
+            return;
+        }
 
         graphics.drawString(font,
                 Component.translatable("cnpcgeckoaddon.model_picker.count",
@@ -303,6 +362,7 @@ public class GuiModelSelection extends GuiNPCInterface {
                 Component.translatable("cnpcgeckoaddon.model_picker.scale", Math.round(scalePercent)),
                 rightX + rightWidth / 2, previewBottom - font.lineHeight - 3, 0xD0D0D0);
         renderPreviewStatus(graphics);
+        renderTextureStatus(graphics, mouseX, mouseY);
 
         if (visibleModels.isEmpty()) {
             graphics.drawCenteredString(font,
@@ -311,6 +371,32 @@ public class GuiModelSelection extends GuiNPCInterface {
         }
         renderSelectedModel(graphics, mouseX, mouseY);
         renderListTooltip(graphics, mouseX, mouseY);
+    }
+
+    /** Says under the preview where the model's texture came from; hovering it names the texture. */
+    private void renderTextureStatus(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (previewTexture == null || previewFallbackActive || previewRenderFailed) {
+            return;
+        }
+        Component status = Component.translatable(switch (previewTexture.source()) {
+            case MAP -> "cnpcgeckoaddon.model_picker.texture_status.map";
+            case NAME -> "cnpcgeckoaddon.model_picker.texture_status.name";
+            case NPC -> "cnpcgeckoaddon.model_picker.texture_status.npc";
+            case NONE -> "cnpcgeckoaddon.model_picker.texture_status.none";
+        });
+        String text = status.getString();
+        int available = rightWidth - 8;
+        String visible = font.width(text) <= available
+                ? text
+                : font.plainSubstrByWidth(text, Math.max(0, available - font.width("..."))) + "...";
+        int textWidth = font.width(visible);
+        int textX = rightX + (rightWidth - textWidth) / 2;
+        int color = previewTexture.source() == MobModelTextureResolver.Source.NONE ? 0xFFE0A0 : 0xB0B0B0;
+        graphics.drawString(font, visible, textX, textureStatusY, color, false);
+        if (mouseX >= textX && mouseX < textX + textWidth
+                && mouseY >= textureStatusY && mouseY < textureStatusY + font.lineHeight) {
+            graphics.renderTooltip(font, Component.literal(previewTexture.texture().toString()), mouseX, mouseY);
+        }
     }
 
     private void ensurePreviewEntity() {
@@ -325,7 +411,9 @@ public class GuiModelSelection extends GuiNPCInterface {
         previewRequestedModel = model;
         previewFallbackActive = false;
         previewRenderFailed = false;
+        previewTexture = null;
         ensurePreviewEntity();
+        updateTextureButton();
         if (previewEntity == null) {
             previewRenderedModel = null;
             previewRenderFailed = true;
@@ -335,11 +423,9 @@ public class GuiModelSelection extends GuiNPCInterface {
         ModelSelectionHelper.ModelResources resources = ModelSelectionHelper.resolve(model);
 
         previewEntity.modelResLoc = model;
-        // The skin the npc will carry once this model is applied; ModelCustom resolves it through
-        // the same MobModelTextureResolver it resolves the npc's own skin through in the world.
-        previewEntity.textureResLoc = ModelSelectionHelper.skinAfterApply(targetNpc, model, null);
         previewEntity.animResLoc = resources.animation() == null ? NO_OP_ANIMATION : resources.animation();
         previewEntity.idleAnim = compatibleIdleAnimation(resources.animation());
+        refreshPreviewTexture();
 
         previewRenderedModel = model;
         previewBounds = boundsFor(model);
@@ -348,6 +434,25 @@ public class GuiModelSelection extends GuiNPCInterface {
             // Nothing baked under this id, or nothing in it to draw: the renderer would show
             // its not-found model anyway, so show it framed and say why.
             activatePreviewFallback();
+        }
+    }
+
+    /**
+     * Dresses the preview in the skin the npc will carry once the previewed model is applied -
+     * a texture picked for it here, or the one ModelSelectionHelper works out - and ModelCustom
+     * resolves that skin through the same MobModelTextureResolver it resolves the npc's own
+     * skin through in the world. The status line is read off the same resolution.
+     */
+    private void refreshPreviewTexture() {
+        if (previewEntity == null || previewRequestedModel == null) {
+            previewTexture = null;
+            return;
+        }
+        ResourceLocation skin = ModelSelectionHelper.skinAfterApply(
+                targetNpc, previewRequestedModel, chosenTextures.get(previewRequestedModel));
+        previewTexture = MobModelTextureResolver.explain(previewRequestedModel, skin);
+        if (!previewFallbackActive) {
+            previewEntity.textureResLoc = skin;
         }
     }
 
@@ -542,9 +647,12 @@ public class GuiModelSelection extends GuiNPCInterface {
                 && mouseY >= previewTop && mouseY < previewBottom;
     }
 
+    // While the texture list is open every mouse event is its own: CustomNPCs hands them on to
+    // it from super, and the preview under it must not turn or zoom from clicks meant for the list.
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (isInsidePreview(mouseX, mouseY) && scrollY != 0.0D) {
+        if (!hasSubGui() && isInsidePreview(mouseX, mouseY) && scrollY != 0.0D) {
             adjustScale((float) Math.copySign(10.0D, scrollY));
             return true;
         }
@@ -553,7 +661,7 @@ public class GuiModelSelection extends GuiNPCInterface {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && isInsidePreview(mouseX, mouseY)) {
+        if (!hasSubGui() && button == 0 && isInsidePreview(mouseX, mouseY)) {
             draggingPreview = true;
             return true;
         }
@@ -563,7 +671,7 @@ public class GuiModelSelection extends GuiNPCInterface {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                 double dragX, double dragY) {
-        if (button == 0 && draggingPreview) {
+        if (!hasSubGui() && button == 0 && draggingPreview) {
             previewYaw = (previewYaw + (float) dragX * 0.8F) % 360.0F;
             return true;
         }
@@ -572,7 +680,7 @@ public class GuiModelSelection extends GuiNPCInterface {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && draggingPreview) {
+        if (!hasSubGui() && button == 0 && draggingPreview) {
             draggingPreview = false;
             return true;
         }
