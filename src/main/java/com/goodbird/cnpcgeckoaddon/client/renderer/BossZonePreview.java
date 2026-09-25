@@ -285,9 +285,9 @@ public final class BossZonePreview {
     /**
      * The pick under way: the block the first click would make a corner, the box from the first
      * corner to the one the next click would make after it - by the rule the clicks go by, so
-     * what is outlined is what will be written - and for a point the post where it would stand.
-     * Measured as it goes - the box's size, the spot's block - so the builder can count without
-     * the fields.
+     * what is outlined is what will be written - and for a point the post on the block its click
+     * would write. Measured as it goes - the box's size, the spot's block - so the builder can
+     * count without the fields.
      */
     private static void addPickShapes(List<Shape> shapes, float partialTick) {
         ZoneSelection selection = ZoneSelectionClient.selection();
@@ -300,7 +300,8 @@ public final class BossZonePreview {
         Direction face = aim == null ? null : aim.getDirection();
         if (selection.isPoint()) {
             if (aim != null) {
-                BlockPos spot = aim.getBlockPos().relative(aim.getDirection());
+                // On the block the editor writes, which is not always the one in front of the face.
+                BlockPos spot = selection.picked(aimed, face);
                 shapes.add(Shape.box(kind, "", ZoneCoordinates.blockBox(aimed, aimed), true));
                 shapes.add(Shape.point(kind, spot.getX() + " " + spot.getY() + " " + spot.getZ(),
                         Vec3.atBottomCenterOf(spot), true));

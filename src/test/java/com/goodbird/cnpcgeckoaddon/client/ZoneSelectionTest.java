@@ -83,7 +83,7 @@ class ZoneSelectionTest {
         assertFalse(halfway.click(B, Direction.UP, 0.0F));
         assertNull(halfway.result(), "the first corner alone is never handed on as a box");
 
-        ZoneSelection point = ZoneSelection.point();
+        ZoneSelection point = ZoneSelection.point(ZoneSelection.Pick.IN_FRONT);
         point.cancel();
         assertEquals(ZoneSelection.Stage.CANCELLED, point.stage());
         assertFalse(point.click(A, Direction.UP, 90.0F));
@@ -106,7 +106,7 @@ class ZoneSelectionTest {
     @Test
     @DisplayName("a point is one click: the block, its face, and the block in front of that face")
     void pointIsOneClick() {
-        ZoneSelection selection = ZoneSelection.point();
+        ZoneSelection selection = ZoneSelection.point(ZoneSelection.Pick.IN_FRONT);
         assertTrue(selection.isPoint());
         assertEquals(ZoneSelection.Stage.POINT, selection.stage());
         assertEquals(ZoneSelection.HINT_POINT, selection.hintKey());
@@ -120,9 +120,25 @@ class ZoneSelectionTest {
         assertEquals(A.above(), point.inFront(), "clicked on a floor, the point stands on it");
         assertNull(selection.result(), "a point is not a box");
 
-        ZoneSelection wall = ZoneSelection.point();
+        ZoneSelection wall = ZoneSelection.point(ZoneSelection.Pick.IN_FRONT);
         wall.click(A, Direction.EAST, 0.0F);
         assertEquals(A.east(), wall.pointResult().inFront(), "clicked on a wall, it is the block in front");
+    }
+
+    @Test
+    @DisplayName("a point's marker stands on the block its editor writes: the one in front, or the one clicked")
+    void pointMarkerStandsOnTheBlockWritten() {
+        ZoneSelection spot = ZoneSelection.point(ZoneSelection.Pick.IN_FRONT);
+        assertEquals(A.above(), spot.picked(A, Direction.UP), "a spot's marker stands where the feet go");
+        spot.click(A, Direction.UP, 0.0F);
+        assertEquals(spot.pointResult().inFront(), spot.picked(A, Direction.UP));
+
+        // A launch pad writes the block clicked: on a floor its marker is the floor block, not the one over it.
+        ZoneSelection landing = ZoneSelection.point(ZoneSelection.Pick.CLICKED);
+        assertEquals(A, landing.picked(A, Direction.UP));
+        assertEquals(A, landing.picked(A, Direction.EAST), "on a wall too, the block clicked");
+        landing.click(A, Direction.UP, 0.0F);
+        assertEquals(landing.pointResult().block(), landing.picked(A, Direction.UP));
     }
 
     @Test
@@ -218,7 +234,7 @@ class ZoneSelectionTest {
     }
 
     private static float clickPoint(float yRot) {
-        ZoneSelection selection = ZoneSelection.point();
+        ZoneSelection selection = ZoneSelection.point(ZoneSelection.Pick.IN_FRONT);
         selection.click(A, Direction.UP, yRot);
         return selection.pointResult().yaw();
     }

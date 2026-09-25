@@ -118,9 +118,21 @@ public final class ZoneSelectionClient {
         begin(ZoneSelection.box(corners), kind, apply, null);
     }
 
-    /** Starts picking one block for the editor on screen; {@code apply} is called on the click. */
+    /**
+     * Starts picking one block for the editor on screen; {@code apply} is called on the click. For
+     * an editor that writes the block in front of the face clicked, as every spot's does.
+     */
     public static void selectPoint(int kind, PointPicked apply) {
-        begin(ZoneSelection.point(), kind, null, apply);
+        selectPoint(kind, ZoneSelection.Pick.IN_FRONT, apply);
+    }
+
+    /**
+     * Starts picking one block for the editor on screen; {@code apply} is called on the click.
+     *
+     * @param spot which block of the click {@code apply} writes: the pick's marker stands on it
+     */
+    public static void selectPoint(int kind, ZoneSelection.Pick spot, PointPicked apply) {
+        begin(ZoneSelection.point(spot), kind, null, apply);
     }
 
     private static void begin(ZoneSelection selection, int kind, BoxPicked onBox, PointPicked onPoint) {

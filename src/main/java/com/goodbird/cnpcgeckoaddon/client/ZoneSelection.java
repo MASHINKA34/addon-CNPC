@@ -40,7 +40,8 @@ public final class ZoneSelection {
     public enum Pick {
         /**
          * The block clicked itself: for a zone made of the blocks it names, like a vent - the
-         * stretch of wall or floor it fires out of.
+         * stretch of wall or floor it fires out of - or a spot that names a block to come down
+         * on, like a launch pad's landing block.
          */
         CLICKED,
         /**
@@ -94,9 +95,13 @@ public final class ZoneSelection {
         return new ZoneSelection(Stage.FIRST_CORNER, corners);
     }
 
-    /** A selection of one block. */
-    public static ZoneSelection point() {
-        return new ZoneSelection(Stage.POINT, Pick.IN_FRONT);
+    /**
+     * A selection of one block. The point keeps the block clicked and its face whichever the rule,
+     * for the editor to take the block it writes; {@code spot} names that block, the one the
+     * marker of the pick stands on, so the marker reads what the fields will.
+     */
+    public static ZoneSelection point(Pick spot) {
+        return new ZoneSelection(Stage.POINT, spot);
     }
 
     /**

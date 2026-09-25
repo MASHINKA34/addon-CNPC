@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.BossCastSpot;
@@ -151,8 +152,9 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
         } else if (button.id == SELECT_BUTTON) {
             applyFields();
             // The block clicked itself, not the one in front of it: the pad lands players on top of
-            // the block it names, the one "use my position" takes from under the feet.
-            ZoneSelectionClient.selectPoint(BossZonePreview.KIND_PLAIN, (picked, anchor) -> {
+            // the block it names, the one "use my position" takes from under the feet. The pick's
+            // marker stands on the same block, so it reads the numbers the fields get.
+            ZoneSelectionClient.selectPoint(BossZonePreview.KIND_PLAIN, ZoneSelection.Pick.CLICKED, (picked, anchor) -> {
                 BlockPos at = ZoneCoordinates.toStored(picked.block(),
                         data.getCoordinateMode() == NpcLaunchPadData.COORDINATE_ABSOLUTE, anchor);
                 data.setPosition(at.getX(), at.getY(), at.getZ());
