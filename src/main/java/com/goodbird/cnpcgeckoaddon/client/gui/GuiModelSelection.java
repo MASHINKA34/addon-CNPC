@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 import com.goodbird.cnpcgeckoaddon.client.ModelSelectionHelper;
 import com.goodbird.cnpcgeckoaddon.client.model.GeckoModelBounds;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
+import com.goodbird.cnpcgeckoaddon.data.GeckoGeometryBounds;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
@@ -36,6 +37,7 @@ import java.util.function.Consumer;
 
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.lwjgl.opengl.GL11;
 
 /** Model-only picker with namespace filtering and deferred application. */
 public class GuiModelSelection extends GuiNPCInterface {
@@ -51,6 +53,14 @@ public class GuiModelSelection extends GuiNPCInterface {
     private static final float MIN_SCALE_PERCENT = 5.0F;
     private static final float MAX_SCALE_PERCENT = 800.0F;
     private static final float START_YAW = 30.0F;
+    /** The share of the preview box left free on every side of a fitted model. */
+    private static final double FIT_MARGIN = 0.08D;
+    /** Pixels per block past which a fitted model is not blown up further. */
+    private static final double MAX_FIT_SCALE = 4096.0D;
+    /** How far out of the screen the model's middle is drawn, as vanilla's inventory entity is. */
+    private static final float PREVIEW_DEPTH = 50.0F;
+    /** EntityCustomModel draws at size / 5 of the model; the preview keeps 5, so one to one. */
+    private static final int PREVIEW_SIZE = 5;
     private static final ResourceLocation NO_OP_ANIMATION = ResourceLocation.fromNamespaceAndPath(
             "cnpcgeckoaddon", "animations/none.animation.json");
     private static final ResourceLocation FALLBACK_MODEL = ResourceLocation.fromNamespaceAndPath(
@@ -68,13 +78,13 @@ public class GuiModelSelection extends GuiNPCInterface {
     private final List<ResourceLocation> allModels;
     private final List<String> namespaces;
     private final List<String> visibleModels = new ArrayList<>();
-    private final Map<ResourceLocation, Optional<GeckoModelBounds.Bounds>> boundsCache = new HashMap<>();
+    private final Map<ResourceLocation, Optional<GeckoGeometryBounds.Bounds>> boundsCache = new HashMap<>();
 
     private ModelList modelList;
     private EntityCustomModel previewEntity;
     private ResourceLocation previewRequestedModel;
     private ResourceLocation previewRenderedModel;
-    private GeckoModelBounds.Bounds previewBounds;
+    private GeckoGeometryBounds.Bounds previewBounds;
     private String selectedModel;
     private String searchText = "";
     private int namespaceIndex;
@@ -309,7 +319,7 @@ public class GuiModelSelection extends GuiNPCInterface {
         Minecraft minecraft = Minecraft.getInstance();
         if (previewEntity == null && minecraft.level != null && EntityRegistry.entityCustomModel != null) {
             previewEntity = new EntityCustomModel(EntityRegistry.entityCustomModel, minecraft.level);
-            previewEntity.size = 5;
+            previewEntity.size = PREVIEW_SIZE;
         }
     }
 
@@ -336,6 +346,11 @@ public class GuiModelSelection extends GuiNPCInterface {
         previewRenderedModel = model;
         previewBounds = boundsFor(model);
         scalePercent = 100.0F;
+        if (previewBounds == null) {
+            // Nothing baked under this id, or nothing in it to draw: the renderer would show
+            // its not-found model anyway, so show it framed and say why.
+            activatePreviewFallback();
+        }
     }
 
     private ResourceLocation currentNpcTexture() {
@@ -347,7 +362,7 @@ public class GuiModelSelection extends GuiNPCInterface {
         return npcTexture == null ? DEFAULT_NPC_TEXTURE : npcTexture;
     }
 
-    private GeckoModelBounds.Bounds boundsFor(ResourceLocation model) {
+    private GeckoGeometryBounds.Bounds boundsFor(ResourceLocation model) {
         return boundsCache.computeIfAbsent(model, location -> {
             BakedGeoModel bakedModel = GeckoLibCache.getBakedModels().get(location);
             return GeckoModelBounds.calculateModelBounds(bakedModel);
@@ -386,52 +401,74 @@ public class GuiModelSelection extends GuiNPCInterface {
             return;
         }
 
-        float fitScale = calculateFitScale(contentRight - contentLeft, contentBottom - contentTop);
+        int contentWidth = contentRight - contentLeft;
+        int contentHeight = contentBottom - contentTop;
+        GeckoGeometryBounds.Bounds bounds = previewBounds == null
+                ? null : previewBounds.scaled(previewModelScale());
+        float fitScale;
+        float anchorY;
+        if (bounds == null) {
+            fitScale = Math.max(8.0F, Math.min(contentWidth, contentHeight) * 0.35F);
+            anchorY = (contentTop + contentBottom) * 0.5F;
+        } else {
+            GeckoGeometryBounds.Fit fit = GeckoGeometryBounds.fit(
+                    bounds, contentWidth, contentHeight, FIT_MARGIN, MAX_FIT_SCALE);
+            fitScale = (float) Math.max(0.01D, fit.scale());
+            // The zoom grows the model about its own middle, which the fit puts just high enough
+            // for the feet to rest on the bottom margin at 100 %.
+            anchorY = contentBottom - (float) fit.centerAboveBottom();
+        }
         float renderScale = fitScale * scalePercent / 100.0F;
-        Vector3f translation = calculateCenterTranslation();
+        Vector3f translation = calculateCenterTranslation(bounds);
         Quaternionf pose = new Quaternionf().rotateZ((float) Math.PI);
 
         previewEntity.yBodyRot = previewYaw;
         previewEntity.yBodyRotO = previewYaw;
         previewEntity.yHeadRot = previewYaw;
         previewEntity.yHeadRotO = previewYaw;
-        PoseStack poseStack = new PoseStack();
-        poseStack.translate(
-                (contentLeft + contentRight) * 0.5F,
-                (contentTop + contentBottom) * 0.5F,
-                50.0F);
-        poseStack.scale(renderScale, renderScale, -renderScale);
-        poseStack.translate(translation.x, translation.y, translation.z);
-        poseStack.mulPose(pose);
-
+        // The screen's own pose, not a fresh one: CustomNPCs draws a sub-screen 60 out of the
+        // screen, and from a fresh pose the model's middle sat ten pixels behind this screen's panel.
+        PoseStack poseStack = graphics.pose();
+        poseStack.pushPose();
         EntityRenderDispatcher dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
-        graphics.enableScissor(contentLeft, contentTop, contentRight, contentBottom);
-        Lighting.setupForEntityInInventory();
-        dispatcher.setRenderShadow(false);
         boolean renderFailed = false;
         try {
-            RenderSystem.runAsFancy(() -> dispatcher.render(
-                    previewEntity,
-                    0.0D,
-                    0.0D,
-                    0.0D,
-                    0.0F,
-                    1.0F,
-                    poseStack,
-                    graphics.bufferSource(),
-                    15728880));
-        } catch (RuntimeException ignored) {
-            // Broken third-party geometry should not make the editor unusable.
-            renderFailed = true;
-        } finally {
+            poseStack.translate((contentLeft + contentRight) * 0.5F, anchorY, PREVIEW_DEPTH);
+            poseStack.scale(renderScale, renderScale, -renderScale);
+            poseStack.translate(translation.x, translation.y, translation.z);
+            poseStack.mulPose(pose);
+
+            graphics.enableScissor(contentLeft, contentTop, contentRight, contentBottom);
             try {
-                graphics.flush();
+                clearPreviewDepth();
+                Lighting.setupForEntityInInventory();
+                dispatcher.setRenderShadow(false);
+                RenderSystem.runAsFancy(() -> dispatcher.render(
+                        previewEntity,
+                        0.0D,
+                        0.0D,
+                        0.0D,
+                        0.0F,
+                        1.0F,
+                        poseStack,
+                        graphics.bufferSource(),
+                        15728880));
             } catch (RuntimeException ignored) {
+                // Broken third-party geometry should not make the editor unusable.
                 renderFailed = true;
+            } finally {
+                try {
+                    graphics.flush();
+                } catch (RuntimeException ignored) {
+                    renderFailed = true;
+                }
+                clearPreviewDepth();
+                dispatcher.setRenderShadow(true);
+                Lighting.setupFor3DItems();
+                graphics.disableScissor();
             }
-            dispatcher.setRenderShadow(true);
-            Lighting.setupFor3DItems();
-            graphics.disableScissor();
+        } finally {
+            poseStack.popPose();
         }
         if (renderFailed) {
             if (previewFallbackActive) {
@@ -465,32 +502,42 @@ public class GuiModelSelection extends GuiNPCInterface {
         }
     }
 
-    private float calculateFitScale(int contentWidth, int contentHeight) {
-        if (previewBounds == null) {
-            return Math.max(8.0F, Math.min(contentWidth, contentHeight) * 0.35F);
-        }
-
-        double horizontalExtent = Math.max(0.05D,
-                Math.hypot(previewBounds.width(), previewBounds.depth()));
-        double verticalExtent = Math.max(0.05D, previewBounds.height());
-        double widthScale = contentWidth * 0.8D / horizontalExtent;
-        double heightScale = contentHeight * 0.8D / verticalExtent;
-        return (float) Math.min(4096.0D, Math.max(0.01D, Math.min(widthScale, heightScale)));
+    /**
+     * Forgets the depth of whatever was drawn in the preview box, before the model and after it.
+     *
+     * <p>The dark panel under the preview writes its depth, and a fitted model reaches as far
+     * behind its own middle as it is deep: the far side of anything big lay behind the panel's
+     * plane, failed the depth test and was never drawn, so the model showed cut in half. After
+     * the model, its own depth would hide the status drawn over it. The scissor is on at both
+     * calls, so nothing outside the preview box is touched.</p>
+     */
+    private static void clearPreviewDepth() {
+        RenderSystem.depthMask(true);
+        RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
     }
 
-    private Vector3f calculateCenterTranslation() {
-        if (previewBounds == null) {
+    /** The scale RenderCustomModel draws the preview entity at: its size over five, times its own. */
+    private float previewModelScale() {
+        return previewEntity.size / 5.0F * previewEntity.getScale();
+    }
+
+    /**
+     * Moves the middle of the turned model onto the preview's anchor, so it spins about its own
+     * vertical axis rather than the entity's origin and the diagonal fit holds at any angle.
+     */
+    private Vector3f calculateCenterTranslation(GeckoGeometryBounds.Bounds bounds) {
+        if (bounds == null) {
             return new Vector3f(0.0F, previewEntity.getBbHeight() * 0.5F, 0.0F);
         }
 
         double angle = Math.toRadians(180.0F - previewYaw);
-        double rotatedX = Math.cos(angle) * previewBounds.centerX()
-                + Math.sin(angle) * previewBounds.centerZ();
-        double rotatedZ = -Math.sin(angle) * previewBounds.centerX()
-                + Math.cos(angle) * previewBounds.centerZ();
+        double rotatedX = Math.cos(angle) * bounds.centerX()
+                + Math.sin(angle) * bounds.centerZ();
+        double rotatedZ = -Math.sin(angle) * bounds.centerX()
+                + Math.cos(angle) * bounds.centerZ();
         return new Vector3f(
                 (float) rotatedX,
-                (float) previewBounds.centerY(),
+                (float) bounds.centerY(),
                 (float) -rotatedZ);
     }
 
