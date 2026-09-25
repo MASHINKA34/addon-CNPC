@@ -77,6 +77,8 @@ public class GuiModelSelection extends GuiNPCInterface {
     private final EntityCustomNpc targetNpc;
     private final Consumer<String> selectionAction;
     private final List<ResourceLocation> allModels;
+    /** The model the npc wears when nothing is baked under its id, shown until another is picked. */
+    private final ResourceLocation missingCurrentModel;
     private final List<String> namespaces;
     private final List<String> visibleModels = new ArrayList<>();
     private final Map<ResourceLocation, Optional<GeckoGeometryBounds.Bounds>> boundsCache = new HashMap<>();
@@ -131,6 +133,7 @@ public class GuiModelSelection extends GuiNPCInterface {
         CustomModelData modelData = ((IDataDisplay) npc.display).getCustomModelData();
         ResourceLocation currentModel = ResourceLocation.tryParse(modelData.getModel());
         this.selectedModel = currentModel == null ? null : currentModel.toString();
+        this.missingCurrentModel = currentModel != null && !allModels.contains(currentModel) ? currentModel : null;
     }
 
     @Override
@@ -201,7 +204,9 @@ public class GuiModelSelection extends GuiNPCInterface {
     private void updateTextureButton() {
         GuiButtonNop textureButton = getButton(BUTTON_TEXTURE);
         if (textureButton != null) {
-            textureButton.setEnabled(previewRequestedModel != null && previewEntity != null);
+            // A model that could not be read has nothing to dress.
+            textureButton.setEnabled(previewRequestedModel != null && previewEntity != null
+                    && !previewFallbackActive && !previewRenderFailed);
         }
     }
 
@@ -240,6 +245,12 @@ public class GuiModelSelection extends GuiNPCInterface {
         if (previousSelection != null && visibleModels.contains(previousSelection)) {
             modelList.select(previousSelection);
             modelHighlighted(previousSelection);
+        } else if (missingCurrentModel != null && missingCurrentModel.toString().equals(previousSelection)) {
+            // The npc wears an id nothing is baked under: preview it as the fallback it is drawn
+            // as, with its status, instead of quietly offering the list's first model in its place.
+            if (!missingCurrentModel.equals(previewRequestedModel)) {
+                updatePreview(missingCurrentModel);
+            }
         } else if (!visibleModels.isEmpty()) {
             modelList.select(visibleModels.getFirst());
             modelHighlighted(visibleModels.getFirst());
@@ -413,10 +424,10 @@ public class GuiModelSelection extends GuiNPCInterface {
         previewRenderFailed = false;
         previewTexture = null;
         ensurePreviewEntity();
-        updateTextureButton();
         if (previewEntity == null) {
             previewRenderedModel = null;
             previewRenderFailed = true;
+            updateTextureButton();
             return;
         }
 
@@ -435,6 +446,7 @@ public class GuiModelSelection extends GuiNPCInterface {
             // its not-found model anyway, so show it framed and say why.
             activatePreviewFallback();
         }
+        updateTextureButton();
     }
 
     /**
@@ -473,6 +485,7 @@ public class GuiModelSelection extends GuiNPCInterface {
         previewEntity.idleAnim = "";
         previewRenderedModel = FALLBACK_MODEL;
         previewBounds = boundsFor(FALLBACK_MODEL);
+        updateTextureButton();
     }
 
     private String compatibleIdleAnimation(ResourceLocation animationFile) {
