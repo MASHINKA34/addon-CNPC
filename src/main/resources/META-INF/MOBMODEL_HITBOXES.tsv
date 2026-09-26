@@ -316,6 +316,7 @@ cataclysm:geo/wither_missile_model.geo.json	0.53	2.58
 cnpcgeckoaddon:geo/animfilenotfound.geo.json	0.7	2.0
 cnpcgeckoaddon:geo/geo_npc.geo.json	0.7	2.0
 cnpcgeckoaddon:geo/modelnotfound.geo.json	0.7	2.0
+cnpcgeckoaddon:geo/rift_crystal.geo.json	0.65	1.38
 creatures_expanded:geo/abominationnew.geo.json	0.57	2.14
 creatures_expanded:geo/anguished.geo.json	1.0	2.04
 creatures_expanded:geo/blizzard.geo.json	0.3	0.3
