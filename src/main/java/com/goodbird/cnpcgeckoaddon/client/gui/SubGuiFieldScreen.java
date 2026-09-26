@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import net.minecraft.client.gui.screens.Screen;
@@ -8,7 +12,6 @@ import net.minecraft.network.chat.Component;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
-import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 import java.util.ArrayList;
@@ -77,7 +80,7 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
 
     private void addCueRow(int id, int y, Supplier<String> label, Runnable open) {
         cueLabels.put(id, label);
-        addButton(new GuiButtonNop(this, id, guiLeft + numberLabelX(), y,
+        addButton(new ThemeButton(this, id, guiLeft + numberLabelX(), y,
                 imageWidth - numberLabelX() * 2, toggleButtonHeight(), label.get(),
                 button -> {
                     applyFields();
@@ -109,7 +112,7 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
 
     /** The close button each screen ends with, at the spot that screen puts it. */
     protected void addDoneButton(int x, int y, int width, int height) {
-        addButton(new GuiButtonNop(this, DONE_BUTTON, x, y, width, height, "gui.done", button -> close()));
+        addButton(new ThemeButton(this, DONE_BUTTON, x, y, width, height, "gui.done", button -> close()));
     }
 
     /**
@@ -172,16 +175,16 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
     /** The same, with a tooltip on the label. */
     protected void addYesNo(int id, String label, String tooltip, int y, boolean value) {
         addLabel(tooltip == null
-                ? new GuiLabel(id, label, guiLeft + toggleLabelX(), y + toggleLabelYOffset())
-                : new GuiLabel(id, label, guiLeft + toggleLabelX(), y + toggleLabelYOffset(), tooltip));
-        addButton(new GuiButtonYesNo(this, id, guiLeft + toggleButtonX(), y,
+                ? new ThemeLabel(id, label, guiLeft + toggleLabelX(), y + toggleLabelYOffset())
+                : new ThemeLabel(id, label, guiLeft + toggleLabelX(), y + toggleLabelYOffset(), tooltip));
+        addButton(new ThemeYesNo(this, id, guiLeft + toggleButtonX(), y,
                 toggleButtonWidth(), toggleButtonHeight(), value));
     }
 
     /** A labelled button that cycles through a fixed list of choices. */
     protected void addCycle(int id, String label, int y, String[] values, int value) {
-        addLabel(new GuiLabel(id, label, guiLeft + toggleLabelX(), y + toggleLabelYOffset()));
-        addButton(new GuiButtonNop(this, id, guiLeft + cycleButtonX(), y,
+        addLabel(new ThemeLabel(id, label, guiLeft + toggleLabelX(), y + toggleLabelYOffset()));
+        addButton(new ThemeButton(this, id, guiLeft + cycleButtonX(), y,
                 cycleButtonWidth(), toggleButtonHeight(), values, value));
     }
 
@@ -272,13 +275,13 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
      * screens that edit a spot in the world all had their own two-line copy of this.</p>
      */
     protected GuiTextFieldNop coordinateField(int id, int x, int y, int width, int value) {
-        return new GuiTextFieldNop(id, this, x, y, width, numberFieldHeight(), Integer.toString(value));
+        return new ThemeTextField(id, this, x, y, width, numberFieldHeight(), Integer.toString(value));
     }
 
     /** A labelled integer field that clamps itself to {@code min..max} and falls back. */
     protected void addNumberField(int id, String label, int y, int value, int min, int max, int fallback) {
-        addLabel(new GuiLabel(id, label, guiLeft + numberLabelX(), y + numberLabelYOffset()));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + numberFieldX(), y,
+        addLabel(new ThemeLabel(id, label, guiLeft + numberLabelX(), y + numberLabelYOffset()));
+        GuiTextFieldNop field = new ThemeTextField(id, this, guiLeft + numberFieldX(), y,
                 numberFieldWidth(), numberFieldHeight(), Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
@@ -299,7 +302,7 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
     protected int addWrappedText(int id, String text, int y) {
         int width = imageWidth - 16;
         for (String line : wrapLines(text, width)) {
-            addLabel(new GuiLabel(id++, Component.literal(line), HINT_COLOR,
+            addLabel(new ThemeLabel(id++, Component.literal(line), HINT_COLOR,
                     guiLeft + 8, y, width, LINE_HEIGHT));
             y += LINE_HEIGHT;
         }
