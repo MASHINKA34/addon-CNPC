@@ -1,11 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.NpcDamageResistEntry;
 import com.goodbird.cnpcgeckoaddon.data.NpcImmunityData;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** The damage resistance rules of one npc, one row per slot - the topmost match wins. */
 public final class SubGuiNpcDamageResistList extends SubGuiFieldScreen {
@@ -24,11 +25,11 @@ public final class SubGuiNpcDamageResistList extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.npc.resist_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.npc.resist_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
 
         int y = guiTop + 24;
         for (int i = 0; i < NpcImmunityData.RESIST_SLOTS; i++) {
-            addButton(new GuiButtonNop(this, FIRST_SLOT_BUTTON + i, guiLeft + 8, y, 234, 20, slotLabel(i)));
+            addButton(new ThemeButton(this, FIRST_SLOT_BUTTON + i, guiLeft + 8, y, 234, 20, slotLabel(i)));
             y += 22;
         }
 

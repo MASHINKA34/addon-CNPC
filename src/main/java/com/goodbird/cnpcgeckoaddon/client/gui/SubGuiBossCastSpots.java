@@ -1,12 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossAbility;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossCastSpot;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 import java.util.List;
 
@@ -51,16 +52,16 @@ public final class SubGuiBossCastSpots extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.cast_spots_phase", phaseIndex), guiLeft + 8, guiTop + 8, 0xFFFFFF));
         for (int i = 0; i < rows.size(); i++) {
             BossAbility ability = rows.get(i);
             int y = guiTop + FIRST_ROW_Y + i * ROW_HEIGHT;
-            addLabel(new GuiLabel(FIRST_MODE_BUTTON + i, BossAbilityKind.LABELS[ability.kind()],
+            addLabel(new ThemeLabel(FIRST_MODE_BUTTON + i, BossAbilityKind.LABELS[ability.kind()],
                     guiLeft + 8, y + 6));
-            addButton(new GuiButtonNop(this, FIRST_MODE_BUTTON + i, guiLeft + MODE_BUTTON_X, y,
+            addButton(new ThemeButton(this, FIRST_MODE_BUTTON + i, guiLeft + MODE_BUTTON_X, y,
                     MODE_BUTTON_WIDTH, 20, BossCastSpot.MODE_LABELS, ability.castSpot(phase).getMode()));
-            addButton(new GuiButtonNop(this, FIRST_EDIT_BUTTON + i, guiLeft + EDIT_BUTTON_X, y,
+            addButton(new ThemeButton(this, FIRST_EDIT_BUTTON + i, guiLeft + EDIT_BUTTON_X, y,
                     EDIT_BUTTON_WIDTH, 20, "..."));
         }
         addWrappedHint(FIRST_HINT_LABEL, "cnpcgeckoaddon.boss.cast_spot_hint",

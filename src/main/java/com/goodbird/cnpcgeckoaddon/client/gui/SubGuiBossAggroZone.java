@@ -2,6 +2,9 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.Minecraft;
@@ -9,7 +12,6 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
@@ -52,18 +54,18 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         // to is up to the locale.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.aggro_zone_title",
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.aggro_zone_title",
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
 
         addYesNo(ENABLED_BUTTON, "cnpcgeckoaddon.boss.aggro_zone_enabled", guiTop + 22,
                 data.isAggroZoneEnabled());
-        addLabel(new GuiLabel(TARGET_BUTTON, "cnpcgeckoaddon.boss.aggro_zone_target",
+        addLabel(new ThemeLabel(TARGET_BUTTON, "cnpcgeckoaddon.boss.aggro_zone_target",
                 guiLeft + 8, guiTop + 50));
-        addButton(new GuiButtonNop(this, TARGET_BUTTON, guiLeft + 142, guiTop + 44, 100, 20,
+        addButton(new ThemeButton(this, TARGET_BUTTON, guiLeft + 142, guiTop + 44, 100, 20,
                 TeleportPathData.AGGRO_ZONE_TARGET_LABELS, data.getAggroZoneTargetMode()));
-        addLabel(new GuiLabel(INTERVAL_FIELD, "cnpcgeckoaddon.boss.aggro_zone_interval",
+        addLabel(new ThemeLabel(INTERVAL_FIELD, "cnpcgeckoaddon.boss.aggro_zone_interval",
                 guiLeft + 8, guiTop + 72));
-        GuiTextFieldNop interval = new GuiTextFieldNop(INTERVAL_FIELD, this,
+        GuiTextFieldNop interval = new ThemeTextField(INTERVAL_FIELD, this,
                 guiLeft + 172, guiTop + 66, 70, 20, Integer.toString(data.getAggroZoneRecheckTicks()));
         interval.setNumbersOnly();
         interval.setMinMaxDefault(TeleportPathData.MIN_AGGRO_ZONE_RECHECK_TICKS,
@@ -76,19 +78,19 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         addYesNo(BLOCK_OUTSIDE_BUTTON, "cnpcgeckoaddon.boss.aggro_zone_block_outside", guiTop + 132,
                 data.isAggroZoneBlocksOutsideDamage());
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.aggro_zone_corner1",
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.aggro_zone_corner1",
                 guiLeft + 8, guiTop + 157));
         addCornerFields(X1_FIELD, Y1_FIELD, Z1_FIELD, CORNER1_HERE_BUTTON, guiTop + 167,
                 data.getAggroZoneX1(), data.getAggroZoneY1(), data.getAggroZoneZ1());
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.aggro_zone_corner2",
+        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.aggro_zone_corner2",
                 guiLeft + 8, guiTop + 193));
         addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, guiTop + 203,
                 data.getAggroZoneX2(), data.getAggroZoneY2(), data.getAggroZoneZ2());
 
         // Show and select share the row: the show button's longest translation takes 117 of its 124.
-        addButton(new GuiButtonNop(this, SHOW_BUTTON, guiLeft + 8, guiTop + 229, 124, 20,
+        addButton(new ThemeButton(this, SHOW_BUTTON, guiLeft + 8, guiTop + 229, 124, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_show"));
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 136, guiTop + 229, 106, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 136, guiTop + 229, 106, 20,
                 ZoneSelectionClient.SELECT_BOX));
         // Wrapped, both: a single label never wraps, and the second hint is wider than the panel.
         int hintY = addWrappedHint(33, HINT, guiTop + HINTS_Y);
@@ -107,7 +109,7 @@ public final class SubGuiBossAggroZone extends SubGuiFieldScreen implements ITex
         addTextField(coordinateField(xId, guiLeft + 8, y, 40, x));
         addTextField(coordinateField(yId, guiLeft + 52, y, 40, cornerY));
         addTextField(coordinateField(zId, guiLeft + 96, y, 40, z));
-        addButton(new GuiButtonNop(this, buttonId, guiLeft + 142, y, 100, 20,
+        addButton(new ThemeButton(this, buttonId, guiLeft + 142, y, 100, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
     }
 

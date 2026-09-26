@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import net.minecraft.network.chat.Component;
@@ -7,7 +11,6 @@ import noppes.npcs.client.CustomNpcResourceListener;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 import java.util.List;
@@ -65,11 +68,11 @@ public final class SubGuiBossRiftMinions extends SubGuiFieldScreen {
         super.init();
         BossRiftSettings rift = phase.rift();
         wrappedLabel = WRAPPED_LABEL;
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.rift_minions_title",
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.rift_minions_title",
                 phaseIndex), guiLeft + LABEL_X, guiTop + 7, 0xFFFFFF));
         int y = FIRST_ROW;
         rowLabel(CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.rift_minion_clone", y, NAME_X);
-        addTextField(new GuiTextFieldNop(CLONE_NAME_FIELD, this, guiLeft + NAME_X, guiTop + y, NAME_WIDTH,
+        addTextField(new ThemeTextField(CLONE_NAME_FIELD, this, guiLeft + NAME_X, guiTop + y, NAME_WIDTH,
                 CONTROL_HEIGHT, rift.getMinionCloneName()));
         number(CLONE_TAB_FIELD, guiLeft + TAB_X, guiTop + y, TAB_WIDTH, rift.getMinionCloneTab(),
                 1, BossRiftSettings.MAX_CLONE_TAB, 1);
@@ -80,11 +83,11 @@ public final class SubGuiBossRiftMinions extends SubGuiFieldScreen {
         number(RADIUS_FIELD, guiLeft + PAIR_SECOND_X, guiTop + y, PAIR_WIDTH, rift.getMinionRadius(),
                 1, BossRiftSettings.MAX_MINION_RADIUS, 6);
         y += ROW;
-        addButton(new GuiButtonNop(this, POINTS_BUTTON, guiLeft + LABEL_X, guiTop + y, RIGHT_EDGE - LABEL_X,
+        addButton(new ThemeButton(this, POINTS_BUTTON, guiLeft + LABEL_X, guiTop + y, RIGHT_EDGE - LABEL_X,
                 CONTROL_HEIGHT, "cnpcgeckoaddon.boss.rift_minion_points"));
         y += ROW;
         rowLabel(REMOVE_BUTTON, "cnpcgeckoaddon.boss.rift_minion_remove", y, TOGGLE_X);
-        addButton(new GuiButtonYesNo(this, REMOVE_BUTTON, guiLeft + TOGGLE_X, guiTop + y, TOGGLE_WIDTH,
+        addButton(new ThemeYesNo(this, REMOVE_BUTTON, guiLeft + TOGGLE_X, guiTop + y, TOGGLE_WIDTH,
                 CONTROL_HEIGHT, rift.isMinionRemoveOnEnd()));
         addWrappedHint(HINT_LABEL, HINT, guiTop + hintY());
         addDoneButton(guiLeft + 182, guiTop + hintY() + wrappedHintHeight(HINT) + 6, 60, CONTROL_HEIGHT);
@@ -95,7 +98,7 @@ public final class SubGuiBossRiftMinions extends SubGuiFieldScreen {
     }
 
     private void number(int id, int x, int y, int width, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, width, CONTROL_HEIGHT, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, width, CONTROL_HEIGHT, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);
@@ -106,12 +109,12 @@ public final class SubGuiBossRiftMinions extends SubGuiFieldScreen {
         int width = controlX - LABEL_X - 4;
         List<String> lines = wrapLines(Component.translatable(key).getString(), width);
         if (lines.size() == 1) {
-            addLabel(new GuiLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
+            addLabel(new ThemeLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
             return;
         }
         int top = guiTop + y + (CONTROL_HEIGHT - lines.size() * LINE_HEIGHT) / 2;
         for (int i = 0; i < lines.size(); i++) {
-            addLabel(new GuiLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
+            addLabel(new ThemeLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
                     CustomNpcResourceListener.DefaultTextColor, guiLeft + LABEL_X,
                     top + i * LINE_HEIGHT, width, LINE_HEIGHT));
         }

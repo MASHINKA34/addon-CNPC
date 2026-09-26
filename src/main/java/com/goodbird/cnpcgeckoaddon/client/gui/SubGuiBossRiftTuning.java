@@ -1,12 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossRiftDimension;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.client.CustomNpcResourceListener;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 import java.util.List;
@@ -98,7 +99,7 @@ public final class SubGuiBossRiftTuning extends SubGuiBossAbilityTuning {
                 rift.getFallGuardDepth(), 0, BossRiftSettings.MAX_FALL_GUARD_DEPTH, 8);
         y = nextRow();
         rowLabel(TINT_COLOR_FIELD, "cnpcgeckoaddon.boss.rift_tint", y, TRIPLE_X);
-        addTextField(new GuiTextFieldNop(TINT_COLOR_FIELD, this, guiLeft + TRIPLE_X, y, TRIPLE_WIDTH, BUTTON_HEIGHT,
+        addTextField(new ThemeTextField(TINT_COLOR_FIELD, this, guiLeft + TRIPLE_X, y, TRIPLE_WIDTH, BUTTON_HEIGHT,
                 BossRiftSettings.hex(rift.getTintColor())));
         small(TINT_ALPHA_FIELD, TRIPLE_SECOND_X, y, TRIPLE_WIDTH, rift.getTintAlpha(),
                 0, BossRiftSettings.MAX_TINT_ALPHA, 35);
@@ -106,7 +107,7 @@ public final class SubGuiBossRiftTuning extends SubGuiBossAbilityTuning {
                 0, BossRiftSettings.MAX_TINT_PULSE_TICKS, 40);
         y = nextRow();
         rowLabel(FOG_COLOR_FIELD, "cnpcgeckoaddon.boss.rift_fog", y, PAIR_X);
-        addTextField(new GuiTextFieldNop(FOG_COLOR_FIELD, this, guiLeft + PAIR_X, y, PAIR_WIDTH, BUTTON_HEIGHT,
+        addTextField(new ThemeTextField(FOG_COLOR_FIELD, this, guiLeft + PAIR_X, y, PAIR_WIDTH, BUTTON_HEIGHT,
                 BossRiftSettings.hex(rift.getFogColor())));
         small(FOG_DISTANCE_FIELD, PAIR_SECOND_X, y, PAIR_WIDTH, rift.getFogDistance(),
                 0, BossRiftSettings.MAX_FOG_DISTANCE, 24);
@@ -135,11 +136,11 @@ public final class SubGuiBossRiftTuning extends SubGuiBossAbilityTuning {
     private void idRow(int id, String key, String value) {
         int y = nextRow();
         rowLabel(id, key, y, ID_X);
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + ID_X, y, ID_WIDTH, BUTTON_HEIGHT, value));
+        addTextField(new ThemeTextField(id, this, guiLeft + ID_X, y, ID_WIDTH, BUTTON_HEIGHT, value));
     }
 
     private void small(int id, int x, int y, int width, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + x, y, width, BUTTON_HEIGHT,
+        GuiTextFieldNop field = new ThemeTextField(id, this, guiLeft + x, y, width, BUTTON_HEIGHT,
                 Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
@@ -151,12 +152,12 @@ public final class SubGuiBossRiftTuning extends SubGuiBossAbilityTuning {
         int width = controlX - LABEL_X - 4;
         List<String> lines = wrapLines(Component.translatable(key).getString(), width);
         if (lines.size() == 1) {
-            addLabel(new GuiLabel(id, key, guiLeft + LABEL_X, y + LABEL_DROP));
+            addLabel(new ThemeLabel(id, key, guiLeft + LABEL_X, y + LABEL_DROP));
             return;
         }
         int top = y + (BUTTON_HEIGHT - lines.size() * LINE_HEIGHT) / 2;
         for (int i = 0; i < lines.size(); i++) {
-            addLabel(new GuiLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
+            addLabel(new ThemeLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
                     CustomNpcResourceListener.DefaultTextColor, guiLeft + LABEL_X,
                     top + i * LINE_HEIGHT, width, LINE_HEIGHT));
         }

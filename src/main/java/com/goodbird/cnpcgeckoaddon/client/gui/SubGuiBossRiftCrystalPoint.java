@@ -2,6 +2,10 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossRiftDimension;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftCrystalPoint;
@@ -13,7 +17,6 @@ import net.minecraft.core.BlockPos;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /**
@@ -77,46 +80,46 @@ public final class SubGuiBossRiftCrystalPoint extends SubGuiFieldScreen implemen
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.rift_crystal_point_title", phaseIndex), guiLeft + LABEL_X, guiTop + 7, 0xFFFFFF));
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + LABEL_X,
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + LABEL_X,
                 guiTop + ENABLED_Y + LABEL_DROP));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, guiTop + ENABLED_Y, 87, CONTROL_HEIGHT,
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, guiTop + ENABLED_Y, 87, CONTROL_HEIGHT,
                 point.isEnabled()));
 
-        addLabel(new GuiLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
+        addLabel(new ThemeLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
                 guiLeft + LABEL_X, guiTop + COORDINATE_Y + LABEL_DROP));
-        addButton(new GuiButtonNop(this, COORDINATE_BUTTON, guiLeft + 112, guiTop + COORDINATE_Y, 130, CONTROL_HEIGHT,
+        addButton(new ThemeButton(this, COORDINATE_BUTTON, guiLeft + 112, guiTop + COORDINATE_Y, 130, CONTROL_HEIGHT,
                 COORDINATE_LABELS, point.getCoordinateMode()));
 
         addTextField(coordinateField(X_FIELD, guiLeft + LABEL_X, guiTop + POSITION_Y, 40, point.getX()));
         addTextField(coordinateField(Y_FIELD, guiLeft + 52, guiTop + POSITION_Y, 40, point.getY()));
         addTextField(coordinateField(Z_FIELD, guiLeft + 96, guiTop + POSITION_Y, 40, point.getZ()));
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 142, guiTop + POSITION_Y, 100, CONTROL_HEIGHT,
+        addButton(new ThemeButton(this, HERE_BUTTON, guiLeft + 142, guiTop + POSITION_Y, 100, CONTROL_HEIGHT,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
 
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + LABEL_X, guiTop + SELECT_Y, 234, CONTROL_HEIGHT,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + LABEL_X, guiTop + SELECT_Y, 234, CONTROL_HEIGHT,
                 ZoneSelectionClient.SELECT_POINT));
 
         addNumberField(RADIUS_FIELD, "cnpcgeckoaddon.boss.rift_crystal_point_radius", guiTop + RADIUS_Y,
                 point.getRadiusTenths(), 0, BossRiftCrystalPoint.MAX_RADIUS_TENTHS, 0);
 
-        addLabel(new GuiLabel(BLOCK_FIELD, "cnpcgeckoaddon.boss.rift_crystal_point_block", guiLeft + LABEL_X,
+        addLabel(new ThemeLabel(BLOCK_FIELD, "cnpcgeckoaddon.boss.rift_crystal_point_block", guiLeft + LABEL_X,
                 guiTop + BLOCK_Y + LABEL_DROP));
-        addTextField(new GuiTextFieldNop(BLOCK_FIELD, this, guiLeft + 108, guiTop + BLOCK_Y, 86, CONTROL_HEIGHT,
+        addTextField(new ThemeTextField(BLOCK_FIELD, this, guiLeft + 108, guiTop + BLOCK_Y, 86, CONTROL_HEIGHT,
                 point.getBlockOverride()));
-        addButton(new GuiButtonNop(this, BLOCK_SELECT_BUTTON, guiLeft + 198, guiTop + BLOCK_Y, 44, CONTROL_HEIGHT,
+        addButton(new ThemeButton(this, BLOCK_SELECT_BUTTON, guiLeft + 198, guiTop + BLOCK_Y, 44, CONTROL_HEIGHT,
                 "mco.template.button.select"));
 
-        addLabel(new GuiLabel(COLOR_FIELD, "cnpcgeckoaddon.boss.rift_crystal_point_colour", guiLeft + LABEL_X,
+        addLabel(new ThemeLabel(COLOR_FIELD, "cnpcgeckoaddon.boss.rift_crystal_point_colour", guiLeft + LABEL_X,
                 guiTop + COLOR_Y + LABEL_DROP));
-        addTextField(new GuiTextFieldNop(COLOR_FIELD, this, guiLeft + 194, guiTop + COLOR_Y, 48, CONTROL_HEIGHT,
+        addTextField(new ThemeTextField(COLOR_FIELD, this, guiLeft + 194, guiTop + COLOR_Y, 48, CONTROL_HEIGHT,
                 point.getColorOverride() < 0 ? "" : BossRiftSettings.hex(point.getColorOverride())));
 
-        addLabel(new GuiLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.rift_crystal_point_hint",
+        addLabel(new ThemeLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.rift_crystal_point_hint",
                 guiLeft + LABEL_X, guiTop + HINT_Y, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + LABEL_X, guiTop + BUTTONS_Y, 72, CONTROL_HEIGHT,
+        addButton(new ThemeButton(this, DELETE_BUTTON, guiLeft + LABEL_X, guiTop + BUTTONS_Y, 72, CONTROL_HEIGHT,
                 "cnpcgeckoaddon.boss.minion_spawn_delete"));
         addDoneButton(guiLeft + 182, guiTop + BUTTONS_Y, 60, CONTROL_HEIGHT);
     }

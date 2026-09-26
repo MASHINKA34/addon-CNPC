@@ -1,10 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.TelegraphLineStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** What the boss shows and says before an ability lands, and how long it gives for it. */
 public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
@@ -50,13 +51,13 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
         // wraps to is up to the locale.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.telegraph_title", guiLeft + 6, guiTop + 6, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.telegraph_title", guiLeft + 6, guiTop + 6, 0xFFFFFF));
 
         int y = guiTop + 20;
         addYesNo(ENABLED_BUTTON, "cnpcgeckoaddon.boss.telegraph_enabled", y, data.isTelegraphEnabled());
         y += 22;
-        addLabel(new GuiLabel(STYLE_BUTTON, "cnpcgeckoaddon.boss.telegraph_style", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, STYLE_BUTTON, guiLeft + 130, y, 112, 20,
+        addLabel(new ThemeLabel(STYLE_BUTTON, "cnpcgeckoaddon.boss.telegraph_style", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, STYLE_BUTTON, guiLeft + 130, y, 112, 20,
                 TeleportPathData.TELEGRAPH_STYLE_LABELS, data.getTelegraphStyle()));
         y += 22;
         addYesNo(ANNOUNCE_BUTTON, "cnpcgeckoaddon.boss.telegraph_announce", y, data.isTelegraphAnnounce());
@@ -94,13 +95,13 @@ public final class SubGuiBossTelegraph extends SubGuiFieldScreen {
         addYesNo(LINE_LASTING_BUTTON, "cnpcgeckoaddon.boss.telegraph_line_lasting", y,
                 data.isTelegraphLineLasting());
 
-        addButton(new GuiButtonNop(this, ABILITIES_BUTTON, guiLeft + 6, guiTop + ABILITIES_Y, 236, 20,
+        addButton(new ThemeButton(this, ABILITIES_BUTTON, guiLeft + 6, guiTop + ABILITIES_Y, 236, 20,
                 "cnpcgeckoaddon.boss.telegraph_abilities"));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.telegraph_hint", guiLeft + 6, guiTop + HINTS_Y, 0xA0A0A0));
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.telegraph_lead_hint",
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.telegraph_hint", guiLeft + 6, guiTop + HINTS_Y, 0xA0A0A0));
+        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.telegraph_lead_hint",
                 guiLeft + 6, guiTop + HINTS_Y + HINT_LINE, 0xA0A0A0));
-        addLabel(new GuiLabel(33, "cnpcgeckoaddon.boss.telegraph_dodge_hint",
+        addLabel(new ThemeLabel(33, "cnpcgeckoaddon.boss.telegraph_dodge_hint",
                 guiLeft + 6, guiTop + HINTS_Y + 2 * HINT_LINE, 0xA0A0A0));
         // Wrapped rather than one label: this one is wider than the panel, and a label never
         // wraps and never clips.

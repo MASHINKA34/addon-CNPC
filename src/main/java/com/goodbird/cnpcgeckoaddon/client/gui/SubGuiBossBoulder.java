@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -8,7 +12,6 @@ import com.goodbird.cnpcgeckoaddon.entity.EntityBossBoulder;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Boulder: a giant stone rolled or thrown down a corridor, breaking on whatever stops it. */
@@ -59,36 +62,36 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.boulder_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.boulder_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.boulder().isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.boulder().isEnabled()));
         y += 21;
 
         addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.boulder().getAnimation());
         y += 21;
 
-        addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, phase.boulder().getTargetMode()));
         y += 21;
 
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.boulder_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.boulder_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.BOULDER_MODE_LABELS, phase.boulder().getMode()));
         y += 21;
 
         // Typed rather than picked: any block id works, and a list of every block in the
         // game would bury the four that a dungeon actually wants.
-        addLabel(new GuiLabel(BLOCK_FIELD, "cnpcgeckoaddon.boss.boulder_block", guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(BLOCK_FIELD, this, guiLeft + 108, y, 134, 20,
+        addLabel(new ThemeLabel(BLOCK_FIELD, "cnpcgeckoaddon.boss.boulder_block", guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(BLOCK_FIELD, this, guiLeft + 108, y, 134, 20,
                 phase.boulder().getBlock()));
         y += 21;
 
-        addLabel(new GuiLabel(LOOK_BUTTON, "cnpcgeckoaddon.boss.boulder_style", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, LOOK_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(LOOK_BUTTON, "cnpcgeckoaddon.boss.boulder_style", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, LOOK_BUTTON, guiLeft + 112, y, 130, 20,
                 LOOK_LABELS, lookIndex()));
         y += 21;
 
@@ -104,8 +107,8 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
                 phase.boulder().getRange(), 4, 64, 20);
         y += 21;
 
-        addLabel(new GuiLabel(STOPS_BUTTON, "cnpcgeckoaddon.boss.boulder_stops", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, STOPS_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(STOPS_BUTTON, "cnpcgeckoaddon.boss.boulder_stops", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, STOPS_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.boulder().isStopsOnHit()));
         y += 21;
 
@@ -118,15 +121,15 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
                 phase.boulder().getCooldownTicks(), 1, 12000, 180);
         y += 21;
 
-        addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.boulder_hint", guiTop + 290);
         addWrappedHint(40, "cnpcgeckoaddon.boss.boulder_style_hint", hintY);
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 328, 236, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 328, 236, 20,
                 "cnpcgeckoaddon.boss.boulder_tuning"));
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 352, 120, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 352, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 352, 60, 20);
     }
@@ -152,22 +155,22 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
     }
 
     private void addSelectRow(int id, String label, int y, String value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + 108, y, 86, 20, value));
-        addButton(new GuiButtonNop(this, id, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
+        addLabel(new ThemeLabel(id, label, guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(id, this, guiLeft + 108, y, 86, 20, value));
+        addButton(new ThemeButton(this, id, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
     }
 
     /** Two small numbers on one line, so the whole ability still fits a single screen. */
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 6, y + 6));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, 52, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

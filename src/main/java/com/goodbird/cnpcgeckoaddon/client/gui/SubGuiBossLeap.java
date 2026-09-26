@@ -1,6 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -55,35 +59,35 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.leap_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.leap_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.leap().isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.leap().isEnabled()));
         y += 21;
 
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
                 phase.leap().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
-        addLabel(new GuiLabel(LAND_ANIMATION_FIELD, "cnpcgeckoaddon.boss.leap_land_anim", guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(LAND_ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
+        addLabel(new ThemeLabel(LAND_ANIMATION_FIELD, "cnpcgeckoaddon.boss.leap_land_anim", guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(LAND_ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
                 phase.leap().getLandAnimation()));
-        addButton(new GuiButtonNop(this, LAND_ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, LAND_ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.leap_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.leap_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.LEAP_MODE_LABELS, phase.leap().getMode()));
         y += 21;
 
-        addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, phase.leap().getTargetMode()));
         y += 21;
 
@@ -96,22 +100,22 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
 
         // The label sits above the fields rather than beside them, so a coordinate eight
         // digits long still has somewhere to go.
-        addLabel(new GuiLabel(COORDS_LABEL, "cnpcgeckoaddon.boss.chest_offset", guiLeft + 6, guiTop + 168));
+        addLabel(new ThemeLabel(COORDS_LABEL, "cnpcgeckoaddon.boss.chest_offset", guiLeft + 6, guiTop + 168));
         addTextField(coordinateField(X_FIELD, guiLeft + 6, guiTop + 178, 74, 0));
         addTextField(coordinateField(Y_FIELD, guiLeft + 88, guiTop + 178, 74, 0));
         addTextField(coordinateField(Z_FIELD, guiLeft + 172, guiTop + 178, 70, 0));
 
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 204, 116, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 204, 116, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addButton(new GuiButtonNop(this, IMPACT_BUTTON, guiLeft + 126, guiTop + 204, 116, 20,
+        addButton(new ThemeButton(this, IMPACT_BUTTON, guiLeft + 126, guiTop + 204, 116, 20,
                 "cnpcgeckoaddon.boss.leap_impact_settings"));
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 6, guiTop + 232, 120, 20,
+        addButton(new ThemeButton(this, HERE_BUTTON, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.chest_here"));
         addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
         // The pick under "use my position", and the fine-tuning a row further down for it.
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 6, guiTop + 256, 236, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 6, guiTop + 256, 236, 20,
                 ZoneSelectionClient.SELECT_POINT));
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 280, 236, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 280, 236, 20,
                 "cnpcgeckoaddon.boss.leap_tuning"));
 
         refresh();
@@ -157,13 +161,13 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 6, y + 6));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, 52, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

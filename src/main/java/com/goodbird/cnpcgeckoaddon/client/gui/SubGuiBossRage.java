@@ -1,10 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Turns the boss dangerous once a fight has dragged on for too long. */
@@ -29,11 +32,11 @@ public final class SubGuiBossRage extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.rage_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.rage_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 26;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.rage_enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, data.isRageEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.rage_enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, data.isRageEnabled()));
         y += 24;
 
         addNumberField(DELAY_FIELD, "cnpcgeckoaddon.boss.rage_delay", y, data.getRageDelayTicks(),
@@ -45,18 +48,18 @@ public final class SubGuiBossRage extends SubGuiFieldScreen {
                 TeleportPathData.MAX_RAGE_MULTIPLIER_PERCENT, 200);
         y += 24;
 
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.rage_anim", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 98, y, 96, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.rage_anim", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 98, y, 96, 20,
                 data.getRageAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 24;
 
         addNumberField(LOCK_FIELD, "cnpcgeckoaddon.boss.rage_lock", y, data.getRageLockTicks(),
                 0, 1200, 40);
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.rage_hint", guiLeft + 8, guiTop + 150, 0xA0A0A0));
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 162, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.rage_hint", guiLeft + 8, guiTop + 150, 0xA0A0A0));
+        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 162, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 

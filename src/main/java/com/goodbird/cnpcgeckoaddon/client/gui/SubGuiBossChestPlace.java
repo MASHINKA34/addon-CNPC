@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
@@ -34,23 +36,23 @@ public final class SubGuiBossChestPlace extends SubGuiFieldScreen implements Bos
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.chest_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.chest_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
 
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.chest_placement", guiLeft + 8, guiTop + 34));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 100, guiTop + 28, 142, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.chest_placement", guiLeft + 8, guiTop + 34));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 100, guiTop + 28, 142, 20,
                 TeleportPathData.CHEST_PLACEMENT_LABELS, data.getChestPlacement()));
 
         // The label sits above the fields rather than beside them, so a coordinate eight
         // digits long still has somewhere to go.
-        addLabel(new GuiLabel(COORDS_LABEL, "cnpcgeckoaddon.boss.chest_offset", guiLeft + 8, guiTop + 56));
+        addLabel(new ThemeLabel(COORDS_LABEL, "cnpcgeckoaddon.boss.chest_offset", guiLeft + 8, guiTop + 56));
         addTextField(coordinateField(X_FIELD, guiLeft + 8, guiTop + 68, 74, 0));
         addTextField(coordinateField(Y_FIELD, guiLeft + 90, guiTop + 68, 74, 0));
         addTextField(coordinateField(Z_FIELD, guiLeft + 172, guiTop + 68, 70, 0));
 
         // Two to the row: "use my position" takes 117 of its 124 in Russian.
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 94, 124, 20,
+        addButton(new ThemeButton(this, HERE_BUTTON, guiLeft + 8, guiTop + 94, 124, 20,
                 "cnpcgeckoaddon.boss.chest_here"));
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 136, guiTop + 94, 106, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 136, guiTop + 94, 106, 20,
                 ZoneSelectionClient.SELECT_POINT));
         addDoneButton(guiLeft + 182, guiTop + 130, 60, 20);
 

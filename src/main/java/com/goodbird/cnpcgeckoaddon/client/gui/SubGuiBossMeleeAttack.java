@@ -1,12 +1,15 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossMeleeAttackSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
@@ -39,17 +42,17 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.melee_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.melee_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.meleeAttack().isEnabled()));
         y += 24;
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
                 phase.meleeAttack().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 24;
         addTargetModeRow(TARGET_MODE_BUTTON, y, phase.meleeAttack().getTargetMode());
@@ -73,19 +76,19 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
                 phase.meleeAttack().getAimTurnDegrees(), BossMeleeAttackSettings.MIN_AIM_TURN,
                 BossMeleeAttackSettings.MAX_AIM_TURN, 30);
         y += 24;
-        addLabel(new GuiLabel(REACH_MODELS_BUTTON, "cnpcgeckoaddon.boss.melee_reach_models",
+        addLabel(new ThemeLabel(REACH_MODELS_BUTTON, "cnpcgeckoaddon.boss.melee_reach_models",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, REACH_MODELS_BUTTON, guiLeft + 195, y, 47, 20,
+        addButton(new ThemeYesNo(this, REACH_MODELS_BUTTON, guiLeft + 195, y, 47, 20,
                 phase.meleeAttack().isReachAddsModels()));
 
-        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 278, 120, 20,
+        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 278, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 278, 60, 20);
     }
 
     private void addTargetModeRow(int id, int y, int mode) {
-        addLabel(new GuiLabel(id, "cnpcgeckoaddon.boss.target_mode", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, id, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(id, "cnpcgeckoaddon.boss.target_mode", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, id, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, mode));
     }
 

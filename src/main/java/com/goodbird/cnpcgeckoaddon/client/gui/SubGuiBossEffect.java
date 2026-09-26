@@ -1,9 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectData;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Editor for one potion effect slot of a boss attack, or of the fire that shares the slot. */
@@ -32,16 +35,16 @@ public final class SubGuiBossEffect extends SubGuiFieldScreen {
         // wrap to is up to the locale.
         imageHeight = buttonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.effect", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.effect", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 26;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.effect_enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, effect.isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.effect_enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, effect.isEnabled()));
         y += 26;
 
-        addLabel(new GuiLabel(EFFECT_FIELD, "cnpcgeckoaddon.boss.effect_id", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(EFFECT_FIELD, this, guiLeft + 70, y, 124, 20, effect.getEffectId()));
-        addButton(new GuiButtonNop(this, EFFECT_FIELD, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
+        addLabel(new ThemeLabel(EFFECT_FIELD, "cnpcgeckoaddon.boss.effect_id", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(EFFECT_FIELD, this, guiLeft + 70, y, 124, 20, effect.getEffectId()));
+        addButton(new ThemeButton(this, EFFECT_FIELD, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
         y += 26;
 
         addNumberField(DURATION_FIELD, "cnpcgeckoaddon.boss.effect_duration", y,
@@ -50,8 +53,8 @@ public final class SubGuiBossEffect extends SubGuiFieldScreen {
         addNumberField(LEVEL_FIELD, "cnpcgeckoaddon.boss.effect_level", y, effect.getLevel(), 1, 10, 1);
         y += 26;
 
-        addLabel(new GuiLabel(PARTICLES_BUTTON, "cnpcgeckoaddon.boss.effect_particles", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, PARTICLES_BUTTON, guiLeft + 155, y, 87, 20, effect.isShowParticles()));
+        addLabel(new ThemeLabel(PARTICLES_BUTTON, "cnpcgeckoaddon.boss.effect_particles", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, PARTICLES_BUTTON, guiLeft + 155, y, 87, 20, effect.isShowParticles()));
 
         // Wrapped, both of them: a single label never wraps, and the first hint alone was
         // already wider than the panel in either locale.

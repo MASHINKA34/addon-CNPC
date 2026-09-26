@@ -1,5 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.NpcCarryData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcCarryData;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
@@ -8,7 +10,6 @@ import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 import java.util.function.IntConsumer;
@@ -68,7 +69,7 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
         // lines each hint wraps to is up to the locale.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.carry.title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.carry.title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + FIRST_ROW_Y;
 
         addYesNo(CARRYABLE_BUTTON, "cnpcgeckoaddon.carry.carryable", y, data.isCarryable());
@@ -77,8 +78,8 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
         addYesNo(SNEAK_BUTTON, "cnpcgeckoaddon.carry.sneak", y, data.isRequireSneak());
         y += ROW_HEIGHT;
 
-        addLabel(new GuiLabel(ITEM_FIELD, "cnpcgeckoaddon.carry.item", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(ITEM_FIELD, this, guiLeft + 122, y, 120, 20,
+        addLabel(new ThemeLabel(ITEM_FIELD, "cnpcgeckoaddon.carry.item", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(ITEM_FIELD, this, guiLeft + 122, y, 120, 20,
                 data.getRequiredItem()));
         y += ROW_HEIGHT;
 
@@ -123,7 +124,7 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
                 data.getPreviewBlockedColor());
         y += ROW_HEIGHT;
 
-        addLabel(new GuiLabel(THROW_TITLE_LABEL, "cnpcgeckoaddon.carry.throw_title",
+        addLabel(new ThemeLabel(THROW_TITLE_LABEL, "cnpcgeckoaddon.carry.throw_title",
                 guiLeft + 8, y + 4, 0xFFFFFF));
         y += SECTION_GAP;
 
@@ -188,13 +189,13 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 8, y + 6));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, 52, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);
@@ -207,8 +208,8 @@ public final class SubGuiNpcCarry extends SubGuiFieldScreen {
      * numbers-only field refuses every letter in one.</p>
      */
     private void addColorField(int id, String label, int y, int color) {
-        addLabel(new GuiLabel(id, label, guiLeft + numberLabelX(), y + numberLabelYOffset()));
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + numberFieldX(), y,
+        addLabel(new ThemeLabel(id, label, guiLeft + numberLabelX(), y + numberLabelYOffset()));
+        addTextField(new ThemeTextField(id, this, guiLeft + numberFieldX(), y,
                 numberFieldWidth(), numberFieldHeight(), hex(color)));
     }
 

@@ -1,11 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Lists the configured boss phases; the count itself is set on the parent screen. */
 public final class SubGuiBossPhaseList extends SubGuiFieldScreen {
@@ -25,15 +26,15 @@ public final class SubGuiBossPhaseList extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.phases", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.phases", guiLeft + 8, guiTop + 8, 0xFFFFFF));
 
         int y = guiTop + 26;
         for (int i = 0; i < data.getPhaseCount(); i++) {
-            addButton(new GuiButtonNop(this, FIRST_PHASE_BUTTON + i, guiLeft + 8, y, 234, 20, phaseLabel(i)));
+            addButton(new ThemeButton(this, FIRST_PHASE_BUTTON + i, guiLeft + 8, y, 234, 20, phaseLabel(i)));
             y += 22;
         }
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.phase_count_hint", guiLeft + 8, guiTop + 214, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.phase_count_hint", guiLeft + 8, guiTop + 214, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 

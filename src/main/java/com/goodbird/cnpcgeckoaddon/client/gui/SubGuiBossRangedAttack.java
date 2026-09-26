@@ -1,12 +1,15 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRangedAttackSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
@@ -46,17 +49,17 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.ranged_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.ranged_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.rangedAttack().isEnabled()));
         y += 24;
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
                 phase.rangedAttack().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 24;
         addTargetModeRow(TARGET_MODE_BUTTON, y, phase.rangedAttack().getTargetMode());
@@ -84,30 +87,30 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
                 phase.rangedAttack().getLobSharePercent(), BossRangedAttackSettings.MIN_LOB_SHARE,
                 BossRangedAttackSettings.MAX_LOB_SHARE, 50);
         y += 24;
-        addLabel(new GuiLabel(BURST_SHOTS_FIELD, "cnpcgeckoaddon.boss.ranged_burst", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(BURST_SHOTS_FIELD, "cnpcgeckoaddon.boss.ranged_burst", guiLeft + 8, y + 6));
         addPairField(BURST_SHOTS_FIELD, guiLeft + PAIR_X, y, phase.rangedAttack().getBurstShots(),
                 BossRangedAttackSettings.MIN_BURST_SHOTS, BossRangedAttackSettings.MAX_BURST_SHOTS, 1);
         addPairField(BURST_DELAY_FIELD, guiLeft + PAIR_SECOND_X, y, phase.rangedAttack().getBurstDelayTicks(),
                 BossRangedAttackSettings.MIN_BURST_DELAY, BossRangedAttackSettings.MAX_BURST_DELAY, 4);
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.projectile_hint",
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.projectile_hint",
                 guiLeft + 8, guiTop + 284, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 302, 120, 20,
+        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 302, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 302, 60, 20);
     }
 
     /** One of the two small numbers a shared label names, at the column it is handed. */
     private void addPairField(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, PAIR_WIDTH, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, PAIR_WIDTH, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);
     }
 
     private void addTargetModeRow(int id, int y, int mode) {
-        addLabel(new GuiLabel(id, "cnpcgeckoaddon.boss.target_mode", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, id, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(id, "cnpcgeckoaddon.boss.target_mode", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, id, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, mode));
     }
 

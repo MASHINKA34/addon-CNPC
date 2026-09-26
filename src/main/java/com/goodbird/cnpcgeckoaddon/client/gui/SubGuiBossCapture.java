@@ -1,11 +1,14 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Capture timing and target selection; visual and hold details live on a second page. */
@@ -45,19 +48,19 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.capture_phase", phaseIndex), guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.capture_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.capture_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.capture().isEnabled()));
         y += 24;
 
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
                 phase.capture().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 24;
 
@@ -68,8 +71,8 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
                 phase.capture().getCooldownTicks(), 20, 12000, 200);
         y += 24;
 
-        addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, phase.capture().getTargetMode()));
         y += 24;
 
@@ -80,16 +83,16 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
                 phase.capture().getMaxRange(), 1, 128, 16);
         y += 24;
 
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.capture_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.capture_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 MODE_LABELS, phase.capture().getMode()));
         y += 24;
         addNumberField(DURATION_FIELD, "cnpcgeckoaddon.boss.capture_duration", y,
                 phase.capture().getDurationTicks(), 1, 1200, 60);
 
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 232, 236, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 232, 236, 20,
                 "cnpcgeckoaddon.boss.capture_tuning"));
-        addButton(new GuiButtonNop(this, DETAILS_BUTTON, guiLeft + 6, guiTop + 256, 150, 20,
+        addButton(new ThemeButton(this, DETAILS_BUTTON, guiLeft + 6, guiTop + 256, 150, 20,
                 "cnpcgeckoaddon.boss.capture_effects_beam"));
         addDoneButton(guiLeft + 182, guiTop + 256, 60, 20);
     }

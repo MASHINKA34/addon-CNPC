@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossFluidSpitSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -7,7 +11,6 @@ import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Spits a glob of fluid that leaves a puddle for a few seconds and then disappears. */
@@ -45,20 +48,20 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.fluid_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.fluid_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.fluidSpit().isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.fluidSpit().isEnabled()));
         y += 22;
 
         addSelectRow(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", y, phase.fluidSpit().getAnimation());
         y += 22;
         addSelectRow(FLUID_FIELD, "cnpcgeckoaddon.boss.fluid_block", y, phase.fluidSpit().getBlock());
         y += 21;
-        addLabel(new GuiLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(TARGET_MODE_BUTTON, "cnpcgeckoaddon.boss.target_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, phase.fluidSpit().getTargetMode()));
         y += 21;
 
@@ -85,27 +88,27 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
                 phase.fluidSpit().getAimTurnDegrees(), BossFluidSpitSettings.MIN_AIM_TURN,
                 BossFluidSpitSettings.MAX_AIM_TURN, 30);
 
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, guiTop + 253, 236, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 253, 236, 20,
                 "cnpcgeckoaddon.boss.fluid_tuning"));
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 277, 120, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 277, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 277, 60, 20);
     }
 
     private void addSelectRow(int id, String label, int y, String value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + 88, y, 106, 20, value));
-        addButton(new GuiButtonNop(this, id, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
+        addLabel(new ThemeLabel(id, label, guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(id, this, guiLeft + 88, y, 106, 20, value));
+        addButton(new ThemeButton(this, id, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
     }
 
     private void addRangeRow(int y, int min, int max) {
-        addLabel(new GuiLabel(MIN_RANGE_FIELD, "cnpcgeckoaddon.boss.range", guiLeft + 6, y + 6));
-        GuiTextFieldNop minField = new GuiTextFieldNop(MIN_RANGE_FIELD, this, guiLeft + 130, y, 52, 20,
+        addLabel(new ThemeLabel(MIN_RANGE_FIELD, "cnpcgeckoaddon.boss.range", guiLeft + 6, y + 6));
+        GuiTextFieldNop minField = new ThemeTextField(MIN_RANGE_FIELD, this, guiLeft + 130, y, 52, 20,
                 Integer.toString(min));
         minField.setNumbersOnly();
         minField.setMinMaxDefault(0, 64, 2);
         addTextField(minField);
-        GuiTextFieldNop maxField = new GuiTextFieldNop(MAX_RANGE_FIELD, this, guiLeft + 190, y, 52, 20,
+        GuiTextFieldNop maxField = new ThemeTextField(MAX_RANGE_FIELD, this, guiLeft + 190, y, 52, 20,
                 Integer.toString(max));
         maxField.setNumbersOnly();
         maxField.setMinMaxDefault(1, 128, 24);

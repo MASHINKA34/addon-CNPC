@@ -1,6 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossConeAimPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -12,7 +15,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
-import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /**
  * One point a cone strike is aimed at: the block on the middle of its cone, given the way a
@@ -62,33 +64,33 @@ public final class SubGuiBossConeAimPoint extends SubGuiFieldScreen implements B
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.cone_point_title", phaseIndex),
                 guiLeft + 8, guiTop + 7, 0xFFFFFF));
         int y = guiTop + 25;
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, point.isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, point.isEnabled()));
         y += 23;
 
-        addLabel(new GuiLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
+        addLabel(new ThemeLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, 20,
                 COORDINATE_LABELS, point.getCoordinateMode()));
         y += 23;
 
-        addLabel(new GuiLabel(X_FIELD, "cnpcgeckoaddon.boss.minion_spawn_xyz", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(X_FIELD, "cnpcgeckoaddon.boss.minion_spawn_xyz", guiLeft + 8, y + 6));
         addTextField(coordinateField(X_FIELD, guiLeft + 76, y, 52, point.getX()));
         addTextField(coordinateField(Y_FIELD, guiLeft + 132, y, 52, point.getY()));
         addTextField(coordinateField(Z_FIELD, guiLeft + 188, y, 54, point.getZ()));
 
-        addLabel(new GuiLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
+        addLabel(new ThemeLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
                 guiLeft + 8, guiTop + HINT_Y, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
                 ZoneSelectionClient.SELECT_POINT));
         // Wider than the summon point's: "use my position" runs past 92 pixels in Russian.
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + BUTTONS_Y, 110, 20,
+        addButton(new ThemeButton(this, HERE_BUTTON, guiLeft + 8, guiTop + BUTTONS_Y, 110, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_here"));
-        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 122, guiTop + BUTTONS_Y, 56, 20,
+        addButton(new ThemeButton(this, DELETE_BUTTON, guiLeft + 122, guiTop + BUTTONS_Y, 56, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_delete"));
         addDoneButton(guiLeft + 182, guiTop + BUTTONS_Y, 60, 20);
         updateCoordinateHint();

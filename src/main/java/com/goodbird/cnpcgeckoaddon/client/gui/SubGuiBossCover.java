@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -46,25 +50,25 @@ public final class SubGuiBossCover extends SubGuiFieldScreen implements BossZone
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.cover_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.cover_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.cover().isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.cover().isEnabled()));
         y += 21;
 
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 108, y, 86, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 108, y, 86, 20,
                 phase.cover().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
         // The first thing to pick, because the two shelter rows below belong to one of the
         // rules only and come and go with it.
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.cover_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.cover_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.COVER_MODE_LABELS, phase.cover().getMode()));
         y += 21;
 
@@ -94,17 +98,17 @@ public final class SubGuiBossCover extends SubGuiFieldScreen implements BossZone
                 phase.cover().getCooldownTicks(), 1, 12000, 500);
         y += 21;
 
-        addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
         y += 21;
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.cover_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 234);
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
                 "cnpcgeckoaddon.boss.cover_tuning"));
         buttonsY += 24;
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY, 60, 20);
         applyModeRows();
@@ -157,13 +161,13 @@ public final class SubGuiBossCover extends SubGuiFieldScreen implements BossZone
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 6, y + 6));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, 52, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

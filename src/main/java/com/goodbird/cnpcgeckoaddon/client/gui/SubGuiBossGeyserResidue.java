@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossGeyserSettings;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.client.CustomNpcResourceListener;
@@ -70,7 +74,7 @@ public final class SubGuiBossGeyserResidue extends SubGuiFieldScreen {
                 + CONTROL_HEIGHT + BOTTOM_MARGIN;
         super.init();
         wrappedLabel = WRAPPED_LABEL;
-        addLabel(new GuiLabel(TITLE_LABEL, "cnpcgeckoaddon.boss.geyser_residue_title", guiLeft + LABEL_X,
+        addLabel(new ThemeLabel(TITLE_LABEL, "cnpcgeckoaddon.boss.geyser_residue_title", guiLeft + LABEL_X,
                 guiTop + 5, 0xFFFFFF));
         int y = guiTop + FIRST_ROW;
         toggle(ENABLED_BUTTON, "cnpcgeckoaddon.boss.geyser_residue_enabled", y, geyser.isResidueEnabled());
@@ -98,7 +102,7 @@ public final class SubGuiBossGeyserResidue extends SubGuiFieldScreen {
         single(HEIGHT_FIELD, "cnpcgeckoaddon.boss.geyser_residue_height", y, geyser.getResidueHeightTenths(),
                 BossGeyserSettings.MIN_RESIDUE_HEIGHT, BossGeyserSettings.MAX_RESIDUE_HEIGHT, 10);
         y += ROW;
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + LABEL_X, y, RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + LABEL_X, y, RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT,
                 "cnpcgeckoaddon.boss.effects_settings"));
         y += ROW;
         addCueButton(PARTICLES_BUTTON, "cnpcgeckoaddon.boss.geyser_cue_residue", y, geyser.getResidueParticles());
@@ -118,7 +122,7 @@ public final class SubGuiBossGeyserResidue extends SubGuiFieldScreen {
 
     private void toggle(int id, String key, int y, boolean value) {
         rowLabel(id, key, y, TOGGLE_X);
-        addButton(new GuiButtonYesNo(this, id, guiLeft + TOGGLE_X, y, TOGGLE_WIDTH, CONTROL_HEIGHT, value));
+        addButton(new ThemeYesNo(this, id, guiLeft + TOGGLE_X, y, TOGGLE_WIDTH, CONTROL_HEIGHT, value));
     }
 
     /** One number on a line, in the column the plain number fields use. */
@@ -137,7 +141,7 @@ public final class SubGuiBossGeyserResidue extends SubGuiFieldScreen {
     }
 
     private void number(int id, int x, int y, int width, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, width, CONTROL_HEIGHT, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, width, CONTROL_HEIGHT, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);
@@ -153,12 +157,12 @@ public final class SubGuiBossGeyserResidue extends SubGuiFieldScreen {
         // hands the text back as is.
         List<String> lines = wrapLines(Component.translatable(key).getString(), width);
         if (lines.size() == 1) {
-            addLabel(new GuiLabel(id, key, guiLeft + LABEL_X, y + LABEL_DROP));
+            addLabel(new ThemeLabel(id, key, guiLeft + LABEL_X, y + LABEL_DROP));
             return;
         }
         int top = y + (CONTROL_HEIGHT - lines.size() * LINE_HEIGHT) / 2;
         for (int i = 0; i < lines.size(); i++) {
-            addLabel(new GuiLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
+            addLabel(new ThemeLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
                     CustomNpcResourceListener.DefaultTextColor, guiLeft + LABEL_X,
                     top + i * LINE_HEIGHT, width, LINE_HEIGHT));
         }

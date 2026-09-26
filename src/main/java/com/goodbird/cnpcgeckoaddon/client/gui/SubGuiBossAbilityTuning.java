@@ -1,9 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import net.minecraft.network.chat.Component;
-import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
-import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /**
  * The scaffolding the per-ability fine-tuning pages share: a title, a stack of rows, the one
@@ -48,7 +48,7 @@ abstract class SubGuiBossAbilityTuning extends SubGuiFieldScreen {
         // to is up to the locale, and the row count is up to the page.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, Component.translatable(titleKey), 0xFFFFFF,
+        addLabel(new ThemeLabel(TITLE_LABEL, Component.translatable(titleKey), 0xFFFFFF,
                 guiLeft + 8, guiTop + 8, imageWidth - 16, LINE_HEIGHT));
         rowY = guiTop + FIRST_ROW_Y;
         addRows();
@@ -66,9 +66,9 @@ abstract class SubGuiBossAbilityTuning extends SubGuiFieldScreen {
      * judge - a potion id is not a sound id.</p>
      */
     protected void addPickerRow(int id, String labelKey, int y, String value) {
-        addLabel(new GuiLabel(id, labelKey, guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + 108, y, 86, BUTTON_HEIGHT, value));
-        addButton(new GuiButtonNop(this, id, guiLeft + 198, y, 44, BUTTON_HEIGHT,
+        addLabel(new ThemeLabel(id, labelKey, guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(id, this, guiLeft + 108, y, 86, BUTTON_HEIGHT, value));
+        addButton(new ThemeButton(this, id, guiLeft + 198, y, 44, BUTTON_HEIGHT,
                 "mco.template.button.select"));
     }
 

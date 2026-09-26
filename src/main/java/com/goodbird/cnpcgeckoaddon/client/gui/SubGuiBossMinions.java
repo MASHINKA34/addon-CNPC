@@ -1,10 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** What happens to the clones a boss summoned once it is no longer fighting. */
 public final class SubGuiBossMinions extends SubGuiFieldScreen {
@@ -27,29 +29,29 @@ public final class SubGuiBossMinions extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.minions", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.minions", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 30;
 
-        addLabel(new GuiLabel(ON_DEATH_BUTTON, "cnpcgeckoaddon.boss.minions_on_death", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ON_DEATH_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(ON_DEATH_BUTTON, "cnpcgeckoaddon.boss.minions_on_death", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ON_DEATH_BUTTON, guiLeft + 155, y, 87, 20,
                 data.isClearMinionsOnDeath()));
         y += 28;
 
-        addLabel(new GuiLabel(ON_RESET_BUTTON, "cnpcgeckoaddon.boss.minions_on_reset", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ON_RESET_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(ON_RESET_BUTTON, "cnpcgeckoaddon.boss.minions_on_reset", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ON_RESET_BUTTON, guiLeft + 155, y, 87, 20,
                 data.isClearMinionsOnReset()));
         y += 28;
 
-        addLabel(new GuiLabel(REMOVAL_BUTTON, "cnpcgeckoaddon.boss.minions_removal", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, REMOVAL_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(REMOVAL_BUTTON, "cnpcgeckoaddon.boss.minions_removal", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, REMOVAL_BUTTON, guiLeft + 112, y, 130, 20,
                 TeleportPathData.MINION_REMOVAL_LABELS, data.getMinionRemovalMode()));
         y += 28;
 
-        addButton(new GuiButtonNop(this, TOTEMS_BUTTON, guiLeft + 8, y, 234, 20,
+        addButton(new ThemeButton(this, TOTEMS_BUTTON, guiLeft + 8, y, 234, 20,
                 "cnpcgeckoaddon.boss.totem_settings"));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.minions_hint", guiLeft + 8, guiTop + 150, 0xA0A0A0));
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.minions_reset_hint", guiLeft + 8, guiTop + 162, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.minions_hint", guiLeft + 8, guiTop + 150, 0xA0A0A0));
+        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.minions_reset_hint", guiLeft + 8, guiTop + 162, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 

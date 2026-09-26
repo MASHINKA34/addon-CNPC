@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import net.minecraft.client.resources.language.I18n;
@@ -7,7 +11,6 @@ import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Cocoon: a victim locked inside a clone spawned on them, freed by the party or punished. */
@@ -64,7 +67,7 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
     public void init() {
         super.init();
         nextRowLabel = FIRST_ROW_LABEL;
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.cocoon_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.cocoon_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
@@ -75,9 +78,9 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
         y += 21;
 
         // How many cocoons and who they close round, on one line: the two answer the same question.
-        addLabel(new GuiLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.cocoon_targets", guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.cocoon_targets", guiLeft + 6, y + 6));
         addSmallField(TARGET_COUNT_FIELD, guiLeft + 72, y, 38, phase.cocoon().getTargetCount(), 1, 4, 1);
-        addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, phase.cocoon().getTargetMode()));
         y += 21;
 
@@ -89,8 +92,8 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
                 phase.cocoon().getGuardTab(), phase.cocoon().getGuardName());
         y += 21;
 
-        addLabel(new GuiLabel(RESCUE_MODE_BUTTON, "cnpcgeckoaddon.boss.cocoon_rescue", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, RESCUE_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(RESCUE_MODE_BUTTON, "cnpcgeckoaddon.boss.cocoon_rescue", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, RESCUE_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.COCOON_RESCUE_LABELS, phase.cocoon().getRescueMode()));
         y += 21;
 
@@ -109,31 +112,31 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.cocoon_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 240);
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
                 "cnpcgeckoaddon.boss.cocoon_tuning"));
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
         updateRescueFields();
     }
 
     private void addSelectRow(int id, String label, int y, String value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + 108, y, 86, 20, value));
-        addButton(new GuiButtonNop(this, id, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
+        addLabel(new ThemeLabel(id, label, guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(id, this, guiLeft + 108, y, 86, 20, value));
+        addButton(new ThemeButton(this, id, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
     }
 
     /** A yes/no on one line, with a label that may take two. */
     private void addToggleRow(int id, String label, int y, boolean value) {
         addRowLabel(label, y, TOGGLE_BUTTON_X - 6 - 2);
-        addButton(new GuiButtonYesNo(this, id, guiLeft + TOGGLE_BUTTON_X, y, 87, 20, value));
+        addButton(new ThemeYesNo(this, id, guiLeft + TOGGLE_BUTTON_X, y, 87, 20, value));
     }
 
     /** A clone's tab and name on one line, with a label that may take two. */
     private void addCloneRow(int tabId, int nameId, String label, int y, int tab, String name) {
         addRowLabel(label, y, CLONE_TAB_X - 6 - 2);
         addSmallField(tabId, guiLeft + CLONE_TAB_X, y, CLONE_TAB_WIDTH, tab, 1, 9, 1);
-        addTextField(new GuiTextFieldNop(nameId, this, guiLeft + CLONE_NAME_X, y, CLONE_NAME_WIDTH, 20, name));
+        addTextField(new ThemeTextField(nameId, this, guiLeft + CLONE_NAME_X, y, CLONE_NAME_WIDTH, 20, name));
     }
 
     /** Two small numbers on one line, so the whole ability still fits a single screen. */
@@ -153,7 +156,7 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
         String text = I18n.get(key);
         int x = guiLeft + 6;
         if (font.width(text) <= width) {
-            addLabel(new GuiLabel(nextRowLabel, Component.literal(text), LABEL_COLOR, x, y + 6,
+            addLabel(new ThemeLabel(nextRowLabel, Component.literal(text), LABEL_COLOR, x, y + 6,
                     width, LABEL_LINE_HEIGHT));
             nextRowLabel += 2;
             return;
@@ -174,15 +177,15 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
                 second.append(word);
             }
         }
-        addLabel(new GuiLabel(nextRowLabel, Component.literal(first.toString()), LABEL_COLOR, x, y + 1,
+        addLabel(new ThemeLabel(nextRowLabel, Component.literal(first.toString()), LABEL_COLOR, x, y + 1,
                 width, LABEL_LINE_HEIGHT));
-        addLabel(new GuiLabel(nextRowLabel + 1, Component.literal(second.toString()), LABEL_COLOR, x,
+        addLabel(new ThemeLabel(nextRowLabel + 1, Component.literal(second.toString()), LABEL_COLOR, x,
                 y + 1 + LABEL_LINE_HEIGHT, width, LABEL_LINE_HEIGHT));
         nextRowLabel += 2;
     }
 
     private void addSmallField(int id, int x, int y, int width, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, width, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, width, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

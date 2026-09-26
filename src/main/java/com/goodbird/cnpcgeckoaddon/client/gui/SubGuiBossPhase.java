@@ -1,11 +1,15 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeIcons;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Compact phase menu. Every ability opens its own fully configurable screen. */
@@ -37,18 +41,18 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZone
         // wraps to is up to the locale.
         imageHeight = doneButtonY() + 20 + 6;
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.phase", phaseIndex),
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
 
         if (phaseIndex == 0) {
             // The first phase is what the boss starts the fight in, so its threshold is
             // always full health and there is nothing to configure.
-            addLabel(new GuiLabel(THRESHOLD_FIELD, "cnpcgeckoaddon.boss.phase_start_full",
+            addLabel(new ThemeLabel(THRESHOLD_FIELD, "cnpcgeckoaddon.boss.phase_start_full",
                     guiLeft + 8, guiTop + 27, 0xA0A0A0));
         } else {
-            addLabel(new GuiLabel(THRESHOLD_FIELD, "cnpcgeckoaddon.boss.phase_threshold",
+            addLabel(new ThemeLabel(THRESHOLD_FIELD, "cnpcgeckoaddon.boss.phase_threshold",
                     guiLeft + 8, guiTop + 27));
-            GuiTextFieldNop field = new GuiTextFieldNop(THRESHOLD_FIELD, this, guiLeft + 172, guiTop + 21,
+            GuiTextFieldNop field = new ThemeTextField(THRESHOLD_FIELD, this, guiLeft + 172, guiTop + 21,
                     70, 20, Integer.toString(phase.getStartHealthPercent()));
             field.setNumbersOnly();
             field.setMinMaxDefault(1, 100, 50);
@@ -60,49 +64,53 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZone
         }
 
         // Two columns: a single 234-wide stack ran out of rows at the seventh ability.
-        addAbilityButton(10, 0, 0, "cnpcgeckoaddon.boss.teleport_settings");
-        addAbilityButton(11, 1, 0, "cnpcgeckoaddon.boss.summon_settings");
-        addAbilityButton(12, 0, 1, "cnpcgeckoaddon.boss.ground_settings");
-        addAbilityButton(13, 1, 1, "cnpcgeckoaddon.boss.ranged_settings");
-        addAbilityButton(14, 0, 2, "cnpcgeckoaddon.boss.melee_settings");
-        addAbilityButton(15, 1, 2, "cnpcgeckoaddon.boss.fluid_settings");
-        addAbilityButton(16, 0, 3, "cnpcgeckoaddon.boss.hook_settings");
-        addAbilityButton(17, 1, 3, "cnpcgeckoaddon.boss.invulnerable_settings");
-        addAbilityButton(18, 0, 4, "cnpcgeckoaddon.boss.capture_settings");
-        addAbilityButton(19, 1, 4, "cnpcgeckoaddon.boss.leap_settings");
-        addAbilityButton(20, 0, 5, "cnpcgeckoaddon.boss.line_settings");
-        addAbilityButton(21, 1, 5, "cnpcgeckoaddon.boss.geyser_settings");
-        addAbilityButton(22, 0, 6, "cnpcgeckoaddon.boss.cast_move_settings");
-        addAbilityButton(23, 1, 6, "cnpcgeckoaddon.boss.boulder_settings");
+        addAbilityButton(10, 0, 0, "cnpcgeckoaddon.boss.teleport_settings", ThemeIcons.TELEPORT_PATHS);
+        addAbilityButton(11, 1, 0, "cnpcgeckoaddon.boss.summon_settings", BossAbilityKind.SUMMON);
+        addAbilityButton(12, 0, 1, "cnpcgeckoaddon.boss.ground_settings", BossAbilityKind.AREA);
+        addAbilityButton(13, 1, 1, "cnpcgeckoaddon.boss.ranged_settings", BossAbilityKind.RANGED);
+        addAbilityButton(14, 0, 2, "cnpcgeckoaddon.boss.melee_settings", BossAbilityKind.MELEE);
+        addAbilityButton(15, 1, 2, "cnpcgeckoaddon.boss.fluid_settings", BossAbilityKind.FLUID);
+        addAbilityButton(16, 0, 3, "cnpcgeckoaddon.boss.hook_settings", BossAbilityKind.HOOK);
+        addAbilityButton(17, 1, 3, "cnpcgeckoaddon.boss.invulnerable_settings", ThemeIcons.IMMUNITIES);
+        addAbilityButton(18, 0, 4, "cnpcgeckoaddon.boss.capture_settings", BossAbilityKind.CAPTURE);
+        addAbilityButton(19, 1, 4, "cnpcgeckoaddon.boss.leap_settings", BossAbilityKind.LEAP);
+        addAbilityButton(20, 0, 5, "cnpcgeckoaddon.boss.line_settings", BossAbilityKind.LINE);
+        addAbilityButton(21, 1, 5, "cnpcgeckoaddon.boss.geyser_settings", BossAbilityKind.GEYSER);
+        addAbilityButton(22, 0, 6, "cnpcgeckoaddon.boss.cast_move_settings", ThemeIcons.NONE);
+        addAbilityButton(23, 1, 6, "cnpcgeckoaddon.boss.boulder_settings", BossAbilityKind.BOULDER);
         // Directly under the corridor boulder: the two are read against each other.
-        addAbilityButton(24, 0, 7, "cnpcgeckoaddon.boss.boulder_rain_settings");
-        addAbilityButton(25, 1, 7, "cnpcgeckoaddon.boss.tether_settings");
-        addAbilityButton(26, 0, 8, "cnpcgeckoaddon.boss.gravity_settings");
-        addAbilityButton(27, 1, 8, "cnpcgeckoaddon.boss.mark_settings");
-        addAbilityButton(28, 0, 9, "cnpcgeckoaddon.boss.cover_settings");
-        addAbilityButton(29, 1, 9, "cnpcgeckoaddon.boss.hazard_settings");
-        addAbilityButton(30, 0, 10, "cnpcgeckoaddon.boss.hunt_settings");
-        addAbilityButton(31, 1, 10, "cnpcgeckoaddon.boss.barrier_settings");
-        addAbilityButton(32, 0, 11, "cnpcgeckoaddon.boss.beam_settings");
-        addAbilityButton(33, 1, 11, "cnpcgeckoaddon.boss.cocoon_settings");
-        addAbilityButton(34, 0, 12, "cnpcgeckoaddon.boss.cast_spots_settings");
-        addAbilityButton(35, 1, 12, "cnpcgeckoaddon.boss.finish_settings");
-        addAbilityButton(36, 0, 13, "cnpcgeckoaddon.boss.combo_settings");
-        addAbilityButton(37, 1, 13, "cnpcgeckoaddon.boss.dash_settings");
-        addAbilityButton(38, 0, 14, "cnpcgeckoaddon.boss.cone_settings");
-        addAbilityButton(39, 1, 14, "cnpcgeckoaddon.boss.platform_settings");
-        addAbilityButton(40, 0, 15, "cnpcgeckoaddon.boss.hurricane_settings");
-        addAbilityButton(41, 1, 15, "cnpcgeckoaddon.boss.shadow_settings");
-        addAbilityButton(42, 0, 16, "cnpcgeckoaddon.boss.seismic_settings");
-        addAbilityButton(43, 1, 16, "cnpcgeckoaddon.boss.rift_settings");
-        addAbilityButton(44, 0, 17, "cnpcgeckoaddon.boss.vent_settings");
+        addAbilityButton(24, 0, 7, "cnpcgeckoaddon.boss.boulder_rain_settings", BossAbilityKind.BOULDER_RAIN);
+        addAbilityButton(25, 1, 7, "cnpcgeckoaddon.boss.tether_settings", BossAbilityKind.TETHER);
+        addAbilityButton(26, 0, 8, "cnpcgeckoaddon.boss.gravity_settings", BossAbilityKind.GRAVITY);
+        addAbilityButton(27, 1, 8, "cnpcgeckoaddon.boss.mark_settings", BossAbilityKind.MARK);
+        addAbilityButton(28, 0, 9, "cnpcgeckoaddon.boss.cover_settings", BossAbilityKind.COVER);
+        addAbilityButton(29, 1, 9, "cnpcgeckoaddon.boss.hazard_settings", BossAbilityKind.HAZARD);
+        addAbilityButton(30, 0, 10, "cnpcgeckoaddon.boss.hunt_settings", BossAbilityKind.HUNT);
+        addAbilityButton(31, 1, 10, "cnpcgeckoaddon.boss.barrier_settings", ThemeIcons.NONE);
+        addAbilityButton(32, 0, 11, "cnpcgeckoaddon.boss.beam_settings", BossAbilityKind.BEAM);
+        addAbilityButton(33, 1, 11, "cnpcgeckoaddon.boss.cocoon_settings", BossAbilityKind.COCOON);
+        addAbilityButton(34, 0, 12, "cnpcgeckoaddon.boss.cast_spots_settings", ThemeIcons.POINTS);
+        addAbilityButton(35, 1, 12, "cnpcgeckoaddon.boss.finish_settings", ThemeIcons.FINISH);
+        addAbilityButton(36, 0, 13, "cnpcgeckoaddon.boss.combo_settings", ThemeIcons.COMBOS);
+        addAbilityButton(37, 1, 13, "cnpcgeckoaddon.boss.dash_settings", BossAbilityKind.DASH);
+        addAbilityButton(38, 0, 14, "cnpcgeckoaddon.boss.cone_settings", BossAbilityKind.CONE);
+        addAbilityButton(39, 1, 14, "cnpcgeckoaddon.boss.platform_settings", BossAbilityKind.PLATFORM);
+        addAbilityButton(40, 0, 15, "cnpcgeckoaddon.boss.hurricane_settings", BossAbilityKind.HURRICANE);
+        addAbilityButton(41, 1, 15, "cnpcgeckoaddon.boss.shadow_settings", BossAbilityKind.SHADOW);
+        addAbilityButton(42, 0, 16, "cnpcgeckoaddon.boss.seismic_settings", BossAbilityKind.SEISMIC);
+        addAbilityButton(43, 1, 16, "cnpcgeckoaddon.boss.rift_settings", BossAbilityKind.RIFT);
+        addAbilityButton(44, 0, 17, "cnpcgeckoaddon.boss.vent_settings", BossAbilityKind.VENT);
         // The grid runs to eighteen rows now, so Done keeps a line of its own below it.
         addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, 20);
     }
 
-    private void addAbilityButton(int id, int column, int row, String label) {
-        addButton(new GuiButtonNop(this, id, guiLeft + 8 + column * 120, guiTop + gridY() + row * 27,
-                114, 24, label));
+    /**
+     * One button of the grid. In the theme it carries the icon of its ability - or of its menu
+     * section, for the buttons that are not an ability of their own - before the text.
+     */
+    private void addAbilityButton(int id, int column, int row, String label, int icon) {
+        addButton(new ThemeButton(this, id, guiLeft + 8 + column * 120, guiTop + gridY() + row * 27,
+                114, 24, label).withIcon(icon));
     }
 
     /** The window this phase's threshold really lands in, as the line under the field reads. */

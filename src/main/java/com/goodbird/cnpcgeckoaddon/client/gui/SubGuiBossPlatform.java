@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformSettings;
@@ -98,7 +102,7 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
         BossPlatformSettings platform = phase.platform();
         wrappedLabel = WRAPPED_LABEL;
         if (place) {
-            addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.platform_phase",
+            addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.platform_phase",
                     phaseIndex), guiLeft + LABEL_X, guiTop + 5, 0xFFFFFF));
         }
         int y = FIRST_ROW;
@@ -123,7 +127,7 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
                 BossPlatformSettings.MAX_LINGER_INTERVAL_TICKS, 20);
         y = choice(place, VFX_BUTTON, "cnpcgeckoaddon.boss.area_vfx", y, VFX_LABELS, vfxIndex(platform.getVfx()));
         if (place) {
-            addButton(new GuiButtonNop(this, ZONES_BUTTON, guiLeft + LABEL_X, guiTop + y,
+            addButton(new ThemeButton(this, ZONES_BUTTON, guiLeft + LABEL_X, guiTop + y,
                     RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.platform_zones"));
         }
         y += ROW;
@@ -134,12 +138,12 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
         }
         y += wrappedHintHeight(HINT) + BUTTONS_GAP;
         if (place) {
-            addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y,
+            addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y,
                     RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.platform_tuning"));
         }
         y += ROW;
         if (place) {
-            addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + LABEL_X, guiTop + y, 120, CONTROL_HEIGHT,
+            addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + LABEL_X, guiTop + y, 120, CONTROL_HEIGHT,
                     "cnpcgeckoaddon.boss.effects_settings"));
             addDoneButton(guiLeft + 182, guiTop + y, 60, CONTROL_HEIGHT);
         }
@@ -149,7 +153,7 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
     private int toggle(boolean place, int id, String key, int y, boolean value) {
         if (place) {
             rowLabel(id, key, y, TOGGLE_X);
-            addButton(new GuiButtonYesNo(this, id, guiLeft + TOGGLE_X, guiTop + y, TOGGLE_WIDTH, CONTROL_HEIGHT, value));
+            addButton(new ThemeYesNo(this, id, guiLeft + TOGGLE_X, guiTop + y, TOGGLE_WIDTH, CONTROL_HEIGHT, value));
         }
         return y + ROW;
     }
@@ -157,7 +161,7 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
     private int choice(boolean place, int id, String key, int y, String[] values, int selected) {
         if (place) {
             rowLabel(id, key, y, CHOICE_X);
-            addButton(new GuiButtonNop(this, id, guiLeft + CHOICE_X, guiTop + y, CHOICE_WIDTH, CONTROL_HEIGHT,
+            addButton(new ThemeButton(this, id, guiLeft + CHOICE_X, guiTop + y, CHOICE_WIDTH, CONTROL_HEIGHT,
                     values, selected));
         }
         return y + ROW;
@@ -167,9 +171,9 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
     private int select(boolean place, int id, String key, int y, String value) {
         if (place) {
             rowLabel(id, key, y, SELECT_FIELD_X);
-            addTextField(new GuiTextFieldNop(id, this, guiLeft + SELECT_FIELD_X, guiTop + y, SELECT_FIELD_WIDTH,
+            addTextField(new ThemeTextField(id, this, guiLeft + SELECT_FIELD_X, guiTop + y, SELECT_FIELD_WIDTH,
                     CONTROL_HEIGHT, value));
-            addButton(new GuiButtonNop(this, id, guiLeft + SELECT_BUTTON_X, guiTop + y, SELECT_BUTTON_WIDTH,
+            addButton(new ThemeButton(this, id, guiLeft + SELECT_BUTTON_X, guiTop + y, SELECT_BUTTON_WIDTH,
                     CONTROL_HEIGHT, "mco.template.button.select"));
         }
         return y + ROW;
@@ -197,7 +201,7 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
     }
 
     private void number(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, PAIR_WIDTH, CONTROL_HEIGHT, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, PAIR_WIDTH, CONTROL_HEIGHT, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);
@@ -213,12 +217,12 @@ public final class SubGuiBossPlatform extends SubGuiFieldScreen {
         // label into "Format error: ..."; a translatable component hands it back as is.
         List<String> lines = wrapLines(Component.translatable(key).getString(), width);
         if (lines.size() == 1) {
-            addLabel(new GuiLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
+            addLabel(new ThemeLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
             return;
         }
         int top = guiTop + y + (CONTROL_HEIGHT - lines.size() * LINE_HEIGHT) / 2;
         for (int i = 0; i < lines.size(); i++) {
-            addLabel(new GuiLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
+            addLabel(new ThemeLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
                     CustomNpcResourceListener.DefaultTextColor, guiLeft + LABEL_X,
                     top + i * LINE_HEIGHT, width, LINE_HEIGHT));
         }

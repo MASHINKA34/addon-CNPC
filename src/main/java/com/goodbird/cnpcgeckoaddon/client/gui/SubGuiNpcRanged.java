@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.mixin.IRangedData;
@@ -229,9 +233,9 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
         wrappedLabel = WRAPPED_LABEL;
         hintLabel = FIRST_HINT_LABEL;
         if (place) {
-            addLabel(new GuiLabel(TITLE_LABEL, "cnpcgeckoaddon.npc_ranged.title", guiLeft + LABEL_X, guiTop + 5,
+            addLabel(new ThemeLabel(TITLE_LABEL, "cnpcgeckoaddon.npc_ranged.title", guiLeft + LABEL_X, guiTop + 5,
                     0xFFFFFF));
-            addButton(new GuiButtonNop(this, PAGE_BUTTON, guiLeft + CHOICE_X, guiTop + FIRST_ROW, CHOICE_WIDTH,
+            addButton(new ThemeButton(this, PAGE_BUTTON, guiLeft + CHOICE_X, guiTop + FIRST_ROW, CHOICE_WIDTH,
                     CONTROL_HEIGHT, PAGES, page));
         }
         int y = FIRST_ROW + ROW + HINT_GAP;
@@ -259,7 +263,7 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
         y = hint(place, "cnpcgeckoaddon.ranged_extras.fallback_hint", y);
         y = hint(place, "cnpcgeckoaddon.npc_ranged.item_hint", y);
         if (place) {
-            addButton(new GuiButtonNop(this, RESET_BUTTON, guiLeft + CHOICE_X, guiTop + y, CHOICE_WIDTH,
+            addButton(new ThemeButton(this, RESET_BUTTON, guiLeft + CHOICE_X, guiTop + y, CHOICE_WIDTH,
                     CONTROL_HEIGHT, "cnpcgeckoaddon.ranged_extras.reset_projectile"));
         }
         y += ROW;
@@ -361,9 +365,9 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
         // The animation on its own row under the number the label names with it: an id and its
         // picker do not fit beside a number in the panel's width.
         if (place) {
-            addTextField(new GuiTextFieldNop(RELOAD_ANIMATION_FIELD, this, guiLeft + SELECT_FIELD_X, guiTop + y,
+            addTextField(new ThemeTextField(RELOAD_ANIMATION_FIELD, this, guiLeft + SELECT_FIELD_X, guiTop + y,
                     SELECT_FIELD_WIDTH, CONTROL_HEIGHT, extra.getReloadAnimation()));
-            addButton(new GuiButtonNop(this, RELOAD_ANIMATION_FIELD, guiLeft + SELECT_BUTTON_X, guiTop + y,
+            addButton(new ThemeButton(this, RELOAD_ANIMATION_FIELD, guiLeft + SELECT_BUTTON_X, guiTop + y,
                     SELECT_BUTTON_WIDTH, CONTROL_HEIGHT, "mco.template.button.select"));
         }
         y += ROW;
@@ -389,7 +393,7 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
 
     private int soundsPage(boolean place, int y) {
         if (place) {
-            addLabel(new GuiLabel(FIRE_SOUND_FIELD + 200, "cnpcgeckoaddon.npc_ranged.cnpc_sounds",
+            addLabel(new ThemeLabel(FIRE_SOUND_FIELD + 200, "cnpcgeckoaddon.npc_ranged.cnpc_sounds",
                     guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
         }
         y += ROW;
@@ -416,9 +420,9 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
         if (place) {
             String value = ranged.getSound(slot);
             rowLabel(id, key, y, SELECT_FIELD_X);
-            addTextField(new GuiTextFieldNop(id, this, guiLeft + SELECT_FIELD_X, guiTop + y, SELECT_FIELD_WIDTH,
+            addTextField(new ThemeTextField(id, this, guiLeft + SELECT_FIELD_X, guiTop + y, SELECT_FIELD_WIDTH,
                     CONTROL_HEIGHT, value == null ? "" : value));
-            addButton(new GuiButtonNop(this, id, guiLeft + SELECT_BUTTON_X, guiTop + y, SELECT_BUTTON_WIDTH,
+            addButton(new ThemeButton(this, id, guiLeft + SELECT_BUTTON_X, guiTop + y, SELECT_BUTTON_WIDTH,
                     CONTROL_HEIGHT, "mco.template.button.select"));
         }
         return y + ROW;
@@ -428,9 +432,9 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
     private int entity(boolean place, int id, String key, int y, String value) {
         if (place) {
             rowLabel(id, key, y, SELECT_FIELD_X);
-            addTextField(new GuiTextFieldNop(id, this, guiLeft + SELECT_FIELD_X, guiTop + y, SELECT_FIELD_WIDTH,
+            addTextField(new ThemeTextField(id, this, guiLeft + SELECT_FIELD_X, guiTop + y, SELECT_FIELD_WIDTH,
                     CONTROL_HEIGHT, value));
-            addButton(new GuiButtonNop(this, id, guiLeft + SELECT_BUTTON_X, guiTop + y, SELECT_BUTTON_WIDTH,
+            addButton(new ThemeButton(this, id, guiLeft + SELECT_BUTTON_X, guiTop + y, SELECT_BUTTON_WIDTH,
                     CONTROL_HEIGHT, "mco.template.button.select"));
         }
         return y + ROW;
@@ -439,7 +443,7 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
     private int toggle(boolean place, int id, String key, int y, boolean value) {
         if (place) {
             rowLabel(id, key, y, TOGGLE_X);
-            addButton(new GuiButtonYesNo(this, id, guiLeft + TOGGLE_X, guiTop + y, TOGGLE_WIDTH, CONTROL_HEIGHT, value));
+            addButton(new ThemeYesNo(this, id, guiLeft + TOGGLE_X, guiTop + y, TOGGLE_WIDTH, CONTROL_HEIGHT, value));
         }
         return y + ROW;
     }
@@ -447,7 +451,7 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
     private int choice(boolean place, int id, String key, int y, String[] values, int selected) {
         if (place) {
             rowLabel(id, key, y, CHOICE_X);
-            addButton(new GuiButtonNop(this, id, guiLeft + CHOICE_X, guiTop + y, CHOICE_WIDTH, CONTROL_HEIGHT,
+            addButton(new ThemeButton(this, id, guiLeft + CHOICE_X, guiTop + y, CHOICE_WIDTH, CONTROL_HEIGHT,
                     values, selected));
         }
         return y + ROW;
@@ -475,7 +479,7 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
     }
 
     private void number(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, PAIR_WIDTH, CONTROL_HEIGHT, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, PAIR_WIDTH, CONTROL_HEIGHT, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);
@@ -500,12 +504,12 @@ public final class SubGuiNpcRanged extends SubGuiFieldScreen {
         // label into "Format error: ..."; a translatable component hands it back as is.
         List<String> lines = wrapLines(Component.translatable(key).getString(), width);
         if (lines.size() == 1) {
-            addLabel(new GuiLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
+            addLabel(new ThemeLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
             return;
         }
         int top = guiTop + y + (CONTROL_HEIGHT - lines.size() * LINE_HEIGHT) / 2;
         for (int i = 0; i < lines.size(); i++) {
-            addLabel(new GuiLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
+            addLabel(new ThemeLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
                     CustomNpcResourceListener.DefaultTextColor, guiLeft + LABEL_X,
                     top + i * LINE_HEIGHT, width, LINE_HEIGHT));
         }

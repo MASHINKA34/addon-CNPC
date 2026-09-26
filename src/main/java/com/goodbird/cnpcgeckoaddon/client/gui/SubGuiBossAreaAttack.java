@@ -1,11 +1,14 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
@@ -40,18 +43,18 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.area_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.area_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.areaAttack().isEnabled()));
         y += 21;
 
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
                 phase.areaAttack().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
         addNumberField(DAMAGE_FIELD, "cnpcgeckoaddon.boss.damage", y, phase.areaAttack().getDamage(), 1, 1000, 8);
@@ -66,20 +69,20 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
                 phase.areaAttack().getCooldownTicks(), 1, 12000, 100);
         y += 21;
 
-        addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
         y += 21;
         addNumberField(VFX_DURATION_FIELD, "cnpcgeckoaddon.boss.area_vfx_duration", y,
                 phase.areaAttack().getVfxDurationTicks(), 5, 100, 20);
         y += 21;
-        addLabel(new GuiLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.areaAttack().isBlockWave()));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.area_vfx_hint", guiLeft + 8, guiTop + 209, 0xA0A0A0));
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 221, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, 67, guiLeft + 6, guiTop + 232, 120, 20,
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.area_vfx_hint", guiLeft + 8, guiTop + 209, 0xA0A0A0));
+        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 221, 0xA0A0A0));
+        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 232, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
     }
@@ -98,13 +101,13 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 8, y + 6));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, 52, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

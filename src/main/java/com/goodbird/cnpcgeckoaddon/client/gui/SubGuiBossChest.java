@@ -1,11 +1,14 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossChestStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.ContainerBlockUtil;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 import java.util.List;
@@ -35,22 +38,22 @@ public final class SubGuiBossChest extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.chest_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.chest_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         // Rows are packed two pixels tighter than elsewhere: eight of them plus the two
         // buttons is all a 256 tall background has room for.
         int y = guiTop + 22;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.chest_enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, data.isChestEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.chest_enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, data.isChestEnabled()));
         y += 22;
 
-        addLabel(new GuiLabel(BLOCK_FIELD, "cnpcgeckoaddon.boss.chest_block", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(BLOCK_FIELD, this, guiLeft + 98, y, 96, 20, data.getChestBlock()));
-        addButton(new GuiButtonNop(this, BLOCK_FIELD, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
+        addLabel(new ThemeLabel(BLOCK_FIELD, "cnpcgeckoaddon.boss.chest_block", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(BLOCK_FIELD, this, guiLeft + 98, y, 96, 20, data.getChestBlock()));
+        addButton(new ThemeButton(this, BLOCK_FIELD, guiLeft + 198, y, 44, 20, "mco.template.button.select"));
         y += 22;
 
-        addLabel(new GuiLabel(STYLE_BUTTON, "cnpcgeckoaddon.boss.chest_style", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, STYLE_BUTTON, guiLeft + 100, y, 142, 20,
+        addLabel(new ThemeLabel(STYLE_BUTTON, "cnpcgeckoaddon.boss.chest_style", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, STYLE_BUTTON, guiLeft + 100, y, 142, 20,
                 styleLabels(), styleIndex(data.getChestStyle())));
         y += 22;
 
@@ -61,25 +64,25 @@ public final class SubGuiBossChest extends SubGuiFieldScreen {
                 TeleportPathData.MIN_CHEST_LIFETIME_TICKS, TeleportPathData.MAX_CHEST_LIFETIME_TICKS, 6000);
         y += 22;
 
-        addLabel(new GuiLabel(NAME_FIELD, "cnpcgeckoaddon.boss.chest_name", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(NAME_FIELD, this, guiLeft + 108, y, 134, 20, data.getChestName()));
+        addLabel(new ThemeLabel(NAME_FIELD, "cnpcgeckoaddon.boss.chest_name", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(NAME_FIELD, this, guiLeft + 108, y, 134, 20, data.getChestName()));
         y += 22;
 
-        addLabel(new GuiLabel(NPC_DROPS_BUTTON, "cnpcgeckoaddon.boss.chest_npc_drops", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, NPC_DROPS_BUTTON, guiLeft + 155, y, 87, 20, data.isChestUseNpcDrops()));
+        addLabel(new ThemeLabel(NPC_DROPS_BUTTON, "cnpcgeckoaddon.boss.chest_npc_drops", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, NPC_DROPS_BUTTON, guiLeft + 155, y, 87, 20, data.isChestUseNpcDrops()));
         y += 22;
 
-        addLabel(new GuiLabel(LOOT_TABLE_FIELD, "cnpcgeckoaddon.boss.chest_loot_table", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(LOOT_TABLE_FIELD, this, guiLeft + 108, y, 134, 20, data.getChestLootTable()));
+        addLabel(new ThemeLabel(LOOT_TABLE_FIELD, "cnpcgeckoaddon.boss.chest_loot_table", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(LOOT_TABLE_FIELD, this, guiLeft + 108, y, 134, 20, data.getChestLootTable()));
 
-        addButton(new GuiButtonNop(this, LOOT_LIST_BUTTON, guiLeft + 8, guiTop + 198, 114, 20,
+        addButton(new ThemeButton(this, LOOT_LIST_BUTTON, guiLeft + 8, guiTop + 198, 114, 20,
                 "cnpcgeckoaddon.boss.chest_loot_list"));
-        addButton(new GuiButtonNop(this, PLACE_BUTTON, guiLeft + 128, guiTop + 198, 114, 20,
+        addButton(new ThemeButton(this, PLACE_BUTTON, guiLeft + 128, guiTop + 198, 114, 20,
                 "cnpcgeckoaddon.boss.chest_placement"));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.chest_hint", guiLeft + 8, guiTop + 222, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.chest_hint", guiLeft + 8, guiTop + 222, 0xA0A0A0));
         // Short enough to sit beside Done instead of under it.
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 240, 0xA0A0A0));
+        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, guiTop + 240, 0xA0A0A0));
         addDoneButton(guiLeft + 186, guiTop + 234, 56, 20);
     }
 

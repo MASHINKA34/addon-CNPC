@@ -1,11 +1,14 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 public final class SubGuiBossTeleport extends SubGuiFieldScreen {
@@ -37,16 +40,16 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.teleport_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.teleport_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
-        addLabel(new GuiLabel(ORDER_BUTTON, "cnpcgeckoaddon.teleport.order", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, ORDER_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(ORDER_BUTTON, "cnpcgeckoaddon.teleport.order", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, ORDER_BUTTON, guiLeft + 112, y, 130, 20,
                 new String[]{"cnpcgeckoaddon.teleport.sequential", "cnpcgeckoaddon.teleport.ping_pong",
                         "cnpcgeckoaddon.teleport.random"}, data.getOrder()));
         y += 23;
-        addLabel(new GuiLabel(SOUND_BUTTON, "cnpcgeckoaddon.teleport.sound", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, SOUND_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(SOUND_BUTTON, "cnpcgeckoaddon.teleport.sound", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, SOUND_BUTTON, guiLeft + 155, y, 87, 20,
                 data.shouldPlaySound()));
         y += 23;
         addAnimationRow(PRE_ANIMATION_FIELD, "cnpcgeckoaddon.boss.teleport_pre_anim", y,
@@ -67,15 +70,15 @@ public final class SubGuiBossTeleport extends SubGuiFieldScreen {
         addNumberField(MAX_DELAY_FIELD, "cnpcgeckoaddon.teleport.max_delay", y,
                 phase.teleport().getMaxDelayTicks(), 10, 1200, 100);
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.teleport.ticks_hint",
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.teleport.ticks_hint",
                 guiLeft + 8, guiTop + 202, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
     private void addAnimationRow(int id, String label, int y, String value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + 98, y, 96, 20, value));
-        addButton(new GuiButtonNop(this, id, guiLeft + 198, y, 44, 20,
+        addLabel(new ThemeLabel(id, label, guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(id, this, guiLeft + 98, y, 96, 20, value));
+        addButton(new ThemeButton(this, id, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
     }
 

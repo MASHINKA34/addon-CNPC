@@ -2,12 +2,16 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.MobModelTextureResolver;
 import com.goodbird.cnpcgeckoaddon.client.ModelSelectionHelper;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.GeckoTheme;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.model.GeckoModelBounds;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.data.GeckoGeometryBounds;
 import com.goodbird.cnpcgeckoaddon.entity.EntityCustomModel;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.registry.EntityRegistry;
+import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -149,7 +153,7 @@ public class GuiModelSelection extends GuiNPCInterface {
         this.rightWidth = Math.max(148, availableWidth - leftWidth - COLUMN_GAP);
 
         int searchTop = 27;
-        GuiTextFieldNop search = new GuiTextFieldNop(
+        GuiTextFieldNop search = new ThemeTextField(
                 SEARCH_FIELD, this, leftX, searchTop, leftWidth, 20, searchText);
         search.setHint(Component.translatable("cnpcgeckoaddon.model_picker.search"));
         search.setResponder(value -> {
@@ -159,7 +163,7 @@ public class GuiModelSelection extends GuiNPCInterface {
         addTextField(search);
 
         int namespaceTop = searchTop + 23;
-        addButton(new GuiButtonNop(this, BUTTON_NAMESPACE, leftX, namespaceTop,
+        addButton(new ThemeButton(this, BUTTON_NAMESPACE, leftX, namespaceTop,
                 leftWidth, 20, namespaceButtonText()));
 
         this.countY = namespaceTop + 24;
@@ -179,21 +183,21 @@ public class GuiModelSelection extends GuiNPCInterface {
         int controlsWidth = Math.min(rightWidth, MAX_CONTROLS_WIDTH);
         int controlsX = rightX + (rightWidth - controlsWidth) / 2;
         int fitWidth = (controlsWidth - 57) / 2;
-        addButton(new GuiButtonNop(this, BUTTON_ZOOM_OUT, controlsX, previewControlsY,
+        addButton(new ThemeButton(this, BUTTON_ZOOM_OUT, controlsX, previewControlsY,
                 24, 20, "−"));
-        addButton(new GuiButtonNop(this, BUTTON_ZOOM_IN, controlsX + 27, previewControlsY,
+        addButton(new ThemeButton(this, BUTTON_ZOOM_IN, controlsX + 27, previewControlsY,
                 24, 20, "+"));
-        addButton(new GuiButtonNop(this, BUTTON_AUTO_FIT, controlsX + 54, previewControlsY,
+        addButton(new ThemeButton(this, BUTTON_AUTO_FIT, controlsX + 54, previewControlsY,
                 fitWidth, 20, "cnpcgeckoaddon.model_picker.auto_fit"));
-        addButton(new GuiButtonNop(this, BUTTON_TEXTURE, controlsX + 57 + fitWidth, previewControlsY,
+        addButton(new ThemeButton(this, BUTTON_TEXTURE, controlsX + 57 + fitWidth, previewControlsY,
                 controlsWidth - 57 - fitWidth, 20, "cnpcgeckoaddon.model_picker.texture_pick"));
 
         int bottomWidth = Math.min(100, (availableWidth - 8) / 2);
         int bottomY = height - 28;
         int bottomCenter = width / 2;
-        addButton(new GuiButtonNop(this, BUTTON_SELECT, bottomCenter - bottomWidth - 2,
+        addButton(new ThemeButton(this, BUTTON_SELECT, bottomCenter - bottomWidth - 2,
                 bottomY, bottomWidth, 20, "cnpcgeckoaddon.model_picker.select"));
-        addButton(new GuiButtonNop(this, BUTTON_CANCEL, bottomCenter + 2,
+        addButton(new ThemeButton(this, BUTTON_CANCEL, bottomCenter + 2,
                 bottomY, bottomWidth, 20, "cnpcgeckoaddon.model_picker.cancel"));
 
         ensurePreviewEntity();
@@ -348,8 +352,10 @@ public class GuiModelSelection extends GuiNPCInterface {
         // list covers the whole screen, and super draws it last, over everything drawn so far.
         boolean covered = hasSubGui();
         renderBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(leftX - 2, 23, leftX + leftWidth + 2, height - 32, 0x99000000);
-        graphics.fill(rightX - 2, 23, rightX + rightWidth + 2, height - 32, 0x99000000);
+        if (!renderThemedColumns(graphics)) {
+            graphics.fill(leftX - 2, 23, leftX + leftWidth + 2, height - 32, 0x99000000);
+            graphics.fill(rightX - 2, 23, rightX + rightWidth + 2, height - 32, 0x99000000);
+        }
         if (modelList != null) {
             modelList.render(graphics, covered ? -1 : mouseX, covered ? -1 : mouseY, partialTick);
         }
@@ -382,6 +388,29 @@ public class GuiModelSelection extends GuiNPCInterface {
         }
         renderSelectedModel(graphics, mouseX, mouseY);
         renderListTooltip(graphics, mouseX, mouseY);
+    }
+
+    /**
+     * In the addon's theme: the two columns on the theme's panel in place of the dark wash, over
+     * the same rectangles, and the theme's title strip behind the picker's title.
+     *
+     * @return whether the theme drew them; if not, the wash goes down as before
+     */
+    private boolean renderThemedColumns(GuiGraphics graphics) {
+        if (!GeckoTheme.enabled()) {
+            return false;
+        }
+        try {
+            GeckoTheme.panel(graphics, leftX - 2, 23, leftWidth + 4, height - 32 - 23);
+            GeckoTheme.panel(graphics, rightX - 2, 23, rightWidth + 4, height - 32 - 23);
+            // GuiBasic centres the title on the screen at y 8.
+            int titleWidth = font.width(title);
+            GeckoTheme.headerBehind(graphics, width / 2 - titleWidth / 2, 8, titleWidth);
+            return true;
+        } catch (Throwable error) {
+            CrashGuard.caught("client.gui.theme.model_picker", error);
+            return false;
+        }
     }
 
     /** Says under the preview where the model's texture came from; hovering it names the texture. */

@@ -1,8 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 import net.minecraft.network.chat.Component;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /**
  * The scaffolding the seven fine-tuning screens share: a title, a stack of rows, the one line
@@ -47,7 +47,7 @@ abstract class SubGuiBossTuningTopic extends SubGuiFieldScreen {
         // to is up to the locale, and the row count is up to the topic.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, Component.translatable("cnpcgeckoaddon.boss.tuning_title")
+        addLabel(new ThemeLabel(TITLE_LABEL, Component.translatable("cnpcgeckoaddon.boss.tuning_title")
                 .append(": ").append(Component.translatable(titleKey)), 0xFFFFFF,
                 guiLeft + 8, guiTop + 8, imageWidth - 16, LINE_HEIGHT));
         rowY = guiTop + FIRST_ROW_Y;

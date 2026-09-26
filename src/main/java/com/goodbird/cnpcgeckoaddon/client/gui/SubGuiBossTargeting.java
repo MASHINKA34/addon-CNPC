@@ -1,10 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Boss-wide target selection: who the boss chases, and which species its abilities may pick. */
 public final class SubGuiBossTargeting extends SubGuiFieldScreen {
@@ -33,7 +34,7 @@ public final class SubGuiBossTargeting extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.targeting", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.targeting", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 22;
 
         addYesNo(ENABLED_BUTTON, "cnpcgeckoaddon.boss.target_nearest", y, data.isTargetNearestPlayer());
@@ -48,16 +49,16 @@ public final class SubGuiBossTargeting extends SubGuiFieldScreen {
         y += 21;
         addYesNo(KEEP_TARGET_BUTTON, "cnpcgeckoaddon.boss.target_keep", y, data.isKeepTargetOutOfRange());
         y += 21;
-        addLabel(new GuiLabel(ABILITY_KIND_BUTTON, "cnpcgeckoaddon.boss.ability_target_kind",
+        addLabel(new ThemeLabel(ABILITY_KIND_BUTTON, "cnpcgeckoaddon.boss.ability_target_kind",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, ABILITY_KIND_BUTTON, guiLeft + 122, y, 120, 20,
+        addButton(new ThemeButton(this, ABILITY_KIND_BUTTON, guiLeft + 122, y, 120, 20,
                 TeleportPathData.ABILITY_TARGET_KIND_LABELS, data.getAbilityTargetKind()));
 
-        addButton(new GuiButtonNop(this, AGGRO_ZONE_BUTTON, guiLeft + 8, guiTop + 149, 234, 20,
+        addButton(new ThemeButton(this, AGGRO_ZONE_BUTTON, guiLeft + 8, guiTop + 149, 234, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_settings"));
-        addButton(new GuiButtonNop(this, HEALTH_SCALING_BUTTON, guiLeft + 8, guiTop + 170, 234, 20,
+        addButton(new ThemeButton(this, HEALTH_SCALING_BUTTON, guiLeft + 8, guiTop + 170, 234, 20,
                 "cnpcgeckoaddon.boss.health_scaling_settings"));
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.target_hint", guiLeft + 8, guiTop + 194,
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.target_hint", guiLeft + 8, guiTop + 194,
                 HINT_COLOR));
         addWrappedHint(40, "cnpcgeckoaddon.boss.ability_target_hint", guiTop + 204);
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);

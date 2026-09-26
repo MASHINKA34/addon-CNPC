@@ -1,8 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.NpcDamageResistEntry;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Editor for one damage resistance rule of an npc. */
@@ -24,13 +26,13 @@ public final class SubGuiNpcDamageResistEntry extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.npc.resist_slot", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.npc.resist_slot", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 26;
 
-        addLabel(new GuiLabel(MATCHER_FIELD, "cnpcgeckoaddon.npc.resist_match", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(MATCHER_FIELD, "cnpcgeckoaddon.npc.resist_match", guiLeft + 8, y + 6));
         // Free text on purpose: the interesting ids come from other mods, so there is no
         // registry to validate against - an unknown string just never matches anything.
-        addTextField(new GuiTextFieldNop(MATCHER_FIELD, this, guiLeft + 90, y, 152, 20, entry.getMatcher()));
+        addTextField(new ThemeTextField(MATCHER_FIELD, this, guiLeft + 90, y, 152, 20, entry.getMatcher()));
         y += 24;
         y = addWrappedHint(FIRST_HINT_LABEL, "cnpcgeckoaddon.npc.resist_examples", y) + 6;
 
@@ -38,7 +40,7 @@ public final class SubGuiNpcDamageResistEntry extends SubGuiFieldScreen {
                 0, NpcDamageResistEntry.PERCENT_MAX, NpcDamageResistEntry.PERCENT_NORMAL);
         y += 26;
 
-        addButton(new GuiButtonNop(this, CLEAR_BUTTON, guiLeft + 8, y, 234, 20,
+        addButton(new ThemeButton(this, CLEAR_BUTTON, guiLeft + 8, y, 234, 20,
                 "cnpcgeckoaddon.npc.resist_clear"));
 
         addWrappedHint(FIRST_HINT_LABEL + 10, "cnpcgeckoaddon.npc.resist_hint", guiTop + 158);

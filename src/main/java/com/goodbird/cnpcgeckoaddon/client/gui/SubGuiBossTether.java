@@ -1,12 +1,15 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Tether: a leash to the boss, to a spot or to a partner, broken by running and punished if not. */
@@ -48,36 +51,36 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.tether_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.tether_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.tether().isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.tether().isEnabled()));
         y += 21;
 
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
                 phase.tether().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
-        addLabel(new GuiLabel(ANCHOR_BUTTON, "cnpcgeckoaddon.boss.tether_anchor", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, ANCHOR_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(ANCHOR_BUTTON, "cnpcgeckoaddon.boss.tether_anchor", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, ANCHOR_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.TETHER_ANCHOR_LABELS, phase.tether().getAnchor()));
         y += 21;
 
         // How many leashes and who they land on, on one line: the two answer the same question.
-        addLabel(new GuiLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.tether_targets", guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.tether_targets", guiLeft + 6, y + 6));
         addPairedField(TARGET_COUNT_FIELD, guiLeft + 72, y, phase.tether().getTargetCount(), 1, 8, 2, 38);
-        addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, phase.tether().getTargetMode()));
         y += 21;
 
         // The two numbers the mechanic is made of share a line, behind a narrower pair of
         // fields than the other screens use, so their long label still has room to be read.
-        addLabel(new GuiLabel(BREAK_DISTANCE_FIELD, "cnpcgeckoaddon.boss.tether_break", guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(BREAK_DISTANCE_FIELD, "cnpcgeckoaddon.boss.tether_break", guiLeft + 6, y + 6));
         addPairedField(BREAK_DISTANCE_FIELD, guiLeft + 156, y, phase.tether().getBreakDistance(), 3, 48, 10, 40);
         addPairedField(DURATION_FIELD, guiLeft + 202, y, phase.tether().getDurationTicks(), 20, 1200, 120, 40);
         y += 21;
@@ -92,8 +95,8 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
                 phase.tether().getCooldownTicks(), 1, 12000, 300);
         y += 21;
 
-        addLabel(new GuiLabel(STYLE_BUTTON, "cnpcgeckoaddon.boss.tether_style", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(STYLE_BUTTON, "cnpcgeckoaddon.boss.tether_style", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 STYLE_LABELS, styleIndex()));
         y += 21;
         addNumberField(WIDTH_FIELD, "cnpcgeckoaddon.boss.tether_width", y,
@@ -104,12 +107,12 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
         // Two effect lists, because the leash does two different things to somebody: it wears
         // on them for as long as it holds, and hits them once when it wins.
         int buttonsY = Math.max(hintY + 4, guiTop + 252);
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 116, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.tether_effects"));
-        addButton(new GuiButtonNop(this, FAIL_EFFECTS_BUTTON, guiLeft + 126, buttonsY, 116, 20,
+        addButton(new ThemeButton(this, FAIL_EFFECTS_BUTTON, guiLeft + 126, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.tether_fail_effects"));
         // Beside the Done, on the row the Done already had to itself.
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY + 24, 168, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY + 24, 168, 20,
                 "cnpcgeckoaddon.boss.tether_tuning"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
     }
@@ -128,14 +131,14 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 6, y + 6));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback, 52);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback, 52);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback,
                                 int width) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, width, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, width, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

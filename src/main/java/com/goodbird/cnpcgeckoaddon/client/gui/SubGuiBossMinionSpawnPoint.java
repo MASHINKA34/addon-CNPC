@@ -1,6 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnList;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
@@ -68,58 +72,58 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen implemen
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(withClone
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle(withClone
                 ? "cnpcgeckoaddon.boss.minion_spawn_point_title" : "cnpcgeckoaddon.boss.shadow_point_title",
                 phaseIndex), guiLeft + 8, guiTop + 7, 0xFFFFFF));
         int y = guiTop + 25;
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled",
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20,
                 point.isEnabled()));
         y += 23;
 
-        addLabel(new GuiLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
+        addLabel(new ThemeLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, 20,
                 COORDINATE_LABELS, point.getCoordinateMode()));
         y += 23;
 
-        addLabel(new GuiLabel(X_FIELD, "cnpcgeckoaddon.boss.minion_spawn_xyz", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(X_FIELD, "cnpcgeckoaddon.boss.minion_spawn_xyz", guiLeft + 8, y + 6));
         addTextField(signedField(X_FIELD, guiLeft + 76, y, point.getX()));
         addTextField(signedField(Y_FIELD, guiLeft + 132, y, point.getY()));
         addTextField(signedField(Z_FIELD, guiLeft + 188, y, point.getZ()));
         y += 23;
 
         if (withClone) {
-            addLabel(new GuiLabel(CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.minion_spawn_clone_override",
+            addLabel(new ThemeLabel(CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.minion_spawn_clone_override",
                     guiLeft + 8, y + 6));
             addTextField(numberField(CLONE_TAB_FIELD, guiLeft + 76, y, 30,
                     point.getCloneTabOverride(), 0, 9, 0));
-            addTextField(new GuiTextFieldNop(CLONE_NAME_FIELD, this, guiLeft + 110, y, 132, 20,
+            addTextField(new ThemeTextField(CLONE_NAME_FIELD, this, guiLeft + 110, y, 132, 20,
                     point.getCloneNameOverride()));
             y += 23;
         }
 
-        addLabel(new GuiLabel(YAW_FIELD, "cnpcgeckoaddon.boss.minion_spawn_yaw", guiLeft + 8, y + 6));
-        GuiTextFieldNop yaw = new GuiTextFieldNop(YAW_FIELD, this, guiLeft + 172, y, 70, 20,
+        addLabel(new ThemeLabel(YAW_FIELD, "cnpcgeckoaddon.boss.minion_spawn_yaw", guiLeft + 8, y + 6));
+        GuiTextFieldNop yaw = new ThemeTextField(YAW_FIELD, this, guiLeft + 172, y, 70, 20,
                 Float.toString(point.getYaw()));
         yaw.setFloatsOnly();
         yaw.setMinMaxDefault(-180.0F, 180.0F, 0.0F);
         addTextField(yaw);
         y += 23;
 
-        addLabel(new GuiLabel(WEIGHT_FIELD, "cnpcgeckoaddon.boss.minion_spawn_weight",
+        addLabel(new ThemeLabel(WEIGHT_FIELD, "cnpcgeckoaddon.boss.minion_spawn_weight",
                 guiLeft + 8, y + 6));
         addTextField(numberField(WEIGHT_FIELD, guiLeft + 172, y, 70, point.getWeight(), 1, 100, 1));
 
-        addLabel(new GuiLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
+        addLabel(new ThemeLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
                 guiLeft + 8, guiTop + 181, 0xA0A0A0));
         // In the gap between the hint and the bottom row, which was empty.
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + 204, 234, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 8, guiTop + 204, 234, 20,
                 ZoneSelectionClient.SELECT_POINT));
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + 230, 92, 20,
+        addButton(new ThemeButton(this, HERE_BUTTON, guiLeft + 8, guiTop + 230, 92, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_here"));
-        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + 230, 72, 20,
+        addButton(new ThemeButton(this, DELETE_BUTTON, guiLeft + 104, guiTop + 230, 72, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_delete"));
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
         updateCoordinateHint();
@@ -127,14 +131,14 @@ public final class SubGuiBossMinionSpawnPoint extends SubGuiFieldScreen implemen
 
     private GuiTextFieldNop numberField(int id, int x, int y, int width, int value,
                                         int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, width, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, width, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         return field;
     }
 
     private GuiTextFieldNop signedField(int id, int x, int y, int value) {
-        return new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        return new ThemeTextField(id, this, x, y, 52, 20, Integer.toString(value));
     }
 
     private void updateCoordinateHint() {

@@ -1,12 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.NpcImmunityData;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Which boss abilities this npc is simply not there for, one row per ability. */
 public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
@@ -38,18 +39,18 @@ public final class SubGuiNpcImmunity extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.npc.immunity_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.npc.immunity_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
 
         for (int i = 0; i < BossAbilityKind.IMMUNITY_ABILITIES.length; i++) {
             int x = guiLeft + 8 + i / ROWS_PER_COLUMN * (COLUMN_WIDTH + 6);
             int y = guiTop + 24 + i % ROWS_PER_COLUMN * ROW_HEIGHT;
-            addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
+            addButton(new ThemeButton(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
                     abilityLabel(i)));
         }
 
         int y = addWrappedHint(FIRST_HINT_LABEL, "cnpcgeckoaddon.npc.immunity_hint", guiTop + HINTS_Y);
         addWrappedHint(FIRST_HINT_LABEL + 10, "cnpcgeckoaddon.npc.immunity_blast_hint", y + 4);
-        addButton(new GuiButtonNop(this, RESIST_BUTTON, guiLeft + 8, guiTop + BUTTONS_Y, 140, 20,
+        addButton(new ThemeButton(this, RESIST_BUTTON, guiLeft + 8, guiTop + BUTTONS_Y, 140, 20,
                 "cnpcgeckoaddon.npc.resist_open",
                 button -> setSubGui(new SubGuiNpcDamageResistList(data))));
         addDoneButton(guiLeft + 182, guiTop + BUTTONS_Y, 60, 20);

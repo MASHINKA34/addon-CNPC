@@ -1,6 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossTotemUtil;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
@@ -100,7 +104,7 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen {
     private int layout(boolean place) {
         wrappedLabel = WRAPPED_LABEL;
         if (place) {
-            addLabel(new GuiLabel(TITLE_LABEL, "cnpcgeckoaddon.boss.totem_title",
+            addLabel(new ThemeLabel(TITLE_LABEL, "cnpcgeckoaddon.boss.totem_title",
                     guiLeft + LABEL_X, guiTop + 5, 0xFFFFFF));
         }
         int y = FIRST_ROW;
@@ -158,7 +162,7 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen {
     private int toggle(boolean place, int id, String key, int y, boolean value) {
         if (place) {
             rowLabel(id, key, y, TOGGLE_X);
-            addButton(new GuiButtonYesNo(this, id, guiLeft + TOGGLE_X, guiTop + y,
+            addButton(new ThemeYesNo(this, id, guiLeft + TOGGLE_X, guiTop + y,
                     TOGGLE_WIDTH, CONTROL_HEIGHT, value));
         }
         return y + ROW;
@@ -168,7 +172,7 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen {
     private int choice(boolean place, int id, String key, int y, String[] values, int selected) {
         if (place) {
             rowLabel(id, key, y, CHOICE_X);
-            addButton(new GuiButtonNop(this, id, guiLeft + CHOICE_X, guiTop + y,
+            addButton(new ThemeButton(this, id, guiLeft + CHOICE_X, guiTop + y,
                     CHOICE_WIDTH, CONTROL_HEIGHT, values, selected));
         }
         return y + ROW;
@@ -235,12 +239,12 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen {
      */
     private int buttons(boolean place, int y) {
         if (place) {
-            addButton(new GuiButtonNop(this, LIST_BUTTON, guiLeft + LABEL_X, guiTop + y,
+            addButton(new ThemeButton(this, LIST_BUTTON, guiLeft + LABEL_X, guiTop + y,
                     ROW_RIGHT - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.totem_list"));
         }
         y += ROW;
         if (place) {
-            addButton(new GuiButtonNop(this, RESTORE_BUTTON, guiLeft + LABEL_X, guiTop + y,
+            addButton(new ThemeButton(this, RESTORE_BUTTON, guiLeft + LABEL_X, guiTop + y,
                     TOGGLE_X - LABEL_X - 6, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.totem_restore"));
             addDoneButton(guiLeft + TOGGLE_X, guiTop + y, TOGGLE_WIDTH, CONTROL_HEIGHT);
         }
@@ -258,12 +262,12 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen {
         int width = controlX - LABEL_X - 4;
         List<String> lines = wrapLines(I18n.get(key), width);
         if (lines.size() == 1) {
-            addLabel(new GuiLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
+            addLabel(new ThemeLabel(id, key, guiLeft + LABEL_X, guiTop + y + LABEL_DROP));
             return;
         }
         int top = guiTop + y + (CONTROL_HEIGHT - lines.size() * LINE_HEIGHT) / 2;
         for (int i = 0; i < lines.size(); i++) {
-            addLabel(new GuiLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
+            addLabel(new ThemeLabel(i == 0 ? id : wrappedLabel++, Component.literal(lines.get(i)),
                     CustomNpcResourceListener.DefaultTextColor, guiLeft + LABEL_X,
                     top + i * LINE_HEIGHT, width, LINE_HEIGHT));
         }
@@ -282,7 +286,7 @@ public final class SubGuiBossTotems extends SubGuiFieldScreen {
     }
 
     private void addSmallNumber(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 42, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, 42, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

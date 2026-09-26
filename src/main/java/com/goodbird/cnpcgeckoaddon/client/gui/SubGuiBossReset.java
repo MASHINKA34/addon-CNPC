@@ -1,9 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** What the boss rolls back to once nobody is fighting it any more. */
@@ -28,7 +29,7 @@ public final class SubGuiBossReset extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.reset", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.reset", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 26;
 
         addNumberField(TICKS_FIELD, "cnpcgeckoaddon.boss.reset_ticks", null, y,
@@ -60,7 +61,7 @@ public final class SubGuiBossReset extends SubGuiFieldScreen {
                 TeleportPathData.MIN_HOME_LEASH_GRACE_TICKS,
                 TeleportPathData.MAX_HOME_LEASH_GRACE_TICKS, 0);
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.reset_hint", guiLeft + 8, guiTop + 202, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.reset_hint", guiLeft + 8, guiTop + 202, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
     }
 
@@ -68,9 +69,9 @@ public final class SubGuiBossReset extends SubGuiFieldScreen {
     private void addNumberField(int id, String label, String tooltip, int y, int value,
                                 int min, int max, int fallback) {
         addLabel(tooltip == null
-                ? new GuiLabel(id, label, guiLeft + 8, y + 6)
-                : new GuiLabel(id, label, guiLeft + 8, y + 6, tooltip));
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, guiLeft + 172, y, 70, 20,
+                ? new ThemeLabel(id, label, guiLeft + 8, y + 6)
+                : new ThemeLabel(id, label, guiLeft + 8, y + 6, tooltip));
+        GuiTextFieldNop field = new ThemeTextField(id, this, guiLeft + 172, y, 70, 20,
                 Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);

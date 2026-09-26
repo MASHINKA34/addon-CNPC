@@ -1,10 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Per-phase placement policy for ordinary summoned minions. */
@@ -31,7 +34,7 @@ public final class SubGuiBossMinionSpawnSettings extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.minion_spawn_title", phaseIndex),
                 guiLeft + 8, guiTop + 7, 0xFFFFFF));
         int y = guiTop + 27;
@@ -42,30 +45,30 @@ public final class SubGuiBossMinionSpawnSettings extends SubGuiFieldScreen {
                 BossPhaseData.MINION_SPAWN_ORDER_LABELS, phase.summon().getSpawnOrder());
         y += 25;
 
-        addLabel(new GuiLabel(SEARCH_FIELD, "cnpcgeckoaddon.boss.minion_spawn_search",
+        addLabel(new ThemeLabel(SEARCH_FIELD, "cnpcgeckoaddon.boss.minion_spawn_search",
                 guiLeft + 8, y + 6));
-        GuiTextFieldNop search = new GuiTextFieldNop(SEARCH_FIELD, this,
+        GuiTextFieldNop search = new ThemeTextField(SEARCH_FIELD, this,
                 guiLeft + 182, y, 60, 20, Integer.toString(phase.summon().getPointSearchRadius()));
         search.setNumbersOnly();
         search.setMinMaxDefault(0, 4, 0);
         addTextField(search);
         y += 25;
 
-        addLabel(new GuiLabel(REUSE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_reuse",
+        addLabel(new ThemeLabel(REUSE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_reuse",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, REUSE_BUTTON, guiLeft + 155, y, 87, 20,
+        addButton(new ThemeYesNo(this, REUSE_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.summon().isReuseOccupiedPoints()));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.minion_spawn_hint",
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.minion_spawn_hint",
                 guiLeft + 8, guiTop + 135, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, EDIT_BUTTON, guiLeft + 8, guiTop + 170, 168, 20,
+        addButton(new ThemeButton(this, EDIT_BUTTON, guiLeft + 8, guiTop + 170, 168, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_edit"));
         addDoneButton(guiLeft + 182, guiTop + 170, 60, 20);
     }
 
     private void addChoice(int id, String label, int y, String[] values, int selected) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, id, guiLeft + 112, y, 130, 20, values, selected));
+        addLabel(new ThemeLabel(id, label, guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, id, guiLeft + 112, y, 130, 20, values, selected));
     }
 
     @Override

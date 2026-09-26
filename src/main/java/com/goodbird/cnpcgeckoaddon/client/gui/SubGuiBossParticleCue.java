@@ -1,5 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import net.minecraft.client.Minecraft;
@@ -47,7 +50,7 @@ public final class SubGuiBossParticleCue extends SubGuiFieldScreen {
     public void init() {
         imageHeight = doneButtonY() + BUTTON_HEIGHT + 6;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, Component.translatable("cnpcgeckoaddon.cue.particle_title")
+        addLabel(new ThemeLabel(TITLE_LABEL, Component.translatable("cnpcgeckoaddon.cue.particle_title")
                 .append(": ").append(Component.translatable(titleKey)), 0xFFFFFF,
                 guiLeft + 8, guiTop + 8, imageWidth - 16, LINE_HEIGHT));
         int y = guiTop + FIRST_ROW_Y;
@@ -55,10 +58,10 @@ public final class SubGuiBossParticleCue extends SubGuiFieldScreen {
         addYesNo(ENABLED_BUTTON, "cnpcgeckoaddon.cue.enabled", y, cue.isEnabled());
         y += ROW_HEIGHT;
 
-        addLabel(new GuiLabel(PARTICLE_FIELD, "cnpcgeckoaddon.cue.particle_id", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(PARTICLE_FIELD, this, guiLeft + TEXT_FIELD_X, y, 86,
+        addLabel(new ThemeLabel(PARTICLE_FIELD, "cnpcgeckoaddon.cue.particle_id", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(PARTICLE_FIELD, this, guiLeft + TEXT_FIELD_X, y, 86,
                 BUTTON_HEIGHT, cue.getParticleId()));
-        addButton(new GuiButtonNop(this, PARTICLE_FIELD, guiLeft + 198, y, 44, BUTTON_HEIGHT,
+        addButton(new ThemeButton(this, PARTICLE_FIELD, guiLeft + 198, y, 44, BUTTON_HEIGHT,
                 "mco.template.button.select"));
         y += ROW_HEIGHT;
 
@@ -66,13 +69,13 @@ public final class SubGuiBossParticleCue extends SubGuiFieldScreen {
                 BossParticleCue.MIN_COUNT, BossParticleCue.MAX_COUNT, cue.getDefaultCount());
         y += ROW_HEIGHT;
 
-        addButton(new GuiButtonNop(this, TEST_BUTTON, guiLeft + 8, y, 114, BUTTON_HEIGHT,
+        addButton(new ThemeButton(this, TEST_BUTTON, guiLeft + 8, y, 114, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.cue.test"));
-        addButton(new GuiButtonNop(this, RESET_BUTTON, guiLeft + 128, y, 114, BUTTON_HEIGHT,
+        addButton(new ThemeButton(this, RESET_BUTTON, guiLeft + 128, y, 114, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.cue.reset"));
 
         int hintEnd = addWrappedText(FIRST_HINT_LABEL, hintText(), guiTop + hintY());
-        addLabel(new GuiLabel(ERROR_LABEL, Component.literal(rejected ? errorText() : ""),
+        addLabel(new ThemeLabel(ERROR_LABEL, Component.literal(rejected ? errorText() : ""),
                 ERROR_COLOR, guiLeft + 8, hintEnd, imageWidth - 16, LINE_HEIGHT));
         addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, BUTTON_HEIGHT);
     }

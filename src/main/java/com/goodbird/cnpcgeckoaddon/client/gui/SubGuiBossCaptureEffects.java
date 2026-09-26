@@ -1,10 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Potion receiver, lift geometry, look lock, and shared animated-link appearance. */
@@ -38,16 +40,16 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.capture_title", guiLeft + 8, guiTop + 5, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.capture_title", guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(EFFECT_TARGET_BUTTON, "cnpcgeckoaddon.boss.capture_effect_target",
+        addLabel(new ThemeLabel(EFFECT_TARGET_BUTTON, "cnpcgeckoaddon.boss.capture_effect_target",
                 guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, EFFECT_TARGET_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, EFFECT_TARGET_BUTTON, guiLeft + 112, y, 130, 20,
                 EFFECT_TARGET_LABELS, phase.capture().getEffectTarget()));
         y += 24;
 
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, y, 236, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, y, 236, 20,
                 "cnpcgeckoaddon.boss.capture_effects"));
         y += 24;
 
@@ -58,14 +60,14 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
                 phase.capture().getLiftTicks(), 1, 1200, 40);
         y += 24;
 
-        addLabel(new GuiLabel(ALLOW_LOOK_BUTTON, "cnpcgeckoaddon.boss.capture_allow_look",
+        addLabel(new ThemeLabel(ALLOW_LOOK_BUTTON, "cnpcgeckoaddon.boss.capture_allow_look",
                 guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ALLOW_LOOK_BUTTON, guiLeft + 155, y, 87, 20,
+        addButton(new ThemeYesNo(this, ALLOW_LOOK_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.capture().isAllowLook()));
         y += 24;
 
-        addLabel(new GuiLabel(BEAM_STYLE_BUTTON, "cnpcgeckoaddon.boss.capture_beam", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, BEAM_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(BEAM_STYLE_BUTTON, "cnpcgeckoaddon.boss.capture_beam", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, BEAM_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 BEAM_STYLE_LABELS, beamStyleIndex()));
         y += 24;
         addNumberField(BEAM_WIDTH_FIELD, "cnpcgeckoaddon.boss.capture_beam_width", y,
@@ -74,7 +76,7 @@ public final class SubGuiBossCaptureEffects extends SubGuiFieldScreen {
         addNumberField(BEAM_SAG_FIELD, "cnpcgeckoaddon.boss.capture_beam_sag", y,
                 phase.capture().getBeamSagPercent(), 0, 200, 0);
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.capture_hint",
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.capture_hint",
                 guiLeft + 6, guiTop + 213, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
         updateLiftFields();

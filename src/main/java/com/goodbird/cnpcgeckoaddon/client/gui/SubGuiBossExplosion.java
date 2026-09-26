@@ -1,11 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Makes the boss detonate when it dies. */
 public final class SubGuiBossExplosion extends SubGuiFieldScreen {
@@ -30,15 +32,15 @@ public final class SubGuiBossExplosion extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.explosion", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.explosion", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 26;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.explosion_enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, data.isExplosionEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.explosion_enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, data.isExplosionEnabled()));
         y += 24;
 
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.explosion_mode", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 92, y, 150, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.explosion_mode", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 92, y, 150, 20,
                 TeleportPathData.EXPLOSION_MODE_LABELS, data.getExplosionMode()));
         y += 24;
 
@@ -46,8 +48,8 @@ public final class SubGuiBossExplosion extends SubGuiFieldScreen {
                 data.getExplosionPower(), 1, 20, 4);
         y += 24;
 
-        addLabel(new GuiLabel(FIRE_BUTTON, "cnpcgeckoaddon.boss.explosion_fire", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, FIRE_BUTTON, guiLeft + 155, y, 87, 20, data.isExplosionFire()));
+        addLabel(new ThemeLabel(FIRE_BUTTON, "cnpcgeckoaddon.boss.explosion_fire", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, FIRE_BUTTON, guiLeft + 155, y, 87, 20, data.isExplosionFire()));
         y += 24;
 
         addNumberField(DELAY_FIELD, "cnpcgeckoaddon.boss.explosion_delay", y,
@@ -56,10 +58,10 @@ public final class SubGuiBossExplosion extends SubGuiFieldScreen {
 
         // The boss plays the death animation configured on the model, so the delay wants to
         // match its length - otherwise it blows up in the middle of falling over.
-        addButton(new GuiButtonNop(this, SYNC_BUTTON, guiLeft + 8, y, 234, 20,
+        addButton(new ThemeButton(this, SYNC_BUTTON, guiLeft + 8, y, 234, 20,
                 "cnpcgeckoaddon.boss.explosion_sync_death"));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.explosion_hint", guiLeft + 8, guiTop + 166, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.explosion_hint", guiLeft + 8, guiTop + 166, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 

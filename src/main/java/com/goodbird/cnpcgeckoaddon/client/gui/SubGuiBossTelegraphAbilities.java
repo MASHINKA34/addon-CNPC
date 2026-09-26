@@ -1,10 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /**
  * Which of the boss' abilities warn before they land, one row per ability.
@@ -40,12 +41,12 @@ public final class SubGuiBossTelegraphAbilities extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.telegraph_abilities",
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.telegraph_abilities",
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
         for (int i = 0; i < TeleportPathData.TELEGRAPH_ABILITIES.length; i++) {
             int x = guiLeft + 8 + i / ROWS_PER_COLUMN * (COLUMN_WIDTH + 6);
             int y = guiTop + 24 + i % ROWS_PER_COLUMN * ROW_HEIGHT;
-            addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
+            addButton(new ThemeButton(this, FIRST_ABILITY_BUTTON + i, x, y, COLUMN_WIDTH, 20,
                     abilityLabel(i)));
         }
         addDoneButton(guiLeft + 182, guiTop + DONE_Y, 60, 20);

@@ -1,11 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectData;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** The potion effects one attack applies, one row per slot. */
 public final class SubGuiBossEffectList extends SubGuiFieldScreen {
@@ -25,15 +26,15 @@ public final class SubGuiBossEffectList extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, titleKey, guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, titleKey, guiLeft + 8, guiTop + 8, 0xFFFFFF));
 
         int y = guiTop + 28;
         for (int i = 0; i < BossEffectSet.SLOTS; i++) {
-            addButton(new GuiButtonNop(this, FIRST_SLOT_BUTTON + i, guiLeft + 8, y, 234, 22, slotLabel(i)));
+            addButton(new ThemeButton(this, FIRST_SLOT_BUTTON + i, guiLeft + 8, y, 234, 22, slotLabel(i)));
             y += 26;
         }
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.effects_hint", guiLeft + 8, guiTop + 120, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.effects_hint", guiLeft + 8, guiTop + 120, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 

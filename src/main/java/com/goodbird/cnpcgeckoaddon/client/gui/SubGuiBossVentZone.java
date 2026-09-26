@@ -2,6 +2,9 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossVentZone;
@@ -89,52 +92,52 @@ public final class SubGuiBossVentZone extends SubGuiFieldScreen implements BossZ
         // Settled before super.init() centres the panel on it: the hint's lines are the locale's.
         imageHeight = buttonsY() + 20 + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.vent_zone_title", phaseIndex), guiLeft + 8, guiTop + 7, 0xFFFFFF));
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8,
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8,
                 guiTop + ENABLED_Y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, guiTop + ENABLED_Y, 87, 20,
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, guiTop + ENABLED_Y, 87, 20,
                 zone.isEnabled()));
 
-        addLabel(new GuiLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
+        addLabel(new ThemeLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
                 guiLeft + 8, guiTop + COORDINATE_Y + 6));
-        addButton(new GuiButtonNop(this, COORDINATE_BUTTON, guiLeft + 112, guiTop + COORDINATE_Y, 130, 20,
+        addButton(new ThemeButton(this, COORDINATE_BUTTON, guiLeft + 112, guiTop + COORDINATE_Y, 130, 20,
                 COORDINATE_LABELS, zone.getCoordinateMode()));
 
         // Measured the way a platform's box is: two corners, either order, both inclusive.
-        addLabel(new GuiLabel(CORNER1_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner1", guiLeft + 8,
+        addLabel(new ThemeLabel(CORNER1_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner1", guiLeft + 8,
                 guiTop + CORNER1_Y + 2));
         addCornerFields(X1_FIELD, Y1_FIELD, Z1_FIELD, CORNER1_HERE_BUTTON, guiTop + CORNER1_Y + CORNER_FIELDS_DROP,
                 zone.getX1(), zone.getY1(), zone.getZ1());
-        addLabel(new GuiLabel(CORNER2_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner2", guiLeft + 8,
+        addLabel(new ThemeLabel(CORNER2_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner2", guiLeft + 8,
                 guiTop + CORNER2_Y + 2));
         addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, guiTop + CORNER2_Y + CORNER_FIELDS_DROP,
                 zone.getX2(), zone.getY2(), zone.getZ2());
 
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
                 ZoneSelectionClient.SELECT_BOX));
 
-        addLabel(new GuiLabel(FACE_BUTTON, "cnpcgeckoaddon.boss.vent_zone_face", guiLeft + 8,
+        addLabel(new ThemeLabel(FACE_BUTTON, "cnpcgeckoaddon.boss.vent_zone_face", guiLeft + 8,
                 guiTop + FACE_Y + 6));
-        addButton(new GuiButtonNop(this, FACE_BUTTON, guiLeft + 112, guiTop + FACE_Y, 130, 20,
+        addButton(new ThemeButton(this, FACE_BUTTON, guiLeft + 112, guiTop + FACE_Y, 130, 20,
                 BossVentZone.FACE_LABELS, zone.getFace()));
         addNumberField(REACH_FIELD, "cnpcgeckoaddon.boss.vent_zone_reach", guiTop + REACH_Y,
                 zone.getReach(), BossVentZone.MIN_REACH, BossVentZone.MAX_REACH, BossVentZone.DEFAULT_REACH);
         // The cycle reads "as the phase" first, so its place is the override moved up by one.
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.vent_zone_mode", guiLeft + 8,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.vent_zone_mode", guiLeft + 8,
                 guiTop + MODE_Y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, guiTop + MODE_Y, 130, 20,
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 112, guiTop + MODE_Y, 130, 20,
                 BossVentZone.MODE_LABELS, zone.getModeOverride() - BossVentZone.MODE_PHASE));
         addNumberField(DELAY_FIELD, "cnpcgeckoaddon.boss.vent_zone_delay", guiTop + DELAY_Y,
                 zone.getDelayTicks(), 0, BossVentZone.MAX_DELAY_TICKS, 0);
         addNumberField(WEIGHT_FIELD, "cnpcgeckoaddon.boss.vent_zone_weight", guiTop + WEIGHT_Y,
                 zone.getWeight(), BossVentZone.MIN_WEIGHT, BossVentZone.MAX_WEIGHT, BossVentZone.MIN_WEIGHT);
 
-        addLabel(new GuiLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
+        addLabel(new ThemeLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
                 guiLeft + 8, guiTop + ARENA_HINT_Y, 0xA0A0A0));
         addWrappedHint(FIRST_HINT_LABEL, HINT, guiTop + HINT_Y);
-        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 8, guiTop + buttonsY(), 72, 20,
+        addButton(new ThemeButton(this, DELETE_BUTTON, guiLeft + 8, guiTop + buttonsY(), 72, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_delete"));
         addDoneButton(guiLeft + 182, guiTop + buttonsY(), 60, 20);
         updateCoordinateHint();
@@ -148,7 +151,7 @@ public final class SubGuiBossVentZone extends SubGuiFieldScreen implements BossZ
         addTextField(coordinateField(xId, guiLeft + 8, y, 40, x));
         addTextField(coordinateField(yId, guiLeft + 52, y, 40, cornerY));
         addTextField(coordinateField(zId, guiLeft + 96, y, 40, z));
-        addButton(new GuiButtonNop(this, buttonId, guiLeft + 142, y, 100, 20, "cnpcgeckoaddon.boss.aggro_zone_here"));
+        addButton(new ThemeButton(this, buttonId, guiLeft + 142, y, 100, 20, "cnpcgeckoaddon.boss.aggro_zone_here"));
     }
 
     private void updateCoordinateHint() {

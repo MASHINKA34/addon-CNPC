@@ -1,10 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 public final class SubGuiBossBarStyle extends SubGuiFieldScreen {
@@ -23,15 +25,15 @@ public final class SubGuiBossBarStyle extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.bar_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.bar_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 26;
         for (int i = 0; i < BossBarStyles.values().size(); i++) {
-            addButton(new GuiButtonNop(this, FIRST_STYLE_BUTTON + i, guiLeft + 8, y, 234, 20, styleLabel(i)));
+            addButton(new ThemeButton(this, FIRST_STYLE_BUTTON + i, guiLeft + 8, y, 234, 20, styleLabel(i)));
             y += 22;
         }
 
-        addLabel(new GuiLabel(SCALE_FIELD, "cnpcgeckoaddon.boss.bar_scale", guiLeft + 8, y + 6));
-        GuiTextFieldNop scale = new GuiTextFieldNop(SCALE_FIELD, this, guiLeft + 172, y, 70, 20,
+        addLabel(new ThemeLabel(SCALE_FIELD, "cnpcgeckoaddon.boss.bar_scale", guiLeft + 8, y + 6));
+        GuiTextFieldNop scale = new ThemeTextField(SCALE_FIELD, this, guiLeft + 172, y, 70, 20,
                 Integer.toString(data.getBossBarScalePercent()));
         scale.setNumbersOnly();
         scale.setMinMaxDefault(TeleportPathData.MIN_BOSS_BAR_SCALE_PERCENT,
@@ -40,7 +42,7 @@ public final class SubGuiBossBarStyle extends SubGuiFieldScreen {
         addTextField(scale);
         y += 24;
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.bar_scale_hint", guiLeft + 8, y, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.bar_scale_hint", guiLeft + 8, y, 0xA0A0A0));
         y += 14;
 
         addDoneButton(guiLeft + 182, y, 60, 20);

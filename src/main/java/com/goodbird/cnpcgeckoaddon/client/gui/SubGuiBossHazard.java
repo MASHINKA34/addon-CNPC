@@ -2,6 +2,10 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.Minecraft;
@@ -57,18 +61,18 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.hazard_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.hazard_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.hazard().isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.hazard().isEnabled()));
         y += 21;
 
         // The first thing to pick, because the four rows further down belong to one shape
         // only and come and go with it.
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.hazard_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.hazard_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.HAZARD_MODE_LABELS, phase.hazard().getMode()));
         y += 21;
 
@@ -85,13 +89,13 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
         // The two shapes' rows share the same four lines: only one set is ever on the
         // screen, so laying them over each other keeps the whole hazard on one panel.
         int shapeY = y;
-        addLabel(new GuiLabel(CENTER_BUTTON, "cnpcgeckoaddon.boss.hazard_center", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, CENTER_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(CENTER_BUTTON, "cnpcgeckoaddon.boss.hazard_center", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, CENTER_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.HAZARD_CENTER_LABELS, phase.hazard().getCenterMode()));
         y += 21;
         addTextField(coordinateField(CENTER_X_FIELD, guiLeft + 8, y, 40, phase.hazard().getCenterX()));
         addTextField(coordinateField(CENTER_Z_FIELD, guiLeft + 52, y, 40, phase.hazard().getCenterZ()));
-        addButton(new GuiButtonNop(this, CENTER_HERE_BUTTON, guiLeft + 142, y, 100, 20,
+        addButton(new ThemeButton(this, CENTER_HERE_BUTTON, guiLeft + 142, y, 100, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
         y += 21;
         addPairRow(START_RADIUS_FIELD, END_RADIUS_FIELD, "cnpcgeckoaddon.boss.hazard_radius", y,
@@ -104,29 +108,29 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
 
         // A fifth row under both shapes: the box picks its two corners in the world, the ring its
         // fixed centre. Both buttons share it, and only the one the shape in force reads is shown.
-        addButton(new GuiButtonNop(this, SELECT_BOX_BUTTON, guiLeft + 6, y, 236, 20,
+        addButton(new ThemeButton(this, SELECT_BOX_BUTTON, guiLeft + 6, y, 236, 20,
                 ZoneSelectionClient.SELECT_BOX));
-        addButton(new GuiButtonNop(this, SELECT_CENTER_BUTTON, guiLeft + 6, y, 236, 20,
+        addButton(new ThemeButton(this, SELECT_CENTER_BUTTON, guiLeft + 6, y, 236, 20,
                 ZoneSelectionClient.SELECT_POINT));
         y += 21;
 
         // The box is measured the way the aggro zone is: two corners, either order.
         int boxY = shapeY;
-        addLabel(new GuiLabel(CORNER1_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner1", guiLeft + 6, boxY + 6));
+        addLabel(new ThemeLabel(CORNER1_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner1", guiLeft + 6, boxY + 6));
         boxY += 21;
         addCornerFields(X1_FIELD, Y1_FIELD, Z1_FIELD, CORNER1_HERE_BUTTON, boxY,
                 phase.hazard().getX1(), phase.hazard().getY1(), phase.hazard().getZ1());
         boxY += 21;
-        addLabel(new GuiLabel(CORNER2_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner2", guiLeft + 6, boxY + 6));
+        addLabel(new ThemeLabel(CORNER2_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner2", guiLeft + 6, boxY + 6));
         boxY += 21;
         addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, boxY,
                 phase.hazard().getX2(), phase.hazard().getY2(), phase.hazard().getZ2());
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.hazard_hint", y + 3);
         int buttonsY = Math.max(hintY + 4, guiTop + 212);
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
                 "cnpcgeckoaddon.boss.hazard_tuning"));
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
         applyModeRows();
@@ -201,13 +205,13 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 6, y + 6));
         addPairedField(leftId, guiLeft + 158, y, leftValue, leftMin, leftMax, leftFallback);
         addPairedField(rightId, guiLeft + 202, y, rightValue, rightMin, rightMax, rightFallback);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 40, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, 40, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);
@@ -218,7 +222,7 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
         addTextField(coordinateField(xId, guiLeft + 8, y, 40, x));
         addTextField(coordinateField(yId, guiLeft + 52, y, 40, cornerY));
         addTextField(coordinateField(zId, guiLeft + 96, y, 40, z));
-        addButton(new GuiButtonNop(this, buttonId, guiLeft + 142, y, 100, 20,
+        addButton(new ThemeButton(this, buttonId, guiLeft + 142, y, 100, 20,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
     }
 

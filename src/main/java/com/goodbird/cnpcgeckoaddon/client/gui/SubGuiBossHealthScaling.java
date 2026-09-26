@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossHealthScalingUtil;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -42,7 +43,7 @@ public final class SubGuiBossHealthScaling extends SubGuiFieldScreen implements 
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(40, "cnpcgeckoaddon.boss.health_scaling_title",
+        addLabel(new ThemeLabel(40, "cnpcgeckoaddon.boss.health_scaling_title",
                 guiLeft + 6, guiTop + 4, 0xFFFFFF));
 
         addYesNo(ENABLED_BUTTON, "cnpcgeckoaddon.boss.health_scaling_enabled",
@@ -71,9 +72,9 @@ public final class SubGuiBossHealthScaling extends SubGuiFieldScreen implements 
         addLabel(componentLabel(TWO_PREVIEW_LABEL, guiLeft + 126, guiTop + 189));
         addLabel(componentLabel(FOUR_PREVIEW_LABEL, guiLeft + 6, guiTop + 200));
         addLabel(componentLabel(CAP_PREVIEW_LABEL, guiLeft + 126, guiTop + 200));
-        addLabel(new GuiLabel(41, "cnpcgeckoaddon.boss.health_scaling_hint_first",
+        addLabel(new ThemeLabel(41, "cnpcgeckoaddon.boss.health_scaling_hint_first",
                 guiLeft + 6, guiTop + 212, 0xA0A0A0));
-        addLabel(new GuiLabel(42, "cnpcgeckoaddon.boss.health_scaling_hint_second",
+        addLabel(new ThemeLabel(42, "cnpcgeckoaddon.boss.health_scaling_hint_second",
                 guiLeft + 6, guiTop + 222, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 234, 60, 18);
         refreshControlsAndPreview();
@@ -105,7 +106,7 @@ public final class SubGuiBossHealthScaling extends SubGuiFieldScreen implements 
     }
 
     private GuiLabel componentLabel(int id, int x, int y) {
-        return new GuiLabel(id, Component.empty(), 0xA0A0A0, x, y, 110, 10);
+        return new ThemeLabel(id, Component.empty(), 0xA0A0A0, x, y, 110, 10);
     }
 
     @Override

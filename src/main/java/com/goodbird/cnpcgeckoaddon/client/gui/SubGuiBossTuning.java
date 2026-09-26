@@ -1,8 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /**
  * The way into the boss' fine-tuning: one button per theme, the way the phase menu is one
@@ -49,9 +50,9 @@ public final class SubGuiBossTuning extends SubGuiFieldScreen {
     public void init() {
         imageHeight = doneButtonY() + 20 + 6;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, "cnpcgeckoaddon.boss.tuning_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(TITLE_LABEL, "cnpcgeckoaddon.boss.tuning_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         for (int i = 0; i < TOPICS.length; i++) {
-            addButton(new GuiButtonNop(this, FIRST_TOPIC_BUTTON + i,
+            addButton(new ThemeButton(this, FIRST_TOPIC_BUTTON + i,
                     guiLeft + 8 + (i % 2) * 120, guiTop + FIRST_ROW_Y + (i / 2) * ROW_HEIGHT,
                     114, BUTTON_HEIGHT, TOPICS[i]));
         }

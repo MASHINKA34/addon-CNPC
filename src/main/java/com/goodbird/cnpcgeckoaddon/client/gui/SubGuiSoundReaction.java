@@ -1,11 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.SoundReactionData;
 import com.goodbird.cnpcgeckoaddon.mixin.ISoundReactionData;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
@@ -30,12 +32,12 @@ public final class SubGuiSoundReaction extends SubGuiFieldScreen implements ITex
         super.init();
         int y = guiTop + 16;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.sound.enabled", guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 142, y, 100, 20, data.isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.sound.enabled", guiLeft + 8, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 142, y, 100, 20, data.isEnabled()));
         y += 30;
 
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.sound.mode", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.sound.mode", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 new String[]{"cnpcgeckoaddon.sound.investigate", "cnpcgeckoaddon.sound.attack",
                         "cnpcgeckoaddon.sound.attack_enemies"}, data.getMode()));
         y += 30;
@@ -46,7 +48,7 @@ public final class SubGuiSoundReaction extends SubGuiFieldScreen implements ITex
         y += 26;
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.sound.cooldown", y, data.getCooldownTicks(), 0, 200, 20);
 
-        addLabel(new GuiLabel(20, "cnpcgeckoaddon.sound.ticks_hint", guiLeft + 8, guiTop + 169, 0xA0A0A0));
+        addLabel(new ThemeLabel(20, "cnpcgeckoaddon.sound.ticks_hint", guiLeft + 8, guiTop + 169, 0xA0A0A0));
         addDoneButton(guiLeft + 190, guiTop + 190, 60, 20);
     }
 

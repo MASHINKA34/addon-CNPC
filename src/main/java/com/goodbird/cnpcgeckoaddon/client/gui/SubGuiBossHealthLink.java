@@ -1,10 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 import java.util.function.Consumer;
@@ -48,11 +50,11 @@ public final class SubGuiBossHealthLink extends SubGuiFieldScreen {
         // is up to the locale.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, "cnpcgeckoaddon.boss.health_link_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(TITLE_LABEL, "cnpcgeckoaddon.boss.health_link_title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + FIRST_ROW_Y;
 
-        addLabel(new GuiLabel(GROUP_FIELD, "cnpcgeckoaddon.boss.health_link_group", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(GROUP_FIELD, this, guiLeft + TEXT_FIELD_X, y, 134, BUTTON_HEIGHT,
+        addLabel(new ThemeLabel(GROUP_FIELD, "cnpcgeckoaddon.boss.health_link_group", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(GROUP_FIELD, this, guiLeft + TEXT_FIELD_X, y, 134, BUTTON_HEIGHT,
                 data.getHealthLinkGroup()));
         y += ROW_HEIGHT;
 
@@ -83,14 +85,14 @@ public final class SubGuiBossHealthLink extends SubGuiFieldScreen {
                 data.getHealthLinkReviveAnimation());
 
         int hintEnd = addWrappedText(FIRST_HINT_LABEL, hintText(), guiTop + hintY());
-        addLabel(new GuiLabel(TICKS_HINT_LABEL, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, hintEnd, HINT_COLOR));
+        addLabel(new ThemeLabel(TICKS_HINT_LABEL, "cnpcgeckoaddon.teleport.ticks_hint", guiLeft + 8, hintEnd, HINT_COLOR));
         addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, BUTTON_HEIGHT);
     }
 
     private void addSelectRow(int id, String label, int y, String value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + TEXT_FIELD_X, y, 86, BUTTON_HEIGHT, value));
-        addButton(new GuiButtonNop(this, id, guiLeft + 198, y, 44, BUTTON_HEIGHT, "mco.template.button.select"));
+        addLabel(new ThemeLabel(id, label, guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(id, this, guiLeft + TEXT_FIELD_X, y, 86, BUTTON_HEIGHT, value));
+        addButton(new ThemeButton(this, id, guiLeft + 198, y, 44, BUTTON_HEIGHT, "mco.template.button.select"));
     }
 
     /**

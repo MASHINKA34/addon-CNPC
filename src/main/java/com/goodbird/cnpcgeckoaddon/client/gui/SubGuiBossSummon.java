@@ -1,10 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 public final class SubGuiBossSummon extends SubGuiFieldScreen {
@@ -37,17 +40,17 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.summon_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.summon_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.summon().isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.summon().isEnabled()));
         y += 23;
 
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 88, y, 106, 20,
                 phase.summon().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 23;
         addTextFieldRow(CLONE_NAME_FIELD, "cnpcgeckoaddon.boss.clone_name", y, phase.summon().getCloneName());
@@ -66,16 +69,16 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.summon().getCooldownTicks(), 20, 12000, 400);
 
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 8, guiTop + 228, 234, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 8, guiTop + 228, 234, 20,
                 "cnpcgeckoaddon.boss.summon_tuning"));
-        addButton(new GuiButtonNop(this, SPAWN_POINTS_BUTTON, guiLeft + 8, guiTop + 252, 168, 20,
+        addButton(new ThemeButton(this, SPAWN_POINTS_BUTTON, guiLeft + 8, guiTop + 252, 168, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_settings"));
         addDoneButton(guiLeft + 182, guiTop + 252, 60, 20);
     }
 
     private void addTextFieldRow(int id, String label, int y, String value) {
-        addLabel(new GuiLabel(id, label, guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(id, this, guiLeft + 155, y, 87, 20, value));
+        addLabel(new ThemeLabel(id, label, guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(id, this, guiLeft + 155, y, 87, 20, value));
     }
 
     @Override

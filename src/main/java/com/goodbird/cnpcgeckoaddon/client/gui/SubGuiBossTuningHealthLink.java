@@ -1,7 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** The countdown a downed boss puts up, what colour it is, and what the killing blow leaves. */
@@ -32,9 +33,9 @@ public final class SubGuiBossTuningHealthLink extends SubGuiBossTuningTopic {
         // A colour is six hex digits rather than a number: a numbers-only field would leave
         // the builder converting FF6A5A into sixteen million by hand.
         int colorRow = nextRow();
-        addLabel(new GuiLabel(COLOR_FIELD, "cnpcgeckoaddon.boss.tuning.downed_color",
+        addLabel(new ThemeLabel(COLOR_FIELD, "cnpcgeckoaddon.boss.tuning.downed_color",
                 guiLeft + numberLabelX(), colorRow + numberLabelYOffset()));
-        addTextField(new GuiTextFieldNop(COLOR_FIELD, this, guiLeft + numberFieldX(), colorRow,
+        addTextField(new ThemeTextField(COLOR_FIELD, this, guiLeft + numberFieldX(), colorRow,
                 numberFieldWidth(), numberFieldHeight(), hex(tuning.healthLinkDownedColor())));
 
         addNumberField(LETHAL_GUARD_FIELD, "cnpcgeckoaddon.boss.tuning.lethal_guard", nextRow(),

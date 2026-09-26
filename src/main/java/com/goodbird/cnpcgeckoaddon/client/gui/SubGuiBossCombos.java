@@ -1,11 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossAbility;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 import java.util.LinkedHashMap;
@@ -58,21 +60,21 @@ public final class SubGuiBossCombos extends SubGuiFieldScreen {
         // is up to the locale. Nineteen rows never fit one panel, so the screen scrolls.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.combo_phase", phaseIndex), guiLeft + 8, guiTop + 8, 0xFFFFFF));
         // Ended flush with the delay column: the header is wider than the fields it names, and a
         // label never clips, so it is measured rather than started at the column.
         int delayRight = guiLeft + DELAY_FIELD_X + DELAY_FIELD_WIDTH;
-        addLabel(new GuiLabel(DELAY_HEADER_LABEL, DELAY_HEADER,
+        addLabel(new ThemeLabel(DELAY_HEADER_LABEL, DELAY_HEADER,
                 delayRight - font.width(I18n.get(DELAY_HEADER)), guiTop + HEADER_Y));
 
         for (int i = 0; i < rows.size(); i++) {
             int kind = rows.get(i).kind();
             int y = guiTop + FIRST_ROW_Y + i * ROW_HEIGHT;
-            addLabel(new GuiLabel(FIRST_NAME_LABEL + i, BossAbilityKind.LABELS[kind], guiLeft + 8, y + 6));
-            addButton(new GuiButtonNop(this, FIRST_FOLLOW_UP_BUTTON + i, guiLeft + FOLLOW_UP_BUTTON_X, y,
+            addLabel(new ThemeLabel(FIRST_NAME_LABEL + i, BossAbilityKind.LABELS[kind], guiLeft + 8, y + 6));
+            addButton(new ThemeButton(this, FIRST_FOLLOW_UP_BUTTON + i, guiLeft + FOLLOW_UP_BUTTON_X, y,
                     FOLLOW_UP_BUTTON_WIDTH, BUTTON_HEIGHT, followUpLabel(kind)));
-            GuiTextFieldNop delay = new GuiTextFieldNop(FIRST_DELAY_FIELD + i, this, guiLeft + DELAY_FIELD_X, y,
+            GuiTextFieldNop delay = new ThemeTextField(FIRST_DELAY_FIELD + i, this, guiLeft + DELAY_FIELD_X, y,
                     DELAY_FIELD_WIDTH, BUTTON_HEIGHT, Integer.toString(phase.comboDelay(kind)));
             delay.setNumbersOnly();
             delay.setMinMaxDefault(0, BossPhaseData.MAX_COMBO_DELAY, 0);

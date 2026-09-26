@@ -2,6 +2,9 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossAbility;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossCastSpot;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -12,7 +15,6 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.BlockPos;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /**
@@ -64,25 +66,25 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen implements BossZ
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, I18n.get(BossAbilityKind.LABELS[ability.kind()]) + " · "
+        addLabel(new ThemeLabel(TITLE_LABEL, I18n.get(BossAbilityKind.LABELS[ability.kind()]) + " · "
                 + BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.phase", phaseIndex),
                 guiLeft + 8, guiTop + 7, 0xFFFFFF));
         int y = guiTop + 25;
 
-        addLabel(new GuiLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.cast_spot_coords", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.cast_spot_coords", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossCastSpot.COORDINATE_LABELS, spot.getCoordinateMode()));
         y += ROW_HEIGHT;
 
-        addLabel(new GuiLabel(X_FIELD, "cnpcgeckoaddon.boss.minion_spawn_xyz", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(X_FIELD, "cnpcgeckoaddon.boss.minion_spawn_xyz", guiLeft + 8, y + 6));
         addTextField(coordinateField(X_FIELD, guiLeft + 76, y, 52, spot.getX()));
         addTextField(coordinateField(Y_FIELD, guiLeft + 132, y, 52, spot.getY()));
         addTextField(coordinateField(Z_FIELD, guiLeft + 188, y, 52, spot.getZ()));
         y += ROW_HEIGHT;
 
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, y, 100, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 8, y, 100, 20,
                 ZoneSelectionClient.SELECT_POINT));
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, HERE_BUTTON, guiLeft + 112, y, 130, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_here"));
         y += ROW_HEIGHT;
 
@@ -94,8 +96,8 @@ public final class SubGuiBossCastSpot extends SubGuiFieldScreen implements BossZ
         y += ROW_HEIGHT;
 
         // The angle itself, under the choice that reads it: the row says "Fixed" and holds the number.
-        addLabel(new GuiLabel(YAW_FIELD, BossCastSpot.YAW_LABELS[BossCastSpot.YAW_FIXED], guiLeft + 8, y + 6));
-        GuiTextFieldNop yaw = new GuiTextFieldNop(YAW_FIELD, this, guiLeft + numberFieldX(), y,
+        addLabel(new ThemeLabel(YAW_FIELD, BossCastSpot.YAW_LABELS[BossCastSpot.YAW_FIXED], guiLeft + 8, y + 6));
+        GuiTextFieldNop yaw = new ThemeTextField(YAW_FIELD, this, guiLeft + numberFieldX(), y,
                 numberFieldWidth(), numberFieldHeight(), Float.toString(spot.getYaw()));
         yaw.setFloatsOnly();
         yaw.setMinMaxDefault(-180.0F, 180.0F, 0.0F);

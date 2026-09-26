@@ -2,6 +2,8 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.BossCastSpot;
 import com.goodbird.cnpcgeckoaddon.data.NpcLaunchPadData;
@@ -14,7 +16,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Whether this npc is a launch pad, which block it throws players onto, and how. */
 public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
@@ -63,27 +64,27 @@ public final class SubGuiNpcLaunchPad extends SubGuiFieldScreen {
         // is up to the locale.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, "cnpcgeckoaddon.launch.title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(TITLE_LABEL, "cnpcgeckoaddon.launch.title", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + FIRST_ROW_Y;
 
         addYesNo(ENABLED_BUTTON, "cnpcgeckoaddon.launch.enabled", y, data.isEnabled());
         y += ROW_HEIGHT;
 
         // The cast spot's two modes in the same order; the offset here is from the pad itself.
-        addLabel(new GuiLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.cast_spot_coords", guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, BUTTON_HEIGHT,
+        addLabel(new ThemeLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.cast_spot_coords", guiLeft + 8, y + 6));
+        addButton(new ThemeButton(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, BUTTON_HEIGHT,
                 BossCastSpot.COORDINATE_LABELS, data.getCoordinateMode()));
         y += ROW_HEIGHT;
 
-        addLabel(new GuiLabel(X_FIELD, "cnpcgeckoaddon.boss.minion_spawn_xyz", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(X_FIELD, "cnpcgeckoaddon.boss.minion_spawn_xyz", guiLeft + 8, y + 6));
         addTextField(coordinateField(X_FIELD, guiLeft + 76, y, 52, data.getX()));
         addTextField(coordinateField(Y_FIELD, guiLeft + 132, y, 52, data.getY()));
         addTextField(coordinateField(Z_FIELD, guiLeft + 188, y, 52, data.getZ()));
         y += ROW_HEIGHT;
 
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, y, 100, BUTTON_HEIGHT,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 8, y, 100, BUTTON_HEIGHT,
                 ZoneSelectionClient.SELECT_POINT));
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 112, y, 130, BUTTON_HEIGHT,
+        addButton(new ThemeButton(this, HERE_BUTTON, guiLeft + 112, y, 130, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.boss.aggro_zone_here"));
         y += ROW_HEIGHT;
 

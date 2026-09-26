@@ -1,11 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossAbility;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 import java.util.List;
@@ -64,20 +66,20 @@ public final class SubGuiBossFinish extends SubGuiFieldScreen {
         // screen scrolls.
         imageHeight = doneButtonY() + BUTTON_HEIGHT + BOTTOM_MARGIN;
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.finish_title", phaseIndex), guiLeft + 8, guiTop + 8, 0xFFFFFF));
         // Ended flush with the hold column: the header is wider than the fields it names, and a
         // label never clips, so it is measured rather than started at the column.
         int holdRight = guiLeft + HOLD_FIELD_X + HOLD_FIELD_WIDTH;
-        addLabel(new GuiLabel(HOLD_HEADER_LABEL, HOLD_HEADER,
+        addLabel(new ThemeLabel(HOLD_HEADER_LABEL, HOLD_HEADER,
                 holdRight - font.width(I18n.get(HOLD_HEADER)), guiTop + HEADER_Y));
 
         for (int i = 0; i < rows.size(); i++) {
             int kind = rows.get(i).kind();
             int y = guiTop + FIRST_ROW_Y + i * ROW_HEIGHT;
-            addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, guiLeft + 8, y,
+            addButton(new ThemeButton(this, FIRST_ABILITY_BUTTON + i, guiLeft + 8, y,
                     ABILITY_BUTTON_WIDTH, BUTTON_HEIGHT, abilityLabel(kind)));
-            GuiTextFieldNop hold = new GuiTextFieldNop(FIRST_HOLD_FIELD + i, this, guiLeft + HOLD_FIELD_X, y,
+            GuiTextFieldNop hold = new ThemeTextField(FIRST_HOLD_FIELD + i, this, guiLeft + HOLD_FIELD_X, y,
                     HOLD_FIELD_WIDTH, BUTTON_HEIGHT, Integer.toString(phase.finishHoldTicks(kind)));
             hold.setNumbersOnly();
             hold.setMinMaxDefault(0, BossPhaseData.MAX_FINISH_HOLD, 0);

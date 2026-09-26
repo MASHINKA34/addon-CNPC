@@ -1,10 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossConeSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /**
  * What calls a cone off at the warning's end, whether a cone along the gaze or at points waits
@@ -40,8 +41,8 @@ public final class SubGuiBossConeTuning extends SubGuiBossAbilityTuning {
 
     /** A choice too wordy to sit beside its name: the name on one row, the choice across the whole of the next. */
     private void addWideCycle(int id, String labelKey, String[] values, int value) {
-        addLabel(new GuiLabel(id, labelKey, guiLeft + toggleLabelX(), nextRow() + toggleLabelYOffset()));
-        addButton(new GuiButtonNop(this, id, guiLeft + toggleLabelX(), nextRow(),
+        addLabel(new ThemeLabel(id, labelKey, guiLeft + toggleLabelX(), nextRow() + toggleLabelYOffset()));
+        addButton(new ThemeButton(this, id, guiLeft + toggleLabelX(), nextRow(),
                 imageWidth - toggleLabelX() * 2, toggleButtonHeight(), values, value));
     }
 

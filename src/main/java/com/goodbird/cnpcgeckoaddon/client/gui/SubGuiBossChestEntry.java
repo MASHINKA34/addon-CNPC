@@ -1,5 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossLootEntry;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
 import net.minecraft.client.Minecraft;
@@ -9,7 +12,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Editor for one slot of a boss loot chest. */
@@ -34,30 +36,30 @@ public final class SubGuiBossChestEntry extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.chest_entry", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.chest_entry", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 26;
 
-        addLabel(new GuiLabel(ITEM_FIELD, "cnpcgeckoaddon.boss.chest_item", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(ITEM_FIELD, this, guiLeft + 50, y, 96, 20, itemId(entry.getStack())));
-        addButton(new GuiButtonNop(this, FROM_HAND_BUTTON, guiLeft + 150, y, 92, 20,
+        addLabel(new ThemeLabel(ITEM_FIELD, "cnpcgeckoaddon.boss.chest_item", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(ITEM_FIELD, this, guiLeft + 50, y, 96, 20, itemId(entry.getStack())));
+        addButton(new ThemeButton(this, FROM_HAND_BUTTON, guiLeft + 150, y, 92, 20,
                 "cnpcgeckoaddon.boss.chest_from_hand"));
         y += 24;
 
-        addLabel(new GuiLabel(MIN_FIELD, "cnpcgeckoaddon.boss.chest_count", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(MIN_FIELD, "cnpcgeckoaddon.boss.chest_count", guiLeft + 8, y + 6));
         addTextField(numberField(MIN_FIELD, guiLeft + 150, y, 44, entry.getMinCount(), 1, 64, 1));
         addTextField(numberField(MAX_FIELD, guiLeft + 198, y, 44, entry.getMaxCount(), 1, 64, 1));
         y += 24;
 
-        addLabel(new GuiLabel(CHANCE_FIELD, "cnpcgeckoaddon.boss.chest_chance", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(CHANCE_FIELD, "cnpcgeckoaddon.boss.chest_chance", guiLeft + 8, y + 6));
         addTextField(numberField(CHANCE_FIELD, guiLeft + 172, y, 70, entry.getChancePercent(), 1, 100, 100));
 
-        addButton(new GuiButtonNop(this, REMOVE_BUTTON, guiLeft + 8, guiTop + 104, 234, 20,
+        addButton(new ThemeButton(this, REMOVE_BUTTON, guiLeft + 8, guiTop + 104, 234, 20,
                 "cnpcgeckoaddon.boss.chest_remove"));
         addDoneButton(guiLeft + 182, guiTop + 190, 60, 20);
     }
 
     private GuiTextFieldNop numberField(int id, int x, int y, int width, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, width, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, width, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         return field;

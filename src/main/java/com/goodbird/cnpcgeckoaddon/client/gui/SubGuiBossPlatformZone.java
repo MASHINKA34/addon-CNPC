@@ -2,6 +2,9 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformZone;
@@ -13,7 +16,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
-import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /**
  * One platform: its two corners, given the way a summon's point is - as an offset from the arena
@@ -76,38 +78,38 @@ public final class SubGuiBossPlatformZone extends SubGuiFieldScreen implements B
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.platform_zone_title", phaseIndex), guiLeft + 8, guiTop + 7, 0xFFFFFF));
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8,
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 8,
                 guiTop + ENABLED_Y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, guiTop + ENABLED_Y, 87, 20,
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, guiTop + ENABLED_Y, 87, 20,
                 zone.isEnabled()));
 
-        addLabel(new GuiLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
+        addLabel(new ThemeLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.minion_spawn_coordinate",
                 guiLeft + 8, guiTop + COORDINATE_Y + 6));
-        addButton(new GuiButtonNop(this, COORDINATE_BUTTON, guiLeft + 112, guiTop + COORDINATE_Y, 130, 20,
+        addButton(new ThemeButton(this, COORDINATE_BUTTON, guiLeft + 112, guiTop + COORDINATE_Y, 130, 20,
                 COORDINATE_LABELS, zone.getCoordinateMode()));
 
         // Measured the way the arena hazard's box is: two corners, either order, both inclusive.
-        addLabel(new GuiLabel(CORNER1_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner1", guiLeft + 8,
+        addLabel(new ThemeLabel(CORNER1_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner1", guiLeft + 8,
                 guiTop + CORNER1_Y + 2));
         addCornerFields(X1_FIELD, Y1_FIELD, Z1_FIELD, CORNER1_HERE_BUTTON, guiTop + CORNER1_Y + CORNER_FIELDS_DROP,
                 zone.getX1(), zone.getY1(), zone.getZ1());
-        addLabel(new GuiLabel(CORNER2_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner2", guiLeft + 8,
+        addLabel(new ThemeLabel(CORNER2_LABEL, "cnpcgeckoaddon.boss.aggro_zone_corner2", guiLeft + 8,
                 guiTop + CORNER2_Y + 2));
         addCornerFields(X2_FIELD, Y2_FIELD, Z2_FIELD, CORNER2_HERE_BUTTON, guiTop + CORNER2_Y + CORNER_FIELDS_DROP,
                 zone.getX2(), zone.getY2(), zone.getZ2());
 
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 8, guiTop + SELECT_Y, 234, 20,
                 ZoneSelectionClient.SELECT_BOX));
 
         addNumberField(WEIGHT_FIELD, "cnpcgeckoaddon.boss.platform_zone_weight", guiTop + WEIGHT_Y,
                 zone.getWeight(), BossPlatformZone.MIN_WEIGHT, BossPlatformZone.MAX_WEIGHT, BossPlatformZone.MIN_WEIGHT);
 
-        addLabel(new GuiLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
+        addLabel(new ThemeLabel(ARENA_HINT_LABEL, "cnpcgeckoaddon.boss.minion_spawn_arena_hint",
                 guiLeft + 8, guiTop + HINT_Y, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 8, guiTop + BUTTONS_Y, 72, 20,
+        addButton(new ThemeButton(this, DELETE_BUTTON, guiLeft + 8, guiTop + BUTTONS_Y, 72, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_delete"));
         addDoneButton(guiLeft + 182, guiTop + BUTTONS_Y, 60, 20);
         updateCoordinateHint();
@@ -117,7 +119,7 @@ public final class SubGuiBossPlatformZone extends SubGuiFieldScreen implements B
         addTextField(coordinateField(xId, guiLeft + 8, y, 40, x));
         addTextField(coordinateField(yId, guiLeft + 52, y, 40, cornerY));
         addTextField(coordinateField(zId, guiLeft + 96, y, 40, z));
-        addButton(new GuiButtonNop(this, buttonId, guiLeft + 142, y, 100, 20, "cnpcgeckoaddon.boss.aggro_zone_here"));
+        addButton(new ThemeButton(this, buttonId, guiLeft + 142, y, 100, 20, "cnpcgeckoaddon.boss.aggro_zone_here"));
     }
 
     private void updateCoordinateHint() {

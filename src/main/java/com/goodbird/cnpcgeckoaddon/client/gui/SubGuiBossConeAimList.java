@@ -1,5 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossConeAimList;
 import com.goodbird.cnpcgeckoaddon.data.BossConeAimPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -41,22 +43,22 @@ public final class SubGuiBossConeAimList extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(TITLE_LABEL, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.cone_points_title", phaseIndex),
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
-        addLabel(new GuiLabel(EMPTY_LABEL, "cnpcgeckoaddon.boss.cone_points_empty",
+        addLabel(new ThemeLabel(EMPTY_LABEL, "cnpcgeckoaddon.boss.cone_points_empty",
                 guiLeft + 8, guiTop + 30, 0xA0A0A0));
         int y = guiTop + 24;
         for (int row = 0; row < ROWS; row++) {
-            addButton(new GuiButtonNop(this, FIRST_ROW_BUTTON + row, guiLeft + 8, y, 234, 20, ""));
+            addButton(new ThemeButton(this, FIRST_ROW_BUTTON + row, guiLeft + 8, y, 234, 20, ""));
             y += 22;
         }
-        addButton(new GuiButtonNop(this, PREV_PAGE_BUTTON, guiLeft + 8, guiTop + 204, 20, 20, "<"));
-        addLabel(new GuiLabel(PAGE_LABEL, "", guiLeft + 36, guiTop + 210, 0xA0A0A0));
-        addButton(new GuiButtonNop(this, NEXT_PAGE_BUTTON, guiLeft + 222, guiTop + 204, 20, 20, ">"));
-        addButton(new GuiButtonNop(this, ADD_BUTTON, guiLeft + 8, guiTop + 230, 70, 20,
+        addButton(new ThemeButton(this, PREV_PAGE_BUTTON, guiLeft + 8, guiTop + 204, 20, 20, "<"));
+        addLabel(new ThemeLabel(PAGE_LABEL, "", guiLeft + 36, guiTop + 210, 0xA0A0A0));
+        addButton(new ThemeButton(this, NEXT_PAGE_BUTTON, guiLeft + 222, guiTop + 204, 20, 20, ">"));
+        addButton(new ThemeButton(this, ADD_BUTTON, guiLeft + 8, guiTop + 230, 70, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_add"));
-        addButton(new GuiButtonNop(this, CLEAR_BUTTON, guiLeft + 82, guiTop + 230, 94, 20,
+        addButton(new ThemeButton(this, CLEAR_BUTTON, guiLeft + 82, guiTop + 230, 94, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_clear"));
         addDoneButton(guiLeft + 182, guiTop + 230, 60, 20);
         refreshRows();

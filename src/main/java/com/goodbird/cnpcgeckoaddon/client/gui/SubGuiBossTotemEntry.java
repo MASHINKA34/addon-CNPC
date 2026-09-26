@@ -1,6 +1,10 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.data.BossTotemEntry;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
@@ -12,7 +16,6 @@ import net.minecraft.core.BlockPos;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /** Exact clone, anchor, facing, and per-link overrides for one stable slot. */
@@ -76,57 +79,57 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen implements Bos
         // to is up to the locale.
         imageHeight = buttonsY() + 20 + 6;
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.totem_entry_title",
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.totem_entry_title",
                 guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 25;
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.totem_entry_enabled",
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.totem_entry_enabled",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, entry.isEnabled()));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, entry.isEnabled()));
         y += 23;
 
-        addLabel(new GuiLabel(CLONE_TAB_FIELD, "cnpcgeckoaddon.boss.totem_clone", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(CLONE_TAB_FIELD, "cnpcgeckoaddon.boss.totem_clone", guiLeft + 8, y + 6));
         addTextField(numberField(CLONE_TAB_FIELD, guiLeft + 76, y, 30, entry.getCloneTab(), 1, 9, 1));
-        addTextField(new GuiTextFieldNop(CLONE_NAME_FIELD, this, guiLeft + 110, y, 132, 20,
+        addTextField(new ThemeTextField(CLONE_NAME_FIELD, this, guiLeft + 110, y, 132, 20,
                 entry.getCloneName()));
         y += 23;
 
-        addLabel(new GuiLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.totem_coordinate_mode",
+        addLabel(new ThemeLabel(COORDINATE_BUTTON, "cnpcgeckoaddon.boss.totem_coordinate_mode",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, COORDINATE_BUTTON, guiLeft + 112, y, 130, 20,
                 COORDINATE_LABELS, entry.getCoordinateMode()));
         y += 23;
 
-        addLabel(new GuiLabel(X_FIELD, "cnpcgeckoaddon.boss.totem_xyz", guiLeft + 8, y + 6));
+        addLabel(new ThemeLabel(X_FIELD, "cnpcgeckoaddon.boss.totem_xyz", guiLeft + 8, y + 6));
         addTextField(signedField(X_FIELD, guiLeft + 76, y, entry.getX()));
         addTextField(signedField(Y_FIELD, guiLeft + 132, y, entry.getY()));
         addTextField(signedField(Z_FIELD, guiLeft + 188, y, entry.getZ()));
         y += 23;
 
-        addLabel(new GuiLabel(YAW_FIELD, "cnpcgeckoaddon.boss.totem_yaw", guiLeft + 8, y + 6));
-        GuiTextFieldNop yaw = new GuiTextFieldNop(YAW_FIELD, this, guiLeft + 172, y, 70, 20,
+        addLabel(new ThemeLabel(YAW_FIELD, "cnpcgeckoaddon.boss.totem_yaw", guiLeft + 8, y + 6));
+        GuiTextFieldNop yaw = new ThemeTextField(YAW_FIELD, this, guiLeft + 172, y, 70, 20,
                 Float.toString(entry.getYaw()));
         yaw.setFloatsOnly();
         yaw.setMinMaxDefault(-180.0F, 180.0F, 0.0F);
         addTextField(yaw);
         y += 23;
 
-        addLabel(new GuiLabel(BEAM_STYLE_BUTTON, "cnpcgeckoaddon.boss.totem_beam_override",
+        addLabel(new ThemeLabel(BEAM_STYLE_BUTTON, "cnpcgeckoaddon.boss.totem_beam_override",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, BEAM_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, BEAM_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 BEAM_OVERRIDE_LABELS, beamOverrideIndex()));
         y += 23;
 
-        addLabel(new GuiLabel(BEAM_WIDTH_FIELD, "cnpcgeckoaddon.boss.totem_beam_width_override",
+        addLabel(new ThemeLabel(BEAM_WIDTH_FIELD, "cnpcgeckoaddon.boss.totem_beam_width_override",
                 guiLeft + 8, y + 6));
         addTextField(numberField(BEAM_WIDTH_FIELD, guiLeft + 172, y, 70,
                 entry.getBeamWidthPercentOverride(), 0, 400, 0));
         y += 23;
 
-        addLabel(new GuiLabel(VULNERABILITY_BUTTON, "cnpcgeckoaddon.boss.totem_vuln",
+        addLabel(new ThemeLabel(VULNERABILITY_BUTTON, "cnpcgeckoaddon.boss.totem_vuln",
                 guiLeft + 8, y + 6));
-        addButton(new GuiButtonNop(this, VULNERABILITY_BUTTON, guiLeft + 74, y, 104, 20,
+        addButton(new ThemeButton(this, VULNERABILITY_BUTTON, guiLeft + 74, y, 104, 20,
                 VULNERABILITY_LABELS, entry.getVulnerabilityMode()));
-        addButton(new GuiButtonNop(this, VULNERABILITY_PICK_BUTTON, guiLeft + 182, y, 60, 20,
+        addButton(new ThemeButton(this, VULNERABILITY_PICK_BUTTON, guiLeft + 182, y, 60, 20,
                 "cnpcgeckoaddon.boss.totem_vuln_pick",
                 button -> setSubGui(new SubGuiBossTotemVulnerability(entry))));
         showVulnerabilityPicker();
@@ -135,11 +138,11 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen implements Bos
         // line says so, and the value the field shows after Done is what was really kept.
         addWrappedHint(BEAM_WIDTH_HINT_LABEL, BEAM_WIDTH_HINT, guiTop + HINT_Y);
 
-        addButton(new GuiButtonNop(this, SELECT_BUTTON, guiLeft + 8, guiTop + selectY(), 234, 20,
+        addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 8, guiTop + selectY(), 234, 20,
                 ZoneSelectionClient.SELECT_POINT));
-        addButton(new GuiButtonNop(this, HERE_BUTTON, guiLeft + 8, guiTop + buttonsY(), 92, 20,
+        addButton(new ThemeButton(this, HERE_BUTTON, guiLeft + 8, guiTop + buttonsY(), 92, 20,
                 "cnpcgeckoaddon.boss.totem_here"));
-        addButton(new GuiButtonNop(this, DELETE_BUTTON, guiLeft + 104, guiTop + buttonsY(), 72, 20,
+        addButton(new ThemeButton(this, DELETE_BUTTON, guiLeft + 104, guiTop + buttonsY(), 72, 20,
                 "cnpcgeckoaddon.boss.totem_delete"));
         addDoneButton(guiLeft + 182, guiTop + buttonsY(), 60, 20);
     }
@@ -167,14 +170,14 @@ public final class SubGuiBossTotemEntry extends SubGuiFieldScreen implements Bos
 
     private GuiTextFieldNop numberField(int id, int x, int y, int width, int value,
                                         int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, width, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, width, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         return field;
     }
 
     private GuiTextFieldNop signedField(int id, int x, int y, int value) {
-        return new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        return new ThemeTextField(id, this, x, y, 52, 20, Integer.toString(value));
     }
 
     private int beamOverrideIndex() {

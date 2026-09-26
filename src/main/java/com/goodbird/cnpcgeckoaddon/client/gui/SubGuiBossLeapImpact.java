@@ -1,10 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 /**
@@ -43,7 +46,7 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.leap_impact_phase", phaseIndex), guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
@@ -62,22 +65,22 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
                 phase.leap().getMaxAirTicks(), 20, 400, 100);
         y += 21;
 
-        addLabel(new GuiLabel(TELEGRAPH_BUTTON, "cnpcgeckoaddon.boss.leap_telegraph", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, TELEGRAPH_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(TELEGRAPH_BUTTON, "cnpcgeckoaddon.boss.leap_telegraph", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, TELEGRAPH_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.leap().isTelegraph()));
         y += 21;
 
-        addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
         y += 21;
 
-        addLabel(new GuiLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.leap().isBlockWave()));
 
-        addLabel(new GuiLabel(31, "cnpcgeckoaddon.boss.leap_hint", guiLeft + 6, guiTop + 170, 0xA0A0A0));
-        addLabel(new GuiLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 6, guiTop + 182, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.leap_hint", guiLeft + 6, guiTop + 170, 0xA0A0A0));
+        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 6, guiTop + 182, 0xA0A0A0));
         addDoneButton(guiLeft + 182, guiTop + 194, 60, 20);
     }
 
@@ -95,13 +98,13 @@ public final class SubGuiBossLeapImpact extends SubGuiFieldScreen {
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 6, y + 6));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, 52, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, 52, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

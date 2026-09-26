@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -51,32 +55,32 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.mark_phase", phaseIndex),
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.mark_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
         int y = guiTop + 18;
 
-        addLabel(new GuiLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.mark().isEnabled()));
+        addLabel(new ThemeLabel(ENABLED_BUTTON, "cnpcgeckoaddon.boss.ability_enabled", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, ENABLED_BUTTON, guiLeft + 155, y, 87, 20, phase.mark().isEnabled()));
         y += 21;
 
-        addLabel(new GuiLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
-        addTextField(new GuiTextFieldNop(ANIMATION_FIELD, this, guiLeft + 108, y, 86, 20,
+        addLabel(new ThemeLabel(ANIMATION_FIELD, "cnpcgeckoaddon.boss.animation", guiLeft + 6, y + 6));
+        addTextField(new ThemeTextField(ANIMATION_FIELD, this, guiLeft + 108, y, 86, 20,
                 phase.mark().getAnimation()));
-        addButton(new GuiButtonNop(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
 
         // The first thing to pick, because half the rows below it belong to one rule or the
         // other and change with it.
-        addLabel(new GuiLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.mark_mode", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(MODE_BUTTON, "cnpcgeckoaddon.boss.mark_mode", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossPhaseData.MARK_MODE_LABELS, phase.mark().getMode()));
         y += 21;
 
         // How many marks and who they go on, on one line: the two answer the same question.
-        addLabel(new GuiLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.mark_targets", guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(TARGET_COUNT_FIELD, "cnpcgeckoaddon.boss.mark_targets", guiLeft + 6, y + 6));
         addPairedField(TARGET_COUNT_FIELD, guiLeft + 72, y, phase.mark().getTargetCount(), 1, 8, 1, 38);
-        addButton(new GuiButtonNop(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
+        addButton(new ThemeButton(this, TARGET_MODE_BUTTON, guiLeft + 112, y, 130, 20,
                 BossTargetMode.LABELS, phase.mark().getTargetMode()));
         y += 21;
 
@@ -87,8 +91,8 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
                 phase.mark().getRadius(), 1, 16, 4);
         y += 21;
 
-        addLabel(new GuiLabel(FOLLOW_BUTTON, "cnpcgeckoaddon.boss.mark_follow", guiLeft + 6, y + 6));
-        addButton(new GuiButtonYesNo(this, FOLLOW_BUTTON, guiLeft + 155, y, 87, 20,
+        addLabel(new ThemeLabel(FOLLOW_BUTTON, "cnpcgeckoaddon.boss.mark_follow", guiLeft + 6, y + 6));
+        addButton(new ThemeYesNo(this, FOLLOW_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.mark().isFollow()));
         y += 21;
 
@@ -109,8 +113,8 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
                 phase.mark().getCooldownTicks(), 1, 12000, 240);
         y += 21;
 
-        addLabel(new GuiLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
-        addButton(new GuiButtonNop(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
+        addLabel(new ThemeLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
+        addButton(new ThemeButton(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
         y += 21;
 
@@ -118,12 +122,12 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         // Two effect lists, because the gather does two different things to the people
         // inside it: it shares the hit out when they came, and punishes them when they did not.
         int buttonsY = Math.max(hintY + 4, guiTop + 253);
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
                 "cnpcgeckoaddon.boss.mark_tuning"));
         buttonsY += 24;
-        addButton(new GuiButtonNop(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 116, 20,
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.mark_effects"));
-        addButton(new GuiButtonNop(this, FAIL_EFFECTS_BUTTON, guiLeft + 126, buttonsY, 116, 20,
+        addButton(new ThemeButton(this, FAIL_EFFECTS_BUTTON, guiLeft + 126, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.mark_fail_effects"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
         applyModeRows();
@@ -186,14 +190,14 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
     private void addPairRow(int leftId, int rightId, String label, int y,
                             int leftValue, int leftMin, int leftMax, int leftFallback,
                             int rightValue, int rightMin, int rightMax, int rightFallback) {
-        addLabel(new GuiLabel(leftId, label, guiLeft + 6, y + 6));
+        addLabel(new ThemeLabel(leftId, label, guiLeft + 6, y + 6));
         addPairedField(leftId, guiLeft + 130, y, leftValue, leftMin, leftMax, leftFallback, 52);
         addPairedField(rightId, guiLeft + 190, y, rightValue, rightMin, rightMax, rightFallback, 52);
     }
 
     private void addPairedField(int id, int x, int y, int value, int min, int max, int fallback,
                                 int width) {
-        GuiTextFieldNop field = new GuiTextFieldNop(id, this, x, y, width, 20, Integer.toString(value));
+        GuiTextFieldNop field = new ThemeTextField(id, this, x, y, width, 20, Integer.toString(value));
         field.setNumbersOnly();
         field.setMinMaxDefault(min, max, fallback);
         addTextField(field);

@@ -1,12 +1,14 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
@@ -28,7 +30,7 @@ public class GuiModelAnimation extends GuiNPCInterface implements ITextfieldList
         addSelectionBlock(4,y+=23,"cnpcgeckoaddon.model.attack",String.join(", ", getModelData(npc).getAttackAnims()));
         addSelectionBlock(5,y+=23,"cnpcgeckoaddon.model.hurt",getModelData(npc).getHurtAnim());
         addSelectionBlock(6,y+23,"cnpcgeckoaddon.model.death",getModelData(npc).getDeathAnim());
-        this.addButton(new GuiButtonNop(this, 670, width - 22, 2, 20, 20, "X"));
+        this.addButton(new ThemeButton(this, 670, width - 22, 2, 20, 20, "X"));
     }
 
     public CustomModelData getModelData(EntityNPCInterface npc){
@@ -36,9 +38,9 @@ public class GuiModelAnimation extends GuiNPCInterface implements ITextfieldList
     }
 
     public void addSelectionBlock(int id, int y, String label, String value){
-        this.addLabel(new GuiLabel(id,label, guiLeft - 85, y + 5,0xffffff));
-        addTextField(new GuiTextFieldNop(id,this, guiLeft - 40, y, 200, 20, value));
-        this.addButton(new GuiButtonNop(this,id, guiLeft + 163, y, 80, 20, "mco.template.button.select"));
+        this.addLabel(new ThemeLabel(id,label, guiLeft - 85, y + 5,0xffffff));
+        addTextField(new ThemeTextField(id,this, guiLeft - 40, y, 200, 20, value));
+        this.addButton(new ThemeButton(this,id, guiLeft + 163, y, 80, 20, "mco.template.button.select"));
     }
 
     public List<String> getAnimationList(){

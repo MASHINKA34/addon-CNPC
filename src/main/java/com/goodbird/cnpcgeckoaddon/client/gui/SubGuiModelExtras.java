@@ -1,5 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.CustomModelData;
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.utils.FloatTextFieldUtils;
@@ -8,7 +12,6 @@ import noppes.npcs.client.gui.util.*;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
@@ -34,12 +37,12 @@ public class SubGuiModelExtras extends GuiNPCInterface implements ITextfieldList
         super.init();
         int y = guiTop + 30;
 
-        addLabel(new GuiLabel(FIELD_HEAD_BONE,"cnpcgeckoaddon.model.head_bone", guiLeft - 85, y + 5,0xffffff));
-        addTextField(new GuiTextFieldNop(FIELD_HEAD_BONE,this, guiLeft + 50, y, 200, 20, getModelData(npc).getHeadBoneName()));
+        addLabel(new ThemeLabel(FIELD_HEAD_BONE,"cnpcgeckoaddon.model.head_bone", guiLeft - 85, y + 5,0xffffff));
+        addTextField(new ThemeTextField(FIELD_HEAD_BONE,this, guiLeft + 50, y, 200, 20, getModelData(npc).getHeadBoneName()));
         y+=23;
 
-        addLabel(new GuiLabel(FIELD_TRANSITION,"cnpcgeckoaddon.model.transition", guiLeft - 85, y + 5,0xffffff));
-        GuiTextFieldNop transitionLength = new GuiTextFieldNop(FIELD_TRANSITION,this, guiLeft + 50, y,
+        addLabel(new ThemeLabel(FIELD_TRANSITION,"cnpcgeckoaddon.model.transition", guiLeft - 85, y + 5,0xffffff));
+        GuiTextFieldNop transitionLength = new ThemeTextField(FIELD_TRANSITION,this, guiLeft + 50, y,
                 200, 20, ""+getModelData(npc).getTransitionLengthTicks());
         transitionLength.setNumbersOnly();
         transitionLength.setMinMaxDefault(0, CustomModelData.MAX_TRANSITION_LENGTH_TICKS,
@@ -49,33 +52,33 @@ public class SubGuiModelExtras extends GuiNPCInterface implements ITextfieldList
 
         // With this on, the box comes from the model's own geometry instead of the
         // humanoid default that used to apply to every model alike.
-        addLabel(new GuiLabel(BUTTON_AUTO_HITBOX,"cnpcgeckoaddon.model.auto_hitbox", guiLeft - 85, y + 5,0xffffff));
-        addButton(new GuiButtonYesNo(this, BUTTON_AUTO_HITBOX, guiLeft + 50, y, 200, 20, getModelData(npc).isAutoHitbox()));
+        addLabel(new ThemeLabel(BUTTON_AUTO_HITBOX,"cnpcgeckoaddon.model.auto_hitbox", guiLeft - 85, y + 5,0xffffff));
+        addButton(new ThemeYesNo(this, BUTTON_AUTO_HITBOX, guiLeft + 50, y, 200, 20, getModelData(npc).isAutoHitbox()));
         y+=23;
 
-        addLabel(new GuiLabel(LABEL_AUTO_SIZE, modelSizeText(), guiLeft + 50, y + 2, 0xa0a0a0));
+        addLabel(new ThemeLabel(LABEL_AUTO_SIZE, modelSizeText(), guiLeft + 50, y + 2, 0xa0a0a0));
         y+=14;
 
-        addLabel(new GuiLabel(FIELD_WIDTH,"cnpcgeckoaddon.model.width", guiLeft - 85, y + 5,0xffffff));
-        addTextField(new GuiTextFieldNop(FIELD_WIDTH,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getWidth()));
+        addLabel(new ThemeLabel(FIELD_WIDTH,"cnpcgeckoaddon.model.width", guiLeft - 85, y + 5,0xffffff));
+        addTextField(new ThemeTextField(FIELD_WIDTH,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getWidth()));
         y+=23;
 
-        addLabel(new GuiLabel(FIELD_HEIGHT,"cnpcgeckoaddon.model.height", guiLeft - 85, y + 5,0xffffff));
-        addTextField(new GuiTextFieldNop(FIELD_HEIGHT,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getHeight()));
+        addLabel(new ThemeLabel(FIELD_HEIGHT,"cnpcgeckoaddon.model.height", guiLeft - 85, y + 5,0xffffff));
+        addTextField(new ThemeTextField(FIELD_HEIGHT,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getHeight()));
         y+=23;
 
-        addLabel(new GuiLabel(FIELD_SCALE,"cnpcgeckoaddon.model.scale", guiLeft - 85, y + 5,0xffffff));
-        addTextField(new GuiTextFieldNop(FIELD_SCALE,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getHitboxScale()));
+        addLabel(new ThemeLabel(FIELD_SCALE,"cnpcgeckoaddon.model.scale", guiLeft - 85, y + 5,0xffffff));
+        addTextField(new ThemeTextField(FIELD_SCALE,this, guiLeft + 50, y, 200, 20, ""+getModelData(npc).getHitboxScale()));
         y+=23;
 
-        addLabel(new GuiLabel(LABEL_SIZE_LIMIT, Component.translatable("cnpcgeckoaddon.model.size_limit",
+        addLabel(new ThemeLabel(LABEL_SIZE_LIMIT, Component.translatable("cnpcgeckoaddon.model.size_limit",
                 (int) CustomModelData.MAX_HITBOX_SIZE).getString(), guiLeft - 85, y + 2, 0xa0a0a0));
         y += 16;
 
-        addLabel(new GuiLabel(BUTTON_HURT_TINT,"cnpcgeckoaddon.model.hurt_tint", guiLeft - 85, y + 5,0xffffff));
-        addButton(new GuiButtonYesNo(this, BUTTON_HURT_TINT, guiLeft + 50, y, 200, 20, getModelData(npc).isHurtTintEnabled()));
+        addLabel(new ThemeLabel(BUTTON_HURT_TINT,"cnpcgeckoaddon.model.hurt_tint", guiLeft - 85, y + 5,0xffffff));
+        addButton(new ThemeYesNo(this, BUTTON_HURT_TINT, guiLeft + 50, y, 200, 20, getModelData(npc).isHurtTintEnabled()));
 
-        addButton(new GuiButtonNop(this, BUTTON_CLOSE, width - 22, 2, 20, 20, "X"));
+        addButton(new ThemeButton(this, BUTTON_CLOSE, width - 22, 2, 20, 20, "X"));
     }
 
     /**

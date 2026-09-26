@@ -1,10 +1,11 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /** Whether the boss stands still or keeps walking while it casts, one row per ability. */
 public final class SubGuiBossCastMovement extends SubGuiFieldScreen {
@@ -44,18 +45,18 @@ public final class SubGuiBossCastMovement extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, BossAnimationGuiUtil.phaseTitle(
+        addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.cast_move_title", phaseIndex), guiLeft + 8, guiTop + 8, 0xFFFFFF));
 
         for (int i = 0; i < BossPhaseData.CAST_ROOT_ABILITIES.length; i++) {
-            addButton(new GuiButtonNop(this, FIRST_ABILITY_BUTTON + i, gridX(i), gridY(i),
+            addButton(new ThemeButton(this, FIRST_ABILITY_BUTTON + i, gridX(i), gridY(i),
                     COLUMN_WIDTH, 20, abilityLabel(i)));
         }
         // The leap fills the grid's last slot but takes no clicks: its crouch is rooted and
         // its flight free whatever a builder picks, so there is nothing here to choose. The
         // teleport is not listed at all - it lives on its own screen, not the ability list.
         int slot = BossPhaseData.CAST_ROOT_ABILITIES.length;
-        GuiButtonNop leap = new GuiButtonNop(this, LEAP_BUTTON, gridX(slot), gridY(slot),
+        GuiButtonNop leap = new ThemeButton(this, LEAP_BUTTON, gridX(slot), gridY(slot),
                 COLUMN_WIDTH, 20, I18n.get(BossAbilityKind.LABELS[BossAbilityKind.LEAP]));
         leap.setEnabled(false);
         addButton(leap);

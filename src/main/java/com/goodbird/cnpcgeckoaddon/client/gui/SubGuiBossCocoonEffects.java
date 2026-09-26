@@ -1,8 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 
 /**
  * The three things a cocoon does to somebody, one list each: what wears on them while they
@@ -25,15 +26,15 @@ public final class SubGuiBossCocoonEffects extends SubGuiFieldScreen {
     @Override
     public void init() {
         super.init();
-        addLabel(new GuiLabel(30, "cnpcgeckoaddon.boss.effects_cocoon", guiLeft + 8, guiTop + 8, 0xFFFFFF));
+        addLabel(new ThemeLabel(30, "cnpcgeckoaddon.boss.effects_cocoon", guiLeft + 8, guiTop + 8, 0xFFFFFF));
         int y = guiTop + 28;
-        addButton(new GuiButtonNop(this, INSIDE_BUTTON, guiLeft + 8, y, 234, 20,
+        addButton(new ThemeButton(this, INSIDE_BUTTON, guiLeft + 8, y, 234, 20,
                 "cnpcgeckoaddon.boss.effects_cocoon_inside"));
         y += 24;
-        addButton(new GuiButtonNop(this, FAIL_BUTTON, guiLeft + 8, y, 234, 20,
+        addButton(new ThemeButton(this, FAIL_BUTTON, guiLeft + 8, y, 234, 20,
                 "cnpcgeckoaddon.boss.effects_cocoon_fail"));
         y += 24;
-        addButton(new GuiButtonNop(this, FREE_BUTTON, guiLeft + 8, y, 234, 20,
+        addButton(new ThemeButton(this, FREE_BUTTON, guiLeft + 8, y, 234, 20,
                 "cnpcgeckoaddon.boss.effects_cocoon_free"));
         addDoneButton(guiLeft + 182, guiTop + 114, 60, 20);
     }
