@@ -123,17 +123,19 @@ they cover exactly what can be checked without a world:
 - that every interface the mixins bolt onto CustomNPCs is on the startup integration check,
   which is only worth having while it is complete.
 
-The gametests under `src/main/java/.../gametest` run on a full CustomNPCs server:
+The gametests under `src/main/java/.../gametest` were written for a full CustomNPCs server:
 
 ```
 gradlew runGameTestServer
 ```
 
-They run after the build in GitHub Actions and use `build/gametest` as their working
-directory, keeping the normal development world separate. They cover combat timing,
-barrier penalties and party scaling, totem and minion reload cleanup, collision limits,
-projectiles, carry state, temporary blocks, animations and rewards. Test classes are
-excluded from the release jar.
+That server cannot start: CustomNPCs' `PlayerDataController` gets no world directory from
+the GameTestServer and throws `"dir" is null`, whatever the addon does. So the gametests do
+not run anywhere, GitHub Actions included - the workflow runs `gradlew build` only. They are
+kept as the list of what needs a world: combat timing, barrier penalties and party scaling,
+totem and minion reload cleanup, collision limits, projectiles, carry state, temporary
+blocks, animations and rewards - checked in game instead. Test classes are excluded from the
+release jar.
 
 Held-item matrix tests exercise GeckoLib's bone traversal without opening a graphics window.
 Visual placement, animation smoothness and FPS/TPS under a large multiplayer encounter

@@ -30,11 +30,13 @@ jobs:
       # The mob model bundles are gitignored, so a CI checkout builds the addon's own
       # code and resources only. That is exactly what a clean clone gets, and it is the
       # configuration the build has to keep working in.
+      #
+      # There is no runGameTestServer step: CustomNPCs cannot start on a GameTestServer
+      # (PlayerDataController gets no world directory and throws "dir" is null), so that
+      # step could only fail, whatever the addon does. The JUnit suite `build` runs boots
+      # FML with the mixins applied and is the automated gate instead.
       - name: Build and test
         run: ./gradlew build --stacktrace
-
-      - name: Run server regression tests
-        run: ./gradlew runGameTestServer --stacktrace
 
       - name: Upload the jar
         if: success()
@@ -49,7 +51,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-report
-          path: |
-            build/reports/tests/test
-            build/gametest/logs
+          path: build/reports/tests/test
           if-no-files-found: ignore
