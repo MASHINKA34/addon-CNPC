@@ -1642,6 +1642,9 @@
   "cnpcgeckoaddon.boss.zones_preview": "Зоны в мире: %s",
   "cnpcgeckoaddon.boss.zones_preview.on": "показывать",
   "cnpcgeckoaddon.boss.zones_preview.off": "скрыть",
+  "cnpcgeckoaddon.boss.gui_theme": "Тема экранов: %s",
+  "cnpcgeckoaddon.boss.gui_theme.addon": "аддон",
+  "cnpcgeckoaddon.boss.gui_theme.npc": "CustomNPCs",
   "cnpcgeckoaddon.zone.select_box": "Выделить в мире…",
   "cnpcgeckoaddon.zone.select_point": "Указать в мире…"
 }

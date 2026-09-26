@@ -1,6 +1,13 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.GeckoTheme;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeIcons;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
+import com.goodbird.cnpcgeckoaddon.config.AddonClientConfig;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.ITeleportPathData;
 import net.minecraft.network.chat.Component;
@@ -8,7 +15,6 @@ import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
-import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 
 public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZoneScreen {
@@ -26,6 +32,13 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZ
     private static final int HEALTH_LINK_BUTTON = 30;
     private static final int TUNING_BUTTON = 31;
     private static final int ZONES_BUTTON = 32;
+    private static final int THEME_BUTTON = 33;
+
+    /** The menu's height without the theme's switch. */
+    private static final int BASE_HEIGHT = 322;
+
+    /** The row the theme's switch adds under the zones' one. */
+    private static final int THEME_ROW = 22;
 
     private final TeleportPathData data;
     private final EntityNPCInterface npc;
@@ -38,12 +51,15 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZ
         // Two rows taller than the settings grid: one for the health link, one for the
         // fine-tuning, and Done on a line of its own under them. The tall-screen drawing tiles
         // the panel to any height, and the screen scrolls in a window too short for it.
-        imageHeight = 322;
+        imageHeight = BASE_HEIGHT;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // The theme's switch only while there is a theme to switch to: without its textures the
+        // menu is the one it was, row for row.
+        imageHeight = GeckoTheme.available() ? BASE_HEIGHT + THEME_ROW : BASE_HEIGHT;
         super.init();
         // A row tighter than the usual 26 all the way down: it buys the fifth row of
         // buttons the ninth settings screen needs, and a field still clears the one above.
@@ -59,42 +75,50 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZ
                 data.getPhaseCount(), TeleportPathData.MIN_PHASES, TeleportPathData.MAX_PHASES, 2);
         y += 21;
 
-        addLabel(new GuiLabel(TRANSITION_ANIMATION_FIELD, "cnpcgeckoaddon.boss.transition_anim", guiLeft + 8, y + 6));
-        addTextField(new GuiTextFieldNop(TRANSITION_ANIMATION_FIELD, this, guiLeft + 98, y, 96, 20,
+        addLabel(new ThemeLabel(TRANSITION_ANIMATION_FIELD, "cnpcgeckoaddon.boss.transition_anim", guiLeft + 8, y + 6));
+        addTextField(new ThemeTextField(TRANSITION_ANIMATION_FIELD, this, guiLeft + 98, y, 96, 20,
                 data.getPhaseTransitionAnimation()));
-        addButton(new GuiButtonNop(this, TRANSITION_ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
+        addButton(new ThemeButton(this, TRANSITION_ANIMATION_FIELD, guiLeft + 198, y, 44, 20,
                 "mco.template.button.select"));
         y += 21;
         addNumberField(TRANSITION_LOCK_FIELD, "cnpcgeckoaddon.boss.transition_lock", y,
                 data.getPhaseTransitionLockTicks(), 0, 1200, 40);
 
-        addButton(new GuiButtonNop(this, 22, guiLeft + 8, guiTop + 140, 114, 20,
-                "cnpcgeckoaddon.boss.targeting_settings"));
-        addButton(new GuiButtonNop(this, 23, guiLeft + 128, guiTop + 140, 114, 20,
-                "cnpcgeckoaddon.boss.minion_settings"));
-        addButton(new GuiButtonNop(this, RESET_BUTTON, guiLeft + 8, guiTop + 162, 114, 20,
+        // In the theme each section's button carries the section's icon; reset and rage have none.
+        addButton(new ThemeButton(this, 22, guiLeft + 8, guiTop + 140, 114, 20,
+                "cnpcgeckoaddon.boss.targeting_settings").withIcon(ThemeIcons.AGGRO_ZONE));
+        addButton(new ThemeButton(this, 23, guiLeft + 128, guiTop + 140, 114, 20,
+                "cnpcgeckoaddon.boss.minion_settings").withIcon(BossAbilityKind.SUMMON));
+        addButton(new ThemeButton(this, RESET_BUTTON, guiLeft + 8, guiTop + 162, 114, 20,
                 "cnpcgeckoaddon.boss.reset_settings"));
-        addButton(new GuiButtonNop(this, RAGE_BUTTON, guiLeft + 128, guiTop + 162, 114, 20,
+        addButton(new ThemeButton(this, RAGE_BUTTON, guiLeft + 128, guiTop + 162, 114, 20,
                 "cnpcgeckoaddon.boss.rage_settings"));
-        addButton(new GuiButtonNop(this, 24, guiLeft + 8, guiTop + 184, 114, 20,
-                "cnpcgeckoaddon.boss.explosion_settings"));
-        addButton(new GuiButtonNop(this, CHEST_BUTTON, guiLeft + 128, guiTop + 184, 114, 20,
-                "cnpcgeckoaddon.boss.chest_settings"));
-        addButton(new GuiButtonNop(this, 20, guiLeft + 8, guiTop + 206, 114, 20,
-                "cnpcgeckoaddon.boss.phase_settings"));
-        addButton(new GuiButtonNop(this, BOSS_BAR_BUTTON, guiLeft + 128, guiTop + 206, 114, 20,
-                "cnpcgeckoaddon.boss.bar_settings"));
+        addButton(new ThemeButton(this, 24, guiLeft + 8, guiTop + 184, 114, 20,
+                "cnpcgeckoaddon.boss.explosion_settings").withIcon(BossAbilityKind.BLAST));
+        addButton(new ThemeButton(this, CHEST_BUTTON, guiLeft + 128, guiTop + 184, 114, 20,
+                "cnpcgeckoaddon.boss.chest_settings").withIcon(ThemeIcons.CHEST));
+        addButton(new ThemeButton(this, 20, guiLeft + 8, guiTop + 206, 114, 20,
+                "cnpcgeckoaddon.boss.phase_settings").withIcon(ThemeIcons.PHASES));
+        addButton(new ThemeButton(this, BOSS_BAR_BUTTON, guiLeft + 128, guiTop + 206, 114, 20,
+                "cnpcgeckoaddon.boss.bar_settings").withIcon(ThemeIcons.BOSS_BAR));
         // The three longest labels get a row each, and Done the line under them.
-        addButton(new GuiButtonNop(this, TELEGRAPH_BUTTON, guiLeft + 8, guiTop + 228, 234, 20,
-                "cnpcgeckoaddon.boss.telegraph_settings"));
-        addButton(new GuiButtonNop(this, HEALTH_LINK_BUTTON, guiLeft + 8, guiTop + 250, 234, 20,
-                "cnpcgeckoaddon.boss.health_link_settings"));
-        addButton(new GuiButtonNop(this, TUNING_BUTTON, guiLeft + 8, guiTop + 272, 234, 20,
-                "cnpcgeckoaddon.boss.tuning_settings"));
+        addButton(new ThemeButton(this, TELEGRAPH_BUTTON, guiLeft + 8, guiTop + 228, 234, 20,
+                "cnpcgeckoaddon.boss.telegraph_settings").withIcon(ThemeIcons.TELEGRAPH));
+        addButton(new ThemeButton(this, HEALTH_LINK_BUTTON, guiLeft + 8, guiTop + 250, 234, 20,
+                "cnpcgeckoaddon.boss.health_link_settings").withIcon(ThemeIcons.HEALTH_LINK));
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 8, guiTop + 272, 234, 20,
+                "cnpcgeckoaddon.boss.tuning_settings").withIcon(ThemeIcons.TUNING));
         // Beside Done, where the row was empty: whether this client draws the boss' zones in the
         // world while any of its screens is open.
-        addButton(new GuiButtonNop(this, ZONES_BUTTON, guiLeft + 8, guiTop + 294, 170, 20, zonesLabel()));
+        addButton(new ThemeButton(this, ZONES_BUTTON, guiLeft + 8, guiTop + 294, 170, 20, zonesLabel())
+                .withIcon(ThemeIcons.POINTS));
         addDoneButton(guiLeft + 182, guiTop + 294, 60, 20);
+        if (GeckoTheme.available()) {
+            // Under the zones' switch, the other thing this client alone decides: how the
+            // addon's screens look.
+            addButton(new ThemeButton(this, THEME_BUTTON, guiLeft + 8, guiTop + 294 + THEME_ROW, 170, 20,
+                    themeLabel()));
+        }
     }
 
 
@@ -148,7 +172,18 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZ
         } else if (button.id == ZONES_BUTTON) {
             BossZonePreview.setShown(!BossZonePreview.isShown());
             button.setDisplayText(zonesLabel());
+        } else if (button.id == THEME_BUTTON) {
+            // Drawn in the new look from the next frame on, and kept in the client's config.
+            AddonClientConfig.setGuiTheme(!AddonClientConfig.guiTheme());
+            button.setDisplayText(themeLabel());
         }
+    }
+
+    /** "Screen theme: addon", or CustomNPCs: what the theme's switch reads. */
+    private static String themeLabel() {
+        return Component.translatable("cnpcgeckoaddon.boss.gui_theme", Component.translatable(
+                AddonClientConfig.guiTheme() ? "cnpcgeckoaddon.boss.gui_theme.addon"
+                        : "cnpcgeckoaddon.boss.gui_theme.npc")).getString();
     }
 
     /** "Zones in the world: shown", or hidden: what the preview's switch reads. */
