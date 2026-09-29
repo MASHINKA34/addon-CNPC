@@ -1,0 +1,143 @@
+{
+  "panel": {
+    "size": [
+      64,
+      64
+    ],
+    "semi_alpha": 0,
+    "colors": 14,
+    "sha256": "47c4a7209c73d13e4b09ecabe1e3ac88c88fa8efbff4974b410083f763ffb8dc"
+  },
+  "button": {
+    "size": [
+      200,
+      60
+    ],
+    "semi_alpha": 0,
+    "colors": 13,
+    "sha256": "c63ed52f549c312a21b41a9d59de937668fc8c696e24781574717d929beb939c"
+  },
+  "toggle": {
+    "size": [
+      48,
+      20
+    ],
+    "semi_alpha": 0,
+    "colors": 9,
+    "sha256": "6d1e6c453038ced05fc3e346af2abca27bc8e746be7ee37324133ce5d31d62f1"
+  },
+  "field": {
+    "size": [
+      200,
+      20
+    ],
+    "semi_alpha": 0,
+    "colors": 13,
+    "sha256": "9fbc9fd52f88629297e5c7d5b8814d286e84b16bd58689bc389007e2e31bf643"
+  },
+  "scroll": {
+    "size": [
+      16,
+      48
+    ],
+    "semi_alpha": 0,
+    "colors": 8,
+    "sha256": "44253e0fe40c273cf363d8d6e6ea04e5b008e272dc15e93c2f71252d265a3d52"
+  },
+  "header": {
+    "size": [
+      256,
+      16
+    ],
+    "semi_alpha": 0,
+    "colors": 6,
+    "sha256": "a515b497cf2ff56468860c1132c95a7b1ddbf9a0d69831bcb887f26c70ff596b"
+  },
+  "icons": {
+    "size": [
+      256,
+      256
+    ],
+    "semi_alpha": 0,
+    "colors": 33,
+    "sha256": "2473ac3d57e82ea531730e765de3fcc7258deacebdb584a577c45321fcc7371a"
+  },
+  "checks": {
+    "occupied_cells": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63
+    ],
+    "unique_silhouettes": 45,
+    "tile_edges_match": true,
+    "aseprite_png_match": true,
+    "text_contrast": {
+      "panel": {
+        "white": 14.37,
+        "light_gray": 9.32
+      },
+      "field": {
+        "white": 17.59,
+        "light_gray": 11.4
+      },
+      "button_0": {
+        "white": 12.96,
+        "light_gray": 8.4
+      },
+      "button_1": {
+        "white": 14.09,
+        "light_gray": 9.14
+      },
+      "button_2": {
+        "white": 15.92,
+        "light_gray": 10.32
+      },
+      "header": {
+        "white": 14.09,
+        "light_gray": 9.14
+      }
+    }
+  }
+}

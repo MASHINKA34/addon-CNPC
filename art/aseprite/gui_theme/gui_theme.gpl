@@ -1,0 +1,20 @@
+GIMP Palette
+Name: Rift GUI - 16 hue-shifted colors
+Columns: 8
+# Ability accents live in icons.aseprite; see README.
+ 10  10  10	ink
+ 23  23  23	coal
+ 22  25  32	well
+ 30  34  43	stone
+ 37  42  53	fleck
+ 48  48  63	inset
+ 65  64  82	slate
+ 93  82 109	rim
+ 53  34  78	amethyst_dark
+ 78  49 107	amethyst
+104  65 137	violet
+175 120 204	crystal
+188 166 239	lavender
+216 199 255	silver
+100 182 156	teal
+163 126 103	bronze
