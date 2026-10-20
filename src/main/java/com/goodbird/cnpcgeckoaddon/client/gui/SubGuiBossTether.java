@@ -45,12 +45,12 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 326;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        imageHeight = 326 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.tether_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -118,6 +118,7 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
                 "cnpcgeckoaddon.boss.tether_tuning"));
         addProfileButton(guiLeft + 126, buttonsY + 24, 116, 20, phase, BossAbilityKind.TETHER);
         addDoneButton(guiLeft + 182, buttonsY + 48, 60, 20);
+        addCopyAbilityRow(buttonsY + 72);
     }
 
     private int styleIndex() {

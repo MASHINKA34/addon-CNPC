@@ -53,13 +53,13 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // A row taller than it used to be: the pick in the world sits under the shape's rows.
-        imageHeight = 293;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // A row taller than it used to be: the pick in the world sits under the shape's rows.
+        imageHeight = 293 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.hazard_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -133,6 +133,7 @@ public final class SubGuiBossHazard extends SubGuiFieldScreen implements BossZon
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
+        addCopyAbilityRow(buttonsY + 48);
         applyModeRows();
     }
 

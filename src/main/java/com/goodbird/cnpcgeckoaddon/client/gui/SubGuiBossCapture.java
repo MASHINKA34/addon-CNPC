@@ -40,14 +40,14 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // One row taller than the panel it used to be: the grab's own noise and puff sit
-        // under the rows a builder already knows.
-        imageHeight = 280;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // One row taller than the panel it used to be: the grab's own noise and puff sit
+        // under the rows a builder already knows.
+        imageHeight = 280 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle(
                 "cnpcgeckoaddon.boss.capture_phase", phaseIndex), guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -98,6 +98,7 @@ public final class SubGuiBossCapture extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, DETAILS_BUTTON, guiLeft + 6, guiTop + 256, 150, 20,
                 "cnpcgeckoaddon.boss.capture_effects_beam"));
         addDoneButton(guiLeft + 182, guiTop + 256, 60, 20);
+        addCopyAbilityRow(guiTop + 280);
     }
 
     @Override

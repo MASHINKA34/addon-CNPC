@@ -67,7 +67,7 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
         // The ring, the volley, the stone and what it does on landing are four sets of
         // numbers, and a builder tuning the height against the interval reads both at once;
         // the centre's row and the two hints under them take what the locale makes of them.
-        imageHeight = buttonsY() + 24 + 20 + 6;
+        imageHeight = buttonsY() + 24 + 20 + 6 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.boulder_rain_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -137,6 +137,7 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
+        addCopyAbilityRow(buttonsY + 48);
     }
 
     /**

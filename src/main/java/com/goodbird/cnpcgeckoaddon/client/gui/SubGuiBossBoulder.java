@@ -54,14 +54,14 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // One row taller than the panel it used to be: the way into the roll's own
-        // physics sits under the hints, above the buttons.
-        imageHeight = 376;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // One row taller than the panel it used to be: the way into the roll's own
+        // physics sits under the hints, above the buttons.
+        imageHeight = 376 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.boulder_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -135,6 +135,7 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 352, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 352, 60, 20);
+        addCopyAbilityRow(guiTop + 376);
     }
 
     private int lookIndex() {

@@ -33,13 +33,13 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Room under the last row for the fine-tuning line as well as the spawn points.
-        imageHeight = 280;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Room under the last row for the fine-tuning line as well as the spawn points.
+        imageHeight = 280 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.summon_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -77,6 +77,7 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, SPAWN_POINTS_BUTTON, guiLeft + 8, guiTop + 252, 168, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_settings"));
         addDoneButton(guiLeft + 182, guiTop + 252, 60, 20);
+        addCopyAbilityRow(guiTop + 276);
     }
 
     private void addTextFieldRow(int id, String label, int y, String value) {

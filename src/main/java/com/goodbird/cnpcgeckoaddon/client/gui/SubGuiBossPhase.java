@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeIcons;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
@@ -7,15 +8,25 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Map;
 
 /** Compact phase menu. Every ability opens its own fully configurable screen. */
 public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZoneScreen {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
+
     private static final int THRESHOLD_FIELD = 1;
     private static final int THRESHOLD_HINT_LABEL = 40;
+    /** Past the grid's ids, which run to 45. */
+    private static final int COPY_PHASE_BUTTON = 46;
 
     /** Where the threshold hint starts, from the panel's top: under the threshold row. */
     private static final int HINT_Y = 42;
@@ -25,6 +36,8 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZone
     private final TeleportPathData data;
     private final BossPhaseData phase;
     private final int phaseIndex;
+    /** The phase picked to copy this one from, waiting for the list to close before the question opens; -1 for none. */
+    private int pendingCopySource = -1;
 
     public SubGuiBossPhase(EntityNPCInterface npc, TeleportPathData data, int phaseIndex) {
         this.npc = npc;
@@ -102,7 +115,12 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZone
         addAbilityButton(44, 0, 17, "cnpcgeckoaddon.boss.vent_settings", BossAbilityKind.VENT);
         // Every ability's turn in the rotation in one list, in the one cell the grid had left.
         addAbilityButton(45, 1, 17, "cnpcgeckoaddon.boss.profiles", ThemeIcons.TUNING);
-        // The grid runs to eighteen rows now, so Done keeps a line of its own below it.
+        // The grid runs to eighteen rows now, so Done keeps a line of its own below it - shared
+        // with the copy of a whole phase while there is another phase to copy from.
+        if (data.getPhaseCount() > 1) {
+            addButton(new ThemeButton(this, COPY_PHASE_BUTTON, guiLeft + 8, guiTop + doneButtonY(), 170, 20,
+                    "cnpcgeckoaddon.boss.copy_phase"));
+        }
         addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, 20);
     }
 
@@ -136,51 +154,51 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZone
         if (button.id == 10) {
             setSubGui(new SubGuiBossTeleport(npc, data, phase, phaseIndex));
         } else if (button.id == 11) {
-            setSubGui(new SubGuiBossSummon(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossSummon(npc, phase, phaseIndex), BossAbilityKind.SUMMON);
         } else if (button.id == 12) {
-            setSubGui(new SubGuiBossAreaAttack(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossAreaAttack(npc, phase, phaseIndex), BossAbilityKind.AREA);
         } else if (button.id == 13) {
-            setSubGui(new SubGuiBossRangedAttack(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossRangedAttack(npc, phase, phaseIndex), BossAbilityKind.RANGED);
         } else if (button.id == 14) {
-            setSubGui(new SubGuiBossMeleeAttack(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossMeleeAttack(npc, phase, phaseIndex), BossAbilityKind.MELEE);
         } else if (button.id == 15) {
-            setSubGui(new SubGuiBossFluidSpit(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossFluidSpit(npc, phase, phaseIndex), BossAbilityKind.FLUID);
         } else if (button.id == 16) {
-            setSubGui(new SubGuiBossHook(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossHook(npc, phase, phaseIndex), BossAbilityKind.HOOK);
         } else if (button.id == 17) {
             setSubGui(new SubGuiBossInvulnerable(phase, phaseIndex));
         } else if (button.id == 18) {
-            setSubGui(new SubGuiBossCapture(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossCapture(npc, phase, phaseIndex), BossAbilityKind.CAPTURE);
         } else if (button.id == 19) {
-            setSubGui(new SubGuiBossLeap(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossLeap(npc, phase, phaseIndex), BossAbilityKind.LEAP);
         } else if (button.id == 20) {
-            setSubGui(new SubGuiBossLineAttack(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossLineAttack(npc, phase, phaseIndex), BossAbilityKind.LINE);
         } else if (button.id == 21) {
-            setSubGui(new SubGuiBossGeyser(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossGeyser(npc, phase, phaseIndex), BossAbilityKind.GEYSER);
         } else if (button.id == 22) {
             setSubGui(new SubGuiBossCastMovement(phase, phaseIndex));
         } else if (button.id == 23) {
-            setSubGui(new SubGuiBossBoulder(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossBoulder(npc, phase, phaseIndex), BossAbilityKind.BOULDER);
         } else if (button.id == 24) {
-            setSubGui(new SubGuiBossBoulderRain(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossBoulderRain(npc, phase, phaseIndex), BossAbilityKind.BOULDER_RAIN);
         } else if (button.id == 25) {
-            setSubGui(new SubGuiBossTether(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossTether(npc, phase, phaseIndex), BossAbilityKind.TETHER);
         } else if (button.id == 26) {
-            setSubGui(new SubGuiBossGravity(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossGravity(npc, phase, phaseIndex), BossAbilityKind.GRAVITY);
         } else if (button.id == 27) {
-            setSubGui(new SubGuiBossMark(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossMark(npc, phase, phaseIndex), BossAbilityKind.MARK);
         } else if (button.id == 28) {
-            setSubGui(new SubGuiBossCover(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossCover(npc, phase, phaseIndex), BossAbilityKind.COVER);
         } else if (button.id == 29) {
-            setSubGui(new SubGuiBossHazard(phase, phaseIndex));
+            openAbility(new SubGuiBossHazard(phase, phaseIndex), BossAbilityKind.HAZARD);
         } else if (button.id == 30) {
-            setSubGui(new SubGuiBossHunt(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossHunt(npc, phase, phaseIndex), BossAbilityKind.HUNT);
         } else if (button.id == 31) {
             setSubGui(new SubGuiBossBarrier(npc, phase, phaseIndex));
         } else if (button.id == 32) {
-            setSubGui(new SubGuiBossBeam(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossBeam(npc, phase, phaseIndex), BossAbilityKind.BEAM);
         } else if (button.id == 33) {
-            setSubGui(new SubGuiBossCocoon(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossCocoon(npc, phase, phaseIndex), BossAbilityKind.COCOON);
         } else if (button.id == 34) {
             setSubGui(new SubGuiBossCastSpots(npc, phase, phaseIndex));
         } else if (button.id == 35) {
@@ -188,24 +206,62 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZone
         } else if (button.id == 36) {
             setSubGui(new SubGuiBossCombos(phase, phaseIndex));
         } else if (button.id == 37) {
-            setSubGui(new SubGuiBossDash(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossDash(npc, phase, phaseIndex), BossAbilityKind.DASH);
         } else if (button.id == 38) {
-            setSubGui(new SubGuiBossCone(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossCone(npc, phase, phaseIndex), BossAbilityKind.CONE);
         } else if (button.id == 39) {
-            setSubGui(new SubGuiBossPlatform(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossPlatform(npc, phase, phaseIndex), BossAbilityKind.PLATFORM);
         } else if (button.id == 40) {
-            setSubGui(new SubGuiBossHurricane(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossHurricane(npc, phase, phaseIndex), BossAbilityKind.HURRICANE);
         } else if (button.id == 41) {
-            setSubGui(new SubGuiBossShadow(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossShadow(npc, phase, phaseIndex), BossAbilityKind.SHADOW);
         } else if (button.id == 42) {
-            setSubGui(new SubGuiBossSeismic(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossSeismic(npc, phase, phaseIndex), BossAbilityKind.SEISMIC);
         } else if (button.id == 43) {
-            setSubGui(new SubGuiBossRift(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossRift(npc, phase, phaseIndex), BossAbilityKind.RIFT);
         } else if (button.id == 44) {
-            setSubGui(new SubGuiBossVent(npc, phase, phaseIndex));
+            openAbility(new SubGuiBossVent(npc, phase, phaseIndex), BossAbilityKind.VENT);
         } else if (button.id == 45) {
             setSubGui(new SubGuiBossAbilityProfiles(this, phase, phaseIndex));
+        } else if (button.id == COPY_PHASE_BUTTON) {
+            openPhaseCopy();
         }
+    }
+
+    /** Opens an ability's own screen with the row that copies the ability from another phase. */
+    private void openAbility(SubGuiFieldScreen screen, int kind) {
+        setSubGui(screen.withAbilityCopy(data, phaseIndex, kind));
+    }
+
+    /**
+     * The list of the boss' other phases to copy this whole phase from. The pick is only remembered
+     * here: the question that follows opens once the list has closed, in {@link #subGuiClosed}, since
+     * the list clears whatever screen this menu holds as it closes.
+     */
+    private void openPhaseCopy() {
+        applyFields();
+        Map<String, Integer> sources = otherPhases(data, phaseIndex);
+        LOGGER.debug("phase {} menu: offering {} other phases to copy the whole phase from", phaseIndex + 1,
+                sources.size());
+        setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.boss.copy_phase", new ArrayList<>(sources.keySet()),
+                picked -> pendingCopySource = sources.getOrDefault(picked, -1)));
+    }
+
+    @Override
+    public void subGuiClosed(Screen subgui) {
+        super.subGuiClosed(subgui);
+        int source = pendingCopySource;
+        pendingCopySource = -1;
+        if (source < 0 || source >= data.getPhaseCount() || source == phaseIndex) {
+            return;
+        }
+        String question = Component.translatable("cnpcgeckoaddon.boss.copy_phase_confirm",
+                String.valueOf(phaseIndex + 1), String.valueOf(source + 1)).getString();
+        setSubGui(new SubGuiConfirm(question, () -> {
+            phase.copyFrom(data.getPhase(source));
+            LOGGER.info("phase {} menu: copied every setting of phase {} into phase {}, threshold kept at {}%",
+                    phaseIndex + 1, source + 1, phaseIndex + 1, phase.getStartHealthPercent());
+        }));
     }
 
     @Override

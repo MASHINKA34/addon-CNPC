@@ -51,7 +51,7 @@ public final class SubGuiBossCover extends SubGuiFieldScreen implements BossZone
     public void init() {
         // A row for the centre and its hint under the rows the screen always had; the hint's
         // lines are up to the locale, so the panel is sized before super.init() reads it.
-        imageHeight = 286 + 21 + wrappedHintHeight(CENTRE_HINT);
+        imageHeight = 286 + 21 + wrappedHintHeight(CENTRE_HINT) + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.cover_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -120,6 +120,7 @@ public final class SubGuiBossCover extends SubGuiFieldScreen implements BossZone
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY, 60, 20);
+        addCopyAbilityRow(buttonsY + 24);
         applyModeRows();
     }
 

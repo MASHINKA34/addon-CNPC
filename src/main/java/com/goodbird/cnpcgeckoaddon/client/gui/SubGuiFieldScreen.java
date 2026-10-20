@@ -5,12 +5,14 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossCentreMode;
 import com.goodbird.cnpcgeckoaddon.data.BossCentreSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
+import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
@@ -23,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntConsumer;
@@ -56,6 +59,9 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
     protected static final int CENTRE_BUTTON = 991;
     protected static final int CENTRE_TARGET_BUTTON = 992;
 
+    /** The id an ability screen gives the button that copies the ability from another phase. */
+    protected static final int COPY_ABILITY_BUTTON = 993;
+
     /** The label id the centre's hint starts from: past the ids the six screens give their own hints. */
     protected static final int CENTRE_HINT_LABEL = 50;
 
@@ -73,11 +79,20 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
     /** One line of text plus the pixel that keeps two of them apart. */
     protected static final int LINE_HEIGHT = 9;
 
+    /** How much taller an ability screen grows for its copy row: the button and the gap above it. */
+    private static final int COPY_ROW = 24;
+
     /**
      * What each cue button on this screen should read, by button id. Rebuilt from scratch on
      * every layout, and read again whenever an editor opened from one of them closes.
      */
     private final Map<Integer, Supplier<String>> cueLabels = new HashMap<>();
+
+    /** Which ability of which phase of which boss this screen's copy row copies into, or null for no row. */
+    private AbilityCopy abilityCopy;
+
+    private record AbilityCopy(TeleportPathData boss, int phaseIndex, int kind) {
+    }
 
     /** The panel every settings screen is drawn on; a screen that wants another sets its own. */
     protected SubGuiFieldScreen() {
@@ -154,6 +169,83 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
                     applyFields();
                     setSubGui(new SubGuiBossAbilityProfile(this, phase, kind));
                 }));
+    }
+
+    /**
+     * Gives this ability screen the row that copies its ability from another phase of the same boss.
+     * The phase menu calls it before the screen opens, so the screen knows how tall it is before its
+     * first layout; a boss with one phase gets no row, there being nothing to copy from.
+     */
+    public SubGuiFieldScreen withAbilityCopy(TeleportPathData boss, int phaseIndex, int kind) {
+        abilityCopy = boss != null && BossPhaseData.isCopyableAbility(kind)
+                ? new AbilityCopy(boss, phaseIndex, kind) : null;
+        return this;
+    }
+
+    /** How much the copy row adds to this screen's height: nothing without a row. */
+    protected int copyRowHeight() {
+        return hasCopyRow() ? COPY_ROW : 0;
+    }
+
+    private boolean hasCopyRow() {
+        return abilityCopy != null && abilityCopy.boss().getPhaseCount() > 1;
+    }
+
+    /**
+     * The row under the screen's last one: "Copy from phase..." across the panel, opening the list of
+     * the boss' other phases. The pick copies the ability into this phase through
+     * {@link BossPhaseData#copyAbilityFrom}, and CustomNPCs lays this screen out again the moment the
+     * list closes, as it does whenever a screen this one opened closes - so every field is built anew
+     * from the copied settings, and nothing is laid out from inside a click. Saved with the rest when
+     * the editor is, like any other change on these screens.
+     *
+     * @param y where the row starts: {@link #COPY_ROW} below the top of the row over it
+     */
+    protected void addCopyAbilityRow(int y) {
+        if (!hasCopyRow()) {
+            return;
+        }
+        AbilityCopy copy = abilityCopy;
+        addButton(new ThemeButton(this, COPY_ABILITY_BUTTON, guiLeft + 6, y, imageWidth - 20, 20,
+                "cnpcgeckoaddon.boss.copy_ability", button -> {
+                    applyFields();
+                    openAbilityCopy(copy);
+                }));
+    }
+
+    private void openAbilityCopy(AbilityCopy copy) {
+        Map<String, Integer> sources = otherPhases(copy.boss(), copy.phaseIndex());
+        LOGGER.debug("{}: offering {} other phases to copy {} into phase {} from", getClass().getSimpleName(),
+                sources.size(), BossAbilityKind.LABELS[copy.kind()], copy.phaseIndex() + 1);
+        setSubGui(new GuiStringSelection(this, "cnpcgeckoaddon.boss.copy_ability", new ArrayList<>(sources.keySet()),
+                picked -> {
+                    Integer from = sources.get(picked);
+                    if (from == null) {
+                        LOGGER.warn("{}: '{}' is no phase of this boss any more, nothing copied",
+                                getClass().getSimpleName(), picked);
+                        return;
+                    }
+                    BossPhaseData target = copy.boss().getPhase(copy.phaseIndex());
+                    boolean copied = target.copyAbilityFrom(copy.boss().getPhase(from), copy.kind());
+                    LOGGER.info("{}: copied {} from phase {} into phase {}: {}", getClass().getSimpleName(),
+                            BossAbilityKind.LABELS[copy.kind()], from + 1, copy.phaseIndex() + 1,
+                            copied ? "done" : "nothing to copy");
+                }));
+    }
+
+    /**
+     * Every phase of the boss but {@code except}, as the lists that pick a source show them - "Phase 2
+     * (70%)" - each with the index it stands for, in the boss' own order.
+     */
+    protected static Map<String, Integer> otherPhases(TeleportPathData boss, int except) {
+        Map<String, Integer> phases = new LinkedHashMap<>();
+        for (int index = 0; index < boss.getPhaseCount(); index++) {
+            if (index != except) {
+                phases.put(Component.translatable("cnpcgeckoaddon.boss.phase_entry", String.valueOf(index + 1),
+                        String.valueOf(boss.getPhase(index).getStartHealthPercent())).getString(), index);
+            }
+        }
+        return phases;
     }
 
     /**

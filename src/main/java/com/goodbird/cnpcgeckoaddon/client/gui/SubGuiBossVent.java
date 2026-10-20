@@ -181,8 +181,9 @@ public final class SubGuiBossVent extends SubGuiFieldScreen {
             addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + LABEL_X, guiTop + y, 120, CONTROL_HEIGHT,
                     "cnpcgeckoaddon.boss.effects_settings"));
             addDoneButton(guiLeft + 182, guiTop + y, 60, CONTROL_HEIGHT);
+            addCopyAbilityRow(guiTop + y + CONTROL_HEIGHT + 4);
         }
-        return y + CONTROL_HEIGHT + BOTTOM_MARGIN;
+        return y + CONTROL_HEIGHT + copyRowHeight() + BOTTOM_MARGIN;
     }
 
     private int toggle(boolean place, int id, String key, int y, boolean value) {

@@ -79,7 +79,7 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
     public void init() {
         // The panel is centred from imageHeight, so it is settled before super.init() reads
         // it: the hints under the rows wrap to three lines in English and four in Russian.
-        imageHeight = buttonsY() + BUTTON_HEIGHT * 2 + 4 + BOTTOM_MARGIN;
+        imageHeight = buttonsY() + BUTTON_HEIGHT * 2 + 4 + copyRowHeight() + BOTTOM_MARGIN;
         super.init();
         nextRowLabel = FIRST_ROW_LABEL;
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.beam_phase", phaseIndex),
@@ -152,6 +152,7 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY, 60, BUTTON_HEIGHT);
+        addCopyAbilityRow(buttonsY + BUTTON_HEIGHT + 4);
     }
 
     /**

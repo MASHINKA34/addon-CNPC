@@ -49,7 +49,7 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         // Room under the hint for the fine-tuning row as well as the effects and the Done, with
         // the hint free to wrap to four lines in a locale that needs them - and a row for the
         // centre with its own hint, as many lines as the locale makes of it.
-        imageHeight = 284 + 21 + wrappedHintHeight(CENTRE_HINT);
+        imageHeight = 284 + 21 + wrappedHintHeight(CENTRE_HINT) + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.gravity_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -109,6 +109,7 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
+        addCopyAbilityRow(buttonsY + 48);
     }
 
     private int vfxStyleIndex() {

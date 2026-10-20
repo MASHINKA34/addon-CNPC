@@ -35,14 +35,14 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Three rows taller than the panel it used to be: the aim's own numbers sit under the
-        // rows a builder already knows, and the profile has a row of its own.
-        imageHeight = 328;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Three rows taller than the panel it used to be: the aim's own numbers sit under the
+        // rows a builder already knows, and the profile has a row of its own.
+        imageHeight = 328 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.melee_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -94,6 +94,7 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 302, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 302, 60, 20);
+        addCopyAbilityRow(guiTop + 326);
     }
 
     private void addTargetModeRow(int id, int y, int mode) {

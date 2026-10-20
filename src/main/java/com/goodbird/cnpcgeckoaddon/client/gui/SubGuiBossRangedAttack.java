@@ -42,14 +42,14 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Four rows taller than the panel it used to be: the aim's own numbers and the burst
-        // sit under the rows a builder already knows, and the profile has a row of its own.
-        imageHeight = 352;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Four rows taller than the panel it used to be: the aim's own numbers and the burst
+        // sit under the rows a builder already knows, and the profile has a row of its own.
+        imageHeight = 352 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.ranged_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -108,6 +108,7 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 326, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 326, 60, 20);
+        addCopyAbilityRow(guiTop + 350);
     }
 
     /** One of the two small numbers a shared label names, at the column it is handed. */

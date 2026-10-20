@@ -51,16 +51,16 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // The tallest ability screen in the mod, and deliberately so: the cast, the fuse, the
-        // eruption and what it leaves behind are four sets of numbers, and a builder tuning
-        // the fuse against the radius needs to see both of them at once. The strike from
-        // above and the residue each get a screen of their own, reached from two rows here.
-        imageHeight = 392;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // The tallest ability screen in the mod, and deliberately so: the cast, the fuse, the
+        // eruption and what it leaves behind are four sets of numbers, and a builder tuning
+        // the fuse against the radius needs to see both of them at once. The strike from
+        // above and the residue each get a screen of their own, reached from two rows here.
+        imageHeight = 392 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.geyser_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -136,6 +136,7 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 368, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 368, 60, 20);
+        addCopyAbilityRow(guiTop + 392);
     }
 
     private int vfxStyleIndex() {

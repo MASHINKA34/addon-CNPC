@@ -50,14 +50,14 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // A row taller than the panel it used to be: the fine-tuning button sits under the
-        // rest, so every row above it stays exactly where a builder is used to finding it.
-        imageHeight = 306;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // A row taller than the panel it used to be: the fine-tuning button sits under the
+        // rest, so every row above it stays exactly where a builder is used to finding it.
+        imageHeight = 306 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.leap_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -119,6 +119,7 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
         addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 280, 116, 20,
                 "cnpcgeckoaddon.boss.leap_tuning"));
         addProfileButton(guiLeft + 126, guiTop + 280, 116, 20, phase, BossAbilityKind.LEAP);
+        addCopyAbilityRow(guiTop + 304);
 
         refresh();
     }

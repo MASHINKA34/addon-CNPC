@@ -40,14 +40,14 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Two rows taller than the panel it used to be: the aim's own number and the way
-        // into the throw's fine-tuning sit under the rows a builder already knows.
-        imageHeight = 301;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Two rows taller than the panel it used to be: the aim's own number and the way
+        // into the throw's fine-tuning sit under the rows a builder already knows.
+        imageHeight = 301 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.fluid_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -96,6 +96,7 @@ public final class SubGuiBossFluidSpit extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 277, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 277, 60, 20);
+        addCopyAbilityRow(guiTop + 301);
     }
 
     private void addSelectRow(int id, String label, int y, String value) {

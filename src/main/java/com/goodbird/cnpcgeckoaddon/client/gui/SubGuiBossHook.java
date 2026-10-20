@@ -45,14 +45,14 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // One row taller than the panel it used to be: the way into the drag's own numbers
-        // sits under the rows a builder already knows.
-        imageHeight = 280;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // One row taller than the panel it used to be: the way into the drag's own numbers
+        // sits under the rows a builder already knows.
+        imageHeight = 280 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.hook_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -111,6 +111,7 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 256, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 256, 60, 20);
+        addCopyAbilityRow(guiTop + 280);
     }
 
     private int cordStyleIndex() {

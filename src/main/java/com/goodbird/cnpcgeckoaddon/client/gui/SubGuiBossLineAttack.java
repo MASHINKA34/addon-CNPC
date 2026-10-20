@@ -47,14 +47,14 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Taller than an ordinary ability screen: the corridor, its flanks and its wave are
-        // three sets of numbers, and squeezing them onto one page beats a second screen.
-        imageHeight = 329;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Taller than an ordinary ability screen: the corridor, its flanks and its wave are
+        // three sets of numbers, and squeezing them onto one page beats a second screen.
+        imageHeight = 329 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.line_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -128,6 +128,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 305, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 305, 60, 20);
+        addCopyAbilityRow(guiTop + 329);
     }
 
     private int vfxStyleIndex() {

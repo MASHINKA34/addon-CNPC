@@ -45,7 +45,7 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
     public void init() {
         // The centre's row and its hint sit under the rows the screen always had, and how many
         // lines the hint takes is up to the locale: the panel is sized before super.init() reads it.
-        imageHeight = 304 + wrappedHintHeight(CENTRE_HINT);
+        imageHeight = 304 + wrappedHintHeight(CENTRE_HINT) + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.area_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -101,6 +101,7 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, 67, guiLeft + 6, profileY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, profileY + 24, 60, 20);
+        addCopyAbilityRow(profileY + 48);
     }
 
     private int vfxStyleIndex() {

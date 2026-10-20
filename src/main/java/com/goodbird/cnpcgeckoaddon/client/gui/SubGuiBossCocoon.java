@@ -58,14 +58,14 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Room under the hint for the fine-tuning row as well as the effects and the Done,
-        // with the hint free to wrap to four lines in a locale that needs them.
-        imageHeight = 296;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Room under the hint for the fine-tuning row as well as the effects and the Done,
+        // with the hint free to wrap to four lines in a locale that needs them.
+        imageHeight = 296 + copyRowHeight();
         super.init();
         nextRowLabel = FIRST_ROW_LABEL;
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.cocoon_phase", phaseIndex),
@@ -120,6 +120,7 @@ public final class SubGuiBossCocoon extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
+        addCopyAbilityRow(buttonsY + 48);
         updateRescueFields();
     }
 

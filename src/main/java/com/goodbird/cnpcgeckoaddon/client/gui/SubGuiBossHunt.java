@@ -51,14 +51,14 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // One row taller than the panel it used to be: the way into the chase's own
-        // numbers sits under the hint, above the buttons.
-        imageHeight = 286;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // One row taller than the panel it used to be: the way into the chase's own
+        // numbers sits under the hint, above the buttons.
+        imageHeight = 286 + copyRowHeight();
         super.init();
         nextRowLabel = FIRST_ROW_LABEL;
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.hunt_phase", phaseIndex),
@@ -107,6 +107,7 @@ public final class SubGuiBossHunt extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, buttonsY, 60, 20);
+        addCopyAbilityRow(buttonsY + 24);
     }
 
     private void addSelectRow(int id, String label, int y, String value) {

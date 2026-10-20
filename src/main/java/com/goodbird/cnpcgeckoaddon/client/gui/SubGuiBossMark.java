@@ -49,12 +49,12 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 326;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        imageHeight = 326 + copyRowHeight();
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.mark_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -133,6 +133,7 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, FAIL_EFFECTS_BUTTON, guiLeft + 126, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.mark_fail_effects"));
         addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
+        addCopyAbilityRow(buttonsY + 48);
         applyModeRows();
     }
 
