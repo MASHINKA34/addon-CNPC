@@ -40,6 +40,7 @@ import java.util.EnumSet;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -348,6 +349,8 @@ public final class TeleportPathController {
     private final BossComboChain combo = new BossComboChain();
     /** The hold the phase keeps after each ability it sees through, counted from the ability's end. */
     private final BossFinishHold finishHold = new BossFinishHold();
+    /** Each ability's chance rolled for its readiness, its skip, and how often it went this phase. */
+    private final BossCastRolls castRolls = new BossCastRolls();
     /**
      * The follow-up being started right now, or NONE: the one ability whose starter may skip its
      * switch. Held from the chain's attempt until the ability winds up - through the walk to its
@@ -1084,6 +1087,8 @@ public final class TeleportPathController {
         }
         currentPhase = highestPhaseReached;
         cancelPendingAndSchedules();
+        // The new phase's limits count from nought, its own profiles deciding them.
+        castRolls.resetPhase();
         // A phase that is over takes its platforms with it. Not in cancelPendingAndSchedules: that
         // also runs on every tick a combat-only boss has no target, and a fuse or a smoulder must
         // not go out because the victim it was aimed at just died on it.
@@ -1654,6 +1659,8 @@ public final class TeleportPathController {
         clearInvulnerability();
         rage.clear();
         cancelPendingAndSchedules();
+        // A fight that ended - reset, walked away from, the boss unloaded - owes no ability its count.
+        castRolls.resetPhase();
         hook.clear();
         hazardRuntime.clear();
         barrierRuntime.clear();
@@ -2010,6 +2017,8 @@ public final class TeleportPathController {
      * profile names a delay of its own.
      */
     private long firstCastAt(BossAbility ability, BossPhaseData phase, long gameTime) {
+        // A fresh readiness: whatever the chance came up for the last one is not this one's.
+        castRolls.rearmed(ability.kind());
         int delay = phase.profile(ability.kind()).getFirstCastDelayTicks();
         if (delay == BossAbilityProfile.FIRST_CAST_AFTER_COOLDOWN) {
             return cooldownAt(ability, phase, gameTime, 0);
@@ -2034,15 +2043,27 @@ public final class TeleportPathController {
         }
         if (isInvulnerable()) {
             // An immune boss only calls for help. The other attacks keep their timers and
-            // pick up where they left off once it can be hurt again.
-            return summonRuntime.tryStart(level, data, phase, gameTime);
+            // pick up where they left off once it can be hurt again. Its profile still has its
+            // say: the call is a rotation row like any other.
+            return profileAllows(BossAbility.SUMMON, phase, gameTime)
+                    && summonRuntime.tryStart(level, data, phase, gameTime);
         }
         int count = BossAbility.ROTATION.size();
-        for (int offset = 0; offset < count; offset++) {
-            int index = (nextAbilityPriority + offset) % count;
+        int[] priorities = new int[count];
+        for (int row = 0; row < count; row++) {
+            priorities[row] = phase.profile(BossAbility.ROTATION.get(row).kind()).getPriority();
+        }
+        // Highest priority first, and round from the moving start inside one: with every priority
+        // at nought this is the old walk exactly.
+        for (int index : BossRotationOrder.order(count, nextAbilityPriority, priorities)) {
             BossAbility ability = BossAbility.ROTATION.get(index);
             // The two that would carry the boss off a spot it is holding wait for the hold to end.
             if (castSpots.blocks(ability)) {
+                continue;
+            }
+            // The profile before the spot and the starter: a row its conditions hold back, or its
+            // chance skipped, is passed over on this tick without a journey or a refusal.
+            if (!profileAllows(ability, phase, gameTime)) {
                 continue;
             }
             // The spot is asked before the starter: an ability with one is taken there first
@@ -2066,6 +2087,87 @@ public final class TeleportPathController {
         return totems.isSilencing() || huntRuntime.isSilenced() || isBarrierStunned() || healthLink.isDowned();
     }
 
+    /**
+     * Whether this row's profile lets it go on this tick - asked by the rotation before the row's
+     * cast spot and starter, and only once the row is due: a row not due, switched off or barred
+     * is left to its starter, which turns it away exactly as it always did.
+     *
+     * <p>A due row waits, its clock untouched, for as long as its conditions are not met. Once
+     * they are, the chance is rolled - once for the readiness, however many looks the starter
+     * needs - and a miss puts the ability back on a whole cooldown, the cast it would have made
+     * skipped. An untouched profile answers yes at once and draws nothing.</p>
+     */
+    private boolean profileAllows(BossAbility ability, BossPhaseData phase, long gameTime) {
+        int kind = ability.kind();
+        BossAbilityProfile profile = phase.profile(kind);
+        if (profile.isDefault()) {
+            return true;
+        }
+        long due = abilityScheduleAt(ability);
+        if (due == NOT_SCHEDULED || gameTime < due || !mayStart(ability, phase)) {
+            return true;
+        }
+        if (!castConditionsMet(ability, profile)) {
+            return false;
+        }
+        if (castRolls.roll(kind, profile.getCastChancePercent(), npc.getRandom())) {
+            return true;
+        }
+        long next = cooldownAt(ability, phase, gameTime, 0);
+        setAbilityScheduleAt(ability, next);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Boss {} skips {}: its {}% cast chance did not come up; next look in {} ticks",
+                    nameForLog(), ability, profile.getCastChancePercent(), next - gameTime);
+        }
+        return false;
+    }
+
+    /**
+     * Whether the profile's conditions let this ability go right now: the combat target's
+     * distance, the players in the fight and the boss' health. Read fresh on every look, since
+     * each is a few numbers the boss already has; only a change of answer is logged.
+     */
+    private boolean castConditionsMet(BossAbility ability, BossAbilityProfile profile) {
+        LivingEntity target = npc.getTarget();
+        double distance = target == null || !target.isAlive() || target.isRemoved() || target.level() != npc.level()
+                ? BossCastConditions.NO_TARGET : npc.distanceTo(target);
+        int players = encounterParticipants.size();
+        boolean met = BossCastConditions.allow(profile, distance, players, npc.getHealth(), npc.getMaxHealth());
+        if (castRolls.noteHeld(ability.kind(), !met) && LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Boss {} {} {}: target distance {}, players {}, health {}/{} against distance {}..{}, "
+                            + "at least {} players, health {}..{}%", nameForLog(),
+                    met ? "lets go of" : "holds back", ability,
+                    distance < 0.0D ? "none" : String.format(Locale.ROOT, "%.1f", distance), players,
+                    npc.getHealth(), npc.getMaxHealth(), profile.getMinTargetDistance(),
+                    profile.getMaxTargetDistance(), profile.getMinPlayers(), profile.getHealthMinPercent(),
+                    profile.getHealthMaxPercent());
+        }
+        return met;
+    }
+
+    /** Whether this ability has gone as often this phase as its profile allows. */
+    private boolean castLimitReached(BossAbility ability, BossPhaseData phase) {
+        int kind = ability.kind();
+        return kind >= 0 && castRolls.limitReached(kind, phase.profile(kind).getMaxCastsPerPhase());
+    }
+
+    /**
+     * Counts a start against the ability's limit and spends the readiness its chance was rolled
+     * for. Every start comes through here, whatever started it: the rotation, a follow-up, a repeat.
+     */
+    private void noteAbilityStarted(BossAbility action, BossPhaseData phase) {
+        int kind = action.kind();
+        if (kind < 0) {
+            return;
+        }
+        castRolls.started(kind);
+        int limit = phase.profile(kind).getMaxCastsPerPhase();
+        if (limit > BossAbilityProfile.NO_CAST_LIMIT && castRolls.casts(kind) >= limit) {
+            LOGGER.debug("Boss {} has cast {} {} of {} times this phase; it stays silent until the phase changes",
+                    nameForLog(), action, castRolls.casts(kind), limit);
+        }
+    }
+
     /** Runs one ability's starter, which winds it up when it can and says no when it cannot. */
     boolean startAbility(BossAbility ability, ServerLevel level, TeleportPathData data,
                          BossPhaseData phase, long gameTime) {
@@ -2083,6 +2185,11 @@ public final class TeleportPathController {
     boolean mayStart(BossAbility ability, BossPhaseData phase) {
         // While a rift is open the boss casts only what the phase lets it cast meanwhile.
         if (rift.isActive() && !rift.allowsMeanwhile(ability.kind())) {
+            return false;
+        }
+        // A limit spent for the phase silences the ability whoever asks: the rotation, a follow-up
+        // or a walk to its cast spot. The phase changing gives it back.
+        if (castLimitReached(ability, phase)) {
             return false;
         }
         return ability.isEnabledIn(phase) || ability == forcedAbility && ability.isConfiguredIn(phase);
@@ -2454,6 +2561,7 @@ public final class TeleportPathController {
         } else {
             pendingLinks = 1;
         }
+        noteAbilityStarted(action, phase);
         pendingLeadTicks = telegraphs.lead(data, action, actionDelay);
         beginCastRoot(data, phase, action);
         if (pendingLeadTicks <= 0 && actionDelay <= 0) {
@@ -2909,6 +3017,9 @@ public final class TeleportPathController {
         // And the holds: nobody is owed the finishing of a fight that is over, and the effects
         // ended below are not seen over. A combat reset comes through here too.
         finishHold.clear();
+        // And whatever the chances came up for: the readiness each was rolled for went with its
+        // clock. The counts stay - a lost target is not a new phase.
+        castRolls.clearRolls();
         forcedAbility = BossAbility.NONE;
         forcedScheduleBefore = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and
