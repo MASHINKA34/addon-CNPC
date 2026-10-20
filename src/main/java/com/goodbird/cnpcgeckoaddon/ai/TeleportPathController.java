@@ -351,6 +351,8 @@ public final class TeleportPathController {
     private final BossComboChain combo = new BossComboChain();
     /** The hold the phase keeps after each ability it sees through, counted from the ability's end. */
     private final BossFinishHold finishHold = new BossFinishHold();
+    /** Which lasting effects were running on the last look, for the end animations of the profiles. */
+    private final BossEffectEndWatch endWatch = new BossEffectEndWatch();
     /** Each ability's chance rolled for its readiness, its skip, and how often it went this phase. */
     private final BossCastRolls castRolls = new BossCastRolls();
     /** The casts an ability still owes in a row after the one that started it, by its profile. */
@@ -664,6 +666,9 @@ public final class TeleportPathController {
         // Again, for the flight, the run and the series that may just have ended: the chains
         // right below have to see the hold on the tick the effect ended, not one tick late.
         tickFinishHold(phase, gameTime);
+        // Once a tick, after the flight, the run and the series have had theirs: an effect that ran
+        // out on its own since the last look plays its profile's end animation now.
+        tickEndAnimations(phase, gameTime);
         // Right after the touchdown that tick may have caught, and above every gate: a leap ends
         // when it lands, and an effect that runs out under a lock or a wind-up still ended then.
         // A row of repeats times its pause from that same end.
@@ -2627,6 +2632,32 @@ public final class TeleportPathController {
     }
 
     /**
+     * Plays the end animation of every ability whose lasting effect ran out on its own since the
+     * last look, by the profile of the phase being fought.
+     *
+     * <p>The effect rather than the hold after it: the animation is the end of what the ability
+     * did, and a hold the phase keeps afterwards is the boss waiting, not the ability. Only the
+     * abilities whose profile names an end animation are looked at, the hold's way, so a phase
+     * that names none costs a string check per row. An effect a reset or a stun cut short is the
+     * watch's to pass over: see {@link BossEffectEndWatch}.</p>
+     */
+    private void tickEndAnimations(BossPhaseData phase, long gameTime) {
+        for (BossAbility ability : BossAbility.ROTATION) {
+            int kind = ability.kind();
+            String animation = phase.profile(kind).getEndAnimation();
+            if (animation.isEmpty()) {
+                endWatch.forget(kind);
+                continue;
+            }
+            if (endWatch.observe(kind, isEffectRunning(ability, gameTime))) {
+                LOGGER.debug("Boss {} plays end animation '{}': the effect of {} ran out on its own", nameForLog(),
+                        animation, ability);
+                playAnimation(animation);
+            }
+        }
+    }
+
+    /**
      * The ability this phase is still seeing out - its effect, or the hold after it - or NONE
      * when the boss is free to start the next thing.
      *
@@ -2746,21 +2777,25 @@ public final class TeleportPathController {
         castSpots.abortTravel();
         if (dash.isRunning()) {
             // The stagger is what ends the run, so the run hands on to nothing: a follow-up chained
-            // after the dash was owed to a dash that got where it was going.
+            // after the dash was owed to a dash that got where it was going. Nor does it play its
+            // end animation over the stun's own: it did not end, it was stopped.
             combo.forget(BossAbility.DASH);
+            endWatch.suppress(BossAbilityKind.DASH);
             dash.clear();
         }
         if (cone.isSequencing()) {
             // A staggered boss swings nothing: the rest of a series goes, and for the dash's reason
-            // it hands on to no follow-up. Its cooldown counts from here: a cast cut short is
-            // still a cast, and the stun's end must not find the cone ready.
+            // it hands on to no follow-up and plays no end animation. Its cooldown counts from here:
+            // a cast cut short is still a cast, and the stun's end must not find the cone ready.
             combo.forget(BossAbility.CONE);
+            endWatch.suppress(BossAbilityKind.CONE);
             cone.interrupt(settings(), npc.level() instanceof ServerLevel level ? level.getGameTime() : 0L);
         }
         if (rangedAttack.isSequencing()) {
             // And fires nothing more: the rest of a burst goes the way the rest of a series does,
             // with its cooldown counted from here.
             combo.forget(BossAbility.RANGED_ATTACK);
+            endWatch.suppress(BossAbilityKind.RANGED);
             rangedAttack.interrupt(settings(),
                     npc.level() instanceof ServerLevel level ? level.getGameTime() : 0L);
         }
@@ -3119,6 +3154,13 @@ public final class TeleportPathController {
         if (performer != null) {
             performer.perform(this, level, data, phase, gameTime);
         }
+        // The cast itself, after the wind-up has played its own: only when the profile names one.
+        String castAnimation = phase.profile(pendingAction.kind()).getCastAnimation();
+        if (!castAnimation.isEmpty()) {
+            LOGGER.debug("Boss {} plays cast animation '{}' as {} goes off", nameForLog(), castAnimation,
+                    pendingAction);
+            playAnimation(castAnimation);
+        }
         if (repeat.performed(pendingAction)) {
             LOGGER.debug("Boss {} finished its row of {}: the last repeat went off", nameForLog(), pendingAction);
         }
@@ -3310,6 +3352,9 @@ public final class TeleportPathController {
         // And the holds: nobody is owed the finishing of a fight that is over, and the effects
         // ended below are not seen over. A combat reset comes through here too.
         finishHold.clear();
+        // Nor do they end on their own: whatever is still running here, or ends below, plays no
+        // end animation - that end is the phase change's, the reset's or the death's.
+        endWatch.suppressAll();
         // And whatever the chances came up for: the readiness each was rolled for went with its
         // clock. The counts stay - a lost target is not a new phase.
         castRolls.clearRolls();
