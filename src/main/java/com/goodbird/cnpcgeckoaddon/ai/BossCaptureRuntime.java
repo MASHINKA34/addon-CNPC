@@ -53,7 +53,7 @@ final class BossCaptureRuntime {
      */
     private LivingEntity selectTarget(ServerLevel level, BossPhaseData phase) {
         List<LivingEntity> candidates = boss.abilityCandidates(level, phase.capture().getMaxRange(),
-                candidate -> isValidTarget(candidate, phase));
+                candidate -> isValidTarget(candidate, phase), BossAbilityKind.CAPTURE);
         if (candidates.isEmpty()) {
             return null;
         }

@@ -40,7 +40,7 @@ final class BossTetherCastRuntime {
         if (!boss.mayStart(BossAbility.TETHER, phase) || gameTime < boss.abilityScheduleAt(BossAbility.TETHER)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.tether().getTargetMode(),
                 reach(phase), candidate -> isValidTarget(candidate, phase),
-                phase.tether().getTargetCount());
+                phase.tether().getTargetCount(), BossAbilityKind.TETHER);
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.TETHER, gameTime + boss.retryTicks());
             return false;

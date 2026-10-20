@@ -722,7 +722,7 @@ public final class BossHurricaneScheduler {
             return false;
         }
         return controller.isAbilityTarget(candidate, BossAbilityKind.HURRICANE)
-                && controller.matchesAbilityTargetKind(candidate, data)
+                && controller.matchesAbilityTargetKind(candidate, data, BossAbilityKind.HURRICANE)
                 && !BossMechanicUtil.hiddenByTotems(candidate)
                 && !BossAbilityDamageUtil.passesBy(candidate, BossAbilityKind.HURRICANE);
     }

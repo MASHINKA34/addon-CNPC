@@ -33,7 +33,7 @@ final class BossMeleeAttackRuntime {
         // half-width on top of the configured range, or a wide boss loses candidates to it.
         LivingEntity target = boss.selectAbilityTarget(level, phase.meleeAttack().getTargetMode(),
                 phase.meleeAttack().getRange() + modelReach(npc.getBbWidth(), phase),
-                candidate -> isValidTarget(candidate, phase));
+                candidate -> isValidTarget(candidate, phase), BossAbilityKind.MELEE);
         if (target == null) {
             boss.setAbilityScheduleAt(BossAbility.MELEE_ATTACK, gameTime + boss.retryShortTicks());
             return false;

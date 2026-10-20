@@ -63,7 +63,7 @@ final class BossBoulderRuntime {
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!boss.mayStart(BossAbility.BOULDER, phase) || gameTime < boss.abilityScheduleAt(BossAbility.BOULDER)) return false;
         LivingEntity target = boss.selectAbilityTarget(level, phase.boulder().getTargetMode(),
-                phase.boulder().getRange(), candidate -> isValidTarget(candidate, phase));
+                phase.boulder().getRange(), candidate -> isValidTarget(candidate, phase), BossAbilityKind.BOULDER);
         if (target == null || EntityBossBoulder.resolveBlock(phase.boulder().getBlock()) == null) {
             boss.setAbilityScheduleAt(BossAbility.BOULDER, gameTime + boss.retryLongTicks());
             return false;

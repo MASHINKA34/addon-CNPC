@@ -2592,7 +2592,8 @@ public final class TeleportPathController {
             return false;
         }
         LivingEntity prey = selectAbilityTarget(level, phase.hunt().getTargetMode(),
-                data.getTargetSearchRadius(), candidate -> huntRuntime.isValidTarget(candidate, data));
+                data.getTargetSearchRadius(), candidate -> huntRuntime.isValidTarget(candidate, data),
+                BossAbilityKind.HUNT);
         if (prey == null) {
             setAbilityScheduleAt(BossAbility.HUNT, gameTime + retryTicks());
             return false;
@@ -3157,12 +3158,14 @@ public final class TeleportPathController {
         return targeting.isBoulderVictim(target, ability);
     }
 
-    boolean matchesAbilityTargetKind(LivingEntity candidate, TeleportPathData data) {
-        return targeting.matchesAbilityTargetKind(candidate, data);
+    /** Whether this candidate is of a kind {@code ability} may land on: its profile's kinds, or the boss'. */
+    boolean matchesAbilityTargetKind(LivingEntity candidate, TeleportPathData data, int ability) {
+        return targeting.matchesAbilityTargetKind(candidate, data, ability);
     }
 
-    List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange, Predicate<LivingEntity> canHit) {
-        return targeting.abilityCandidates(level, searchRange, canHit);
+    List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange, Predicate<LivingEntity> canHit,
+                                         int ability) {
+        return targeting.abilityCandidates(level, searchRange, canHit, ability);
     }
 
     boolean isAreaTarget(LivingEntity target) {
@@ -3173,12 +3176,15 @@ public final class TeleportPathController {
         return targeting.isAbilityTarget(target, ability);
     }
 
-    LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange, Predicate<LivingEntity> canHit) {
-        return targeting.selectAbilityTarget(level, mode, searchRange, canHit);
+    /** One target for {@code ability}, picked by {@code mode} among the kinds that ability may land on. */
+    LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange, Predicate<LivingEntity> canHit,
+                                     int ability) {
+        return targeting.selectAbilityTarget(level, mode, searchRange, canHit, ability);
     }
 
-    List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange, Predicate<LivingEntity> canHit, int count) {
-        return targeting.selectAbilityTargets(level, mode, searchRange, canHit, count);
+    List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange, Predicate<LivingEntity> canHit,
+                                            int count, int ability) {
+        return targeting.selectAbilityTargets(level, mode, searchRange, canHit, count, ability);
     }
 
     LivingEntity pendingTarget(ServerLevel level) {

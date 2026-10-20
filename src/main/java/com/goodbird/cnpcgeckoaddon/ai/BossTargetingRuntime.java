@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import net.minecraft.Util;
 import net.minecraft.world.phys.Vec3;
@@ -276,6 +277,10 @@ final class BossTargetingRuntime {
      * radius, is their range, and walking a builder-sized zone section by section would
      * cost far more than the player list it replaced. Everything else is looked up in a
      * box around the boss and then, when the zone holds the fight, trimmed down to it.</p>
+     *
+     * <p>This picks the boss' own target, not an ability's, so it goes by the kinds the boss is
+     * set to aim at: an ability's profile narrows whom that ability lands on, never whom the
+     * boss turns to.</p>
      */
     List<LivingEntity> nearbyNonPlayers(ServerLevel level, TeleportPathData data,
                                                       double radius, boolean restrictToZone,
@@ -290,7 +295,7 @@ final class BossTargetingRuntime {
                 candidate != npc && !(candidate instanceof Player)
                         && npc.distanceToSqr(candidate) <= radiusSquared
                         && (!restrictToZone || zoneConstraint.contains(candidate.position()))
-                        && matchesAbilityTargetKind(candidate, data)
+                        && matchesTargetKind(candidate, data.getAbilityTargetKind())
                         && isTargetable(candidate, data));
     }
 
@@ -319,15 +324,26 @@ final class BossTargetingRuntime {
     }
 
     private List<LivingEntity> arenaVictims(ServerLevel level, Vec3 centre, double reach, int ability) {
-        TeleportPathData data = boss.settings();
+        int kind = abilityTargetKind(ability, boss.settings());
         return victimsAround(level, centre, reach, ability,
-                target -> matchesAbilityTargetKind(target, data)
+                target -> matchesTargetKind(target, kind)
                         && !BossMechanicUtil.hiddenByTotems(target));
     }
 
+    /**
+     * Everyone round a point this ability may hit.
+     *
+     * <p>The kinds the boss aims its abilities at were never asked here - a slam lands on whatever
+     * the boss may attack - so only a profile that names kinds of its own narrows the list, and one
+     * that leaves it to the boss hits exactly what it always did.</p>
+     */
     List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius,
                                                 int ability) {
-        return victimsAround(level, centre, radius, ability, target -> true);
+        int kind = boss.profileOf(ability).getTargetKind();
+        if (kind == BossAbilityProfile.TARGET_KIND_AS_BOSS) {
+            return victimsAround(level, centre, radius, ability, target -> true);
+        }
+        return victimsAround(level, centre, radius, ability, target -> matchesTargetKind(target, kind));
     }
 
     List<LivingEntity> geyserVictims(ServerLevel level, Vec3 centre, double radius) {
@@ -349,7 +365,7 @@ final class BossTargetingRuntime {
      * floor and somebody a block up is still standing over it.</p>
      */
     List<LivingEntity> seismicVictims(ServerLevel level, Vec3 centre, double inner, double outer, double height) {
-        TeleportPathData data = boss.settings();
+        int kind = abilityTargetKind(BossAbilityKind.SEISMIC, boss.settings());
         // The box only has to hold everyone the flat and the height checks could pass: the
         // whole column over the ring when any height counts.
         double reachY = height > 0.0D ? height
@@ -361,7 +377,7 @@ final class BossTargetingRuntime {
                         && BossSeismicPlan.inRing(ring, target.getX() - centre.x, target.getZ() - centre.z)
                         && BossSeismicPlan.withinHeight(centre.y, height, target.getY(),
                         target.getY() + target.getBbHeight())
-                        && matchesAbilityTargetKind(target, data)
+                        && matchesTargetKind(target, kind)
                         && !BossMechanicUtil.hiddenByTotems(target)
                         && isAbilityTarget(target, BossAbilityKind.SEISMIC));
     }
@@ -371,10 +387,10 @@ final class BossTargetingRuntime {
     }
 
     List<LivingEntity> markVictims(ServerLevel level, Vec3 centre, double radius) {
-        TeleportPathData data = boss.settings();
+        int kind = abilityTargetKind(BossAbilityKind.MARK, boss.settings());
         return victimsAround(level, centre, radius, BossAbilityKind.MARK,
                 target -> (!(target instanceof Player player) || boss.isEncounterParticipant(player))
-                        && matchesAbilityTargetKind(target, data));
+                        && matchesTargetKind(target, kind));
     }
 
     List<LivingEntity> coverVictims(ServerLevel level, Vec3 centre, double range) {
@@ -387,11 +403,11 @@ final class BossTargetingRuntime {
      * kind the boss aims its abilities at, and anyone hidden by their own totems is passed over.
      */
     List<LivingEntity> platformVictims(ServerLevel level, AABB box) {
-        TeleportPathData data = boss.settings();
+        int kind = abilityTargetKind(BossAbilityKind.PLATFORM, boss.settings());
         return level.getEntitiesOfClass(LivingEntity.class, box, target ->
                 target != npc && target.isAlive() && box.contains(target.position())
                         && (!(target instanceof Player player) || boss.isEncounterParticipant(player))
-                        && matchesAbilityTargetKind(target, data)
+                        && matchesTargetKind(target, kind)
                         && !BossMechanicUtil.hiddenByTotems(target)
                         && isAbilityTarget(target, BossAbilityKind.PLATFORM));
     }
@@ -405,40 +421,66 @@ final class BossTargetingRuntime {
      * flame out of a wall at head height burns the head that is in it.</p>
      */
     List<LivingEntity> ventVictims(ServerLevel level, AABB volume) {
-        TeleportPathData data = boss.settings();
+        int kind = abilityTargetKind(BossAbilityKind.VENT, boss.settings());
         return level.getEntitiesOfClass(LivingEntity.class, volume, target ->
                 target != npc && target.isAlive()
                         && BossVentGeometry.inVolume(volume, target.getBoundingBox())
                         && (!(target instanceof Player player) || boss.isEncounterParticipant(player))
-                        && matchesAbilityTargetKind(target, data)
+                        && matchesTargetKind(target, kind)
                         && !BossMechanicUtil.hiddenByTotems(target)
                         && isAbilityTarget(target, BossAbilityKind.VENT));
     }
 
     boolean isBoulderVictim(LivingEntity target, int ability) {
         return target != npc && target.isAlive()
-                && matchesAbilityTargetKind(target, boss.settings())
+                && matchesAbilityTargetKind(target, boss.settings(), ability)
                 && isAbilityTarget(target, ability);
     }
 
-    boolean matchesAbilityTargetKind(LivingEntity candidate, TeleportPathData data) {
-        if (candidate instanceof Player) {
+    /** Whether this candidate is of a kind this ability may land on in the phase being fought. */
+    boolean matchesAbilityTargetKind(LivingEntity candidate, TeleportPathData data, int ability) {
+        return matchesTargetKind(candidate, abilityTargetKind(ability, data));
+    }
+
+    /**
+     * The kinds of target this ability goes for in the phase being fought: its profile's own, or
+     * the boss' setting when the profile leaves it to the boss - which every profile does until
+     * somebody changes it. Worked out once per search rather than once per candidate.
+     */
+    int abilityTargetKind(int ability, TeleportPathData data) {
+        return effectiveTargetKind(boss.profileOf(ability).getTargetKind(), data.getAbilityTargetKind());
+    }
+
+    /** The profile's kind of target, or the boss' when the profile leaves it to the boss. */
+    static int effectiveTargetKind(int profileKind, int bossKind) {
+        return profileKind == BossAbilityProfile.TARGET_KIND_AS_BOSS ? bossKind : profileKind;
+    }
+
+    static boolean matchesTargetKind(LivingEntity candidate, int kind) {
+        return matchesTargetKind(candidate instanceof Player, candidate instanceof EntityNPCInterface, kind);
+    }
+
+    /**
+     * Whether a candidate of this sort is one of the given kinds of target: a player always is,
+     * an npc under players-and-npcs or everyone, anything else alive under everyone alone.
+     */
+    static boolean matchesTargetKind(boolean player, boolean npc, int kind) {
+        if (player) {
             return true;
         }
-        return switch (data.getAbilityTargetKind()) {
+        return switch (kind) {
             case TeleportPathData.ABILITY_TARGET_ALL -> true;
-            case TeleportPathData.ABILITY_TARGET_PLAYERS_AND_NPCS ->
-                    candidate instanceof EntityNPCInterface;
+            case TeleportPathData.ABILITY_TARGET_PLAYERS_AND_NPCS -> npc;
             default -> false;
         };
     }
 
     List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange,
-                                                 Predicate<LivingEntity> canHit) {
-        TeleportPathData data = boss.settings();
+                                                 Predicate<LivingEntity> canHit, int ability) {
+        int kind = abilityTargetKind(ability, boss.settings());
         AABB box = new AABB(npc.position(), npc.position()).inflate(searchRange + 1.0D);
         return level.getEntitiesOfClass(LivingEntity.class, box, candidate -> candidate != npc
-                && matchesAbilityTargetKind(candidate, data)
+                && matchesTargetKind(candidate, kind)
                 && !BossMechanicUtil.hiddenByTotems(candidate) && canHit.test(candidate));
     }
 
@@ -458,7 +500,7 @@ final class BossTargetingRuntime {
     }
 
     LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange,
-                                             Predicate<LivingEntity> canHit) {
+                                             Predicate<LivingEntity> canHit, int ability) {
         LivingEntity main = npc.getTarget();
         LivingEntity fallback = main != null && !BossMechanicUtil.hiddenByTotems(main)
                 && canHit.test(main) ? main : null;
@@ -466,7 +508,7 @@ final class BossTargetingRuntime {
             return fallback;
         }
 
-        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit);
+        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit, ability);
         if (candidates.isEmpty()) {
             return fallback;
         }
@@ -488,26 +530,26 @@ final class BossTargetingRuntime {
     }
 
     List<LivingEntity> selectAbilityTargets(ServerLevel level, int mode, double searchRange,
-                                                    Predicate<LivingEntity> canHit, int count) {
+                                                    Predicate<LivingEntity> canHit, int count, int ability) {
         List<LivingEntity> result = new ArrayList<>();
         if (count <= 1) {
-            LivingEntity single = selectAbilityTarget(level, mode, searchRange, canHit);
+            LivingEntity single = selectAbilityTarget(level, mode, searchRange, canHit, ability);
             if (single != null) {
                 result.add(single);
             }
             return result;
         }
 
-        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit);
+        List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit, ability);
         if (candidates.isEmpty()) {
-            LivingEntity fallback = selectAbilityTarget(level, mode, searchRange, canHit);
+            LivingEntity fallback = selectAbilityTarget(level, mode, searchRange, canHit, ability);
             if (fallback != null) {
                 result.add(fallback);
             }
             return result;
         }
         if (mode == BossTargetMode.MAIN) {
-            LivingEntity main = selectAbilityTarget(level, mode, searchRange, canHit);
+            LivingEntity main = selectAbilityTarget(level, mode, searchRange, canHit, ability);
             if (main != null) {
                 result.add(main);
                 candidates.remove(main);

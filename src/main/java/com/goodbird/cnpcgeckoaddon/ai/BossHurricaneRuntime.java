@@ -66,9 +66,11 @@ final class BossHurricaneRuntime {
     private LivingEntity pickTarget(ServerLevel level, BossPhaseData phase) {
         BossHurricaneSettings hurricane = phase.hurricane();
         Predicate<LivingEntity> canHit = candidate -> isValidTarget(candidate, phase);
-        LivingEntity picked = boss.selectAbilityTarget(level, hurricane.getTargetMode(), hurricane.getRange(), canHit);
+        LivingEntity picked = boss.selectAbilityTarget(level, hurricane.getTargetMode(), hurricane.getRange(), canHit,
+                BossAbilityKind.HURRICANE);
         if (picked == null && BossConeRuntime.fallsBackToNearest(hurricane.getTargetMode())) {
-            picked = boss.selectAbilityTarget(level, BossTargetMode.NEAREST, hurricane.getRange(), canHit);
+            picked = boss.selectAbilityTarget(level, BossTargetMode.NEAREST, hurricane.getRange(), canHit,
+                    BossAbilityKind.HURRICANE);
         }
         return picked;
     }

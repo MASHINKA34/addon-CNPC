@@ -97,7 +97,7 @@ final class BossLeapRuntime {
         LivingEntity target = null;
         if (phase.leap().getMode() == BossPhaseData.LEAP_MODE_TARGET) {
             target = boss.selectAbilityTarget(level, phase.leap().getTargetMode(),
-                    phase.leap().getMaxRange(), candidate -> isValidTarget(candidate, phase));
+                    phase.leap().getMaxRange(), candidate -> isValidTarget(candidate, phase), BossAbilityKind.LEAP);
             if (target == null) {
                 boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + boss.retryTicks());
                 return false;

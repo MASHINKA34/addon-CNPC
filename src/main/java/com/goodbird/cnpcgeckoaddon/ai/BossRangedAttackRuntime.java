@@ -53,7 +53,7 @@ final class BossRangedAttackRuntime {
             return false;
         }
         LivingEntity target = boss.selectAbilityTarget(level, phase.rangedAttack().getTargetMode(),
-                phase.rangedAttack().getMaxRange(), candidate -> isValidTarget(candidate, phase));
+                phase.rangedAttack().getMaxRange(), candidate -> isValidTarget(candidate, phase), BossAbilityKind.RANGED);
         if (target == null || !ProjectileEntityUtil.canShoot(npc)) {
             boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK, gameTime + boss.retryTicks());
             return false;

@@ -167,9 +167,11 @@ final class BossConeRuntime {
     private LivingEntity pickTarget(ServerLevel level, BossPhaseData phase) {
         BossConeSettings cone = phase.cone();
         Predicate<LivingEntity> canHit = candidate -> isValidTarget(candidate, phase);
-        LivingEntity picked = boss.selectAbilityTarget(level, cone.getTargetMode(), cone.getLength(), canHit);
+        LivingEntity picked = boss.selectAbilityTarget(level, cone.getTargetMode(), cone.getLength(), canHit,
+                BossAbilityKind.CONE);
         if (picked == null && fallsBackToNearest(cone.getTargetMode())) {
-            picked = boss.selectAbilityTarget(level, BossTargetMode.NEAREST, cone.getLength(), canHit);
+            picked = boss.selectAbilityTarget(level, BossTargetMode.NEAREST, cone.getLength(), canHit,
+                    BossAbilityKind.CONE);
         }
         return picked;
     }
@@ -200,7 +202,7 @@ final class BossConeRuntime {
     private boolean mayHit(LivingEntity target, TeleportPathData data) {
         return target != null && target != npc && target.isAlive()
                 && boss.isAbilityTarget(target, BossAbilityKind.CONE)
-                && boss.matchesAbilityTargetKind(target, data)
+                && boss.matchesAbilityTargetKind(target, data, BossAbilityKind.CONE)
                 && !BossMechanicUtil.hiddenByTotems(target);
     }
 

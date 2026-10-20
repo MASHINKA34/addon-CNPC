@@ -56,7 +56,7 @@ final class BossRiftRuntime {
             return false;
         }
         List<LivingEntity> targets = boss.selectAbilityTargets(level, rift.getTargetMode(), reach(data),
-                candidate -> isValidTarget(candidate, data), rift.getTargetCount());
+                candidate -> isValidTarget(candidate, data), rift.getTargetCount(), BossAbilityKind.RIFT);
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.RIFT, gameTime + boss.retryTicks());
             return false;
@@ -195,7 +195,7 @@ final class BossRiftRuntime {
             int amount = damage ? boss.damageUp(BossAbilityKind.RIFT, settings.getFailArenaDamage()) : 0;
             for (LivingEntity target : boss.getTargetsAround(level, npc.position(),
                     settings.getFailArenaRadius(), BossAbilityKind.RIFT)) {
-                if (boss.matchesAbilityTargetKind(target, data)) {
+                if (boss.matchesAbilityTargetKind(target, data, BossAbilityKind.RIFT)) {
                     BossAbilityDamageUtil.hit(target, BossAbilityKind.RIFT, npc, amount,
                             effects ? settings.getFailEffects() : null, 0, 0.0D, 0.0D);
                 }

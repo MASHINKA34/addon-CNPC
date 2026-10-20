@@ -34,7 +34,7 @@ final class BossMarkRuntime {
         if (!boss.mayStart(BossAbility.MARK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.MARK)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.mark().getTargetMode(),
                 phase.mark().getReach(), candidate -> isValidTarget(candidate, phase),
-                phase.mark().getTargetCount());
+                phase.mark().getTargetCount(), BossAbilityKind.MARK);
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.MARK, gameTime + boss.retryTicks());
             return false;

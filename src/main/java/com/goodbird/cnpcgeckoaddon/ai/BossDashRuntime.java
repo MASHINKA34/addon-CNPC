@@ -105,7 +105,7 @@ final class BossDashRuntime {
         Vec3 committed;
         if (phase.dash().getDirection() == BossPhaseData.DASH_DIRECTION_TARGET) {
             target = boss.selectAbilityTarget(level, phase.dash().getTargetMode(), phase.dash().getLength(),
-                    candidate -> isValidTarget(candidate, phase));
+                    candidate -> isValidTarget(candidate, phase), BossAbilityKind.DASH);
             if (target == null) {
                 boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + boss.retryTicks());
                 return false;

@@ -43,7 +43,7 @@ final class BossLineAttackRuntime {
         if (!boss.mayStart(BossAbility.LINE_ATTACK, phase)
                 || gameTime < boss.abilityScheduleAt(BossAbility.LINE_ATTACK)) return false;
         LivingEntity target = boss.selectAbilityTarget(level, phase.lineAttack().getTargetMode(),
-                phase.lineAttack().getLength(), candidate -> isValidTarget(candidate, phase));
+                phase.lineAttack().getLength(), candidate -> isValidTarget(candidate, phase), BossAbilityKind.LINE);
         Vec3 axis = resolveAxis(phase, target);
         // An empty corridor is no reason to swing: the strike would land on bare floor and
         // spend a whole cooldown doing it.

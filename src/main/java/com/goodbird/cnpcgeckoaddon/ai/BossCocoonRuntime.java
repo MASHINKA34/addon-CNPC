@@ -76,7 +76,7 @@ final class BossCocoonRuntime {
         if (!boss.mayStart(BossAbility.COCOON, phase) || gameTime < boss.abilityScheduleAt(BossAbility.COCOON)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.cocoon().getTargetMode(),
                 phase.cocoon().getReach(), candidate -> isValidTarget(candidate, phase),
-                phase.cocoon().getTargetCount());
+                phase.cocoon().getTargetCount(), BossAbilityKind.COCOON);
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.COCOON, gameTime + boss.retryTicks());
             return false;

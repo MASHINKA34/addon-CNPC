@@ -321,7 +321,7 @@ final class BossHazardRuntime {
         return level.getEntitiesOfClass(LivingEntity.class, sweep, target ->
                 target != npc && target.isAlive() && hazard.burns(target.position(), gameTime)
                         && (!(target instanceof Player player) || boss.isEncounterParticipant(player))
-                        && boss.matchesAbilityTargetKind(target, data)
+                        && boss.matchesAbilityTargetKind(target, data, BossAbilityKind.HAZARD)
                         && !BossMechanicUtil.hiddenByTotems(target)
                         && boss.isAbilityTarget(target, BossAbilityKind.HAZARD));
     }

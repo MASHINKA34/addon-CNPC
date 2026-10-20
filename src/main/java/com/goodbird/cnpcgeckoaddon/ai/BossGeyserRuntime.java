@@ -49,7 +49,7 @@ final class BossGeyserRuntime {
         if (!boss.mayStart(BossAbility.GEYSER, phase) || gameTime < boss.abilityScheduleAt(BossAbility.GEYSER)) return false;
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.geyser().getTargetMode(),
                 phase.geyser().getMaxRange(), candidate -> isValidTarget(candidate, phase),
-                phase.geyser().getTargetCount());
+                phase.geyser().getTargetCount(), BossAbilityKind.GEYSER);
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.GEYSER, gameTime + boss.retryTicks());
             return false;

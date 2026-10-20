@@ -64,7 +64,7 @@ final class BossHookRuntime {
         }
         List<LivingEntity> targets = boss.selectAbilityTargets(level, phase.hook().getTargetMode(),
                 phase.hook().getMaxRange(), candidate -> isValidTarget(candidate, phase),
-                phase.hook().getTargetCount());
+                phase.hook().getTargetCount(), BossAbilityKind.HOOK);
         if (targets.isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.HOOK, gameTime + boss.retryTicks());
             return false;

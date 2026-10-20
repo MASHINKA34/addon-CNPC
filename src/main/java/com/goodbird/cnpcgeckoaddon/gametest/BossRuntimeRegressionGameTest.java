@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.gametest;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.ai.BossAbilityDamageUtil;
 import com.goodbird.cnpcgeckoaddon.ai.BossHealthScalingUtil;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -68,9 +69,11 @@ public class BossRuntimeRegressionGameTest {
     private static List<?> select(TeleportPathController controller, GameTestHelper helper, int mode,
                                   Predicate<LivingEntity> eligible, int count) throws ReflectiveOperationException {
         var method = TeleportPathController.class.getDeclaredMethod("selectAbilityTargets",
-                ServerLevel.class, int.class, double.class, Predicate.class, int.class);
+                ServerLevel.class, int.class, double.class, Predicate.class, int.class, int.class);
         method.setAccessible(true);
-        return (List<?>) method.invoke(controller, helper.getLevel(), mode, 16.0D, eligible, count);
+        // No ability's profile in the way: the kinds come from the boss' own setting, as they always did here.
+        return (List<?>) method.invoke(controller, helper.getLevel(), mode, 16.0D, eligible, count,
+                BossAbilityDamageUtil.NO_ABILITY);
     }
 
     @GameTest(template = "fluid_platform")
