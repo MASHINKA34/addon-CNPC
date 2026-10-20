@@ -114,9 +114,10 @@ final class BossBoulderRuntime {
         EntityBossBoulder boulder = new EntityBossBoulder(EntityRegistry.entityBossBoulder, level);
         boulder.setOwner(npc);
         boulder.configure(block, phase.boulder().getStyle(), phase.boulder().getScale(),
-                boss.damageUp(phase.boulder().getDamage()), boss.rageUp(phase.boulder().getKnockback()),
+                boss.damageUp(BossAbilityKind.BOULDER, phase.boulder().getDamage()),
+                boss.rageUp(BossAbilityKind.BOULDER, phase.boulder().getKnockback()),
                 phase.boulder().isStopsOnHit(), phase.boulder().getShatterRadius(),
-                boss.damageUp(phase.boulder().getShatterDamage()), phase.boulder().getVfx(),
+                boss.damageUp(BossAbilityKind.BOULDER, phase.boulder().getShatterDamage()), phase.boulder().getVfx(),
                 phase.boulder().getEffects());
         tune(boulder, phase);
         double offset = npc.getBbWidth() * 0.5D + phase.boulder().getScale() / 20.0D
@@ -231,7 +232,8 @@ final class BossBoulderRuntime {
         }
         reportedBrokenRainBlock = "";
         BossBoulderRainScheduler.schedule(level, npc, phase, npc.position(), block,
-                boss.damageUp(phase.boulderRain().getDamage()), boss.rageUp(phase.boulderRain().getKnockback()),
-                boss.damageUp(phase.boulderRain().getShatterDamage()), gameTime);
+                boss.damageUp(BossAbilityKind.BOULDER_RAIN, phase.boulderRain().getDamage()),
+                boss.rageUp(BossAbilityKind.BOULDER_RAIN, phase.boulderRain().getKnockback()),
+                boss.damageUp(BossAbilityKind.BOULDER_RAIN, phase.boulderRain().getShatterDamage()), gameTime);
     }
 }

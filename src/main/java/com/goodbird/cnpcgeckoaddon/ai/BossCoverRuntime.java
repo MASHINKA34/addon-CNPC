@@ -106,7 +106,8 @@ final class BossCoverRuntime {
         }
         BossCoverSettings cover = phase.cover();
         cast = new CoverCast(cover.getMode(), cover.getRange(),
-                boss.damageUp(cover.getDamage()), boss.rageUp(cover.getKnockback()),
+                boss.damageUp(BossAbilityKind.COVER, cover.getDamage()),
+                boss.rageUp(BossAbilityKind.COVER, cover.getKnockback()),
                 cover.getEffects(), cover.getVfx(), cover.getShelterRadius(), shelters,
                 cover.getKneeHeight(), waveDuration(cover.getRange(), cover.getWaveSpeed(),
                         cover.getVfxMinTicks(), cover.getVfxMaxTicks()),

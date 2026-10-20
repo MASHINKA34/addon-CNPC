@@ -107,7 +107,7 @@ final class BossHookRuntime {
             return;
         }
 
-        double strength = boss.rageUp(phase.hook().getPullStrength()) / 20.0D;
+        double strength = boss.rageUp(BossAbilityKind.HOOK, phase.hook().getPullStrength()) / 20.0D;
         long endsAt = gameTime + phase.hook().getPullDurationTicks();
         // A cinch reels everyone onto one spot and keeps them there for the full duration,
         // so the release distance is deliberately ignored - the point is to end up with a
@@ -131,7 +131,8 @@ final class BossHookRuntime {
             // No knockback here: what the hook shoves with is the pull below, which runs for
             // as long as the cord holds rather than for one tick.
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.HOOK, npc,
-                    boss.damageUp(phase.hook().getDamage()), phase.hook().getEffects(), 0, 0.0D, 0.0D);
+                    boss.damageUp(BossAbilityKind.HOOK, phase.hook().getDamage()), phase.hook().getEffects(),
+                    0, 0.0D, 0.0D);
             // Re-hooking someone already being dragged just refreshes their pull.
             activePulls.removeIf(pull -> pull.targetId() == victim.getId());
             activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint,

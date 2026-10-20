@@ -95,12 +95,12 @@ final class BossGeyserRuntime {
         BlockState fluid = fluid(phase);
         // The fuse is deliberately left alone by the enrage: it is the window a player gets
         // to read the mark and step off it, not a number the fight is allowed to turn up.
-        int damage = boss.damageUp(phase.geyser().getDamage());
-        int launch = boss.rageUp(phase.geyser().getLaunch());
+        int damage = boss.damageUp(BossAbilityKind.GEYSER, phase.geyser().getDamage());
+        int launch = boss.rageUp(BossAbilityKind.GEYSER, phase.geyser().getLaunch());
         // The strike from above and the residue's doses are the same cast landing later, so they
         // take the rage as it stood on the cast, the way the eruption's own damage does.
-        int skyDamage = boss.damageUp(phase.geyser().getSkyDamage());
-        int residueDamage = boss.damageUp(phase.geyser().getResidueDamage());
+        int skyDamage = boss.damageUp(BossAbilityKind.GEYSER, phase.geyser().getSkyDamage());
+        int residueDamage = boss.damageUp(BossAbilityKind.GEYSER, phase.geyser().getResidueDamage());
         for (LivingEntity victim : victims) {
             BossGeyserScheduler.schedule(level, npc, victim, phase, fluid, damage, launch, skyDamage,
                     residueDamage, gameTime);

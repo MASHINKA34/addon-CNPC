@@ -281,8 +281,8 @@ final class BossShadowRuntime {
      * touched, and the hit goes through the one door every ability's does, in the boss' name.
      */
     private void blastAll(ServerLevel level) {
-        int damage = boss.damageUp(cast.getBlastDamage());
-        int knockback = boss.rageUp(cast.getBlastKnockback());
+        int damage = boss.damageUp(BossAbilityKind.SHADOW, cast.getBlastDamage());
+        int knockback = boss.rageUp(BossAbilityKind.SHADOW, cast.getBlastKnockback());
         for (EntityNPCInterface copy : aliveCopies(level)) {
             Vec3 centre = copy.position();
             for (LivingEntity target : boss.getTargetsAround(level, centre, cast.getBlastRadius(),

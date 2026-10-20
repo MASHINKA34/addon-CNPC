@@ -106,9 +106,9 @@ final class BossLineAttackRuntime {
         // the damage lands rather than a tick behind it.
         BossAreaVfxScheduler.scheduleLine(level, origin, axis, phase,
                 BossWaveTuning.of(npc, phase.lineAttack().getVfx()));
-        int damage = boss.damageUp(phase.lineAttack().getDamage());
+        int damage = boss.damageUp(BossAbilityKind.LINE, phase.lineAttack().getDamage());
         int sideDamage = sideWaveDamage(damage, phase.lineAttack().getSidePercent());
-        int knockback = boss.rageUp(phase.lineAttack().getKnockback());
+        int knockback = boss.rageUp(BossAbilityKind.LINE, phase.lineAttack().getKnockback());
         for (LivingEntity target : targetsIn(level, origin, axis, phase)) {
             boolean side = bandOf(origin, axis, phase, target) == Band.SIDE;
             // Pushed down the line rather than away from the boss: this is a strike forward

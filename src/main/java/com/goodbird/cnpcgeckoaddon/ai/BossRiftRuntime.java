@@ -192,7 +192,7 @@ final class BossRiftRuntime {
         boolean damage = penalties.contains(BossRiftOutcome.Penalty.ARENA_DAMAGE);
         boolean effects = penalties.contains(BossRiftOutcome.Penalty.EFFECTS);
         if (damage || effects) {
-            int amount = damage ? boss.damageUp(settings.getFailArenaDamage()) : 0;
+            int amount = damage ? boss.damageUp(BossAbilityKind.RIFT, settings.getFailArenaDamage()) : 0;
             for (LivingEntity target : boss.getTargetsAround(level, npc.position(),
                     settings.getFailArenaRadius(), BossAbilityKind.RIFT)) {
                 if (boss.matchesAbilityTargetKind(target, data)) {

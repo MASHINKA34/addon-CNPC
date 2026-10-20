@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
@@ -55,6 +56,7 @@ final class BossGravityCastRuntime {
      * run, not a number the fight may turn down.</p>
      */
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
-        BossGravityScheduler.start(level, npc, phase, boss.damageUp(phase.gravity().getDamage()), gameTime);
+        BossGravityScheduler.start(level, npc, phase,
+                boss.damageUp(BossAbilityKind.GRAVITY, phase.gravity().getDamage()), gameTime);
     }
 }

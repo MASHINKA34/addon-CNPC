@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformZone;
@@ -115,9 +116,9 @@ final class BossPlatformRuntime {
             turnCursor.put(turnPhase, turn);
         }
         BossPlatformSettings platform = phase.platform();
-        int damage = boss.damageUp(platform.getDamage());
-        int knockback = boss.rageUp(platform.getKnockback());
-        int launch = boss.rageUp(platform.getLaunch());
+        int damage = boss.damageUp(BossAbilityKind.PLATFORM, platform.getDamage());
+        int knockback = boss.rageUp(BossAbilityKind.PLATFORM, platform.getKnockback());
+        int launch = boss.rageUp(BossAbilityKind.PLATFORM, platform.getLaunch());
         // One countdown per cast: the first platform speaks for all of them.
         boolean announces = true;
         for (AABB box : boxes) {

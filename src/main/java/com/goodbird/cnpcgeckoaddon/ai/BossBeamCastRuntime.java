@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
@@ -69,7 +70,8 @@ final class BossBeamCastRuntime {
      */
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
         BossBeamScheduler.start(level, npc, phase, boss.committedYaw(),
-                boss.damageUp(phase.beam().getDamage()), boss.rageUp(phase.beam().getKnockback()), gameTime);
+                boss.damageUp(BossAbilityKind.BEAM, phase.beam().getDamage()),
+                boss.rageUp(BossAbilityKind.BEAM, phase.beam().getKnockback()), gameTime);
     }
 
     /** Read-only status used by the boss diagnostic command. */

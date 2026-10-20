@@ -939,6 +939,33 @@ public final class TeleportPathController {
         return shadows.scaleDamage(rage.up(value), currentGameTime());
     }
 
+    /**
+     * {@link #rageUp(int)} for one ability's knockback, launch or pull: as it stands when that
+     * ability's profile in the phase being fought keeps the enrage off it.
+     */
+    int rageUp(int kind, int value) {
+        return profileOf(kind).knockbackUnderRage(value, this::rageUp);
+    }
+
+    /** {@link #rageDown(int)} for one ability's cooldown, by its profile the same way. */
+    int rageDown(int kind, int value) {
+        return profileOf(kind).cooldownUnderRage(value, this::rageDown);
+    }
+
+    /**
+     * {@link #damageUp(int)} for a number one ability hits for: the enrage and the stacks of the
+     * copies taken back, or neither when that ability's profile keeps the enrage off its damage.
+     */
+    int damageUp(int kind, int value) {
+        return profileOf(kind).damageUnderRage(value, this::damageUp);
+    }
+
+    /** This ability's profile in the phase being fought, or the defaults outside a fight's phase. */
+    private BossAbilityProfile profileOf(int kind) {
+        BossPhaseData phase = activePhase();
+        return phase == null ? BossAbilityProfile.defaults() : phase.profile(kind);
+    }
+
     /** What the copies the boss took back multiply its own swing by; one with none held. */
     public double absorbMultiplier() {
         return shadows.absorbMultiplier(currentGameTime());

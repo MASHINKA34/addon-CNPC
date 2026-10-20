@@ -175,18 +175,28 @@ final class BossRageRuntime {
      * all", and the rage is not supposed to invent an effect the boss never had.</p>
      */
     int up(int value) {
-        if (!rageActive || value <= 0) {
-            return value;
-        }
-        return Math.max(1, (int) Math.round(value * multiplier()));
+        return rageActive ? scaleUp(value, multiplier()) : value;
     }
 
     /** The other half of {@link #up}, for cooldowns - the boss acts more often, not less. */
     int down(int value) {
-        if (!rageActive || value <= 0) {
+        return rageActive ? scaleDown(value, multiplier()) : value;
+    }
+
+    /** What {@link #up} makes of a number while the rage runs at this multiplier. */
+    static int scaleUp(int value, double multiplier) {
+        if (value <= 0) {
             return value;
         }
-        return Math.max(1, (int) Math.round(value / multiplier()));
+        return Math.max(1, (int) Math.round(value * multiplier));
+    }
+
+    /** What {@link #down} makes of a number while the rage runs at this multiplier. */
+    static int scaleDown(int value, double multiplier) {
+        if (value <= 0) {
+            return value;
+        }
+        return Math.max(1, (int) Math.round(value / multiplier));
     }
 
     /**

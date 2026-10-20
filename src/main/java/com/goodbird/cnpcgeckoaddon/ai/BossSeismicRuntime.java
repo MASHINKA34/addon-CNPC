@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSeismicSettings;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -48,7 +49,8 @@ final class BossSeismicRuntime {
         BossSeismicSettings seismic = phase.seismic();
         // The damage and the landing go through the damage door, the throw through the rage
         // alone: the stacks from the copies buff what a ring hits for, not how far anybody flies.
-        BossSeismicScheduler.start(level, npc, phase, boss.damageUp(seismic.getDamage()),
-                boss.damageUp(seismic.getSlamDamage()), boss.rageUp(seismic.getLaunch()), gameTime);
+        BossSeismicScheduler.start(level, npc, phase, boss.damageUp(BossAbilityKind.SEISMIC, seismic.getDamage()),
+                boss.damageUp(BossAbilityKind.SEISMIC, seismic.getSlamDamage()),
+                boss.rageUp(BossAbilityKind.SEISMIC, seismic.getLaunch()), gameTime);
     }
 }

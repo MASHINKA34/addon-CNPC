@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossVentSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossVentZone;
@@ -92,8 +93,10 @@ final class BossVentRuntime {
         }
         BossVentSettings vent = phase.vent();
         BossVentScheduler.start(level, npc, phase, new BossVentScheduler.Snapshot(vents,
-                boss.damageUp(vent.getDamage()), boss.damageUp(vent.getWallDamage()),
-                boss.rageUp(vent.getKnockback()), boss.rageUp(vent.getWallPushTenths())), gameTime);
+                boss.damageUp(BossAbilityKind.VENT, vent.getDamage()),
+                boss.damageUp(BossAbilityKind.VENT, vent.getWallDamage()),
+                boss.rageUp(BossAbilityKind.VENT, vent.getKnockback()),
+                boss.rageUp(BossAbilityKind.VENT, vent.getWallPushTenths())), gameTime);
     }
 
     /**
