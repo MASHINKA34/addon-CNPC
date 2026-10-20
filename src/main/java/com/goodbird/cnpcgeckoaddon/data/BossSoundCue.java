@@ -62,8 +62,10 @@ public final class BossSoundCue {
     private final String defaultSoundId;
     private final int defaultVolume;
     private final int defaultPitch;
+    /** Whether the cue sounds before anybody touches it, and after a reset. */
+    private final boolean defaultEnabled;
 
-    private boolean enabled = true;
+    private boolean enabled;
     private String soundId;
     private int volume;
     private int pitch;
@@ -74,9 +76,22 @@ public final class BossSoundCue {
      * @param defaultPitch   and how high
      */
     public BossSoundCue(String defaultSoundId, float defaultVolume, float defaultPitch) {
+        this(defaultSoundId, defaultVolume, defaultPitch, true);
+    }
+
+    /**
+     * The same, for a cue that may be born switched off: a noise given to an ability that never
+     * made one. Off, a boss saved before the cue existed stays as quiet as it always was, and the
+     * id, volume and pitch are only what the cue starts from once a builder turns it on.
+     *
+     * @param defaultEnabled whether the cue sounds before anybody turns it on
+     */
+    public BossSoundCue(String defaultSoundId, float defaultVolume, float defaultPitch, boolean defaultEnabled) {
         this.defaultSoundId = clean(defaultSoundId);
         this.defaultVolume = Mth.clamp(Math.round(defaultVolume * 10.0F), MIN_VOLUME, MAX_VOLUME);
         this.defaultPitch = Mth.clamp(Math.round(defaultPitch * 10.0F), MIN_PITCH, MAX_PITCH);
+        this.defaultEnabled = defaultEnabled;
+        this.enabled = defaultEnabled;
         this.soundId = this.defaultSoundId;
         this.volume = this.defaultVolume;
         this.pitch = this.defaultPitch;
@@ -108,9 +123,17 @@ public final class BossSoundCue {
 
     public int getDefaultPitch() { return defaultPitch; }
 
+    public boolean isDefaultEnabled() { return defaultEnabled; }
+
+    /** Whether nothing here differs from the call the cue was made out of, the switch included. */
+    public boolean isAtDefaults() {
+        return enabled == defaultEnabled && soundId.equals(defaultSoundId) && volume == defaultVolume
+                && pitch == defaultPitch;
+    }
+
     /** Puts the cue back to the call it was made out of. */
     public void reset() {
-        enabled = true;
+        enabled = defaultEnabled;
         soundId = defaultSoundId;
         volume = defaultVolume;
         pitch = defaultPitch;
@@ -118,7 +141,8 @@ public final class BossSoundCue {
 
     /** An independent copy, for a scheduler that has to keep what it was told on the cast. */
     public BossSoundCue copy() {
-        BossSoundCue copy = new BossSoundCue(defaultSoundId, defaultVolume / 10.0F, defaultPitch / 10.0F);
+        BossSoundCue copy = new BossSoundCue(defaultSoundId, defaultVolume / 10.0F, defaultPitch / 10.0F,
+                defaultEnabled);
         copy.enabled = enabled;
         copy.soundId = soundId;
         copy.volume = volume;
@@ -209,9 +233,12 @@ public final class BossSoundCue {
         tag.putInt(prefix + "Pitch", pitch);
     }
 
-    /** A tag without these keys is a boss saved before the cue existed: it keeps its old noise. */
+    /**
+     * A tag without these keys is a boss saved before the cue existed: it keeps its old noise, or
+     * its old silence for a cue born switched off.
+     */
     public void readFromNBT(CompoundTag tag, String prefix) {
-        enabled = !tag.contains(prefix + "On") || tag.getBoolean(prefix + "On");
+        enabled = tag.contains(prefix + "On") ? tag.getBoolean(prefix + "On") : defaultEnabled;
         setSoundId(tag.contains(prefix + "Sound") ? tag.getString(prefix + "Sound") : defaultSoundId);
         volume = value(tag, prefix + "Volume", defaultVolume, MIN_VOLUME, MAX_VOLUME);
         pitch = value(tag, prefix + "Pitch", defaultPitch, MIN_PITCH, MAX_PITCH);

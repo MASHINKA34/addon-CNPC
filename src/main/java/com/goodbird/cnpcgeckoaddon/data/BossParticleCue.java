@@ -53,14 +53,28 @@ public final class BossParticleCue {
 
     private final String defaultParticleId;
     private final int defaultCount;
+    /** Whether the cue throws its puff before anybody touches it, and after a reset. */
+    private final boolean defaultEnabled;
 
-    private boolean enabled = true;
+    private boolean enabled;
     private String particleId;
     private int count;
 
     public BossParticleCue(String defaultParticleId, int defaultCount) {
+        this(defaultParticleId, defaultCount, true);
+    }
+
+    /**
+     * The same, for a cue that may be born switched off - {@link BossSoundCue}'s reason: a puff
+     * given to an ability that never threw one stays unthrown on a boss saved before it.
+     *
+     * @param defaultEnabled whether the cue throws its puff before anybody turns it on
+     */
+    public BossParticleCue(String defaultParticleId, int defaultCount, boolean defaultEnabled) {
         this.defaultParticleId = clean(defaultParticleId);
         this.defaultCount = Mth.clamp(defaultCount, MIN_COUNT, MAX_COUNT);
+        this.defaultEnabled = defaultEnabled;
+        this.enabled = defaultEnabled;
         this.particleId = this.defaultParticleId;
         this.count = this.defaultCount;
     }
@@ -84,15 +98,17 @@ public final class BossParticleCue {
 
     public int getDefaultCount() { return defaultCount; }
 
+    public boolean isDefaultEnabled() { return defaultEnabled; }
+
     public void reset() {
-        enabled = true;
+        enabled = defaultEnabled;
         particleId = defaultParticleId;
         count = defaultCount;
     }
 
     /** An independent copy, for a scheduler that has to keep what it was told on the cast. */
     public BossParticleCue copy() {
-        BossParticleCue copy = new BossParticleCue(defaultParticleId, defaultCount);
+        BossParticleCue copy = new BossParticleCue(defaultParticleId, defaultCount, defaultEnabled);
         copy.enabled = enabled;
         copy.particleId = particleId;
         copy.count = count;
@@ -185,8 +201,9 @@ public final class BossParticleCue {
         tag.putInt(prefix + "Count", count);
     }
 
+    /** A tag without these keys keeps the puff the cue was born with: thrown, or for one born off, not. */
     public void readFromNBT(CompoundTag tag, String prefix) {
-        enabled = !tag.contains(prefix + "On") || tag.getBoolean(prefix + "On");
+        enabled = tag.contains(prefix + "On") ? tag.getBoolean(prefix + "On") : defaultEnabled;
         setParticleId(tag.contains(prefix + "Particle")
                 ? tag.getString(prefix + "Particle") : defaultParticleId);
         count = value(tag, prefix + "Count", defaultCount, MIN_COUNT, MAX_COUNT);

@@ -181,6 +181,45 @@ class BossCueTest {
     }
 
     @Test
+    @DisplayName("a cue born switched off stays off through an old save, a reset and a copy")
+    void aCueBornOffStaysOff() {
+        BossSoundCue sound = new BossSoundCue("minecraft:block.note_block.bell", 1.0F, 1.2F, false);
+        BossParticleCue puff = new BossParticleCue("minecraft:crit", 6, false);
+        assertFalse(sound.isEnabled(), "a noise an ability never made is not made until somebody asks for it");
+        assertFalse(puff.isEnabled());
+        assertTrue(sound.isAtDefaults());
+
+        sound.setEnabled(true);
+        puff.setEnabled(true);
+        CompoundTag tag = new CompoundTag();
+        sound.writeToNBT(tag, "ProbeSound");
+        puff.writeToNBT(tag, "ProbeParticles");
+        BossSoundCue soundBack = new BossSoundCue("minecraft:block.note_block.bell", 1.0F, 1.2F, false);
+        BossParticleCue puffBack = new BossParticleCue("minecraft:crit", 6, false);
+        soundBack.readFromNBT(tag, "ProbeSound");
+        puffBack.readFromNBT(tag, "ProbeParticles");
+        assertTrue(soundBack.isEnabled(), "switched on and saved, it loads switched on");
+        assertTrue(puffBack.isEnabled());
+        assertFalse(soundBack.isAtDefaults());
+
+        // A boss saved before the cue existed carries none of its keys: it stays as quiet as it was.
+        soundBack.readFromNBT(new CompoundTag(), "ProbeSound");
+        puffBack.readFromNBT(new CompoundTag(), "ProbeParticles");
+        assertFalse(soundBack.isEnabled());
+        assertFalse(puffBack.isEnabled());
+
+        sound.reset();
+        puff.reset();
+        assertFalse(sound.isEnabled(), "a reset puts it back to off, the call it was made out of");
+        assertFalse(puff.isEnabled());
+        sound.setEnabled(true);
+        BossSoundCue copy = sound.copy();
+        copy.reset();
+        assertFalse(copy.isEnabled(), "a copy remembers it was born off");
+        assertFalse(puff.copy().isDefaultEnabled());
+    }
+
+    @Test
     @DisplayName("a copy is its own cue")
     void aCopyIsIndependent() {
         BossSoundCue cue = bell();

@@ -147,6 +147,28 @@ class BossFieldPersistenceTest {
     }
 
     /**
+     * The same sweep over every cue a profile carries.
+     *
+     * <p>A cue is a final field of the profile writing its keys under a prefix of its own, which
+     * the profile sweep above skips twice over, and a profile is written only while it differs from
+     * the defaults - so a cue left out of the profile's idea of "default" would be dropped on the
+     * next save however it was changed. Found by walking the fields, every kind on its own.</p>
+     */
+    @TestFactory
+    @DisplayName("every ability profile cue field reaches the save tag")
+    Stream<DynamicTest> everyAbilityProfileCueFieldIsPersisted() {
+        return IntStream.range(0, BossAbilityKind.COUNT).boxed()
+                .flatMap(kind -> Stream.of(BossAbilityProfile.class.getDeclaredFields())
+                        .filter(BossFieldPersistenceTest::isCue)
+                        .map(field -> DynamicTest.dynamicTest(
+                                "profile of " + BossAbilityKind.LABELS[kind] + "." + field.getName(), () -> {
+                                    field.setAccessible(true);
+                                    assertPersisted(field.getType(), BossFieldPersistenceTest::configuredHost,
+                                            data -> reach(field, data.getPhase(1).profile(kind)));
+                                })));
+    }
+
+    /**
      * The same sweep over the cast spot every ability carries.
      *
      * <p>The spot is a final field of its settings class, which the sweep above skips as a

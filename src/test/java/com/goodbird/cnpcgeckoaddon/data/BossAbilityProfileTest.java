@@ -56,6 +56,13 @@ class BossAbilityProfileTest {
                 field.setInt(profile, field.getInt(profile) == 3 ? 4 : 3);
             } else if (field.getType() == boolean.class) {
                 field.setBoolean(profile, !field.getBoolean(profile));
+            } else if (field.getType() == String.class) {
+                field.set(profile, "probe".equals(field.get(profile)) ? "other" : "probe");
+            } else if (field.getType() == BossSoundCue.class) {
+                // A cue is a final object edited in place: its own fields are swept by the cue
+                // persistence sweep, and one of them changed is enough to count here.
+                BossSoundCue cue = (BossSoundCue) field.get(profile);
+                cue.setVolume(cue.getVolume() == 3 ? 4 : 3);
             } else {
                 throw new AssertionError("no probe for " + field.getType() + " " + field.getName());
             }
