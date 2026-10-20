@@ -11,6 +11,7 @@ import com.goodbird.cnpcgeckoaddon.ai.BossShadowUtil;
 import com.goodbird.cnpcgeckoaddon.ai.BossVentScheduler;
 import com.goodbird.cnpcgeckoaddon.ai.TeleportPathController;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossPresetNames;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import com.goodbird.cnpcgeckoaddon.data.RangedExtraData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -23,6 +24,7 @@ import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.goodbird.cnpcgeckoaddon.utils.GuardSelfTest;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
+import com.goodbird.cnpcgeckoaddon.world.BossPresetManager;
 import com.goodbird.cnpcgeckoaddon.world.NpcCarryManager;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -38,12 +40,21 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import noppes.npcs.entity.EntityCustomNpc;
 import noppes.npcs.entity.EntityNPCInterface;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,6 +68,8 @@ public class GeckoAddonCommand {
     private static final double SELF_TEST_BOSS_RANGE = 64.0D;
     /** How far the rift commands look for the boss whose settings they borrow. */
     private static final double RIFT_BOSS_RANGE = 64.0D;
+    /** How far the preset commands reach for the npc looked at, and for the nearest boss without one. */
+    private static final double PRESET_BOSS_RANGE = 16.0D;
 
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
@@ -90,7 +103,142 @@ public class GeckoAddonCommand {
                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(GuardSelfTest.SITES, builder))
                         .executes(context -> selfTest(context.getSource(),
                                 StringArgumentType.getString(context, "site")))));
+        // The rest of the line is the name, so a name typed the way the presets screen takes it -
+        // "Demo 2!" - is cleaned the same way rather than refused by the parser.
+        root.then(Commands.literal("preset").requires(source -> source.hasPermission(2))
+                .then(Commands.literal("save")
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(context -> presetSave(context.getSource(),
+                                        StringArgumentType.getString(context, "name")))))
+                .then(Commands.literal("load")
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                        BossPresetManager.names(), builder))
+                                .executes(context -> presetLoad(context.getSource(),
+                                        StringArgumentType.getString(context, "name")))))
+                .then(Commands.literal("list").executes(context -> presetList(context.getSource()))));
         event.getDispatcher().register(root);
+    }
+
+    /**
+     * Saves the boss the sender looks at - or the configured boss nearest them - as a preset in this
+     * server's presets folder, over one of that name.
+     */
+    private static int presetSave(CommandSourceStack source, String typed) {
+        EntityNPCInterface npc = presetTarget(source);
+        BossPresetManager.Result result = BossPresetManager.save(npc, typed, source.getTextName());
+        switch (result.outcome()) {
+            case SAVED, OVERWRITTEN -> {
+                String verb = result.outcome() == BossPresetManager.Outcome.OVERWRITTEN ? "overwritten" : "saved";
+                source.sendSuccess(() -> Component.literal("Preset " + result.name() + " " + verb + " from "
+                        + result.npcName() + ": " + shownPath(result.file()) + " (" + result.bytes() + " bytes)"), true);
+                return 1;
+            }
+            case BAD_NAME -> source.sendFailure(Component.literal("Bad preset name '" + typed
+                    + "': use a-z, 0-9, _ and -, up to " + BossPresetNames.MAX_LENGTH));
+            case NO_BOSS -> source.sendFailure(Component.literal(npc == null ? noBossLine()
+                    : result.npcName() + " has no boss settings to save"));
+            default -> source.sendFailure(Component.literal("Preset " + result.name()
+                    + " could not be saved - see the log"));
+        }
+        return 0;
+    }
+
+    /**
+     * Lays a preset over the npc the sender looks at - any npc, a boss or not yet - or the configured
+     * boss nearest them. Only the boss settings change; the npc's name, model and stats stay its own.
+     */
+    private static int presetLoad(CommandSourceStack source, String typed) {
+        EntityNPCInterface npc = presetTarget(source);
+        BossPresetManager.Result result = BossPresetManager.load(npc, typed, source.getTextName());
+        switch (result.outcome()) {
+            case LOADED -> {
+                source.sendSuccess(() -> Component.literal("Preset " + result.name() + " loaded into "
+                        + result.npcName() + " - reopen its menu to see it"), true);
+                return 1;
+            }
+            case BAD_NAME -> source.sendFailure(Component.literal("Bad preset name '" + typed
+                    + "': use a-z, 0-9, _ and -, up to " + BossPresetNames.MAX_LENGTH));
+            case NO_BOSS -> source.sendFailure(Component.literal(noBossLine()));
+            case MISSING -> source.sendFailure(Component.literal("No preset named " + result.name()
+                    + " - see /cnpcgecko preset list"));
+            default -> source.sendFailure(Component.literal("Preset " + result.name()
+                    + " could not be read - see the log"));
+        }
+        return 0;
+    }
+
+    private static int presetList(CommandSourceStack source) {
+        BossPresetManager.Result result = BossPresetManager.list(source.getTextName());
+        if (result.outcome() != BossPresetManager.Outcome.LISTED) {
+            source.sendFailure(Component.literal("The presets folder " + shownPath(result.file())
+                    + " could not be read - see the log"));
+            return 0;
+        }
+        List<String> names = result.names();
+        String folder = shownPath(result.file());
+        source.sendSuccess(() -> Component.literal(names.isEmpty() ? "No presets in " + folder
+                : "Presets (" + names.size() + ") in " + folder + ": " + String.join(", ", names)), false);
+        return names.size();
+    }
+
+    private static String noBossLine() {
+        return "No boss in sight - look at one, or stand within " + (int) PRESET_BOSS_RANGE + " blocks of one";
+    }
+
+    /** A path as the server's own folder names it - config/cnpcgeckoaddon/presets/demo.snbt - where it can. */
+    private static String shownPath(Path path) {
+        if (path == null) {
+            return "?";
+        }
+        try {
+            return FMLPaths.GAMEDIR.get().relativize(path).toString().replace('\\', '/');
+        } catch (IllegalArgumentException elsewhere) {
+            return path.toString();
+        }
+    }
+
+    /**
+     * The npc a preset command means: the one the sender looks at within reach, through nothing solid,
+     * or else the configured boss nearest them within the same reach. A shadow copy is never one.
+     */
+    private static EntityNPCInterface presetTarget(CommandSourceStack source) {
+        if (source.getEntity() instanceof ServerPlayer player) {
+            EntityNPCInterface seen = lookedAtNpc(player);
+            if (seen != null) {
+                return seen;
+            }
+        }
+        EntityNPCInterface nearest = null;
+        double best = PRESET_BOSS_RANGE * PRESET_BOSS_RANGE;
+        Vec3 from = source.getPosition();
+        for (EntityNPCInterface npc : source.getLevel().getEntitiesOfClass(EntityNPCInterface.class,
+                new AABB(from, from).inflate(PRESET_BOSS_RANGE))) {
+            if (npc.isAlive() && !BossShadowUtil.isShadow(npc)
+                    && ((ITeleportPathData) npc.ais).cnpcgeckoaddon$getTeleportPathData().isEnabled()) {
+                double distance = npc.distanceToSqr(from);
+                if (distance <= best) {
+                    best = distance;
+                    nearest = npc;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    private static EntityNPCInterface lookedAtNpc(ServerPlayer player) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 end = eye.add(player.getViewVector(1.0F).scale(PRESET_BOSS_RANGE));
+        BlockHitResult wall = player.level().clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, player));
+        if (wall.getType() != HitResult.Type.MISS) {
+            end = wall.getLocation();
+        }
+        AABB swept = player.getBoundingBox().expandTowards(end.subtract(eye)).inflate(1.0D);
+        EntityHitResult hit = ProjectileUtil.getEntityHitResult(player, eye, end, swept,
+                entity -> entity instanceof EntityNPCInterface npc && npc.isAlive() && !BossShadowUtil.isShadow(npc),
+                eye.distanceToSqr(end));
+        return hit != null && hit.getEntity() instanceof EntityNPCInterface npc ? npc : null;
     }
 
     /**
