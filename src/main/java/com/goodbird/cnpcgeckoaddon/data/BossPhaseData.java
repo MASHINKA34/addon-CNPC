@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.function.Consumer;
 
 import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.clean;
 import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
@@ -874,6 +875,130 @@ public final class BossPhaseData {
         int[] slots = new int[BossAbilityKind.COUNT];
         Arrays.fill(slots, NO_COMBO);
         return slots;
+    }
+
+    /**
+     * Whether a phase keeps settings of its own for this kind, which is what a copy between phases
+     * carries: every kind but the death blast, which is the boss' own explosion and lives on the boss.
+     */
+    public static boolean isCopyableAbility(int kind) {
+        return kind >= 0 && kind < BossAbilityKind.COUNT && kind != BossAbilityKind.BLAST;
+    }
+
+    /**
+     * Makes one ability of this phase the same as it is in {@code source}: its own settings, its bit
+     * in the standing-cast and see-through masks, its hold, its follow-up with the delay before it,
+     * and its profile. Every other ability of this phase, its threshold and its appearance stay as
+     * they were. The follow-up is copied as it is, whatever this phase does with the ability it
+     * names: a chain onto an ability switched off here simply never goes off, as it never did.
+     *
+     * <p>The settings go through their own save format, the way a save and a load would carry
+     * them: whatever the class writes is read back, so a field cannot be left behind.</p>
+     *
+     * @return whether anything was copied: false for a kind a phase keeps nothing of, or no source
+     */
+    public boolean copyAbilityFrom(BossPhaseData source, int kind) {
+        SettingsNbt settings = settingsNbt(kind);
+        if (source == null || settings == null) {
+            LOGGER.debug("Not copying boss ability {} between phases: {}", kind,
+                    source == null ? "no source phase" : "a phase keeps no settings of that kind");
+            return false;
+        }
+        if (source == this) {
+            return true;
+        }
+        CompoundTag copied = source.abilitySettingsTag(kind);
+        settings.reader().accept(copied);
+        if (isCastRootable(kind)) {
+            setCastRooted(kind, source.isCastRooted(kind));
+        }
+        if (isFinishAbility(kind)) {
+            setWaitsForFinish(kind, source.waitsForFinish(kind));
+            finishHoldTicks[kind] = source.finishHoldTicks[kind];
+        }
+        if (isComboAbility(kind)) {
+            comboFollowUp[kind] = source.comboFollowUp[kind];
+            comboDelay[kind] = source.comboDelay[kind];
+        }
+        profiles[kind].copyFrom(source.profiles[kind]);
+        LOGGER.debug("Copied boss ability {} between phases: {} settings keys, standing cast {}, seen through {} "
+                        + "with a {} tick hold, follow-up {} after {} ticks, profile {}",
+                BossAbilityKind.LABELS[kind], copied.size(), isCastRooted(kind), waitsForFinish(kind),
+                finishHoldTicks(kind), comboFollowUp(kind), comboDelay(kind),
+                profiles[kind].isDefault() ? "default" : "changed");
+        return true;
+    }
+
+    /**
+     * Makes this whole phase the same as {@code source} - every ability with its masks, chains, holds
+     * and profile, and the appearance - but for the health it opens at, which stays this phase's own:
+     * the ladder of thresholds is the boss', and a copy that moved a rung would reorder the phases.
+     */
+    public void copyFrom(BossPhaseData source) {
+        if (source == null || source == this) {
+            return;
+        }
+        int threshold = startHealthPercent;
+        CompoundTag copied = source.writeToNBT();
+        readFromNBT(copied);
+        startHealthPercent = threshold;
+        LOGGER.debug("Copied a whole boss phase: {} keys, threshold kept at {}%", copied.size(), threshold);
+    }
+
+    /**
+     * A fresh tag holding only one kind's own settings in this phase, exactly as the phase's save
+     * holds them, or null for a kind a phase keeps nothing of.
+     */
+    CompoundTag abilitySettingsTag(int kind) {
+        SettingsNbt settings = settingsNbt(kind);
+        if (settings == null) {
+            return null;
+        }
+        CompoundTag tag = new CompoundTag();
+        settings.writer().accept(tag);
+        return tag;
+    }
+
+    /** One kind's settings object in this phase, as the writer and the reader of its own keys. */
+    private record SettingsNbt(Consumer<CompoundTag> writer, Consumer<CompoundTag> reader) {
+    }
+
+    /**
+     * The settings object each kind keeps in this phase, or null for the blast and anything out of
+     * range. A new kind adds its line here; {@code BossPhaseCopyTest} fails the build until it does.
+     */
+    private SettingsNbt settingsNbt(int kind) {
+        return switch (kind) {
+            case BossAbilityKind.AREA -> new SettingsNbt(areaAttack::writeToNBT, areaAttack::readFromNBT);
+            case BossAbilityKind.RANGED -> new SettingsNbt(rangedAttack::writeToNBT, rangedAttack::readFromNBT);
+            case BossAbilityKind.MELEE -> new SettingsNbt(meleeAttack::writeToNBT, meleeAttack::readFromNBT);
+            case BossAbilityKind.FLUID -> new SettingsNbt(fluidSpit::writeToNBT, fluidSpit::readFromNBT);
+            case BossAbilityKind.HOOK -> new SettingsNbt(hook::writeToNBT, hook::readFromNBT);
+            case BossAbilityKind.CAPTURE -> new SettingsNbt(capture::writeToNBT, capture::readFromNBT);
+            case BossAbilityKind.SUMMON -> new SettingsNbt(summon::writeToNBT, summon::readFromNBT);
+            case BossAbilityKind.LEAP -> new SettingsNbt(leap::writeToNBT, leap::readFromNBT);
+            case BossAbilityKind.LINE -> new SettingsNbt(lineAttack::writeToNBT, lineAttack::readFromNBT);
+            case BossAbilityKind.GEYSER -> new SettingsNbt(geyser::writeToNBT, geyser::readFromNBT);
+            case BossAbilityKind.BOULDER -> new SettingsNbt(boulder::writeToNBT, boulder::readFromNBT);
+            case BossAbilityKind.BOULDER_RAIN -> new SettingsNbt(boulderRain::writeToNBT, boulderRain::readFromNBT);
+            case BossAbilityKind.TETHER -> new SettingsNbt(tether::writeToNBT, tether::readFromNBT);
+            case BossAbilityKind.GRAVITY -> new SettingsNbt(gravity::writeToNBT, gravity::readFromNBT);
+            case BossAbilityKind.MARK -> new SettingsNbt(mark::writeToNBT, mark::readFromNBT);
+            case BossAbilityKind.COVER -> new SettingsNbt(cover::writeToNBT, cover::readFromNBT);
+            case BossAbilityKind.HAZARD -> new SettingsNbt(hazard::writeToNBT, hazard::readFromNBT);
+            case BossAbilityKind.HUNT -> new SettingsNbt(hunt::writeToNBT, hunt::readFromNBT);
+            case BossAbilityKind.BEAM -> new SettingsNbt(beam::writeToNBT, beam::readFromNBT);
+            case BossAbilityKind.COCOON -> new SettingsNbt(cocoon::writeToNBT, cocoon::readFromNBT);
+            case BossAbilityKind.DASH -> new SettingsNbt(dash::writeToNBT, dash::readFromNBT);
+            case BossAbilityKind.CONE -> new SettingsNbt(cone::writeToNBT, cone::readFromNBT);
+            case BossAbilityKind.PLATFORM -> new SettingsNbt(platform::writeToNBT, platform::readFromNBT);
+            case BossAbilityKind.HURRICANE -> new SettingsNbt(hurricane::writeToNBT, hurricane::readFromNBT);
+            case BossAbilityKind.SHADOW -> new SettingsNbt(shadow::writeToNBT, shadow::readFromNBT);
+            case BossAbilityKind.SEISMIC -> new SettingsNbt(seismic::writeToNBT, seismic::readFromNBT);
+            case BossAbilityKind.RIFT -> new SettingsNbt(rift::writeToNBT, rift::readFromNBT);
+            case BossAbilityKind.VENT -> new SettingsNbt(vent::writeToNBT, vent::readFromNBT);
+            default -> null;
+        };
     }
 
     /**
