@@ -1572,6 +1572,46 @@ public final class TeleportPathController {
         return combo.status(gameTime);
     }
 
+    /**
+     * Read-only status used by the boss diagnostic command: a line for each rotation ability whose
+     * profile in the phase being fought is not all defaults - its clock, its priority, the spread on
+     * its cooldown, its casts against the limit, whether its last chance came up short, and the row
+     * of repeats it is in - or one line saying every profile is untouched.
+     */
+    public List<String> profileStatus(long gameTime) {
+        BossPhaseData phase = activePhase();
+        if (phase == null) {
+            return List.of("Profiles: no phase being fought");
+        }
+        List<String> lines = new ArrayList<>();
+        for (BossAbility ability : BossAbility.ROTATION) {
+            int kind = ability.kind();
+            BossAbilityProfile profile = phase.profile(kind);
+            boolean repeating = repeat.holds(ability);
+            if (profile.isDefault() && !repeating) {
+                continue;
+            }
+            List<String> parts = new ArrayList<>();
+            long remaining = abilityCooldownLeft(ability, gameTime);
+            parts.add(!ability.isEnabledIn(phase) ? "disabled" : remaining > 0L ? "cooldown " + remaining : "ready");
+            parts.add("P" + profile.getPriority());
+            if (profile.getCooldownJitterTicks() > 0) {
+                parts.add("\u00b1" + profile.getCooldownJitterTicks());
+            }
+            if (profile.getMaxCastsPerPhase() > BossAbilityProfile.NO_CAST_LIMIT) {
+                parts.add("casts " + castRolls.casts(kind) + "/" + profile.getMaxCastsPerPhase());
+            }
+            if (castRolls.isSkipped(kind)) {
+                parts.add("skipped");
+            }
+            if (repeating) {
+                parts.add(repeat.status(gameTime));
+            }
+            lines.add("Profile " + ability + ": " + String.join(", ", parts));
+        }
+        return lines.isEmpty() ? List.of("Profiles: all default") : lines;
+    }
+
     /** True while a standing formation keeps the boss from starting anything of its own. */
     public boolean isTotemSilenced() {
         return totems.isSilencing();
@@ -2311,7 +2351,8 @@ public final class TeleportPathController {
         if (!repeat.isActive()) {
             return;
         }
-        LOGGER.debug("Boss {} drops {} repeats of {} still owed: {}", nameForLog(), repeat.left(), repeat.ability(), why);
+        LOGGER.debug("Boss {} drops {} repeats of {} still owed: {}", nameForLog(), repeat.left(), repeat.ability(),
+                why);
         repeat.clear();
     }
 
@@ -3189,7 +3230,7 @@ public final class TeleportPathController {
         forcedAbility = BossAbility.NONE;
         forcedScheduleBefore = NOT_SCHEDULED;
         // And a row of repeats: the casts it still owed are owed to a phase or a fight that is over.
-        dropRepeats("the boss changed phase, lost its fight or reset");
+        dropRepeats("the boss changed phase, lost its target or its fight ended");
         repeatAttempt = BossAbility.NONE;
         repeatScheduleBefore = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and
