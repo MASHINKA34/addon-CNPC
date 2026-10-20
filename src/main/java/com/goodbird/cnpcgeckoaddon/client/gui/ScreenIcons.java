@@ -21,9 +21,12 @@ final class ScreenIcons {
     private static final Map<Class<? extends Screen>, Integer> ICONS = Map.ofEntries(
             // An ability's own screens and its fine-tuning page show the ability.
             entry(SubGuiBossAreaAttack.class, BossAbilityKind.AREA),
+            entry(SubGuiBossAreaAttackTuning.class, BossAbilityKind.AREA),
             entry(SubGuiBossRangedAttack.class, BossAbilityKind.RANGED),
+            entry(SubGuiBossRangedAttackTuning.class, BossAbilityKind.RANGED),
             entry(SubGuiNpcRanged.class, BossAbilityKind.RANGED),
             entry(SubGuiBossMeleeAttack.class, BossAbilityKind.MELEE),
+            entry(SubGuiBossMeleeAttackTuning.class, BossAbilityKind.MELEE),
             entry(SubGuiBossFluidSpit.class, BossAbilityKind.FLUID),
             entry(SubGuiBossFluidSpitTuning.class, BossAbilityKind.FLUID),
             entry(SubGuiBossHook.class, BossAbilityKind.HOOK),
@@ -38,6 +41,7 @@ final class ScreenIcons {
             entry(SubGuiBossLeapImpact.class, BossAbilityKind.LEAP),
             entry(SubGuiBossLeapTuning.class, BossAbilityKind.LEAP),
             entry(SubGuiBossLineAttack.class, BossAbilityKind.LINE),
+            entry(SubGuiBossLineAttackTuning.class, BossAbilityKind.LINE),
             entry(SubGuiBossExplosion.class, BossAbilityKind.BLAST),
             entry(SubGuiBossGeyser.class, BossAbilityKind.GEYSER),
             entry(SubGuiBossGeyserResidue.class, BossAbilityKind.GEYSER),
