@@ -22,7 +22,8 @@ import java.util.Locale;
  *
  * <p>It is also where the ability's profile in the phase being fought turns the number the
  * ability's settings hit for into the hit itself - shares of the victim's health, the party's
- * bonus - once, for every kind, rather than in each of the abilities that call it.</p>
+ * bonus, and the damage type it is dealt as - once, for every kind, rather than in each of the
+ * abilities that call it.</p>
  */
 public final class BossAbilityDamageUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
@@ -84,8 +85,8 @@ public final class BossAbilityDamageUtil {
             float total = profiledDamage(target, ability, boss, damage, controller, profile);
             // A zero is "this ability does not hurt, it only does its other half"; handing that to
             // vanilla anyway would still burn the victim's invulnerability frames on nothing.
-            boolean damaged = total > 0.0F
-                    && target.hurt(boss.level().damageSources().mobAttack(boss), total);
+            boolean damaged = total > 0.0F && target.hurt(
+                    BossAbilityDamageTypes.source(boss.level(), boss, profile.getDamageType()), total);
             // Applied even when the hit was absorbed by invulnerability frames or armour: a plague
             // aura that stops working because the victim was briefly immune would feel broken
             // rather than fair.
@@ -117,10 +118,12 @@ public final class BossAbilityDamageUtil {
         double total = BossDamageProfileMath.total(damage, profile.getDamagePercentMax(),
                 profile.getDamagePercentCurrent(), target.getMaxHealth(), target.getHealth(), participants,
                 profile.getPartyDamagePercent(), profile.getPartyDamageCapPercent());
-        if (total != damage && LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Ability {} of {} hits {} for {} instead of {}: +{}% of max health {}, +{}% of health {}, "
-                            + "{} in the fight at +{}% each up to {}%", ability, boss.getName().getString(),
-                    target.getName().getString(), String.format(Locale.ROOT, "%.2f", total), damage,
+        if ((total != damage || profile.getDamageType() != BossAbilityProfile.DAMAGE_NORMAL)
+                && LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Ability {} of {} hits {} for {} instead of {} as damage type {}: +{}% of max health {}, "
+                            + "+{}% of health {}, {} in the fight at +{}% each up to {}%", ability,
+                    boss.getName().getString(), target.getName().getString(),
+                    String.format(Locale.ROOT, "%.2f", total), damage, profile.getDamageType(),
                     profile.getDamagePercentMax(), target.getMaxHealth(), profile.getDamagePercentCurrent(),
                     target.getHealth(), participants, profile.getPartyDamagePercent(),
                     profile.getPartyDamageCapPercent());
