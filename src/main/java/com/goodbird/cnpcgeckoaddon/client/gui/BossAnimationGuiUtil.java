@@ -2,8 +2,10 @@ package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.mixin.IDataDisplay;
 import com.goodbird.cnpcgeckoaddon.utils.AnimationFileUtil;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.util.Mth;
+import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
@@ -28,6 +30,18 @@ final class BossAnimationGuiUtil {
 
     static boolean isValid(EntityNPCInterface npc, String animation) {
         return animation == null || animation.trim().isEmpty() || getAnimations(npc).contains(animation.trim());
+    }
+
+    /**
+     * The npc whose settings the open screens edit: the one the npc's own page at the bottom of the
+     * stack belongs to, or null when the stack does not start at an npc page.
+     *
+     * <p>For an editor opened from many places with no npc handed to any of them - an ability's
+     * profile hangs off the phase's list and off every ability's own screen. The sub-screens are
+     * drawn inside that page, which stays the game's screen while they are open.</p>
+     */
+    static EntityNPCInterface editedNpc() {
+        return Minecraft.getInstance().screen instanceof GuiNPCInterface page ? page.npc : null;
     }
 
     /** @return the animation length in ticks, or -1 when it cannot be determined */

@@ -8,22 +8,28 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.TelegraphLineStyles;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import noppes.npcs.client.CustomNpcResourceListener;
+import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
+import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+import java.util.stream.Stream;
 
 /**
  * One ability's profile in one phase: its timer, its turn in the rotation, the conditions it
- * casts under, which of the enrage's multipliers reach it, and how its hits are dealt and whom
- * they land on, a group under a heading each.
+ * casts under, which of the enrage's multipliers reach it, how its hits are dealt and whom they
+ * land on, and how it looks and sounds, a group under a heading each.
  *
  * <p>Opened from the phase's list of profiles and from the ability's own screen, on the same
  * profile object, so the two can never disagree. Everything at its default is the rotation the
@@ -62,6 +68,18 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     private static final int PARTY_DAMAGE_FIELD = 19;
     private static final int PARTY_DAMAGE_CAP_FIELD = 20;
     private static final int TARGET_KIND_BUTTON = 21;
+    // Look. Past the title's label id rather than on it: a row's label takes its control's id.
+    private static final int COLOR_FIELD = 22;
+    private static final int COLOR_ERROR_LABEL = 23;
+    private static final int STYLE_BUTTON = 24;
+    private static final int WIDTH_FIELD = 25;
+    private static final int LEAD_FIELD = 26;
+    private static final int ANNOUNCE_BUTTON = 27;
+    private static final int ANNOUNCE_SOUND_BUTTON = 28;
+    private static final int ANNOUNCE_CUE_BUTTON = 29;
+    private static final int NAME_FIELD = 31;
+    private static final int CAST_ANIMATION_FIELD = 32;
+    private static final int END_ANIMATION_FIELD = 33;
 
     /** In the profile's own order, so a button's index is the damage type. */
     private static final String[] DAMAGE_TYPE_LABELS = {
@@ -76,6 +94,24 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
             "cnpcgeckoaddon.boss.profile.target_kind.npcs",
             "cnpcgeckoaddon.boss.profile.target_kind.all"
     };
+    /** As the boss first, then the styles the boss' own screen offers, in their table's order. */
+    private static final String[] STYLE_LABELS = Stream.concat(Stream.of("cnpcgeckoaddon.boss.profile.style.boss"),
+            TelegraphLineStyles.values().stream().map(TelegraphLineStyles.Style::translationKey)).toArray(String[]::new);
+    /** As the boss, off, on: a button's index is the profile's mode plus one, as for the kinds of target. */
+    private static final String[] ANNOUNCE_LABELS = {
+            "cnpcgeckoaddon.boss.profile.announce.boss",
+            "cnpcgeckoaddon.boss.profile.announce.off",
+            "cnpcgeckoaddon.boss.profile.announce.on"
+    };
+    private static final String[] ANNOUNCE_SOUND_LABELS = {
+            "cnpcgeckoaddon.boss.profile.announce_sound.boss",
+            "cnpcgeckoaddon.boss.profile.announce_sound.off",
+            "cnpcgeckoaddon.boss.profile.announce_sound.own"
+    };
+    private static final String COLOR_BAD = "cnpcgeckoaddon.boss.profile.color_bad";
+    private static final int ERROR_COLOR = 0xFF5555;
+    /** "#" and six digits. */
+    private static final int COLOR_MAX_LENGTH = 7;
 
     private static final int TITLE_LABEL = 30;
     /** Each group's heading takes the next label id from here, in the order the groups are laid down. */
@@ -105,6 +141,12 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     private static final int TOGGLE_WIDTH = 46;
     /** A choice among a few: as wide as a pair of numbers, where the pairs start. */
     private static final int CYCLE_X = PAIR_X;
+    /** A name typed in, with a Select beside it for an animation: the picker rows' own columns. */
+    private static final int TEXT_X = 108;
+    private static final int SELECT_X = 198;
+    private static final int SELECT_WIDTH = 44;
+    /** The line under the colour that says a typed colour was refused, kept so the rows do not jump. */
+    private static final int ERROR_LINE = LINE_HEIGHT + 1;
     private static final int HINT_GAP = 2;
     private static final int BUTTONS_GAP = 5;
     private static final int BOTTOM_MARGIN = 8;
@@ -117,6 +159,8 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     private final BossAbilityProfile profile;
     private int wrappedLabel;
     private int headingLabel;
+    /** Set when the last read refused a typed colour, so the line under it says so until it is fixed. */
+    private boolean colorRejected;
 
     public SubGuiBossAbilityProfile(Screen parent, BossPhaseData phase, int kind) {
         this.parent = parent;
@@ -130,7 +174,7 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     @Override
     public void init() {
         // The panel is centred from imageHeight, so the height is settled before super.init()
-        // reads it: how many lines the hint and the row labels wrap to is up to the locale. Five
+        // reads it: how many lines the hint and the row labels wrap to is up to the locale. Six
         // groups never fit one panel, so the screen scrolls.
         imageHeight = layout(false);
         super.init();
@@ -155,6 +199,7 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
         y = conditionsGroup(place, y);
         y = rageGroup(place, y);
         y = damageGroup(place, y);
+        y = lookGroup(place, y);
 
         y += HINT_GAP;
         if (place) {
@@ -243,6 +288,141 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
                 profile.getTargetKind() - BossAbilityProfile.TARGET_KIND_AS_BOSS,
                 button -> profile.setTargetKind(button.getValue() + BossAbilityProfile.TARGET_KIND_AS_BOSS));
         return y + GROUP_GAP;
+    }
+
+    /**
+     * How the ability looks and sounds: the colour, style, width and lead of its warning, whether it
+     * is announced and with which sound, the name the fight calls it, and the animations of its cast
+     * and of its end. Every choice writes straight into the profile from its button; the typed ones
+     * are read back with the rest in {@link #applyFields}.
+     */
+    private int lookGroup(boolean place, int y) {
+        y = heading(place, "cnpcgeckoaddon.boss.profile.look", y);
+        // Six hex digits rather than a number: a numbers-only field would leave the builder
+        // converting FF2020 into sixteen million by hand. Empty is the kind's own colour.
+        if (place) {
+            rowLabel(COLOR_FIELD, "cnpcgeckoaddon.boss.profile.color", y, SINGLE_X);
+            GuiTextFieldNop color = new ThemeTextField(COLOR_FIELD, this, guiLeft + SINGLE_X, guiTop + y, SINGLE_WIDTH,
+                    CONTROL_HEIGHT, BossAbilityProfile.formatColor(profile.getTelegraphColor()));
+            color.setMaxLength(COLOR_MAX_LENGTH);
+            addTextField(color);
+            addLabel(new ThemeLabel(COLOR_ERROR_LABEL, colorErrorText(), ERROR_COLOR, guiLeft + LABEL_X,
+                    guiTop + y + ROW, RIGHT_EDGE - LABEL_X, LINE_HEIGHT));
+        }
+        y += ROW + ERROR_LINE;
+        y = choice(place, STYLE_BUTTON, "cnpcgeckoaddon.boss.profile.style", y, STYLE_LABELS, this::styleIndex,
+                index -> profile.setTelegraphStyle(index == 0 ? BossAbilityProfile.STYLE_AS_BOSS
+                        : TelegraphLineStyles.byIndex(index - 1)));
+        // -1 is a value in both, and the number fields take no minus sign: these are read back by hand.
+        y = signedField(place, WIDTH_FIELD, "cnpcgeckoaddon.boss.profile.width", y, profile.getTelegraphLineWidth());
+        y = signedField(place, LEAD_FIELD, "cnpcgeckoaddon.boss.profile.lead", y, profile.getTelegraphLeadTicks());
+        y = choice(place, ANNOUNCE_BUTTON, "cnpcgeckoaddon.boss.profile.announce", y, ANNOUNCE_LABELS,
+                () -> profile.getAnnounceMode() - BossAbilityProfile.ANNOUNCE_AS_BOSS,
+                index -> profile.setAnnounceMode(index + BossAbilityProfile.ANNOUNCE_AS_BOSS));
+        y = choice(place, ANNOUNCE_SOUND_BUTTON, "cnpcgeckoaddon.boss.profile.announce_sound", y,
+                ANNOUNCE_SOUND_LABELS, () -> profile.getAnnounceSoundMode() - BossAbilityProfile.ANNOUNCE_SOUND_AS_BOSS,
+                index -> profile.setAnnounceSoundMode(index + BossAbilityProfile.ANNOUNCE_SOUND_AS_BOSS));
+        if (place) {
+            addCueButton(ANNOUNCE_CUE_BUTTON, "cnpcgeckoaddon.boss.profile.announce_cue", guiTop + y,
+                    profile.getAnnounceSound());
+        }
+        y += ROW;
+        if (place) {
+            rowLabel(NAME_FIELD, "cnpcgeckoaddon.boss.profile.name", y, TEXT_X);
+            GuiTextFieldNop name = new ThemeTextField(NAME_FIELD, this, guiLeft + TEXT_X, guiTop + y,
+                    RIGHT_EDGE - TEXT_X, CONTROL_HEIGHT, profile.getDisplayName());
+            name.setMaxLength(BossAbilityProfile.MAX_NAME_LENGTH);
+            addTextField(name);
+        }
+        y += ROW;
+        y = animation(place, CAST_ANIMATION_FIELD, "cnpcgeckoaddon.boss.profile.cast_animation", y,
+                profile.getCastAnimation(), "cnpcgeckoaddon.string_picker.cast_animation", profile::setCastAnimation);
+        y = animation(place, END_ANIMATION_FIELD, "cnpcgeckoaddon.boss.profile.end_animation", y,
+                profile.getEndAnimation(), "cnpcgeckoaddon.string_picker.end_animation", profile::setEndAnimation);
+        return y + GROUP_GAP;
+    }
+
+    /** Where the profile's style sits among the choices: nought for the boss', its table's place plus one otherwise. */
+    private int styleIndex() {
+        String style = profile.getTelegraphStyle();
+        return style.isEmpty() ? 0 : TelegraphLineStyles.indexOf(style) + 1;
+    }
+
+    /**
+     * A choice among a few on a button of its own across the row, reading "Label: choice" - the
+     * name and the value on one button, since a value such as "as the boss" says nothing beside a
+     * label it does not sit under. Each click moves to the next choice and writes it at once.
+     */
+    private int choice(boolean place, int id, String key, int y, String[] valueKeys, IntSupplier index,
+                       IntConsumer choose) {
+        if (place) {
+            addButton(new ThemeButton(this, id, guiLeft + LABEL_X, guiTop + y, RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT,
+                    choiceText(key, valueKeys, index.getAsInt()), button -> {
+                        choose.accept((index.getAsInt() + 1) % valueKeys.length);
+                        ((GuiButtonNop) button).setDisplayText(choiceText(key, valueKeys, index.getAsInt()));
+                        LOGGER.debug("{}: {} of ability kind {} now {}", getClass().getSimpleName(), key, kind,
+                                valueKeys[index.getAsInt()]);
+                    }));
+        }
+        return y + ROW;
+    }
+
+    private static String choiceText(String key, String[] valueKeys, int index) {
+        int shown = Math.floorMod(index, valueKeys.length);
+        return Component.translatable(key, Component.translatable(valueKeys[shown])).getString();
+    }
+
+    /** A number that may be -1, typed into a plain field and read back by hand in {@link #applyFields}. */
+    private int signedField(boolean place, int id, String key, int y, int value) {
+        if (place) {
+            rowLabel(id, key, y, SINGLE_X);
+            addTextField(new ThemeTextField(id, this, guiLeft + SINGLE_X, guiTop + y, SINGLE_WIDTH, CONTROL_HEIGHT,
+                    Integer.toString(value)));
+        }
+        return y + ROW;
+    }
+
+    /**
+     * An animation typed in, with a Select beside it that lists the npc's own - the leap screen's two
+     * rows over again. The npc is the one whose page the screens were opened from.
+     */
+    private int animation(boolean place, int id, String key, int y, String value, String pickerKey,
+                          Consumer<String> setter) {
+        if (place) {
+            rowLabel(id, key, y, TEXT_X);
+            addTextField(new ThemeTextField(id, this, guiLeft + TEXT_X, guiTop + y, SELECT_X - TEXT_X - 4,
+                    CONTROL_HEIGHT, value));
+            addButton(new ThemeButton(this, id, guiLeft + SELECT_X, guiTop + y, SELECT_WIDTH, CONTROL_HEIGHT,
+                    "mco.template.button.select", button -> {
+                        applyFields();
+                        EntityNPCInterface npc = BossAnimationGuiUtil.editedNpc();
+                        List<String> animations = BossAnimationGuiUtil.getAnimations(npc);
+                        LOGGER.debug("{}: picking {} of ability kind {} among {} animations of {}",
+                                getClass().getSimpleName(), key, kind, animations.size(),
+                                npc == null ? "no npc" : npc.getName().getString());
+                        setSubGui(new GuiStringSelection(this, pickerKey, animations, name -> {
+                            setter.accept(name);
+                            GuiTextFieldNop field = getTextField(id);
+                            if (field != null) {
+                                field.setValue(name);
+                            }
+                        }));
+                    }));
+        }
+        return y + ROW;
+    }
+
+    /** What the line under the colour says: nothing, or that the typed colour was refused. */
+    private Component colorErrorText() {
+        return colorRejected ? Component.translatable(COLOR_BAD) : Component.literal("");
+    }
+
+    private void showColorRejected(boolean value) {
+        colorRejected = value;
+        GuiLabel label = getLabel(COLOR_ERROR_LABEL);
+        if (label != null) {
+            label.setMessage(colorErrorText());
+        }
     }
 
     /** "Profile: Leap slam" - the ability's own name, the one the phase menu shows. */
@@ -370,6 +550,71 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
         applyNumberField(DAMAGE_PERCENT_CURRENT_FIELD, profile::setDamagePercentCurrent);
         applyNumberField(PARTY_DAMAGE_FIELD, profile::setPartyDamagePercent);
         applyNumberField(PARTY_DAMAGE_CAP_FIELD, profile::setPartyDamageCapPercent);
+        applyLook();
+    }
+
+    /** The look group's typed fields: the colour, the width and the lead, the name, the two animations. */
+    private void applyLook() {
+        GuiTextFieldNop color = getTextField(COLOR_FIELD);
+        if (color != null) {
+            // Anything that is not six hex digits is refused while the field is still in front of
+            // whoever typed it, the way a cue's id is: the colour stays what it was, and says so.
+            int parsed = BossAbilityProfile.parseColor(color.getValue());
+            if (parsed == BossAbilityProfile.COLOR_INVALID) {
+                LOGGER.debug("{}: refused colour '{}' for ability kind {}, kept '{}'", getClass().getSimpleName(),
+                        color.getValue(), kind, BossAbilityProfile.formatColor(profile.getTelegraphColor()));
+                showColorRejected(true);
+            } else {
+                profile.setTelegraphColor(parsed);
+                showColorRejected(false);
+            }
+            color.setValue(BossAbilityProfile.formatColor(profile.getTelegraphColor()));
+        }
+        applySigned(WIDTH_FIELD, profile::setTelegraphLineWidth, profile::getTelegraphLineWidth);
+        applySigned(LEAD_FIELD, profile::setTelegraphLeadTicks, profile::getTelegraphLeadTicks);
+        GuiTextFieldNop name = getTextField(NAME_FIELD);
+        if (name != null) {
+            profile.setDisplayName(name.getValue());
+            // Shown back as kept: trimmed, and cut to the longest name there is.
+            name.setValue(profile.getDisplayName());
+        }
+        applyAnimation(CAST_ANIMATION_FIELD, profile.getCastAnimation(), profile::setCastAnimation);
+        applyAnimation(END_ANIMATION_FIELD, profile.getEndAnimation(), profile::setEndAnimation);
+    }
+
+    /**
+     * A field that may hold -1: an empty one is the boss' own as well, and whatever the profile kept
+     * of the typed number - a width under the narrowest is the boss', a lead past the ceiling is the
+     * ceiling - is shown back.
+     */
+    private void applySigned(int id, IntConsumer setter, IntSupplier kept) {
+        GuiTextFieldNop field = getTextField(id);
+        if (field == null) {
+            return;
+        }
+        setter.accept(field.getValue().trim().isEmpty() ? BossAbilityProfile.AS_BOSS : signed(field));
+        field.setValue(Integer.toString(kept.getAsInt()));
+    }
+
+    /**
+     * An animation the npc does not have would play nothing with nothing on screen to say why, so it
+     * is refused the leap screen's way. With no npc to ask - an editor whose stack does not start at
+     * the npc's page - the name is taken as typed.
+     */
+    private void applyAnimation(int id, String current, Consumer<String> setter) {
+        GuiTextFieldNop field = getTextField(id);
+        if (field == null) {
+            return;
+        }
+        String value = field.getValue().trim();
+        EntityNPCInterface npc = BossAnimationGuiUtil.editedNpc();
+        if (npc == null || BossAnimationGuiUtil.isValid(npc, value)) {
+            setter.accept(value);
+        } else {
+            LOGGER.debug("{}: refused animation '{}' for ability kind {}: {} has no such animation",
+                    getClass().getSimpleName(), value, kind, npc.getName().getString());
+            field.setValue(current);
+        }
     }
 
     @Override
