@@ -960,8 +960,12 @@ public final class TeleportPathController {
         return profileOf(kind).damageUnderRage(value, this::damageUp);
     }
 
-    /** This ability's profile in the phase being fought, or the defaults outside a fight's phase. */
-    private BossAbilityProfile profileOf(int kind) {
+    /**
+     * This ability's profile in the phase being fought, or the defaults outside a fight's phase.
+     * Package-wide because the damage door and the target filters read it on every hit and
+     * every candidate, for whichever phase is being fought when the hit lands.
+     */
+    BossAbilityProfile profileOf(int kind) {
         BossPhaseData phase = activePhase();
         return phase == null ? BossAbilityProfile.defaults() : phase.profile(kind);
     }

@@ -11,14 +11,15 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
 /**
  * How one ability takes its turns in one phase: the spread on its cooldown and when it first
  * comes due, the odds it goes at all, how often per phase and how many times in a row, where
- * it stands in the rotation, what has to be true for it to go, and which of the enrage's
- * multipliers reach it.
+ * it stands in the rotation, what has to be true for it to go, which of the enrage's
+ * multipliers reach it, how its hits are dealt and whom it may land on.
  *
  * <p>Every field defaults to what the boss did before profiles existed - a flat cooldown, a
  * whole one before the first cast, a cast whenever the clock says so, no limit, no repeat, one
- * rotation in table order, no conditions and the enrage on everything - so a phase nobody
- * touched fights exactly the old fight, and a save from before profiles reads back as all
- * defaults.</p>
+ * rotation in table order, no conditions, the enrage on everything, the number from the
+ * ability's own settings dealt as a plain mob attack, and the kinds of target the boss aims
+ * every ability at - so a phase nobody touched fights exactly the old fight, and a save from
+ * before profiles reads back as all defaults.</p>
  *
  * <p>The keys go into a compound of the profile's own, which the phase keeps in a list tagged
  * with the ability's kind, and only for a profile that differs from the defaults. Numbers come
@@ -59,6 +60,29 @@ public final class BossAbilityProfile {
 
     public static final int MAX_PLAYERS = 64;
 
+    /** A plain mob attack: armour, enchantments and effects all have their say, as before profiles. */
+    public static final int DAMAGE_NORMAL = 0;
+    /** Through armour, and nothing else: enchantments and effects still cut it. */
+    public static final int DAMAGE_PIERCING = 1;
+    /**
+     * Through armour, enchantments and effects alike. Never past creative, a spectator or the
+     * invulnerability frames: those are the game's rules, not a defence.
+     */
+    public static final int DAMAGE_TRUE = 2;
+
+    /** The most of the victim's health one share of a hit may come to: all of it. */
+    public static final int MAX_DAMAGE_PERCENT = 100;
+
+    public static final int MAX_PARTY_DAMAGE_PERCENT = 100;
+
+    /** Three times the hit at the most, for a party big enough to reach it. */
+    public static final int DEFAULT_PARTY_DAMAGE_CAP = 200;
+
+    public static final int MAX_PARTY_DAMAGE_CAP = 1000;
+
+    /** Whom the ability lands on is the boss' own setting, the one every ability shared before profiles. */
+    public static final int TARGET_KIND_AS_BOSS = -1;
+
     /**
      * The profile handed out for a kind that has none. Shared, so it is never edited: whoever
      * asks for an ability outside the list gets what an untouched ability would have had.
@@ -80,6 +104,12 @@ public final class BossAbilityProfile {
     private boolean rageCooldown = true;
     private boolean rageDamage = true;
     private boolean rageKnockback = true;
+    private int damageType = DAMAGE_NORMAL;
+    private int damagePercentMax;
+    private int damagePercentCurrent;
+    private int partyDamagePercent;
+    private int partyDamageCapPercent = DEFAULT_PARTY_DAMAGE_CAP;
+    private int targetKind = TARGET_KIND_AS_BOSS;
 
     /** A profile with every field at its default. */
     public BossAbilityProfile() {
@@ -109,7 +139,13 @@ public final class BossAbilityProfile {
                 && healthMaxPercent == 100
                 && rageCooldown
                 && rageDamage
-                && rageKnockback;
+                && rageKnockback
+                && damageType == DAMAGE_NORMAL
+                && damagePercentMax == 0
+                && damagePercentCurrent == 0
+                && partyDamagePercent == 0
+                && partyDamageCapPercent == DEFAULT_PARTY_DAMAGE_CAP
+                && targetKind == TARGET_KIND_AS_BOSS;
     }
 
     /** Writes this profile's own keys into {@code tag}; the phase adds the ability's kind beside them. */
@@ -129,6 +165,12 @@ public final class BossAbilityProfile {
         tag.putBoolean("RageCooldown", rageCooldown);
         tag.putBoolean("RageDamage", rageDamage);
         tag.putBoolean("RageKnockback", rageKnockback);
+        tag.putInt("DamageType", damageType);
+        tag.putInt("DamagePercentMax", damagePercentMax);
+        tag.putInt("DamagePercentCurrent", damagePercentCurrent);
+        tag.putInt("PartyDamagePercent", partyDamagePercent);
+        tag.putInt("PartyDamageCap", partyDamageCapPercent);
+        tag.putInt("TargetKind", targetKind);
     }
 
     /** Reads every key back, an absent one as its default; reading an empty tag resets the profile. */
@@ -152,6 +194,13 @@ public final class BossAbilityProfile {
         rageCooldown = !tag.contains("RageCooldown") || tag.getBoolean("RageCooldown");
         rageDamage = !tag.contains("RageDamage") || tag.getBoolean("RageDamage");
         rageKnockback = !tag.contains("RageKnockback") || tag.getBoolean("RageKnockback");
+        damageType = value(tag, "DamageType", DAMAGE_NORMAL, DAMAGE_NORMAL, DAMAGE_TRUE);
+        damagePercentMax = value(tag, "DamagePercentMax", 0, 0, MAX_DAMAGE_PERCENT);
+        damagePercentCurrent = value(tag, "DamagePercentCurrent", 0, 0, MAX_DAMAGE_PERCENT);
+        partyDamagePercent = value(tag, "PartyDamagePercent", 0, 0, MAX_PARTY_DAMAGE_PERCENT);
+        partyDamageCapPercent = value(tag, "PartyDamageCap", DEFAULT_PARTY_DAMAGE_CAP, 0, MAX_PARTY_DAMAGE_CAP);
+        targetKind = value(tag, "TargetKind", TARGET_KIND_AS_BOSS, TARGET_KIND_AS_BOSS,
+                TeleportPathData.ABILITY_TARGET_ALL);
     }
 
     /** Makes this profile the same as {@code other}, through the tag, so a field cannot be missed. */
@@ -255,6 +304,48 @@ public final class BossAbilityProfile {
 
     public void setRageKnockback(boolean value) { rageKnockback = value; }
 
+    /** One of {@link #DAMAGE_NORMAL}, {@link #DAMAGE_PIERCING} or {@link #DAMAGE_TRUE}. */
+    public int getDamageType() { return damageType; }
+
+    public void setDamageType(int value) { damageType = Mth.clamp(value, DAMAGE_NORMAL, DAMAGE_TRUE); }
+
+    /** The share of the victim's maximum health added to every hit, in per cent. */
+    public int getDamagePercentMax() { return damagePercentMax; }
+
+    public void setDamagePercentMax(int value) { damagePercentMax = Mth.clamp(value, 0, MAX_DAMAGE_PERCENT); }
+
+    /** The share of the health the victim has left added to every hit, in per cent. */
+    public int getDamagePercentCurrent() { return damagePercentCurrent; }
+
+    public void setDamagePercentCurrent(int value) {
+        damagePercentCurrent = Mth.clamp(value, 0, MAX_DAMAGE_PERCENT);
+    }
+
+    /** How much harder every hit lands for each player in the fight past the first, in per cent. */
+    public int getPartyDamagePercent() { return partyDamagePercent; }
+
+    public void setPartyDamagePercent(int value) {
+        partyDamagePercent = Mth.clamp(value, 0, MAX_PARTY_DAMAGE_PERCENT);
+    }
+
+    /** The most the party may add to a hit, in per cent of it. */
+    public int getPartyDamageCapPercent() { return partyDamageCapPercent; }
+
+    public void setPartyDamageCapPercent(int value) {
+        partyDamageCapPercent = Mth.clamp(value, 0, MAX_PARTY_DAMAGE_CAP);
+    }
+
+    /**
+     * {@link #TARGET_KIND_AS_BOSS}, or one of the boss' own kinds of target -
+     * {@link TeleportPathData#ABILITY_TARGET_PLAYERS}, {@link TeleportPathData#ABILITY_TARGET_PLAYERS_AND_NPCS}
+     * or {@link TeleportPathData#ABILITY_TARGET_ALL} - for this ability alone.
+     */
+    public int getTargetKind() { return targetKind; }
+
+    public void setTargetKind(int value) {
+        targetKind = Mth.clamp(value, TARGET_KIND_AS_BOSS, TeleportPathData.ABILITY_TARGET_ALL);
+    }
+
     /** One line for a log: every field, so a profile that misbehaves can be read back off it. */
     @Override
     public String toString() {
@@ -263,6 +354,8 @@ public final class BossAbilityProfile {
                 + ", repeatDelay=" + repeatDelayTicks + ", priority=" + priority + ", distance="
                 + minTargetDistance + ".." + maxTargetDistance + ", minPlayers=" + minPlayers + ", health="
                 + healthMinPercent + ".." + healthMaxPercent + ", rage(cooldown=" + rageCooldown + ", damage="
-                + rageDamage + ", knockback=" + rageKnockback + ")}";
+                + rageDamage + ", knockback=" + rageKnockback + "), damageType=" + damageType + ", percent(max="
+                + damagePercentMax + ", current=" + damagePercentCurrent + "), party(per=" + partyDamagePercent
+                + ", cap=" + partyDamageCapPercent + "), targetKind=" + targetKind + "}";
     }
 }

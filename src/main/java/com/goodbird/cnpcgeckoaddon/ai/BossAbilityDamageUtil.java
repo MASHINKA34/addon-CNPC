@@ -1,10 +1,17 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.mixin.INpcImmunityData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import noppes.npcs.entity.EntityNPCInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Locale;
 
 /**
  * The one door a boss ability goes through to land on somebody.
@@ -12,8 +19,14 @@ import noppes.npcs.entity.EntityNPCInterface;
  * <p>A dozen abilities each with their own hurt, potion and shove call is a dozen places to
  * forget the npc immunity mask in, so the three of them are asked for together here: check
  * once, then damage, apply and push - or do none of it.</p>
+ *
+ * <p>It is also where the ability's profile in the phase being fought turns the number the
+ * ability's settings hit for into the hit itself - shares of the victim's health, the party's
+ * bonus - once, for every kind, rather than in each of the abilities that call it.</p>
  */
 public final class BossAbilityDamageUtil {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
+
     /** No ability is landing right now, so whatever is being hurt is plain damage. */
     public static final int NO_ABILITY = -1;
 
@@ -65,10 +78,14 @@ public final class BossAbilityDamageUtil {
         currentAbility = ability;
         applyingHit = true;
         try {
+            TeleportPathController controller = controllerOf(boss);
+            BossAbilityProfile profile = controller == null
+                    ? BossAbilityProfile.defaults() : controller.profileOf(ability);
+            float total = profiledDamage(target, ability, boss, damage, controller, profile);
             // A zero is "this ability does not hurt, it only does its other half"; handing that to
             // vanilla anyway would still burn the victim's invulnerability frames on nothing.
-            boolean damaged = damage > 0
-                    && target.hurt(boss.level().damageSources().mobAttack(boss), damage);
+            boolean damaged = total > 0.0F
+                    && target.hurt(boss.level().damageSources().mobAttack(boss), total);
             // Applied even when the hit was absorbed by invulnerability frames or armour: a plague
             // aura that stops working because the victim was briefly immune would feel broken
             // rather than fair.
@@ -85,6 +102,35 @@ public final class BossAbilityDamageUtil {
             currentAbility = outerAbility;
             applyingHit = outerHit;
         }
+    }
+
+    /**
+     * What this hit comes to under the ability's profile: the number it was called with when the
+     * profile leaves the damage alone, which is every hit the old way.
+     *
+     * <p>The party is the fight's own list of participants - the one the boss' health scales by -
+     * so the hit and the health it is fighting through grow with the same count.</p>
+     */
+    private static float profiledDamage(LivingEntity target, int ability, EntityNPCInterface boss, int damage,
+                                        TeleportPathController controller, BossAbilityProfile profile) {
+        int participants = controller == null ? 1 : controller.encounterParticipants().size();
+        double total = BossDamageProfileMath.total(damage, profile.getDamagePercentMax(),
+                profile.getDamagePercentCurrent(), target.getMaxHealth(), target.getHealth(), participants,
+                profile.getPartyDamagePercent(), profile.getPartyDamageCapPercent());
+        if (total != damage && LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Ability {} of {} hits {} for {} instead of {}: +{}% of max health {}, +{}% of health {}, "
+                            + "{} in the fight at +{}% each up to {}%", ability, boss.getName().getString(),
+                    target.getName().getString(), String.format(Locale.ROOT, "%.2f", total), damage,
+                    profile.getDamagePercentMax(), target.getMaxHealth(), profile.getDamagePercentCurrent(),
+                    target.getHealth(), participants, profile.getPartyDamagePercent(),
+                    profile.getPartyDamageCapPercent());
+        }
+        return (float) total;
+    }
+
+    /** The controller running this boss' fight, or null for an npc that is not one. */
+    private static TeleportPathController controllerOf(EntityNPCInterface boss) {
+        return boss instanceof IBossController holder ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
     }
 
     /** The potion half on its own, for an ability that deals its damage somewhere else. */
