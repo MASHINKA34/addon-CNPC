@@ -2842,7 +2842,7 @@ public final class TeleportPathController {
             pendingLinks = 1;
         }
         noteAbilityStarted(action, phase, isRepeat);
-        pendingLeadTicks = telegraphs.lead(data, action, actionDelay);
+        pendingLeadTicks = telegraphs.lead(data, phase, action, actionDelay);
         beginCastRoot(data, phase, action);
         if (pendingLeadTicks <= 0 && actionDelay <= 0) {
             playAnimation(animation);
@@ -2867,7 +2867,7 @@ public final class TeleportPathController {
         } else {
             playAnimation(animation);
         }
-        telegraphs.announce(data, action);
+        telegraphs.announce(data, phase, action);
         // Painted here as well as on the clock, so the mark is up on the very tick the boss
         // commits rather than a tick into a wind-up that may only last a handful.
         if (npc.level() instanceof ServerLevel level) {

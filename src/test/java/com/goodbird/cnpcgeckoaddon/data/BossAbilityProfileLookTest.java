@@ -195,6 +195,29 @@ class BossAbilityProfileLookTest {
     }
 
     @Test
+    @DisplayName("the announcement and the lead go by the profile where it has its own, by the boss otherwise")
+    void announceAndLeadOverTheBoss() {
+        BossAbilityProfile profile = new BossAbilityProfile();
+        profile.setAnnounceMode(BossAbilityProfile.ANNOUNCE_OFF);
+        assertFalse(profile.announces(true), "kept quiet while the boss announces everything else");
+        profile.setAnnounceMode(BossAbilityProfile.ANNOUNCE_ON);
+        assertTrue(profile.announces(false), "announced while the boss announces nothing else");
+        profile.setAnnounceMode(BossAbilityProfile.ANNOUNCE_AS_BOSS);
+        assertTrue(profile.announces(true));
+        assertFalse(profile.announces(false));
+
+        profile.setTelegraphLeadTicks(60);
+        assertEquals(60, profile.leadOr(30));
+        profile.setTelegraphLeadTicks(BossAbilityProfile.AS_BOSS);
+        assertEquals(30, profile.leadOr(30));
+
+        profile.setTelegraphColor(0xFF2020);
+        assertEquals(0xFF2020, profile.colorOr(0x123456));
+        profile.setTelegraphLineWidth(8);
+        assertEquals(8, profile.lineWidthOr(3));
+    }
+
+    @Test
     @DisplayName("a style the build does not know is the boss' own, not the particles")
     void stylesAreNormalized() {
         BossAbilityProfile profile = new BossAbilityProfile();

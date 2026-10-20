@@ -1,6 +1,8 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
 import com.goodbird.cnpcgeckoaddon.data.BossHurricaneSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -15,10 +17,14 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 final class BossTelegraphRuntime {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /**
      * @param centre where an ability that acts round a point goes off, or null for round the boss
@@ -122,20 +128,43 @@ final class BossTelegraphRuntime {
         }
     }
 
-    void announce(TeleportPathData data, BossAbility action) {
+    /**
+     * The warning's sound and its line in the action bar, each as the ability's profile in this
+     * phase says over the boss' own switches.
+     *
+     * <p>The boss' sound switch stays the master one: off, nothing sounds whatever a profile says.
+     * Under it the profile picks the boss' cue, silence, or a cue of its own; and the line goes out
+     * when the profile says so, or when it leaves that to the boss and the boss announces.</p>
+     */
+    void announce(TeleportPathData data, BossPhaseData phase, BossAbility action) {
         int ability = action.kind();
         if (ability < 0 || !telegraphs(data, ability)) {
             return;
         }
+        BossAbilityProfile profile = phase == null ? BossAbilityProfile.defaults() : phase.profile(ability);
         if (data.isTelegraphSound() && npc.level() instanceof ServerLevel level) {
-            // The switch above is still the master one: the cue only says what it sounds like.
-            data.tuning().telegraphSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
-                    SoundSource.HOSTILE);
+            switch (profile.getAnnounceSoundMode()) {
+                case BossAbilityProfile.ANNOUNCE_SOUND_OFF -> LOGGER.debug(
+                        "Boss {} warns of {} in silence: its profile mutes the warning sound", npc.getName().getString(),
+                        action);
+                case BossAbilityProfile.ANNOUNCE_SOUND_OWN -> {
+                    LOGGER.debug("Boss {} warns of {} with the profile's own sound {}", npc.getName().getString(),
+                            action, profile.getAnnounceSound().getSoundId());
+                    profile.getAnnounceSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
+                }
+                // The cue only says what the boss' warning sounds like; the switch above decides whether.
+                default -> data.tuning().telegraphSound().play(level, npc.getX(), npc.getY(), npc.getZ(),
+                        SoundSource.HOSTILE);
+            }
         }
-        if (!data.isTelegraphAnnounce()) {
+        if (!profile.announces(data.isTelegraphAnnounce())) {
+            if (data.isTelegraphAnnounce()) {
+                LOGGER.debug("Boss {} does not announce {}: its profile keeps it out of the action bar",
+                        npc.getName().getString(), action);
+            }
             return;
         }
-        int colour = BossTelegraphUtil.textColor(data.getPhase(boss.currentPhaseIndex()), ability);
+        int colour = BossTelegraphUtil.textColor(phase, ability);
         Component name = Component.translatable(BossAbilityKind.LABELS[ability])
                 .withStyle(style -> style.withColor(colour));
         for (ServerPlayer player : boss.timerBossEvent().getPlayers()) {
@@ -379,12 +408,22 @@ final class BossTelegraphRuntime {
         return phase == null || phase.leap().isTelegraph();
     }
 
-    int lead(TeleportPathData data, BossAbility action, int actionDelay) {
+    /**
+     * How many ticks the warning goes ahead of the wind-up: the lead of the ability's profile in
+     * this phase when it has one, the boss' otherwise, less what the wind-up already gives.
+     */
+    int lead(TeleportPathData data, BossPhaseData phase, BossAbility action, int actionDelay) {
         int ability = action.kind();
         if (ability < 0 || !telegraphs(data, ability)) {
             return 0;
         }
-        return Math.max(0, data.getTelegraphLeadTicks() - actionDelay);
+        int lead = phase == null ? data.getTelegraphLeadTicks()
+                : phase.profile(ability).leadOr(data.getTelegraphLeadTicks());
+        if (lead != data.getTelegraphLeadTicks()) {
+            LOGGER.debug("Boss {} warns of {} {} ticks ahead by its profile instead of the boss' {}",
+                    npc.getName().getString(), action, lead, data.getTelegraphLeadTicks());
+        }
+        return Math.max(0, lead - actionDelay);
     }
 
 }
