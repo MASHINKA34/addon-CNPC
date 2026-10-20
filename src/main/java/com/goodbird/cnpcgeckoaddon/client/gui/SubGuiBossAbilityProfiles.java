@@ -92,16 +92,22 @@ public final class SubGuiBossAbilityProfiles extends SubGuiFieldScreen {
     }
 
     /**
-     * What the profile changes, shortest first: "P1 · 80 % · 3/phase · T1" for the priority, the
-     * chance, the limit and a damage type other than the plain one, an ellipsis for anything else
-     * it changes, a dash for nothing. Built from numbers, with the phase word the phase menu
-     * already has; cut short to the column, ellipsis and all, rather than run under the panel's edge.
+     * What the profile changes, shortest first: "\"Inferno\" · P1 · 80 % · 3/phase · T1" for the
+     * name it gives the ability, the priority, the chance, the limit and a damage type other than
+     * the plain one, an ellipsis for anything else it changes, a dash for nothing. Built from
+     * numbers and the builder's own name, with the phase word the phase menu already has; cut short
+     * to the column, ellipsis and all, rather than run under the panel's edge.
      */
     private String summary(BossAbilityProfile profile) {
         if (profile.isDefault()) {
             return DEFAULT_SUMMARY;
         }
         List<String> parts = new ArrayList<>();
+        if (!profile.getDisplayName().isEmpty()) {
+            // First, so it is the last thing the column cuts; a name too long for the column on its
+            // own is cut itself, under its ellipsis.
+            parts.add(fitted("\"" + profile.getDisplayName() + "\""));
+        }
         if (profile.getPriority() > 0) {
             parts.add("P" + profile.getPriority());
         }
@@ -119,6 +125,7 @@ public final class SubGuiBossAbilityProfiles extends SubGuiFieldScreen {
         // row has no room to spell it out, and the editor is a click away.
         BossAbilityProfile rest = new BossAbilityProfile();
         rest.copyFrom(profile);
+        rest.setDisplayName("");
         rest.setPriority(0);
         rest.setCastChancePercent(BossAbilityProfile.MAX_CAST_CHANCE);
         rest.setMaxCastsPerPhase(BossAbilityProfile.NO_CAST_LIMIT);
@@ -131,7 +138,16 @@ public final class SubGuiBossAbilityProfiles extends SubGuiFieldScreen {
         for (int kept = parts.size() - 1; kept > 0 && font.width(text) > SUMMARY_WIDTH; kept--) {
             text = String.join(SEPARATOR, parts.subList(0, kept)) + SEPARATOR + MORE;
         }
-        return text;
+        // A name filling the column leaves no room even for the ellipsis after it.
+        return fitted(text);
+    }
+
+    /** One part cut to the column on its own, ending in an ellipsis when it had to be cut. */
+    private String fitted(String part) {
+        if (font.width(part) <= SUMMARY_WIDTH) {
+            return part;
+        }
+        return font.plainSubstrByWidth(part, SUMMARY_WIDTH - font.width(MORE)) + MORE;
     }
 
     @Override

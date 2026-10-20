@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
+import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossPlatformSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
@@ -631,9 +632,10 @@ public final class BossPlatformScheduler {
     private static void announceCountdown(ServerLevel level, TeleportPathController controller, Pending pending,
                                           long gameTime) {
         int seconds = (int) Math.max(1L, (pending.burn.blastAt() - gameTime + 19L) / 20L);
-        int colour = BossTelegraphUtil.textColor(controller.activePhase(), BossAbilityKind.PLATFORM);
+        BossPhaseData phase = controller.activePhase();
+        int colour = BossTelegraphUtil.textColor(phase, BossAbilityKind.PLATFORM);
         Component line = Component.translatable("cnpcgeckoaddon.boss.platform_countdown",
-                        Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.PLATFORM]), seconds)
+                        BossAbilityNames.name(phase, BossAbilityKind.PLATFORM), seconds)
                 .withStyle(style -> style.withColor(colour));
         Set<ServerPlayer> audience = new LinkedHashSet<>(controller.timerBossEvent().getPlayers());
         for (UUID playerId : controller.encounterParticipants()) {

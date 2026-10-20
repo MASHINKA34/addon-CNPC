@@ -1601,9 +1601,10 @@ public final class TeleportPathController {
 
     /**
      * Read-only status used by the boss diagnostic command: a line for each rotation ability whose
-     * profile in the phase being fought is not all defaults - its clock, its priority, the spread on
-     * its cooldown, its casts against the limit, whether its last chance came up short, and the row
-     * of repeats it is in - or one line saying every profile is untouched.
+     * profile in the phase being fought is not all defaults - the name the profile gives it, its
+     * clock, its priority, the spread on its cooldown, its casts against the limit, whether its last
+     * chance came up short, and the row of repeats it is in - or one line saying every profile is
+     * untouched.
      */
     public List<String> profileStatus(long gameTime) {
         BossPhaseData phase = activePhase();
@@ -1634,7 +1635,10 @@ public final class TeleportPathController {
             if (repeating) {
                 parts.add(repeat.status(gameTime));
             }
-            lines.add("Profile " + ability + ": " + String.join(", ", parts));
+            // The name the fight calls it by, when the profile gives it one: what the players read.
+            String name = profile.getDisplayName();
+            lines.add("Profile " + ability + (name.isEmpty() ? "" : " \"" + name + "\"") + ": "
+                    + String.join(", ", parts));
         }
         return lines.isEmpty() ? List.of("Profiles: all default") : lines;
     }

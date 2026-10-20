@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.renderer;
 
 import com.goodbird.cnpcgeckoaddon.ai.BossAbility;
+import com.goodbird.cnpcgeckoaddon.ai.BossAbilityNames;
 import com.goodbird.cnpcgeckoaddon.ai.BossRiftDimension;
 import com.goodbird.cnpcgeckoaddon.client.gui.BossZoneScreen;
 import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview.Focus;
@@ -207,7 +208,7 @@ final class BossZoneShapes {
             if (!hazard.isEnabled() && !focused) {
                 return;
             }
-            String label = prefix + abilityName(BossAbilityKind.HAZARD);
+            String label = prefix + abilityName(phase, BossAbilityKind.HAZARD);
             if (hazard.getMode() == BossPhaseData.HAZARD_MODE_BOX) {
                 box(BossAbilityKind.HAZARD, label, ZoneCoordinates.blockBox(
                         new BlockPos(hazard.getX1(), hazard.getY1(), hazard.getZ1()),
@@ -233,7 +234,7 @@ final class BossZoneShapes {
                 return;
             }
             int rgb = rgb(BossAbilityKind.COVER);
-            shapes.add(Shape.ring(BossAbilityKind.COVER, prefix + abilityName(BossAbilityKind.COVER), home,
+            shapes.add(Shape.ring(BossAbilityKind.COVER, prefix + abilityName(phase, BossAbilityKind.COVER), home,
                     cover.getRange(), focused, rgb));
             if (cover.getMode() == BossPhaseData.COVER_MODE_SHELTER) {
                 shapes.add(Shape.ring(BossAbilityKind.COVER, "", home, cover.getShelterMinRange(), focused, rgb));
@@ -336,7 +337,7 @@ final class BossZoneShapes {
                         ? new Vec3(spot.getX() + 0.5D, spot.getY(), spot.getZ() + 0.5D)
                         : home.add(spot.getX(), spot.getY(), spot.getZ());
                 shapes.add(Shape.point(ability.kind(), prefix + name("cnpcgeckoaddon.boss.cast_spots_settings")
-                        + " · " + abilityName(ability.kind()), at, focused, rgb(ability.kind())));
+                        + " · " + abilityName(phase, ability.kind()), at, focused, rgb(ability.kind())));
             }
         }
 
@@ -354,7 +355,7 @@ final class BossZoneShapes {
                 default -> null;
             };
             if (at != null) {
-                shapes.add(Shape.point(BossAbilityKind.LEAP, prefix + abilityName(BossAbilityKind.LEAP), at, focused,
+                shapes.add(Shape.point(BossAbilityKind.LEAP, prefix + abilityName(phase, BossAbilityKind.LEAP), at, focused,
                         rgb(BossAbilityKind.LEAP)));
             }
         }
@@ -380,8 +381,12 @@ final class BossZoneShapes {
         }
     }
 
-    private static String abilityName(int kind) {
-        return I18n.get(BossAbilityKind.LABELS[kind]);
+    /**
+     * The name a zone of one phase is labelled with: the name the ability's profile gives it there,
+     * so the zone and the warning read the same, or the kind's own.
+     */
+    private static String abilityName(BossPhaseData phase, int kind) {
+        return BossAbilityNames.name(phase, kind).getString();
     }
 
     private static String numbered(String key, int index) {

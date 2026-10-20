@@ -145,6 +145,8 @@ public final class BossMarkScheduler {
         private final BossTelegraphPaint.Settings telegraph;
         /** How it looks and sounds, taken off the settings on the same tick. */
         private final Look look;
+        /** What the countdown calls the mark: the name its profile gave it in the phase it was lit in, or the kind's. */
+        private final Component name;
         private final long litAt;
         private final long explodesAt;
         /** Where the blast lands; moves under a followed carrier, otherwise fixed. */
@@ -170,6 +172,7 @@ public final class BossMarkScheduler {
             // The mark's look in the phase it was lit in - its profile's colour too - kept for the whole fuse.
             this.telegraph = BossTelegraphPaint.Settings.of(boss, BossAbilityKind.MARK);
             this.look = look(phase.mark());
+            this.name = BossAbilityNames.name(phase, BossAbilityKind.MARK);
             this.litAt = gameTime;
             this.explodesAt = gameTime + phase.mark().getFuseTicks();
             this.pos = pos;
@@ -348,7 +351,7 @@ public final class BossMarkScheduler {
         // Rounded up, so the last second of a fuse is shown as one rather than as none.
         int seconds = (int) Math.max(1L, (pending.explodesAt - gameTime + 19L) / 20L);
         MutableComponent line = Component.translatable("cnpcgeckoaddon.boss.mark_countdown",
-                Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.MARK]), seconds);
+                pending.name, seconds);
         if (pending.mode == BossPhaseData.MARK_MODE_SOAK) {
             line.append("  ").append(Component.translatable("cnpcgeckoaddon.boss.mark_inside",
                     inside, pending.minPlayers));

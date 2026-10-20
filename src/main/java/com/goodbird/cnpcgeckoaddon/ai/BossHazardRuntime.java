@@ -286,9 +286,10 @@ final class BossHazardRuntime {
         // in through %s: vanilla's translation formatter takes that one placeholder and
         // nothing else, and a %d would leave the raw template on the screen.
         int seconds = (int) Math.max(1L, (hazard.opensAt - gameTime + 19L) / 20L);
-        int colour = BossTelegraphUtil.textColor(boss.activePhase(), BossAbilityKind.HAZARD);
+        BossPhaseData phase = boss.activePhase();
+        int colour = BossTelegraphUtil.textColor(phase, BossAbilityKind.HAZARD);
         Component line = Component.translatable("cnpcgeckoaddon.boss.hazard_countdown",
-                        Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.HAZARD]), seconds)
+                        BossAbilityNames.name(phase, BossAbilityKind.HAZARD), seconds)
                 .withStyle(style -> style.withColor(colour));
         Set<ServerPlayer> audience = new LinkedHashSet<>(boss.timerBossEvent().getPlayers());
         for (UUID playerId : boss.encounterParticipants()) {

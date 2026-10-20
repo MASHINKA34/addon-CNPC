@@ -165,8 +165,7 @@ final class BossTelegraphRuntime {
             return;
         }
         int colour = BossTelegraphUtil.textColor(phase, ability);
-        Component name = Component.translatable(BossAbilityKind.LABELS[ability])
-                .withStyle(style -> style.withColor(colour));
+        Component name = BossAbilityNames.name(phase, ability).withStyle(style -> style.withColor(colour));
         for (ServerPlayer player : boss.timerBossEvent().getPlayers()) {
             player.displayClientMessage(name, true);
         }
