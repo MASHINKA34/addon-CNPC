@@ -13,7 +13,7 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  * {@link BossPhaseData#boulderRain()}. It owns its own save format: the keys below are the ones a
  * boss on somebody's server already carries, so they are not the class' to rename.</p>
  */
-public final class BossBoulderRainSettings {
+public final class BossBoulderRainSettings implements BossCentreSettings {
 
     /** Both in tenths of a block, the way the mark and the headroom are measured. */
     public static final int MIN_MARK = 1;
@@ -50,6 +50,10 @@ public final class BossBoulderRainSettings {
     /** Empty id: the mark is heard as the block the stones are made of. */
     private final BossSoundCue rainMarkSound = new BossSoundCue("", 1.2F, 0.5F);
     private final BossEffectSet boulderRainEffects = new BossEffectSet();
+    /** Where the volley goes off: round the boss, or round the spot a target stood on as the cast began. */
+    private int boulderRainCentreMode = BossCentreMode.BOSS;
+    /** Which target a centre on a target goes to. */
+    private int boulderRainTargetMode = BossTargetMode.MAIN;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot boulderRainCastSpot = new BossCastSpot();
 
@@ -168,6 +172,18 @@ public final class BossBoulderRainSettings {
 
     public BossEffectSet getEffects() { return boulderRainEffects; }
 
+    @Override
+    public int getCentreMode() { return boulderRainCentreMode; }
+
+    @Override
+    public void setCentreMode(int value) { boulderRainCentreMode = BossCentreMode.clamp(value); }
+
+    @Override
+    public int getTargetMode() { return boulderRainTargetMode; }
+
+    @Override
+    public void setTargetMode(int value) { boulderRainTargetMode = BossTargetMode.clamp(value); }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return boulderRainCastSpot; }
 
@@ -193,6 +209,8 @@ public final class BossBoulderRainSettings {
         tag.putInt("BoulderRainMinDrop", rainMinDropBlocks);
         rainMarkSound.writeToNBT(tag, "BoulderRainMarkSound");
         tag.put("BoulderRainEffects", boulderRainEffects.writeToNBT());
+        tag.putInt("BoulderRainCentre", boulderRainCentreMode);
+        tag.putInt("BoulderRainTargetMode", boulderRainTargetMode);
         boulderRainCastSpot.writeToNBT(tag, "BoulderRain");
     }
 
@@ -223,6 +241,11 @@ public final class BossBoulderRainSettings {
         rainMinDropBlocks = value(tag, "BoulderRainMinDrop", 10, 0, MAX_MIN_DROP);
         rainMarkSound.readFromNBT(tag, "BoulderRainMarkSound");
         boulderRainEffects.readFromNBT(tag, "BoulderRainEffects");
+        // Absent in a save from before the setting: round the boss, as it always went off.
+        boulderRainCentreMode = value(tag, "BoulderRainCentre",
+                BossCentreMode.BOSS, BossCentreMode.BOSS, BossCentreMode.TARGET);
+        boulderRainTargetMode = value(tag, "BoulderRainTargetMode",
+                BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         boulderRainCastSpot.readFromNBT(tag, "BoulderRain");
     }
 }

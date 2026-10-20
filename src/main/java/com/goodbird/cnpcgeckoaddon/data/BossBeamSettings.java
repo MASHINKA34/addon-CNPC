@@ -13,7 +13,7 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  * {@link BossPhaseData#beam()}. It owns its own save format: the keys below are the ones a
  * boss on somebody's server already carries, so they are not the class' to rename.</p>
  */
-public final class BossBeamSettings {
+public final class BossBeamSettings implements BossCentreSettings {
 
     // Where the lines sit and what they are drawn with, each in the unit its label names.
     public static final int MIN_HEIGHT = 1;
@@ -67,6 +67,10 @@ public final class BossBeamSettings {
             new BossSoundCue("minecraft:entity.guardian.attack", 2.0F, 0.6F);
     /** Landed with every hit of a beam, on whoever it caught up with. */
     private final BossEffectSet beamEffects = new BossEffectSet();
+    /** Where the beams go off: round the boss, or round the spot a target stood on as the cast began. */
+    private int beamCentreMode = BossCentreMode.BOSS;
+    /** Which target a centre on a target goes to. */
+    private int beamTargetMode = BossTargetMode.MAIN;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot beamCastSpot = new BossCastSpot();
 
@@ -188,6 +192,18 @@ public final class BossBeamSettings {
 
     public BossEffectSet getEffects() { return beamEffects; }
 
+    @Override
+    public int getCentreMode() { return beamCentreMode; }
+
+    @Override
+    public void setCentreMode(int value) { beamCentreMode = BossCentreMode.clamp(value); }
+
+    @Override
+    public int getTargetMode() { return beamTargetMode; }
+
+    @Override
+    public void setTargetMode(int value) { beamTargetMode = BossTargetMode.clamp(value); }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return beamCastSpot; }
 
@@ -215,6 +231,8 @@ public final class BossBeamSettings {
         tag.putInt("BeamRareAccent", beamRareAccentOneIn);
         beamStartSound.writeToNBT(tag, "BeamStartSound");
         tag.put("BeamEffects", beamEffects.writeToNBT());
+        tag.putInt("BeamCentre", beamCentreMode);
+        tag.putInt("BeamTargetMode", beamTargetMode);
         beamCastSpot.writeToNBT(tag, "Beam");
     }
 
@@ -247,6 +265,9 @@ public final class BossBeamSettings {
         beamRareAccentOneIn = value(tag, "BeamRareAccent", 12, MIN_ACCENT, MAX_RARE_ACCENT);
         beamStartSound.readFromNBT(tag, "BeamStartSound");
         beamEffects.readFromNBT(tag, "BeamEffects");
+        // Absent in a save from before the setting: round the boss, as it always went off.
+        beamCentreMode = value(tag, "BeamCentre", BossCentreMode.BOSS, BossCentreMode.BOSS, BossCentreMode.TARGET);
+        beamTargetMode = value(tag, "BeamTargetMode", BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         beamCastSpot.readFromNBT(tag, "Beam");
     }
 }

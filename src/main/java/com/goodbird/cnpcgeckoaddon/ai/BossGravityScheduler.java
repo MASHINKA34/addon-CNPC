@@ -18,6 +18,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
@@ -41,9 +42,11 @@ import java.util.UUID;
  * leash.</p>
  *
  * <p>The field is centred on the boss on every tick, not on the spot it was cast from, so a
- * boss that walks drags the field along with it. Everything else - radius, force, damage with
- * the enrage bonus, effects - is snapshotted on the cast, the way a geyser's eruption is, and
- * driven from the level tick: the boss is back on its rotation the moment the cast lands.</p>
+ * boss that walks drags the field along with it - unless the cast centred it on a target, when
+ * it stays on the spot that target stood on, teeth and all. Everything else - radius, force,
+ * damage with the enrage bonus, effects - is snapshotted on the cast, the way a geyser's
+ * eruption is, and driven from the level tick: the boss is back on its rotation the moment the
+ * cast lands.</p>
  *
  * <p>A throw is over the tick it happens, but its landing is not: whoever was thrown is
  * remembered by id, and the extra damage lands the moment they come down - before vanilla's
@@ -191,6 +194,13 @@ public final class BossGravityScheduler {
         private final long endsAt;
         /** Victim id -> earliest game time the field may bite them again. */
         private final Map<UUID, Long> nextBiteAt = new HashMap<>();
+        /** The spot a field centred on a target stays on, or null for one that follows the boss. */
+        private final Vec3 fixedCentre;
+
+        /** Where the field is on this tick: its fixed spot, or the boss as it stands now. */
+        private Vec3 centre() {
+            return fixedCentre != null ? fixedCentre : boss.position();
+        }
 
         /** How much of the field's life is gone, which is what its edge counts towards. */
         private float lifeProgress(long gameTime) {
@@ -200,8 +210,9 @@ public final class BossGravityScheduler {
         }
 
         private Field(ResourceKey<Level> dimension, EntityNPCInterface boss, BossPhaseData phase,
-                      int damage, long gameTime) {
+                      int damage, long gameTime, Vec3 fixedCentre) {
             this.dimension = dimension;
+            this.fixedCentre = fixedCentre;
             this.boss = boss;
             this.mode = phase.gravity().getMode();
             this.radius = phase.gravity().getRadius();
@@ -253,22 +264,23 @@ public final class BossGravityScheduler {
     /**
      * Opens the field, or throws everyone in it.
      *
-     * @param damage what the pull's bite or the throw's landing hits for, with the enrage
-     *               bonus already in it
+     * @param damage      what the pull's bite or the throw's landing hits for, with the enrage
+     *                    bonus already in it
+     * @param fixedCentre the spot a field centred on a target stays on, or null for one round the boss
      */
     public static void start(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, int damage,
-                             long gameTime) {
-        Vec3 centre = boss.position();
+                             long gameTime, Vec3 fixedCentre) {
+        Vec3 centre = fixedCentre != null ? fixedCentre : boss.position();
         Look look = look(phase.gravity());
         // Purely for show, and started before anything is moved, so what a player sees leaves
         // at the same moment the force lands rather than a tick behind it.
         BossAreaVfxScheduler.schedule(level, centre, phase.gravity().getVfx(), phase.gravity().getRadius(),
                 look.vfxTicks(), false, BossWaveTuning.of(boss, phase.gravity().getVfx()));
         if (phase.gravity().getMode() == BossPhaseData.GRAVITY_MODE_LIFT) {
-            fling(level, boss, phase, damage, gameTime, look);
+            fling(level, boss, phase, damage, gameTime, look, centre);
             return;
         }
-        FIELDS.add(new Field(level.dimension(), boss, phase, damage, gameTime));
+        FIELDS.add(new Field(level.dimension(), boss, phase, damage, gameTime, fixedCentre));
         if (phase.gravity().getMode() == BossPhaseData.GRAVITY_MODE_PULL) {
             // A low hum as the field opens; the wind that follows is the particles' job.
             look.openSound().play(level, centre.x, centre.y, centre.z, SoundSource.HOSTILE);
@@ -284,9 +296,9 @@ public final class BossGravityScheduler {
      * exactly these people, not to whoever happens to fall over in the arena afterwards.</p>
      */
     private static void fling(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, int damage,
-                              long gameTime, Look look) {
+                              long gameTime, Look look, Vec3 centre) {
         double up = phase.gravity().getStrength() / 10.0D;
-        for (LivingEntity victim : victims(level, boss, boss.position(), phase.gravity().getRadius())) {
+        for (LivingEntity victim : victims(level, boss, centre, phase.gravity().getRadius())) {
             if (skips(victim)) {
                 continue;
             }
@@ -309,7 +321,7 @@ public final class BossGravityScheduler {
             level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.GRAVITY), victim.getX(),
                     victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(), 8, 0.3D, 0.5D, 0.3D, 0.0D);
         }
-        look.launchSound().play(level, boss.getX(), boss.getY(), boss.getZ(), SoundSource.HOSTILE);
+        look.launchSound().play(level, centre.x, centre.y, centre.z, SoundSource.HOSTILE);
     }
 
     public static boolean hasPending() {
@@ -360,8 +372,9 @@ public final class BossGravityScheduler {
         if (!boss.isAlive() || boss.isRemoved() || boss.level() != level || gameTime >= field.endsAt) {
             return false;
         }
-        // Read fresh every tick: the field is wherever the boss is now, not where it cast.
-        Vec3 centre = boss.position();
+        // Read fresh every tick: the field is wherever the boss is now, not where it cast - or,
+        // centred on a target, on the spot that target stood on.
+        Vec3 centre = field.centre();
         boolean dose = (gameTime - field.startedAt) % field.look.effectIntervalTicks() == 0L
                 && field.effects.isAnyEnabled();
         for (LivingEntity victim : victims(level, boss, centre, field.radius)) {
@@ -477,10 +490,12 @@ public final class BossGravityScheduler {
      * <p>Measured box to box rather than centre to centre, so a boss four blocks wide can
      * still be touched - centre to centre nobody would ever get near enough. Retried every
      * tick until a hit really lands, so a bite swallowed by somebody's invulnerability frames
-     * is not a whole second forgiven.</p>
+     * is not a whole second forgiven. A field centred on a target bites at its own centre, with
+     * the boss' box moved there: the pull drags everyone to that spot, not to the boss.</p>
      */
     private static void bite(Field field, EntityNPCInterface boss, LivingEntity victim, long gameTime) {
-        if (!boss.getBoundingBox().inflate(field.touchRadius).intersects(victim.getBoundingBox())) {
+        AABB teeth = teeth(boss.getBoundingBox(), boss.position(), field.fixedCentre).inflate(field.touchRadius);
+        if (!teeth.intersects(victim.getBoundingBox())) {
             return;
         }
         Long due = field.nextBiteAt.get(victim.getUUID());
@@ -492,6 +507,14 @@ public final class BossGravityScheduler {
         if (BossAbilityDamageUtil.hit(victim, BossAbilityKind.GRAVITY, boss, field.damage, null, 0, 0.0D, 0.0D)) {
             field.nextBiteAt.put(victim.getUUID(), gameTime + field.look.biteIntervalTicks());
         }
+    }
+
+    /**
+     * The box a pull bites with: the boss' own, or for a field fixed on a spot, the same box moved
+     * so its feet stand on that spot.
+     */
+    static AABB teeth(AABB bossBox, Vec3 bossFeet, Vec3 fixedCentre) {
+        return fixedCentre == null ? bossBox : bossBox.move(fixedCentre.subtract(bossFeet));
     }
 
     /** The ring at the field's edge, and the motes streaming through it the way it pulls. */

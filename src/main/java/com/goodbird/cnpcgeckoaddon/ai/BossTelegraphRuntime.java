@@ -20,10 +20,18 @@ import java.util.List;
 
 final class BossTelegraphRuntime {
 
+    /**
+     * @param centre where an ability that acts round a point goes off, or null for round the boss
+     */
     record Cast(BossAbility action, long executesAt, long startedAt, int targetId,
-                List<Integer> extraTargets, Vec3 axis, float yaw) {
+                List<Integer> extraTargets, Vec3 axis, float yaw, Vec3 centre) {
         Cast {
             extraTargets = List.copyOf(extraTargets);
+        }
+
+        /** The point the cast acts round: the committed one, or {@code boss} - the boss where it stands now. */
+        Vec3 centreOr(Vec3 boss) {
+            return centre != null ? centre : boss;
         }
 
         LivingEntity target(ServerLevel level) {
@@ -136,8 +144,11 @@ final class BossTelegraphRuntime {
     private void drawTelegraphZone(ServerLevel level, TeleportPathData data,
                                    BossTelegraphPaint paint, Cast cast) {
         BossPhaseData phase = data.getPhase(boss.currentPhaseIndex());
+        // The six that act round a point mark it where the cast committed it: on a target's spot,
+        // or on the boss as it stands.
+        Vec3 centre = cast.centreOr(npc.position());
         switch (cast.action()) {
-            case GROUND_ATTACK -> BossTelegraphUtil.ring(level, npc.position(),
+            case GROUND_ATTACK -> BossTelegraphUtil.ring(level, centre,
                     phase.areaAttack().getRadius(), paint);
             case LINE_ATTACK -> {
                 if (cast.axis() != null) {
@@ -208,23 +219,23 @@ final class BossTelegraphRuntime {
             // start from; the rings between the two are outlined one by one as they come.
             case SEISMIC -> {
                 BossSeismicSettings seismic = phase.seismic();
-                BossTelegraphUtil.edgeRing(level, npc.position(), seismic.getMaxRadius(), paint);
-                BossTelegraphUtil.ring(level, npc.position(),
+                BossTelegraphUtil.edgeRing(level, centre, seismic.getMaxRadius(), paint);
+                BossTelegraphUtil.ring(level, centre,
                         Math.min(seismic.getCoreRadius(), seismic.getMaxRadius()), paint);
             }
-            case GRAVITY -> BossTelegraphUtil.ring(level, npc.position(), phase.gravity().getRadius(), paint);
+            case GRAVITY -> BossTelegraphUtil.ring(level, centre, phase.gravity().getRadius(), paint);
             // The ring the volley will fall in, and the dead zone at the boss' feet where it
             // cannot: nothing is aimed at anybody, so the shape is the whole warning.
             case BOULDER_RAIN -> {
-                BossTelegraphUtil.ring(level, npc.position(), phase.boulderRain().getRadius(), paint);
+                BossTelegraphUtil.ring(level, centre, phase.boulderRain().getRadius(), paint);
                 if (phase.boulderRain().getMinRadius() > 0) {
-                    BossTelegraphUtil.ring(level, npc.position(), phase.boulderRain().getMinRadius(), paint);
+                    BossTelegraphUtil.ring(level, centre, phase.boulderRain().getMinRadius(), paint);
                 }
             }
             case BEAM -> {
-                BossTelegraphUtil.ring(level, npc.position(), phase.beam().getLength(), paint);
+                BossTelegraphUtil.ring(level, centre, phase.beam().getLength(), paint);
                 // The beams themselves are not shapes on the floor, so they stay dust.
-                BossBeamScheduler.paintStart(level, npc, cast.yaw(), phase.beam());
+                BossBeamScheduler.paintStart(level, npc, centre, cast.yaw(), phase.beam());
             }
             case COVER -> coverRuntime.drawShelters(level, paint);
             case TETHER -> {

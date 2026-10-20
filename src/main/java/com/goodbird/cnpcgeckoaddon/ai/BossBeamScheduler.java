@@ -42,7 +42,8 @@ import java.util.UUID;
  * <p>Everything the sweep needs is snapshotted on the cast - the enrage bonus included - and
  * driven from the level tick, the way a gravity field is: the boss is back on its rotation
  * the moment the cast lands. Only the centre is read fresh, and only when the beams are set
- * to follow the boss.</p>
+ * to follow the boss. A sweep centred on a target fans out round the spot that target stood on
+ * as the cast began, at the height it would leave the boss at, and stays there.</p>
  *
  * <p>Nothing here is persisted. A sweep lives for seconds, and a server that shuts down
  * inside that window should not burn whoever logs in first.</p>
@@ -105,14 +106,15 @@ public final class BossBeamScheduler {
         private final Map<UUID, Long> nextHitAt = new HashMap<>();
 
         private Sweep(ResourceKey<Level> dimension, EntityNPCInterface boss, BossPhaseData phase,
-                      float startYaw, int damage, int knockback, long gameTime) {
+                      float startYaw, int damage, int knockback, long gameTime, Vec3 fixedFeet) {
             this.dimension = dimension;
             this.boss = boss;
             this.count = phase.beam().getCount();
             this.length = phase.beam().getLength();
             this.startYaw = startYaw;
             this.degreesPerTick = phase.beam().getDegreesPerSecond() / TICKS_PER_SECOND;
-            this.followsBoss = phase.beam().isFollowsBoss();
+            // A sweep on a target's spot stays there: following is the boss' own option.
+            this.followsBoss = phase.beam().isFollowsBoss() && fixedFeet == null;
             this.stopsAtWalls = phase.beam().isStopsAtWalls();
             this.halfWidth = phase.beam().getWidth() * 0.5D;
             this.damage = damage;
@@ -124,7 +126,7 @@ public final class BossBeamScheduler {
             this.victimSlack = phase.beam().getVictimSlack();
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.beam().getDurationTicks();
-            this.centre = centreOf(boss, this.height);
+            this.centre = fixedFeet != null ? centreOf(boss, fixedFeet, this.height) : centreOf(boss, this.height);
         }
     }
 
@@ -139,11 +141,13 @@ public final class BossBeamScheduler {
      * @param startYaw  the Minecraft yaw the first beam leaves at; the rest are spaced evenly after it
      * @param damage    what one hit does, with the enrage bonus already in it
      * @param knockback how hard a hit shoves, in the same already-scaled terms
+     * @param fixedFeet the spot a target stood on, for a sweep centred on it, or null for round the boss
      */
     public static void start(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, float startYaw,
-                             int damage, int knockback, long gameTime) {
-        SWEEPS.add(new Sweep(level.dimension(), boss, phase, startYaw, damage, knockback, gameTime));
-        Vec3 centre = centreOf(boss, phase.beam().getMaxHeight());
+                             int damage, int knockback, long gameTime, Vec3 fixedFeet) {
+        Sweep sweep = new Sweep(level.dimension(), boss, phase, startYaw, damage, knockback, gameTime, fixedFeet);
+        SWEEPS.add(sweep);
+        Vec3 centre = sweep.centre;
         // The guardian's own zap, deeper: the one sound in the game that already means a beam.
         phase.beam().getStartSound().play(level, centre.x, centre.y, centre.z, SoundSource.HOSTILE);
     }
@@ -321,7 +325,15 @@ public final class BossBeamScheduler {
      * is lower.
      */
     public static Vec3 centreOf(EntityNPCInterface boss, double maxHeight) {
-        return boss.position().add(0.0D, Math.min(boss.getBbHeight() * 0.5D, maxHeight), 0.0D);
+        return centreOf(boss, boss.position(), maxHeight);
+    }
+
+    /**
+     * The same over any feet: the beams of a sweep centred on a target leave the spot it stood on
+     * at the height they would leave the boss at, so they read and hit the same way.
+     */
+    public static Vec3 centreOf(EntityNPCInterface boss, Vec3 feet, double maxHeight) {
+        return feet.add(0.0D, Math.min(boss.getBbHeight() * 0.5D, maxHeight), 0.0D);
     }
 
     /**
@@ -352,11 +364,11 @@ public final class BossBeamScheduler {
      * beam the pillar is going to stop. Always in the ability's colour, whatever look the
      * beams themselves have: it is a warning, and has to read the same under every boss.</p>
      */
-    public static void paintStart(ServerLevel level, EntityNPCInterface boss, float startYaw,
+    public static void paintStart(ServerLevel level, EntityNPCInterface boss, Vec3 feet, float startYaw,
                                   BossBeamSettings beam) {
         int count = beam.getCount();
         double length = beam.getLength();
-        Vec3 centre = centreOf(boss, beam.getMaxHeight());
+        Vec3 centre = centreOf(boss, feet, beam.getMaxHeight());
         Vec3[] ends = new Vec3[count];
         for (int i = 0; i < count; i++) {
             float yaw = (float) (startYaw + i * 360.0D / count);

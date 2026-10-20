@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
 
@@ -39,12 +40,15 @@ final class BossBeamCastRuntime {
             boss.setAbilityScheduleAt(BossAbility.BEAM, gameTime + boss.retryLongTicks());
             return false;
         }
-        if (!hasTargets(level, phase)) {
+        // Round the boss, or fanned out round the spot a target stood on as the cast began.
+        Vec3 centre = boss.castCentre(level, BossAbility.BEAM, phase.beam());
+        if (!hasTargets(level, phase, centre != null ? centre : npc.position())) {
             boss.setAbilityScheduleAt(BossAbility.BEAM, gameTime + boss.retryLongTicks());
             return false;
         }
         boss.commitYaw(phase.beam().getStartMode() == BossPhaseData.BEAM_START_RANDOM
                 ? npc.getRandom().nextFloat() * FULL_TURN_DEGREES : npc.getYRot());
+        boss.commitCentre(centre);
         boss.beginAction(BossAbility.BEAM, phase.beam().getAnimation(),
                 phase.beam().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
@@ -54,8 +58,13 @@ final class BossBeamCastRuntime {
         return true;
     }
 
+    /** Whether the sweep being wound up has anybody in reach of its beams, round the point it committed to. */
     boolean hasTargets(ServerLevel level, BossPhaseData phase) {
-        return !boss.beamVictims(level, BossBeamScheduler.centreOf(npc, phase.beam().getMaxHeight()),
+        return hasTargets(level, phase, boss.committedCentreOrBoss());
+    }
+
+    private boolean hasTargets(ServerLevel level, BossPhaseData phase, Vec3 feet) {
+        return !boss.beamVictims(level, BossBeamScheduler.centreOf(npc, feet, phase.beam().getMaxHeight()),
                 phase.beam().getLength()).isEmpty();
     }
 
@@ -71,7 +80,7 @@ final class BossBeamCastRuntime {
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
         BossBeamScheduler.start(level, npc, phase, boss.committedYaw(),
                 boss.damageUp(BossAbilityKind.BEAM, phase.beam().getDamage()),
-                boss.rageUp(BossAbilityKind.BEAM, phase.beam().getKnockback()), gameTime);
+                boss.rageUp(BossAbilityKind.BEAM, phase.beam().getKnockback()), gameTime, boss.committedCentre());
     }
 
     /** Read-only status used by the boss diagnostic command. */

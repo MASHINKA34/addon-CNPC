@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
 
@@ -29,10 +30,12 @@ final class BossGravityCastRuntime {
 
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!boss.mayStart(BossAbility.GRAVITY, phase) || gameTime < boss.abilityScheduleAt(BossAbility.GRAVITY)) return false;
-        if (!hasTargets(level, phase)) {
+        Vec3 centre = boss.castCentre(level, BossAbility.GRAVITY, phase.gravity());
+        if (!hasTargets(level, phase, centre != null ? centre : npc.position())) {
             boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + boss.retryLongTicks());
             return false;
         }
+        boss.commitCentre(centre);
         boss.beginAction(BossAbility.GRAVITY, phase.gravity().getAnimation(),
                 phase.gravity().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
@@ -42,8 +45,13 @@ final class BossGravityCastRuntime {
         return true;
     }
 
+    /** Whether the field being wound up has anybody to catch, round the point it committed to. */
     boolean hasTargets(ServerLevel level, BossPhaseData phase) {
-        return !boss.gravityVictims(level, npc.position(), phase.gravity().getRadius()).isEmpty();
+        return hasTargets(level, phase, boss.committedCentreOrBoss());
+    }
+
+    private boolean hasTargets(ServerLevel level, BossPhaseData phase, Vec3 centre) {
+        return !boss.gravityVictims(level, centre, phase.gravity().getRadius()).isEmpty();
     }
 
     /**
@@ -51,12 +59,13 @@ final class BossGravityCastRuntime {
      *
      * <p>Nobody is moved here: the radius, the force and the damage - with the enrage bonus
      * on it - are snapshotted on this tick and the scheduler drives the field on its own
-     * clock, following the boss wherever it walks in the meantime. The radius, the force and
-     * the timer are deliberately left alone by the enrage: they are the room a player gets to
-     * run, not a number the fight may turn down.</p>
+     * clock, following the boss wherever it walks in the meantime - or, centred on a target,
+     * staying on the spot that target stood on. The radius, the force and the timer are
+     * deliberately left alone by the enrage: they are the room a player gets to run, not a
+     * number the fight may turn down.</p>
      */
     void perform(ServerLevel level, BossPhaseData phase, long gameTime) {
         BossGravityScheduler.start(level, npc, phase,
-                boss.damageUp(BossAbilityKind.GRAVITY, phase.gravity().getDamage()), gameTime);
+                boss.damageUp(BossAbilityKind.GRAVITY, phase.gravity().getDamage()), gameTime, boss.committedCentre());
     }
 }

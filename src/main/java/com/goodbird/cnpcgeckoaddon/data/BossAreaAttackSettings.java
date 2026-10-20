@@ -13,7 +13,7 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  * {@link BossPhaseData#areaAttack()}. It owns its own save format: the keys below are the ones a
  * boss on somebody's server already carries, so they are not the class' to rename.</p>
  */
-public final class BossAreaAttackSettings {
+public final class BossAreaAttackSettings implements BossCentreSettings {
 
     private boolean areaAttackEnabled;
     private String areaAttackAnimation = "";
@@ -26,6 +26,10 @@ public final class BossAreaAttackSettings {
     private int areaAttackVfxDurationTicks = 20;
     private boolean areaAttackBlockWave;
     private final BossEffectSet areaAttackEffects = new BossEffectSet();
+    /** Where the slam goes off: round the boss, or round the spot a target stood on as the cast began. */
+    private int areaAttackCentreMode = BossCentreMode.BOSS;
+    /** Which target a centre on a target goes to. */
+    private int areaAttackTargetMode = BossTargetMode.MAIN;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot areaAttackCastSpot = new BossCastSpot();
 
@@ -71,6 +75,18 @@ public final class BossAreaAttackSettings {
 
     public BossEffectSet getEffects() { return areaAttackEffects; }
 
+    @Override
+    public int getCentreMode() { return areaAttackCentreMode; }
+
+    @Override
+    public void setCentreMode(int value) { areaAttackCentreMode = BossCentreMode.clamp(value); }
+
+    @Override
+    public int getTargetMode() { return areaAttackTargetMode; }
+
+    @Override
+    public void setTargetMode(int value) { areaAttackTargetMode = BossTargetMode.clamp(value); }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return areaAttackCastSpot; }
 
@@ -86,6 +102,8 @@ public final class BossAreaAttackSettings {
         tag.putInt("AreaAttackVfxDuration", areaAttackVfxDurationTicks);
         tag.putBoolean("AreaAttackBlockWave", areaAttackBlockWave);
         tag.put("AreaAttackEffects", areaAttackEffects.writeToNBT());
+        tag.putInt("AreaAttackCentre", areaAttackCentreMode);
+        tag.putInt("AreaAttackTargetMode", areaAttackTargetMode);
         areaAttackCastSpot.writeToNBT(tag, "AreaAttack");
     }
 
@@ -101,6 +119,11 @@ public final class BossAreaAttackSettings {
         areaAttackVfxDurationTicks = value(tag, "AreaAttackVfxDuration", 20, 5, 100);
         areaAttackBlockWave = tag.getBoolean("AreaAttackBlockWave");
         areaAttackEffects.readFromNBT(tag, "AreaAttackEffects");
+        // Absent in a save from before the setting: round the boss, as it always went off.
+        areaAttackCentreMode = value(tag, "AreaAttackCentre",
+                BossCentreMode.BOSS, BossCentreMode.BOSS, BossCentreMode.TARGET);
+        areaAttackTargetMode = value(tag, "AreaAttackTargetMode",
+                BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         areaAttackCastSpot.readFromNBT(tag, "AreaAttack");
     }
 }

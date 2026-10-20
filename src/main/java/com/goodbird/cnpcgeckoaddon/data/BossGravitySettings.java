@@ -13,7 +13,7 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  * {@link BossPhaseData#gravity()}. It owns its own save format: the keys below are the ones a
  * boss on somebody's server already carries, so they are not the class' to rename.</p>
  */
-public final class BossGravitySettings {
+public final class BossGravitySettings implements BossCentreSettings {
 
     /** The ends the field's own clocks, slack, wait and wind are held between. */
     public static final int MIN_INTERVAL_TICKS = 1;
@@ -78,6 +78,10 @@ public final class BossGravitySettings {
             new BossSoundCue("minecraft:entity.generic.big_fall", 1.0F, 0.8F);
     /** Dosed every second to everyone inside the field, whichever way it is pushing them. */
     private final BossEffectSet gravityEffects = new BossEffectSet();
+    /** Where the field goes off: round the boss, or round the spot a target stood on as the cast began. */
+    private int gravityCentreMode = BossCentreMode.BOSS;
+    /** Which target a centre on a target goes to. */
+    private int gravityTargetMode = BossTargetMode.MAIN;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot gravityCastSpot = new BossCastSpot();
 
@@ -202,6 +206,18 @@ public final class BossGravitySettings {
 
     public BossEffectSet getEffects() { return gravityEffects; }
 
+    @Override
+    public int getCentreMode() { return gravityCentreMode; }
+
+    @Override
+    public void setCentreMode(int value) { gravityCentreMode = BossCentreMode.clamp(value); }
+
+    @Override
+    public int getTargetMode() { return gravityTargetMode; }
+
+    @Override
+    public void setTargetMode(int value) { gravityTargetMode = BossTargetMode.clamp(value); }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return gravityCastSpot; }
 
@@ -232,6 +248,8 @@ public final class BossGravitySettings {
         gravityLaunchSound.writeToNBT(tag, "GravityLaunchSound");
         gravityLandingSound.writeToNBT(tag, "GravityLandingSound");
         tag.put("GravityEffects", gravityEffects.writeToNBT());
+        tag.putInt("GravityCentre", gravityCentreMode);
+        tag.putInt("GravityTargetMode", gravityTargetMode);
         gravityCastSpot.writeToNBT(tag, "Gravity");
     }
 
@@ -263,6 +281,11 @@ public final class BossGravitySettings {
         gravityLaunchSound.readFromNBT(tag, "GravityLaunchSound");
         gravityLandingSound.readFromNBT(tag, "GravityLandingSound");
         gravityEffects.readFromNBT(tag, "GravityEffects");
+        // Absent in a save from before the setting: round the boss, as it always went off.
+        gravityCentreMode = value(tag, "GravityCentre",
+                BossCentreMode.BOSS, BossCentreMode.BOSS, BossCentreMode.TARGET);
+        gravityTargetMode = value(tag, "GravityTargetMode",
+                BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         gravityCastSpot.readFromNBT(tag, "Gravity");
     }
 }

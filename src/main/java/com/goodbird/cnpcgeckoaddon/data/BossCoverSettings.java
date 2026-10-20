@@ -13,7 +13,7 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  * {@link BossPhaseData#cover()}. It owns its own save format: the keys below are the ones a
  * boss on somebody's server already carries, so they are not the class' to rename.</p>
  */
-public final class BossCoverSettings {
+public final class BossCoverSettings implements BossCentreSettings {
 
     /** The sight line, the wave and the shelters, each in the unit its label names. */
     public static final int MAX_KNEE_HEIGHT = 100;
@@ -61,6 +61,10 @@ public final class BossCoverSettings {
     private final BossParticleCue coverBlastParticles = new BossParticleCue(BossParticleCue.DUST_ID, 40);
     /** Landed on everyone the strike caught out in the open. */
     private final BossEffectSet coverEffects = new BossEffectSet();
+    /** Where the strike goes off: round the boss, or round the spot a target stood on as the cast began. */
+    private int coverCentreMode = BossCentreMode.BOSS;
+    /** Which target a centre on a target goes to. */
+    private int coverTargetMode = BossTargetMode.MAIN;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot coverCastSpot = new BossCastSpot();
 
@@ -189,6 +193,18 @@ public final class BossCoverSettings {
 
     public BossEffectSet getEffects() { return coverEffects; }
 
+    @Override
+    public int getCentreMode() { return coverCentreMode; }
+
+    @Override
+    public void setCentreMode(int value) { coverCentreMode = BossCentreMode.clamp(value); }
+
+    @Override
+    public int getTargetMode() { return coverTargetMode; }
+
+    @Override
+    public void setTargetMode(int value) { coverTargetMode = BossTargetMode.clamp(value); }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return coverCastSpot; }
 
@@ -215,6 +231,8 @@ public final class BossCoverSettings {
         tag.putInt("CoverShelterSpacing", coverShelterSpacing);
         coverBlastSound.writeToNBT(tag, "CoverBlastSound");
         coverBlastParticles.writeToNBT(tag, "CoverBlastParticles");
+        tag.putInt("CoverCentre", coverCentreMode);
+        tag.putInt("CoverTargetMode", coverTargetMode);
         coverCastSpot.writeToNBT(tag, "Cover");
     }
 
@@ -243,6 +261,10 @@ public final class BossCoverSettings {
                 MIN_SHELTER_SPACING, MAX_SHELTER_SPACING);
         coverBlastSound.readFromNBT(tag, "CoverBlastSound");
         coverBlastParticles.readFromNBT(tag, "CoverBlastParticles");
+        // Absent in a save from before the setting: round the boss, as it always went off.
+        coverCentreMode = value(tag, "CoverCentre", BossCentreMode.BOSS, BossCentreMode.BOSS, BossCentreMode.TARGET);
+        coverTargetMode = value(tag, "CoverTargetMode",
+                BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         coverCastSpot.readFromNBT(tag, "Cover");
     }
 }

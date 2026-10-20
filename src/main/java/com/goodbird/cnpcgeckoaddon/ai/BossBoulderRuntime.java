@@ -182,11 +182,17 @@ final class BossBoulderRuntime {
     boolean tryStartRain(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!boss.mayStart(BossAbility.BOULDER_RAIN, phase)
                 || gameTime < boss.abilityScheduleAt(BossAbility.BOULDER_RAIN)) return false;
-        if (EntityBossBoulder.resolveBlock(phase.boulderRain().getBlock()) == null
-                || !hasRainTargets(level, phase)) {
+        if (EntityBossBoulder.resolveBlock(phase.boulderRain().getBlock()) == null) {
             boss.setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + boss.retryLongTicks());
             return false;
         }
+        // Round the boss, or round the spot a target stood on as the cast began.
+        Vec3 centre = boss.castCentre(level, BossAbility.BOULDER_RAIN, phase.boulderRain());
+        if (!hasRainTargets(level, phase, centre != null ? centre : npc.position())) {
+            boss.setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + boss.retryLongTicks());
+            return false;
+        }
+        boss.commitCentre(centre);
         boss.beginAction(BossAbility.BOULDER_RAIN, phase.boulderRain().getAnimation(),
                 phase.boulderRain().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
@@ -200,13 +206,15 @@ final class BossBoulderRuntime {
      * Whether the ring has anybody in it.
      *
      * <p>Swept to the outer edge and no further: somebody standing in the dead zone at the
-     * boss' feet is not a reason to rain, because not one stone can reach them there.</p>
+     * ring's middle is not a reason to rain, because not one stone can reach them there.</p>
+     *
+     * @param origin the ring's middle: the boss, or the spot a target stood on
      */
-    boolean hasRainTargets(ServerLevel level, BossPhaseData phase) {
+    boolean hasRainTargets(ServerLevel level, BossPhaseData phase, Vec3 origin) {
         double min = phase.boulderRain().getMinRadius();
-        for (LivingEntity target : boss.getTargetsAround(level, npc.position(),
+        for (LivingEntity target : boss.getTargetsAround(level, origin,
                 phase.boulderRain().getRadius(), BossAbilityKind.BOULDER_RAIN)) {
-            if (target.position().distanceToSqr(npc.position()) >= min * min) {
+            if (target.position().distanceToSqr(origin) >= min * min) {
                 return true;
             }
         }
@@ -231,7 +239,7 @@ final class BossBoulderRuntime {
             return;
         }
         reportedBrokenRainBlock = "";
-        BossBoulderRainScheduler.schedule(level, npc, phase, npc.position(), block,
+        BossBoulderRainScheduler.schedule(level, npc, phase, boss.committedCentreOrBoss(), block,
                 boss.damageUp(BossAbilityKind.BOULDER_RAIN, phase.boulderRain().getDamage()),
                 boss.rageUp(BossAbilityKind.BOULDER_RAIN, phase.boulderRain().getKnockback()),
                 boss.damageUp(BossAbilityKind.BOULDER_RAIN, phase.boulderRain().getShatterDamage()), gameTime);

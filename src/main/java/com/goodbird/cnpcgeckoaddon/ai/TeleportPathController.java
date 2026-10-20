@@ -7,6 +7,8 @@ import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossBarStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossCentreMode;
+import com.goodbird.cnpcgeckoaddon.data.BossCentreSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossTuningSettings;
 import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.GuardSelfTest;
@@ -389,6 +391,17 @@ public final class TeleportPathController {
      * would break that promise on the sweep's first tick.</p>
      */
     private float committedYaw;
+
+    /**
+     * Where the action being wound up goes off, for the six that act round a point: null for the
+     * boss wherever it stands when the hit lands - the only answer before the setting existed - or
+     * the spot a target stood on the tick the boss committed.
+     *
+     * <p>Fixed on that tick for the axis' reason: the ring drawn on the floor is a promise, and a
+     * centre that walked after its target would turn the warning into a lie. Cleared with the
+     * rest of the pending action.</p>
+     */
+    private Vec3 committedCentre;
 
 
     /** Victims beyond the first, captured when a multi-target ability starts winding up. */
@@ -1876,6 +1889,54 @@ public final class TeleportPathController {
         return committedYaw;
     }
 
+    /** The same, for the point an ability acts round; null keeps it on the boss. */
+    void commitCentre(Vec3 centre) {
+        committedCentre = centre;
+    }
+
+    /** The point the action being wound up acts round, or null when that is the boss. */
+    Vec3 committedCentre() {
+        return committedCentre;
+    }
+
+    /** The point the action being wound up acts round: the committed one, or the boss where it stands now. */
+    Vec3 committedCentreOrBoss() {
+        return committedCentre != null ? committedCentre : npc.position();
+    }
+
+    /**
+     * Where one of the abilities that act round a point puts it on the cast now starting.
+     *
+     * <p>Centred on a target, the target is picked the way the aimed abilities pick theirs - by the
+     * settings' target mode, among the kinds this ability may land on, within the boss' target
+     * search radius - and the spot it stands on now is the answer: the ability goes off where the
+     * target was, not where it runs to. Nobody to pick is no reason to call the cast off, so it goes
+     * off round the boss instead.</p>
+     *
+     * @return the spot to commit, or null for round the boss
+     */
+    Vec3 castCentre(ServerLevel level, BossAbility ability, BossCentreSettings centre) {
+        if (centre.getCentreMode() != BossCentreMode.TARGET) {
+            return null;
+        }
+        int kind = ability.kind();
+        double reach = settings().getTargetSearchRadius();
+        double reachSquared = reach * reach;
+        LivingEntity target = selectAbilityTarget(level, centre.getTargetMode(), reach,
+                candidate -> candidate.isAlive() && isAbilityTarget(candidate, kind)
+                        && npc.distanceToSqr(candidate) <= reachSquared, kind);
+        if (target == null) {
+            LOGGER.debug("Boss {} casts {} round itself: centred on a target, but none for target mode {} "
+                    + "within {} blocks", nameForLog(), ability, centre.getTargetMode(), reach);
+            return null;
+        }
+        Vec3 spot = target.position();
+        LOGGER.debug("Boss {} casts {} round {} at {}, {}, {} (target mode {})", nameForLog(), ability,
+                target.getName().getString(), Math.round(spot.x), Math.round(spot.y), Math.round(spot.z),
+                centre.getTargetMode());
+        return spot;
+    }
+
     /**
      * Pins a walking boss for the action that is just starting, when this phase casts the
      * ability standing still.
@@ -2806,7 +2867,7 @@ public final class TeleportPathController {
 
     private BossTelegraphRuntime.Cast castPreview() {
         return new BossTelegraphRuntime.Cast(pendingAction, pendingActionAt, pendingActionStartedAt,
-                pendingTargetId, pendingExtraTargets, committedAxis, committedYaw);
+                pendingTargetId, pendingExtraTargets, committedAxis, committedYaw, committedCentre);
     }
 
     /**
@@ -3210,6 +3271,7 @@ public final class TeleportPathController {
         pendingExtraTargets.clear();
         committedAxis = null;
         committedYaw = 0.0F;
+        committedCentre = null;
         coverRuntime.clear();
         platform.clear();
         vent.clear();

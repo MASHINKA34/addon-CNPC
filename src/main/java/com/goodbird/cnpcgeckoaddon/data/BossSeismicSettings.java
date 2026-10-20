@@ -15,7 +15,7 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  * It owns its own save format under the {@code Seismic} prefix; a boss saved before the waves
  * existed carries none of these keys and reads back with the ability switched off.</p>
  */
-public final class BossSeismicSettings {
+public final class BossSeismicSettings implements BossCentreSettings {
 
     /** The rings go outward one after another, from the core circle to the last ring. */
     public static final int MODE_GROWING = 0;
@@ -120,6 +120,10 @@ public final class BossSeismicSettings {
     private final BossParticleCue seismicPulseParticles = new BossParticleCue(BossParticleCue.DUST_ID, 16);
     private final BossParticleCue seismicHitParticles = new BossParticleCue("minecraft:crit", 8);
     private final BossParticleCue seismicSlamParticles = new BossParticleCue("minecraft:poof", 8);
+    /** Where the rings go off: round the boss, or round the spot a target stood on as the cast began. */
+    private int seismicCentreMode = BossCentreMode.BOSS;
+    /** Which target a centre on a target goes to. */
+    private int seismicTargetMode = BossTargetMode.MAIN;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot seismicCastSpot = new BossCastSpot();
 
@@ -308,6 +312,18 @@ public final class BossSeismicSettings {
 
     public BossParticleCue getSlamParticles() { return seismicSlamParticles; }
 
+    @Override
+    public int getCentreMode() { return seismicCentreMode; }
+
+    @Override
+    public void setCentreMode(int value) { seismicCentreMode = BossCentreMode.clamp(value); }
+
+    @Override
+    public int getTargetMode() { return seismicTargetMode; }
+
+    @Override
+    public void setTargetMode(int value) { seismicTargetMode = BossTargetMode.clamp(value); }
+
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return seismicCastSpot; }
 
@@ -353,6 +369,8 @@ public final class BossSeismicSettings {
         seismicPulseParticles.writeToNBT(tag, "SeismicPulseParticles");
         seismicHitParticles.writeToNBT(tag, "SeismicHitParticles");
         seismicSlamParticles.writeToNBT(tag, "SeismicSlamParticles");
+        tag.putInt("SeismicCentre", seismicCentreMode);
+        tag.putInt("SeismicTargetMode", seismicTargetMode);
         seismicCastSpot.writeToNBT(tag, "Seismic");
     }
 
@@ -405,6 +423,11 @@ public final class BossSeismicSettings {
         seismicPulseParticles.readFromNBT(tag, "SeismicPulseParticles");
         seismicHitParticles.readFromNBT(tag, "SeismicHitParticles");
         seismicSlamParticles.readFromNBT(tag, "SeismicSlamParticles");
+        // Absent in a save from before the setting: round the boss, as it always went off.
+        seismicCentreMode = value(tag, "SeismicCentre",
+                BossCentreMode.BOSS, BossCentreMode.BOSS, BossCentreMode.TARGET);
+        seismicTargetMode = value(tag, "SeismicTargetMode",
+                BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         seismicCastSpot.readFromNBT(tag, "Seismic");
     }
 }

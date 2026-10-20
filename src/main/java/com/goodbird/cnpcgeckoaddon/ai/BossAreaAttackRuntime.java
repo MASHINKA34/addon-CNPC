@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
 import java.util.List;
@@ -15,7 +16,8 @@ import java.util.List;
  *
  * <p>Owned by {@link TeleportPathController}. The radius is the whole shape - nothing is
  * aimed - so the cast only asks whether there is anybody standing inside it worth spending
- * a cooldown on.</p>
+ * a cooldown on. The ring goes round the boss, or round the spot a target stood on as the cast
+ * began when the settings centre it on a target.</p>
  */
 final class BossAreaAttackRuntime {
 
@@ -31,10 +33,12 @@ final class BossAreaAttackRuntime {
         if (!boss.mayStart(BossAbility.GROUND_ATTACK, phase) || gameTime < boss.abilityScheduleAt(BossAbility.GROUND_ATTACK)) {
             return false;
         }
-        if (targets(level, phase).isEmpty()) {
+        Vec3 centre = boss.castCentre(level, BossAbility.GROUND_ATTACK, phase.areaAttack());
+        if (targets(level, phase, centre != null ? centre : npc.position()).isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.GROUND_ATTACK, gameTime + boss.retryLongTicks());
             return false;
         }
+        boss.commitCentre(centre);
         boss.beginAction(BossAbility.GROUND_ATTACK, phase.areaAttack().getAnimation(),
                 phase.areaAttack().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
@@ -45,21 +49,27 @@ final class BossAreaAttackRuntime {
     }
 
     void perform(ServerLevel level, BossPhaseData phase) {
+        Vec3 centre = boss.committedCentreOrBoss();
         // Purely for show, and started before the hits so the wave leaves at the same moment
         // the damage lands rather than a tick behind it.
-        BossAreaVfxScheduler.schedule(level, npc.position(), phase,
+        BossAreaVfxScheduler.schedule(level, centre, phase,
                 BossWaveTuning.of(npc, phase.areaAttack().getVfx()));
-        for (LivingEntity target : targets(level, phase)) {
+        for (LivingEntity target : targets(level, phase, centre)) {
+            // Shoved away from the middle of the ring, wherever the ring went off.
             BossAbilityDamageUtil.hit(target, BossAbilityKind.AREA, npc,
                     boss.damageUp(BossAbilityKind.AREA, phase.areaAttack().getDamage()),
                     phase.areaAttack().getEffects(),
                     boss.rageUp(BossAbilityKind.AREA, phase.areaAttack().getKnockback()),
-                    npc.getX() - target.getX(), npc.getZ() - target.getZ());
+                    centre.x - target.getX(), centre.z - target.getZ());
         }
     }
 
+    /** Everyone the slam being wound up would catch, round the point it committed to. */
     List<LivingEntity> targets(ServerLevel level, BossPhaseData phase) {
-        return boss.getTargetsAround(level, npc.position(), phase.areaAttack().getRadius(),
-                BossAbilityKind.AREA);
+        return targets(level, phase, boss.committedCentreOrBoss());
+    }
+
+    private List<LivingEntity> targets(ServerLevel level, BossPhaseData phase, Vec3 centre) {
+        return boss.getTargetsAround(level, centre, phase.areaAttack().getRadius(), BossAbilityKind.AREA);
     }
 }

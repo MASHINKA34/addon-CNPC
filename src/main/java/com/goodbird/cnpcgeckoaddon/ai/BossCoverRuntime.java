@@ -87,18 +87,23 @@ final class BossCoverRuntime {
      * <p>Nothing is aimed, exactly as the boulder rain is not: the range is the shape, and
      * the cast only asks whether anybody is inside it worth spending a cooldown on. Which is
      * also why the standing-cast choice matters here more than anywhere - the sight lines
-     * are drawn from wherever the boss is when they are checked.</p>
+     * are drawn from wherever the boss is when they are checked. Centred on a target, the
+     * strike goes off round the spot that target stood on as the cast began instead: the
+     * shelters are scattered round it and the sight lines drawn from it, at the boss' eye
+     * height, as if the boss stood there.</p>
      */
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!boss.mayStart(BossAbility.COVER, phase) || gameTime < boss.abilityScheduleAt(BossAbility.COVER)) {
             return false;
         }
-        if (boss.coverVictims(level, npc.position(), phase.cover().getRange()).isEmpty()) {
+        Vec3 centre = boss.castCentre(level, BossAbility.COVER, phase.cover());
+        Vec3 origin = centre != null ? centre : npc.position();
+        if (boss.coverVictims(level, origin, phase.cover().getRange()).isEmpty()) {
             boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + boss.retryLongTicks());
             return false;
         }
         boolean shelterRule = phase.cover().getMode() == BossPhaseData.COVER_MODE_SHELTER;
-        List<Vec3> shelters = shelterRule ? placeShelters(level, phase) : List.of();
+        List<Vec3> shelters = shelterRule ? placeShelters(level, phase, origin) : List.of();
         if (shelterRule && shelters.isEmpty()) {
             // Nowhere to put a single shelter down is a strike nobody could have answered.
             boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + boss.retryLongTicks());
@@ -113,6 +118,7 @@ final class BossCoverRuntime {
                         cover.getVfxMinTicks(), cover.getVfxMaxTicks()),
                 cover.getPostHeight(), cover.getBlastSound().copy(),
                 cover.getBlastParticles().copy());
+        boss.commitCentre(centre);
         boss.beginAction(BossAbility.COVER, phase.cover().getAnimation(),
                 phase.cover().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the wind-up is the time to hide, and an enrage that
@@ -134,26 +140,29 @@ final class BossCoverRuntime {
         if (strike == null) {
             return;
         }
-        Vec3 origin = npc.position();
+        // The spot the cast committed to, or the boss where it stands now.
+        Vec3 origin = boss.committedCentreOrBoss();
+        Vec3 eyes = boss.committedCentre() == null ? npc.getEyePosition()
+                : origin.add(0.0D, npc.getEyeHeight(), 0.0D);
         // Started before the hits, so what a player sees leaves at the same moment the damage
         // lands rather than a tick behind it. No block wave: a shockwave the size of the
         // arena would lift half its floor.
         BossAreaVfxScheduler.schedule(level, origin, strike.vfx(), strike.range(),
                 strike.waveTicks(), false, BossWaveTuning.of(npc, strike.vfx()));
-        strike.blastSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
-        strike.blastParticles().emitDust(level, npc.getX(),
-                npc.getY() + npc.getBbHeight() * 0.5D, npc.getZ(),
+        strike.blastSound().play(level, origin.x, origin.y, origin.z, SoundSource.HOSTILE);
+        strike.blastParticles().emitDust(level, origin.x,
+                origin.y + npc.getBbHeight() * 0.5D, origin.z,
                 npc.getBbWidth(), npc.getBbHeight() * 0.5D, npc.getBbWidth(), 0.0D,
                 BossAbilityKind.COVER);
         for (LivingEntity victim : boss.coverVictims(level, origin, strike.range())) {
             boolean spared = strike.mode() == BossPhaseData.COVER_MODE_SHELTER
                     ? isSheltered(strike.shelters(), strike.shelterRadius(), victim.position())
-                    : isOutOfSight(level, victim, strike.kneeHeight());
+                    : isOutOfSight(level, eyes, victim, strike.kneeHeight());
             if (spared) {
                 continue;
             }
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.COVER, npc, strike.damage(), strike.effects(),
-                    strike.knockback(), npc.getX() - victim.getX(), npc.getZ() - victim.getZ());
+                    strike.knockback(), origin.x - victim.getX(), origin.z - victim.getZ());
         }
     }
 
@@ -179,8 +188,9 @@ final class BossCoverRuntime {
                 .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.COVER)));
         Set<ServerPlayer> audience = new LinkedHashSet<>(boss.timerBossEvent().getPlayers());
         double rangeSquared = strike.range() * strike.range();
+        Vec3 origin = boss.committedCentreOrBoss();
         for (ServerPlayer player : level.players()) {
-            if (npc.distanceToSqr(player) <= rangeSquared
+            if (player.distanceToSqr(origin) <= rangeSquared
                     && boss.isAbilityTarget(player, BossAbilityKind.COVER)) {
                 audience.add(player);
             }
@@ -216,8 +226,8 @@ final class BossCoverRuntime {
     }
 
     /**
-     * Scatters the shelters for one cast: random points in the ring around the boss, on the
-     * floor, and never two of them close enough to overlap.
+     * Scatters the shelters for one cast: random points in the ring around the strike's origin -
+     * the boss, or a target's spot - on the floor, and never two of them close enough to overlap.
      *
      * <p>Drawn evenly over the ring's area the way the boulder rain draws its stones, and
      * held two radii apart so each circle stands on its own: two shelters running into each
@@ -225,10 +235,9 @@ final class BossCoverRuntime {
      * crowding another is tried again a few times and then given up on, so a cramped ring
      * simply gets fewer shelters than it asked for.</p>
      */
-    private List<Vec3> placeShelters(ServerLevel level, BossPhaseData phase) {
+    private List<Vec3> placeShelters(ServerLevel level, BossPhaseData phase, Vec3 origin) {
         List<Vec3> shelters = new ArrayList<>();
         RandomSource random = npc.getRandom();
-        Vec3 origin = npc.position();
         double min = phase.cover().getShelterMinRange();
         double max = phase.cover().getShelterMaxRange();
         double apart = phase.cover().shelterSpacing();
@@ -259,9 +268,11 @@ final class BossCoverRuntime {
      * plain view - is being seen, and so is peering out over a wall. Anything with a
      * collision box counts as cover, leaves and glass included; grass, water and carpets
      * stop nothing.</p>
+     *
+     * @param eyes where the sight lines start: the boss' eyes, or the height of them over the
+     *             spot a strike centred on a target goes off from
      */
-    private boolean isOutOfSight(ServerLevel level, LivingEntity victim, double kneeHeight) {
-        Vec3 eyes = npc.getEyePosition();
+    private boolean isOutOfSight(ServerLevel level, Vec3 eyes, LivingEntity victim, double kneeHeight) {
         return blocksSight(level, eyes, victim.getEyePosition())
                 && blocksSight(level, eyes, victim.position().add(0.0D, kneeHeight, 0.0D));
     }

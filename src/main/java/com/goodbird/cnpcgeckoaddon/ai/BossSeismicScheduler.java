@@ -135,14 +135,20 @@ public final class BossSeismicScheduler {
         private final Look look;
         /** The floor under the boss on the cast: what every pulse is centred on unless the rings follow it. */
         private final Vec3 centre;
+        /**
+         * Whether the rings stay on a target's spot: a series centred on a target goes off where
+         * that target stood, so the following the settings may ask for is the boss' alone.
+         */
+        private final boolean pinned;
         private final BossSeismicSeries clock;
 
         private Series(ResourceKey<Level> dimension, EntityNPCInterface boss, Look look, Vec3 centre,
-                       BossSeismicSeries clock) {
+                       boolean pinned, BossSeismicSeries clock) {
             this.dimension = dimension;
             this.boss = boss;
             this.look = look;
             this.centre = centre;
+            this.pinned = pinned;
             this.clock = clock;
         }
     }
@@ -195,33 +201,39 @@ public final class BossSeismicScheduler {
      * @param damage     what a ring hits for, with the enrage bonus already in it
      * @param slamDamage what the landing after a slam hits for, in the same already-scaled terms
      * @param launch     how hard a ring throws, in the same terms
+     * @param fixedCentre the spot a target stood on, for rings centred on it, or null for round the boss
      * @return whether a series really started: a boss whose series is still running gets none
      */
     public static boolean start(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, int damage,
-                                int slamDamage, int launch, long gameTime) {
+                                int slamDamage, int launch, long gameTime, Vec3 fixedCentre) {
         if (hasPending(boss)) {
             return false;
         }
         BossSeismicSettings seismic = phase.seismic();
         Look look = new Look(seismic, boss, damage, slamDamage, launch);
-        Vec3 centre = floorUnder(level, boss, look);
-        // A boss over nothing within reach runs the rings from its own feet: the outlines and
-        // the waves look for the floor point by point anyway, and give up on the same holes.
+        Vec3 feet = fixedCentre != null ? fixedCentre : boss.position();
+        Vec3 centre = floorUnder(level, feet, look);
+        // A spot over nothing within reach runs the rings from those feet: the outlines and the
+        // waves look for the floor point by point anyway, and give up on the same holes.
         if (centre == null) {
-            centre = boss.position();
+            centre = feet;
         }
         List<Ring> plan = BossSeismicPlan.rings(seismic.getCoreRadius(), seismic.getRingWidth(),
                 seismic.getRingGap(), seismic.getMaxRadius());
-        SERIES.add(new Series(level.dimension(), boss, look, centre,
+        SERIES.add(new Series(level.dimension(), boss, look, centre, fixedCentre != null,
                 new BossSeismicSeries(plan, BossSeismicSeries.Rules.of(seismic), gameTime, level.getRandom())));
         return true;
     }
 
     /** The boss' feet on the floor, or null when there is none within the wave's reach. */
     private static Vec3 floorUnder(ServerLevel level, EntityNPCInterface boss, Look look) {
-        BlockPos floor = BossFloorUtil.findFloor(level, boss.getX(), boss.getY(), boss.getZ(),
-                look.wave.floorSearchDepth());
-        return floor == null ? null : new Vec3(boss.getX(), floor.getY() + 1.0D, boss.getZ());
+        return floorUnder(level, boss.position(), look);
+    }
+
+    /** The same under any feet: a target's spot, for rings centred on it. */
+    private static Vec3 floorUnder(ServerLevel level, Vec3 feet, Look look) {
+        BlockPos floor = BossFloorUtil.findFloor(level, feet.x, feet.y, feet.z, look.wave.floorSearchDepth());
+        return floor == null ? null : new Vec3(feet.x, floor.getY() + 1.0D, feet.z);
     }
 
     public static boolean hasPending() {
@@ -332,7 +344,7 @@ public final class BossSeismicScheduler {
         @Override
         public Object pulse(long gameTime, List<Ring> rings) {
             Vec3 centre = series.centre;
-            if (series.look.followBoss) {
+            if (series.look.followBoss && !series.pinned) {
                 // Under the boss as it stands now; over a hole there is no floor to pulse on.
                 centre = floorUnder(level, series.boss, series.look);
                 if (centre == null) {

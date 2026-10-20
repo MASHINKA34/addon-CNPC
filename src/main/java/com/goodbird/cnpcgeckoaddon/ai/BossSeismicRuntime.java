@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSeismicSettings;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 
 /**
@@ -24,7 +25,10 @@ final class BossSeismicRuntime {
         this.npc = npc;
     }
 
-    /** Nobody to aim at: the rings go round the boss whoever is there. */
+    /**
+     * Nobody to aim at: the rings go round the boss whoever is there - or round the spot a target
+     * stood on as the cast began, when the settings centre them on a target.
+     */
     boolean tryStart(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
         if (!boss.mayStart(BossAbility.SEISMIC, phase) || gameTime < boss.abilityScheduleAt(BossAbility.SEISMIC)) {
             return false;
@@ -36,6 +40,8 @@ final class BossSeismicRuntime {
             boss.setAbilityScheduleAt(BossAbility.SEISMIC, gameTime + boss.retryTicks());
             return false;
         }
+        Vec3 centre = boss.castCentre(level, BossAbility.SEISMIC, seismic);
+        boss.commitCentre(centre);
         boss.beginAction(BossAbility.SEISMIC, seismic.getAnimation(), seismic.getActionDelayTicks(),
                 gameTime, null, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
@@ -51,6 +57,6 @@ final class BossSeismicRuntime {
         // alone: the stacks from the copies buff what a ring hits for, not how far anybody flies.
         BossSeismicScheduler.start(level, npc, phase, boss.damageUp(BossAbilityKind.SEISMIC, seismic.getDamage()),
                 boss.damageUp(BossAbilityKind.SEISMIC, seismic.getSlamDamage()),
-                boss.rageUp(BossAbilityKind.SEISMIC, seismic.getLaunch()), gameTime);
+                boss.rageUp(BossAbilityKind.SEISMIC, seismic.getLaunch()), gameTime, boss.committedCentre());
     }
 }
