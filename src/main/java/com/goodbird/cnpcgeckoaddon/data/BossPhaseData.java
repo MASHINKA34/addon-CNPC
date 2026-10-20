@@ -1,7 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.util.Mth;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 
@@ -26,6 +31,14 @@ import static com.goodbird.cnpcgeckoaddon.data.BossSettingValue.value;
  * saved before the split loads unchanged.</p>
  */
 public final class BossPhaseData {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
+
+    /** The list the phase keeps its changed ability profiles in, one compound per ability. */
+    private static final String PROFILES_KEY = "AbilityProfiles";
+
+    /** Which ability a compound of {@link #PROFILES_KEY} belongs to. */
+    private static final String PROFILE_KIND_KEY = "Kind";
 
     public static final int MINION_SPAWN_RANDOM_RADIUS = 0;
 
@@ -479,6 +492,12 @@ public final class BossPhaseData {
     private final int[] comboFollowUp = newComboFollowUps();
     /** How many ticks after its ability ends each slot's follow-up starts. */
     private final int[] comboDelay = new int[BossAbilityKind.COUNT];
+    /**
+     * How each ability takes its turns in this phase, one per {@link BossAbilityKind}: the
+     * hazard and the blast have one too, so a kind is never without. All defaults, which is
+     * the rotation the boss had before profiles existed.
+     */
+    private final BossAbilityProfile[] profiles = newProfiles();
 
     private final BossAreaAttackSettings areaAttack = new BossAreaAttackSettings();
     private final BossBarrierSettings barrier = new BossBarrierSettings();
@@ -835,6 +854,22 @@ public final class BossPhaseData {
         return next != ability && isComboAbility(next) ? next : NO_COMBO;
     }
 
+    /**
+     * How this ability takes its turns in this phase. Never null: a kind outside the list gets
+     * the shared all-defaults profile, which nobody may edit.
+     */
+    public BossAbilityProfile profile(int kind) {
+        return kind >= 0 && kind < BossAbilityKind.COUNT ? profiles[kind] : BossAbilityProfile.defaults();
+    }
+
+    private static BossAbilityProfile[] newProfiles() {
+        BossAbilityProfile[] all = new BossAbilityProfile[BossAbilityKind.COUNT];
+        for (int kind = 0; kind < all.length; kind++) {
+            all[kind] = new BossAbilityProfile();
+        }
+        return all;
+    }
+
     private static int[] newComboFollowUps() {
         int[] slots = new int[BossAbilityKind.COUNT];
         Arrays.fill(slots, NO_COMBO);
@@ -868,6 +903,7 @@ public final class BossPhaseData {
         tag.putIntArray("ComboFollowUp", Arrays.copyOf(comboFollowUp, comboFollowUp.length));
         tag.putIntArray("ComboDelay", Arrays.copyOf(comboDelay, comboDelay.length));
         tag.putIntArray("FinishHold", Arrays.copyOf(finishHoldTicks, finishHoldTicks.length));
+        writeProfiles(tag);
         areaAttack.writeToNBT(tag);
         barrier.writeToNBT(tag);
         beam.writeToNBT(tag);
@@ -1004,6 +1040,7 @@ public final class BossPhaseData {
             finishHoldTicks[ability] = isFinishAbility(ability) && ability < holds.length
                     ? Mth.clamp(holds[ability], 0, MAX_FINISH_HOLD) : 0;
         }
+        readProfiles(tag);
         areaAttack.readFromNBT(tag);
         barrier.readFromNBT(tag);
         beam.readFromNBT(tag);
@@ -1035,5 +1072,49 @@ public final class BossPhaseData {
         teleport.readFromNBT(tag);
         tether.readFromNBT(tag);
         vent.readFromNBT(tag);
+    }
+
+    /**
+     * Writes the profiles that differ from the defaults, each tagged with its kind. None changed
+     * writes no list at all, so a phase nobody profiled saves exactly what it saved before.
+     */
+    private void writeProfiles(CompoundTag tag) {
+        ListTag list = new ListTag();
+        for (int kind = 0; kind < profiles.length; kind++) {
+            if (profiles[kind].isDefault()) {
+                continue;
+            }
+            CompoundTag entry = new CompoundTag();
+            entry.putInt(PROFILE_KIND_KEY, kind);
+            profiles[kind].writeToNBT(entry);
+            list.add(entry);
+        }
+        if (!list.isEmpty()) {
+            tag.put(PROFILES_KEY, list);
+        }
+    }
+
+    /**
+     * Reads the profiles back over all-defaults: a tag from before profiles has no list and
+     * leaves every ability as it always was. An entry for a kind this build does not know - a
+     * save from a newer one - or with no kind at all is passed over rather than laid on a
+     * neighbour.
+     */
+    private void readProfiles(CompoundTag tag) {
+        for (BossAbilityProfile profile : profiles) {
+            profile.readFromNBT(new CompoundTag());
+        }
+        ListTag list = tag.getList(PROFILES_KEY, Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag entry = list.getCompound(i);
+            int kind = entry.contains(PROFILE_KIND_KEY) ? entry.getInt(PROFILE_KIND_KEY) : -1;
+            if (kind < 0 || kind >= BossAbilityKind.COUNT) {
+                LOGGER.debug("Skipping ability profile {} of {} in a boss phase: kind {} is not one this build knows "
+                        + "(0..{})", i, list.size(), entry.contains(PROFILE_KIND_KEY) ? kind : "missing",
+                        BossAbilityKind.COUNT - 1);
+                continue;
+            }
+            profiles[kind].readFromNBT(entry);
+        }
     }
 }

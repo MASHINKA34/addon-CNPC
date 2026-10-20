@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -126,6 +127,23 @@ class BossFieldPersistenceTest {
                         Map.entry(BossTeleportSettings.class, BossPhaseData::teleport),
                         Map.entry(BossTetherSettings.class, BossPhaseData::tether),
                         Map.entry(BossVentSettings.class, BossPhaseData::vent));
+    }
+
+    /**
+     * The same sweep over the profile every ability has in a phase.
+     *
+     * <p>The profiles live in a final array of objects, which the phase sweep skips twice over,
+     * and each writes its keys into a list entry of its own - and only when it differs from the
+     * defaults. Every kind is swept on its own, so a writer that dropped one slot of the array
+     * cannot pass on the strength of the others.</p>
+     */
+    @TestFactory
+    @DisplayName("every ability profile field reaches the save tag")
+    Stream<DynamicTest> everyAbilityProfileFieldIsPersisted() {
+        return IntStream.range(0, BossAbilityKind.COUNT)
+                .mapToObj(kind -> DynamicTest.dynamicTest("profile of " + BossAbilityKind.LABELS[kind],
+                        () -> assertPersisted(BossAbilityProfile.class, BossFieldPersistenceTest::configuredHost,
+                                data -> data.getPhase(1).profile(kind))));
     }
 
     /**

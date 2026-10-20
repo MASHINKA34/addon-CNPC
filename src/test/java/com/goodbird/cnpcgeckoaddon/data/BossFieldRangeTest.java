@@ -121,6 +121,11 @@ class BossFieldRangeTest {
         TeleportPathData data = new TeleportPathData();
         data.setEnabled(true);
         data.markConfigured();
+        // A default profile is not written at all, so its numbers would never reach the sweep:
+        // every ability of one phase gets a changed one, which writes every key it has.
+        for (int kind = 0; kind < BossAbilityKind.COUNT; kind++) {
+            data.getPhase(1).profile(kind).setPriority(1);
+        }
         return data;
     }
 }
