@@ -109,7 +109,8 @@ final class BossTelegraphRuntime {
                 BossTelegraphUtil.audienceRange(npc), false) == null) {
             return;
         }
-        BossTelegraphPaint paint = BossTelegraphPaint.of(data, npc,
+        // In the look the ability's profile gives it in the phase being fought, the boss' own otherwise.
+        BossTelegraphPaint paint = BossTelegraphPaint.of(data, data.getPhase(boss.currentPhaseIndex()), npc,
                 BossTelegraphPaint.CHANNEL_CAST, ability, cast.progress(gameTime));
         if (fieldEdge || cover || data.isTelegraphZone()) {
             drawTelegraphZone(level, data, paint, cast);
@@ -134,8 +135,9 @@ final class BossTelegraphRuntime {
         if (!data.isTelegraphAnnounce()) {
             return;
         }
+        int colour = BossTelegraphUtil.textColor(data.getPhase(boss.currentPhaseIndex()), ability);
         Component name = Component.translatable(BossAbilityKind.LABELS[ability])
-                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(ability)));
+                .withStyle(style -> style.withColor(colour));
         for (ServerPlayer player : boss.timerBossEvent().getPlayers()) {
             player.displayClientMessage(name, true);
         }
@@ -275,8 +277,9 @@ final class BossTelegraphRuntime {
         }
         // Nothing is being wound up between two cones of a series, so the mark has no end to
         // count towards and stands as it is however the wind-up's own was told to move.
-        drawConeSectors(level, data.getPhase(boss.currentPhaseIndex()), List.of(next), 1,
-                BossTelegraphPaint.of(data, npc, BossTelegraphPaint.CHANNEL_CAST,
+        BossPhaseData phase = data.getPhase(boss.currentPhaseIndex());
+        drawConeSectors(level, phase, List.of(next), 1,
+                BossTelegraphPaint.of(data, phase, npc, BossTelegraphPaint.CHANNEL_CAST,
                         BossAbilityKind.CONE, BossTelegraphPaint.NO_END));
     }
 

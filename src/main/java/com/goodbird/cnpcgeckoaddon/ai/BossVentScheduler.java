@@ -158,7 +158,7 @@ public final class BossVentScheduler {
             wallParticles = vent.getWallParticles().copy();
             warnParticles = vent.getWarnParticles().copy();
             wave = BossWaveTuning.of(boss, burstVfx);
-            telegraph = BossTelegraphPaint.Settings.of(boss);
+            telegraph = BossTelegraphPaint.Settings.of(boss, BossAbilityKind.VENT);
         }
     }
 

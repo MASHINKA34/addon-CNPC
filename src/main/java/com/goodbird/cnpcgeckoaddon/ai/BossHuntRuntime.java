@@ -198,7 +198,7 @@ final class BossHuntRuntime {
     private void catchPrey(ServerLevel level, Hunt current, LivingEntity prey, long gameTime) {
         BossAbilityDamageUtil.hit(prey, BossAbilityKind.HUNT, npc, boss.damageUp(BossAbilityKind.HUNT, current.damage),
                 current.effects, 0, 0.0D, 0.0D);
-        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.HUNT), prey.getX(),
+        level.sendParticles(BossTelegraphUtil.dust(boss.activePhase(), BossAbilityKind.HUNT), prey.getX(),
                 prey.getY() + prey.getBbHeight() * 0.5D, prey.getZ(), 12,
                 prey.getBbWidth() * 0.5D, prey.getBbHeight() * 0.3D, prey.getBbWidth() * 0.5D, 0.0D);
         if (current.catchEnds) {
@@ -274,8 +274,9 @@ final class BossHuntRuntime {
         if (!(prey instanceof ServerPlayer player)) {
             return;
         }
+        int colour = BossTelegraphUtil.textColor(boss.activePhase(), BossAbilityKind.HUNT);
         Component line = Component.translatable("cnpcgeckoaddon.boss.hunt_marked", npc.getDisplayName())
-                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.HUNT)));
+                .withStyle(style -> style.withColor(colour));
         player.displayClientMessage(line, true);
     }
 

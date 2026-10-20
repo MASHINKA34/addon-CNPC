@@ -228,7 +228,7 @@ final class BossHazardRuntime {
      */
     private void paint(ServerLevel level, TeleportPathData data, ArenaHazard hazard,
                        long gameTime, boolean open) {
-        BossTelegraphPaint paint = BossTelegraphPaint.of(data, npc, BossTelegraphPaint.CHANNEL_HAZARD,
+        BossTelegraphPaint paint = BossTelegraphPaint.of(data, boss.activePhase(), npc, BossTelegraphPaint.CHANNEL_HAZARD,
                 BossAbilityKind.HAZARD, open ? BossTelegraphPaint.NO_END : hazard.fuseProgress(gameTime));
         boolean dark = !open && (gameTime / hazard.blinkTicks) % 2L != 0L;
         if (hazard.mode == BossPhaseData.HAZARD_MODE_BOX) {
@@ -286,9 +286,10 @@ final class BossHazardRuntime {
         // in through %s: vanilla's translation formatter takes that one placeholder and
         // nothing else, and a %d would leave the raw template on the screen.
         int seconds = (int) Math.max(1L, (hazard.opensAt - gameTime + 19L) / 20L);
+        int colour = BossTelegraphUtil.textColor(boss.activePhase(), BossAbilityKind.HAZARD);
         Component line = Component.translatable("cnpcgeckoaddon.boss.hazard_countdown",
                         Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.HAZARD]), seconds)
-                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.HAZARD)));
+                .withStyle(style -> style.withColor(colour));
         Set<ServerPlayer> audience = new LinkedHashSet<>(boss.timerBossEvent().getPlayers());
         for (UUID playerId : boss.encounterParticipants()) {
             if (level.getPlayerByUUID(playerId) instanceof ServerPlayer player) {

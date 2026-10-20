@@ -66,11 +66,13 @@ public final class BossBeamScheduler {
      * and the wind-up's mark - and a mark drawn with different accents from the beams it is
      * promising would be a warning about a different ability.</p>
      */
-    private record Draw(String look, int wallSparks, int accentOneIn, int rareAccentOneIn) {
+    private record Draw(String look, int wallSparks, int accentOneIn, int rareAccentOneIn,
+                        DustParticleOptions kindDust) {
 
-        private static Draw of(BossBeamSettings beam, String look) {
+        /** @param kindDust the beam's own dust: its profile's colour in the phase it was cast in, or the kind's */
+        private static Draw of(BossBeamSettings beam, String look, DustParticleOptions kindDust) {
             return new Draw(look, beam.getWallSparks(), beam.getAccentOneIn(),
-                    beam.getRareAccentOneIn());
+                    beam.getRareAccentOneIn(), kindDust);
         }
     }
 
@@ -121,7 +123,8 @@ public final class BossBeamScheduler {
             this.knockback = knockback;
             this.hitIntervalTicks = phase.beam().getHitIntervalTicks();
             this.effects = phase.beam().getEffects();
-            this.draw = Draw.of(phase.beam(), phase.beam().getLook());
+            this.draw = Draw.of(phase.beam(), phase.beam().getLook(),
+                    BossTelegraphUtil.dust(phase, BossAbilityKind.BEAM));
             this.height = phase.beam().getMaxHeight();
             this.victimSlack = phase.beam().getVictimSlack();
             this.startedAt = gameTime;
@@ -374,7 +377,8 @@ public final class BossBeamScheduler {
             float yaw = (float) (startYaw + i * 360.0D / count);
             ends[i] = reach(level, boss, centre, direction(yaw), length, beam.isStopsAtWalls());
         }
-        paint(level, boss, centre, ends, length, Draw.of(beam, BeamLooks.KIND));
+        paint(level, boss, centre, ends, length,
+                Draw.of(beam, BeamLooks.KIND, BossTelegraphUtil.dust(boss, BossAbilityKind.BEAM)));
     }
 
     /**
@@ -421,8 +425,9 @@ public final class BossBeamScheduler {
             case BeamLooks.FROST -> random.nextBoolean() ? ParticleTypes.SNOWFLAKE : FROST_DUST;
             case BeamLooks.SCULK -> accent(draw, random) ? ParticleTypes.SCULK_CHARGE_POP : ParticleTypes.SCULK_SOUL;
             case BeamLooks.TOXIC -> accent(draw, random) ? ParticleTypes.ITEM_SLIME : TOXIC_DUST;
-            // BeamLooks.KIND: the ability's own dust, the way the beam has always been drawn.
-            default -> BossTelegraphUtil.dust(BossAbilityKind.BEAM);
+            // BeamLooks.KIND: the ability's own dust, the way the beam has always been drawn - in
+            // its profile's colour when it has one.
+            default -> draw.kindDust();
         };
     }
 

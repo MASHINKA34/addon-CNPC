@@ -10,6 +10,7 @@ import com.goodbird.cnpcgeckoaddon.entity.EntityBossTetherAnchor;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossLink;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -177,6 +178,8 @@ public final class BossTetherManager {
         private final int widthPercent;
         /** The clock, the drag and the noises this leash was tied with. */
         private final Look look;
+        /** The colour of the phase it was tied in, which its end is puffed in: the profile's, or the kind's. */
+        private final DustParticleOptions dust;
 
         private Tether(EntityNPCInterface boss, BossPhaseData phase, int phaseIndex, int anchor,
                        List<End> victims, Vec3 spot, End stake, int failDamage, long gameTime) {
@@ -198,6 +201,7 @@ public final class BossTetherManager {
             this.failEffects = phase.tether().getFailEffects();
             this.style = phase.tether().getStyle();
             this.widthPercent = phase.tether().getWidthPercent();
+            this.dust = BossTelegraphUtil.dust(phase, BossAbilityKind.TETHER);
         }
     }
 
@@ -500,7 +504,7 @@ public final class BossTetherManager {
         for (LivingEntity victim : victims) {
             tether.look.breakSound().play(level, victim.getX(), victim.getY(), victim.getZ(),
                     SoundSource.HOSTILE);
-            burst(level, victim, tether.look.breakParticles());
+            burst(level, victim, tether.look.breakParticles(), tether.dust);
         }
         release(level, tether);
     }
@@ -517,16 +521,16 @@ public final class BossTetherManager {
                     tether.failEffects, 0, 0.0D, 0.0D);
             tether.look.failSound().play(level, victim.getX(), victim.getY(), victim.getZ(),
                     SoundSource.HOSTILE);
-            burst(level, victim, tether.look.failParticles());
+            burst(level, victim, tether.look.failParticles(), tether.dust);
         }
         release(level, tether);
     }
 
     /** The puff of a leash ending, over the tether's own colour. */
-    private static void burst(ServerLevel level, LivingEntity victim, BossParticleCue cue) {
+    private static void burst(ServerLevel level, LivingEntity victim, BossParticleCue cue, DustParticleOptions dust) {
         double y = victim.getY() + victim.getBbHeight() * 0.5D;
         cue.emitDust(level, victim.getX(), y, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.1D, BossAbilityKind.TETHER);
-        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.TETHER), victim.getX(), y, victim.getZ(),
+        level.sendParticles(dust, victim.getX(), y, victim.getZ(),
                 10, 0.4D, 0.5D, 0.4D, 0.0D);
     }
 

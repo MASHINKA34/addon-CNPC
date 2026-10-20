@@ -534,7 +534,7 @@ public final class BossGeyserScheduler {
                 phase.geyser().getEffects(),
                 phase.geyser().getVfx(), BossWaveTuning.of(boss, phase.geyser().getVfx()),
                 BossWaveTuning.of(boss, phase.geyser().getSkyVfx()),
-                BossTelegraphPaint.Settings.of(boss),
+                BossTelegraphPaint.Settings.of(boss, BossAbilityKind.GEYSER),
                 phase.geyser().isBlockWave(), look(phase.geyser()), fluid,
                 phase.geyser().getFluidLifetimeTicks(), gameTime,
                 gameTime + phase.geyser().getFuseTicks(), point));

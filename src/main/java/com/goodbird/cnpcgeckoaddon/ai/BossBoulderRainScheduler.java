@@ -163,7 +163,7 @@ public final class BossBoulderRainScheduler {
                     phase.boulderRain().getStyle(), phase.boulderRain().getScale(), damage, knockback,
                     phase.boulderRain().getShatterRadius(), shatterDamage, phase.boulderRain().getVfx(),
                     phase.boulderRain().getMinMarkRadius(), phase.boulderRain().getMarkSound().copy(),
-                    phase.boulderRain().getEffects(), BossTelegraphPaint.Settings.of(boss),
+                    phase.boulderRain().getEffects(), BossTelegraphPaint.Settings.of(boss, BossAbilityKind.BOULDER_RAIN),
                     dropsAt, landsAt));
             scheduled++;
         }

@@ -533,7 +533,9 @@ public final class BossPlatformScheduler {
      */
     private static void outline(ServerLevel level, TeleportPathController controller,
                                 Pending pending, float progress, boolean lit) {
-        BossTelegraphPaint paint = BossTelegraphPaint.of(controller.settings(), pending.boss,
+        // In the platforms' look in the phase being fought, which is the phase that lit them: a
+        // phase change puts every platform out.
+        BossTelegraphPaint paint = BossTelegraphPaint.of(controller.settings(), controller.activePhase(), pending.boss,
                 BossTelegraphPaint.CHANNEL_PLATFORM, BossAbilityKind.PLATFORM, progress);
         if (!lit) {
             if (paint.lines()) {
@@ -629,9 +631,10 @@ public final class BossPlatformScheduler {
     private static void announceCountdown(ServerLevel level, TeleportPathController controller, Pending pending,
                                           long gameTime) {
         int seconds = (int) Math.max(1L, (pending.burn.blastAt() - gameTime + 19L) / 20L);
+        int colour = BossTelegraphUtil.textColor(controller.activePhase(), BossAbilityKind.PLATFORM);
         Component line = Component.translatable("cnpcgeckoaddon.boss.platform_countdown",
                         Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.PLATFORM]), seconds)
-                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.PLATFORM)));
+                .withStyle(style -> style.withColor(colour));
         Set<ServerPlayer> audience = new LinkedHashSet<>(controller.timerBossEvent().getPlayers());
         for (UUID playerId : controller.encounterParticipants()) {
             if (level.getPlayerByUUID(playerId) instanceof ServerPlayer player) {

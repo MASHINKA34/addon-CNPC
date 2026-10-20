@@ -7,6 +7,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -220,7 +221,7 @@ public final class BossGravityScheduler {
             this.touchRadius = phase.gravity().getTouchRadius();
             this.damage = damage;
             this.effects = phase.gravity().getEffects();
-            this.telegraph = BossTelegraphPaint.Settings.of(boss);
+            this.telegraph = BossTelegraphPaint.Settings.of(boss, BossAbilityKind.GRAVITY);
             this.look = look(phase.gravity());
             this.startedAt = gameTime;
             this.endsAt = gameTime + phase.gravity().getDurationTicks();
@@ -236,16 +237,19 @@ public final class BossGravityScheduler {
         private final long thrownAt;
         /** The wait and the thud this throw was made with, which outlive the field itself. */
         private final Look look;
+        /** The colour of the throw's phase, which the thud is puffed in. */
+        private final DustParticleOptions dust;
         /** Set once the server has seen them off the floor, so the throw tick itself is not a landing. */
         private boolean airborne;
 
         private Landing(ResourceKey<Level> dimension, EntityNPCInterface boss, int damage, long thrownAt,
-                        Look look) {
+                        Look look, DustParticleOptions dust) {
             this.dimension = dimension;
             this.boss = boss;
             this.damage = damage;
             this.thrownAt = thrownAt;
             this.look = look;
+            this.dust = dust;
         }
     }
 
@@ -298,6 +302,7 @@ public final class BossGravityScheduler {
     private static void fling(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, int damage,
                               long gameTime, Look look, Vec3 centre) {
         double up = phase.gravity().getStrength() / 10.0D;
+        DustParticleOptions dust = BossTelegraphUtil.dust(phase, BossAbilityKind.GRAVITY);
         for (LivingEntity victim : victims(level, boss, centre, phase.gravity().getRadius())) {
             if (skips(victim)) {
                 continue;
@@ -315,10 +320,10 @@ public final class BossGravityScheduler {
                 BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.GRAVITY, boss,
                         phase.gravity().getEffects());
             }
-            LANDINGS.put(victim.getUUID(), new Landing(level.dimension(), boss, damage, gameTime, look));
+            LANDINGS.put(victim.getUUID(), new Landing(level.dimension(), boss, damage, gameTime, look, dust));
             level.sendParticles(ParticleTypes.CLOUD, victim.getX(), victim.getY() + 0.2D, victim.getZ(),
                     10, 0.3D, 0.1D, 0.3D, 0.12D);
-            level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.GRAVITY), victim.getX(),
+            level.sendParticles(dust, victim.getX(),
                     victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(), 8, 0.3D, 0.5D, 0.3D, 0.0D);
         }
         look.launchSound().play(level, centre.x, centre.y, centre.z, SoundSource.HOSTILE);
@@ -598,7 +603,7 @@ public final class BossGravityScheduler {
         }
         landing.look.landingSound().play(level, victim.getX(), victim.getY(), victim.getZ(),
                 SoundSource.HOSTILE);
-        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.GRAVITY), victim.getX(),
+        level.sendParticles(landing.dust, victim.getX(),
                 victim.getY() + 0.2D, victim.getZ(), 10, 0.5D, 0.1D, 0.5D, 0.0D);
     }
 

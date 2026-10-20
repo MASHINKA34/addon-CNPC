@@ -1,5 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
+import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TelegraphLineStyles;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
@@ -42,27 +44,50 @@ public final class BossTelegraphPaint {
 
 
     /**
-     * The boss' own settings for drawn warnings, taken once.
+     * The boss' own settings for drawn warnings, taken once, with one ability's profile laid over
+     * them where it has a look of its own.
      *
      * <p>Held apart from the paint because the schedulers take theirs on the cast and keep
      * it for the whole fuse, the way they already keep the artwork and the damage: a builder
      * changing the style mid-fight must not change the mark already burning on the floor.</p>
+     *
+     * @param colour the colour the ability's profile draws it in, or
+     *               {@link BossAbilityProfile#COLOR_OF_KIND} for the kind's own
      */
     public record Settings(String style, int widthTenths, int motion, int fillPercent,
-                           boolean lasting, int intervalTicks, int fadedPercent) {
+                           boolean lasting, int intervalTicks, int fadedPercent, int colour) {
 
         /** What a boss with no settings of its own warns like: exactly as it always did. */
         public static final Settings PARTICLES = new Settings(TelegraphLineStyles.PARTICLES,
                 TeleportPathData.DEFAULT_TELEGRAPH_LINE_WIDTH,
                 TeleportPathData.TELEGRAPH_MOTION_STATIC, 0, true,
                 BossTuningUtil.defaults().telegraphIntervalTicks(),
-                BossTuningUtil.defaults().telegraphFadedPercent());
+                BossTuningUtil.defaults().telegraphFadedPercent(), BossAbilityProfile.COLOR_OF_KIND);
 
+        /** The boss-wide settings alone, in every kind's own colour. */
         public static Settings of(TeleportPathData data) {
             return new Settings(data.getTelegraphLineStyle(), data.getTelegraphLineWidth(),
                     data.getTelegraphLineMotion(), data.getTelegraphLineFill(),
                     data.isTelegraphLineLasting(), data.tuning().telegraphIntervalTicks(),
-                    data.tuning().telegraphFadedPercent());
+                    data.tuning().telegraphFadedPercent(), BossAbilityProfile.COLOR_OF_KIND);
+        }
+
+        /**
+         * One ability's warning in one phase: the style, the width and the colour of its profile
+         * over the boss' own, and the rest - the motion, the fill, whether the long marks are bands
+         * too - the boss'. An untouched profile, or no phase, is the boss-wide settings exactly.
+         */
+        public static Settings of(TeleportPathData data, BossPhaseData phase, int kind) {
+            Settings boss = of(data);
+            BossAbilityProfile profile = phase == null ? BossAbilityProfile.defaults() : phase.profile(kind);
+            if (profile.getTelegraphColor() == BossAbilityProfile.COLOR_OF_KIND
+                    && profile.getTelegraphStyle().isEmpty()
+                    && profile.getTelegraphLineWidth() == BossAbilityProfile.AS_BOSS) {
+                return boss;
+            }
+            return new Settings(profile.styleOr(boss.style()), profile.lineWidthOr(boss.widthTenths()),
+                    boss.motion(), boss.fillPercent(), boss.lasting(), boss.intervalTicks(),
+                    boss.fadedPercent(), profile.getTelegraphColor());
         }
 
         /**
@@ -81,9 +106,29 @@ public final class BossTelegraphPaint {
             return controller == null ? PARTICLES : of(controller.settings());
         }
 
+        /**
+         * The same for one ability, in the phase the boss is fighting: what a scheduler takes on
+         * the cast and keeps for the whole fuse, look and all.
+         */
+        public static Settings of(EntityNPCInterface boss, int kind) {
+            TeleportPathController controller = boss instanceof IBossController holder
+                    ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
+            return controller == null ? PARTICLES : of(controller.settings(), controller.activePhase(), kind);
+        }
+
         /** Whether the style is a band the client draws rather than the server's own dust. */
         public boolean lines() {
             return TelegraphLineStyles.isLines(style);
+        }
+
+        /** The colour {@code ability}'s marks are drawn in under these settings: the profile's, or the kind's. */
+        public int rgb(int ability) {
+            return colour >= 0 ? colour : BossTelegraphUtil.textColor(ability);
+        }
+
+        /** The dust of that colour, for a mark the server still spits out itself. */
+        public DustParticleOptions dust(int ability) {
+            return colour >= 0 ? BossTelegraphUtil.colourDust(colour) : BossTelegraphUtil.dust(ability);
         }
     }
 
@@ -104,12 +149,28 @@ public final class BossTelegraphPaint {
 
     public static BossTelegraphPaint of(Settings settings, Entity owner, byte channel,
                                         int ability, float progress) {
-        return new BossTelegraphPaint(settings, owner.getId(), channel, ability, progress);
+        return of(settings, owner.getId(), channel, ability, progress);
     }
 
+    /** The same by the owner's id, which is all the paint keeps of it. */
+    static BossTelegraphPaint of(Settings settings, int ownerId, byte channel, int ability, float progress) {
+        return new BossTelegraphPaint(settings, ownerId, channel, ability, progress);
+    }
+
+    /** One ability's paint in one phase: the boss' settings with that ability's profile over them. */
+    public static BossTelegraphPaint of(TeleportPathData data, BossPhaseData phase, Entity owner, byte channel,
+                                        int ability, float progress) {
+        return of(Settings.of(data, phase, ability), owner, channel, ability, progress);
+    }
+
+    /**
+     * The same in the phase the owner's controller is fighting, for a caller with no phase in hand;
+     * an owner that is no boss in a fight gets the boss-wide settings, as every paint did before
+     * profiles.
+     */
     public static BossTelegraphPaint of(TeleportPathData data, Entity owner, byte channel,
                                         int ability, float progress) {
-        return of(Settings.of(data), owner, channel, ability, progress);
+        return of(data, TeleportPathController.activePhaseOf(owner), owner, channel, ability, progress);
     }
 
     /**
@@ -147,15 +208,17 @@ public final class BossTelegraphPaint {
 
     /** The dust the mark would be spat out as, for the half of the code that still does. */
     public DustParticleOptions dust() {
-        return BossTelegraphUtil.dust(ability);
+        return settings.dust(ability);
     }
 
     public DustParticleOptions fadedDust() {
-        return BossTelegraphUtil.fadedDust(ability, settings.fadedPercent());
+        return settings.colour() >= 0
+                ? BossTelegraphUtil.fadedColourDust(settings.colour(), settings.fadedPercent())
+                : BossTelegraphUtil.fadedDust(ability, settings.fadedPercent());
     }
 
-    /** The ability's colour, which is what a drawn band is drawn in. */
+    /** The ability's colour - its profile's, or the kind's - which is what a drawn band is drawn in. */
     public int rgb() {
-        return BossTelegraphUtil.textColor(ability);
+        return settings.rgb(ability);
     }
 }

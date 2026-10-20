@@ -439,7 +439,8 @@ final class BossConeRuntime {
                 BossTelegraphUtil.audienceRange(npc), false) == null) {
             return;
         }
-        DustParticleOptions dust = BossTelegraphUtil.dust(BossAbilityKind.CONE);
+        // In the cone's own colour in the phase being fought: its profile's, or the kind's.
+        DustParticleOptions dust = BossTelegraphUtil.dust(npc, BossAbilityKind.CONE);
         double halfAngle = cone.getAngle() * 0.5D;
         for (Vec3 axis : axes) {
             float yaw = yawOf(axis);

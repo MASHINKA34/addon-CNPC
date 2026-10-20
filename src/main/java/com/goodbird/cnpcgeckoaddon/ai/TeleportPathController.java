@@ -783,6 +783,16 @@ public final class TeleportPathController {
     }
 
     /**
+     * The phase this entity is fighting in as a boss, or null for anything that is not an active
+     * boss: what a scheduler or a manager holding only the boss reads an ability's profile from.
+     */
+    public static BossPhaseData activePhaseOf(Entity entity) {
+        TeleportPathController controller = entity instanceof IBossController holder
+                ? holder.cnpcgeckoaddon$getTeleportPathController() : null;
+        return controller == null ? null : controller.activePhase();
+    }
+
+    /**
      * Keeps an active capture tied to the phase configuration that started it. A capture the
      * phase chains onto another ability counts as configured too: a follow-up starts with its
      * switch off, and letting it go for that would end it on the tick after it began.

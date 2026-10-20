@@ -183,9 +183,10 @@ final class BossCoverRuntime {
         // in through %s: vanilla's translation formatter takes that one placeholder and
         // nothing else, and a %d would leave the raw template on the screen.
         int seconds = (int) Math.max(1L, (landsAt - level.getGameTime() + 19L) / 20L);
+        int colour = BossTelegraphUtil.textColor(boss.activePhase(), BossAbilityKind.COVER);
         Component line = Component.translatable("cnpcgeckoaddon.boss.cover_countdown",
                         Component.translatable(BossAbilityKind.LABELS[BossAbilityKind.COVER]), seconds)
-                .withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.COVER)));
+                .withStyle(style -> style.withColor(colour));
         Set<ServerPlayer> audience = new LinkedHashSet<>(boss.timerBossEvent().getPlayers());
         double rangeSquared = strike.range() * strike.range();
         Vec3 origin = boss.committedCentreOrBoss();

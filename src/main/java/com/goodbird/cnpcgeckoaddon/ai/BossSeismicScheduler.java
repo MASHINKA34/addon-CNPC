@@ -124,7 +124,7 @@ public final class BossSeismicScheduler {
             hitParticles = seismic.getHitParticles().copy();
             slamParticles = seismic.getSlamParticles().copy();
             wave = BossWaveTuning.of(boss, seismic.getVfx());
-            telegraph = BossTelegraphPaint.Settings.of(boss);
+            telegraph = BossTelegraphPaint.Settings.of(boss, BossAbilityKind.SEISMIC);
         }
     }
 

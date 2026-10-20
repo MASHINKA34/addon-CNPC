@@ -1,6 +1,9 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
+import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TelegraphLineGeometry;
 import com.goodbird.cnpcgeckoaddon.utils.TelegraphShape;
@@ -14,6 +17,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -28,6 +33,8 @@ import java.util.function.Supplier;
  * and without a packet of its own.</p>
  */
 public final class BossTelegraphUtil {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /**
      * With no player this close the mark cannot be seen, so it is not worth the particles.
@@ -89,6 +96,15 @@ public final class BossTelegraphUtil {
      * entries, and the whole range is ninety of them at worst.
      */
     private static final Map<Integer, DustParticleOptions[]> TUNED_FADED_DUST = new ConcurrentHashMap<>();
+
+    /**
+     * Dust in the colours abilities' profiles chose, full and faded, built once per colour for the
+     * reason the tables above are. Colours are typed by hand, so a session sees a handful; the
+     * ceiling only guards against a server that somehow sees thousands.
+     */
+    private static final Map<Integer, DustParticleOptions> COLOUR_DUST = new ConcurrentHashMap<>();
+    private static final Map<Long, DustParticleOptions> FADED_COLOUR_DUST = new ConcurrentHashMap<>();
+    private static final int MAX_COLOUR_DUST = 256;
 
     /** Roughly one emit per this many blocks along a ring, an arc or a line. */
     private static final double EMIT_SPACING = 0.6D;
@@ -159,6 +175,65 @@ public final class BossTelegraphUtil {
     /** The same colour as packed RGB, for the name that goes into the action bar. */
     public static int textColor(int ability) {
         return ABILITY_COLORS[Mth.clamp(ability, 0, ABILITY_COLORS.length - 1)];
+    }
+
+    /**
+     * The colour one ability is drawn in during one phase: its profile's, or the kind's own when the
+     * profile has none or there is no phase to ask. What every action bar line and every puff of an
+     * ability's colour goes through, so a red slam is red everywhere at once.
+     */
+    public static int textColor(BossPhaseData phase, int ability) {
+        return phase == null ? textColor(ability) : phase.profile(ability).colorOr(textColor(ability));
+    }
+
+    /** The dust of that colour. */
+    public static DustParticleOptions dust(BossPhaseData phase, int ability) {
+        int colour = phase == null ? BossAbilityProfile.COLOR_OF_KIND : phase.profile(ability).getTelegraphColor();
+        return colour >= 0 ? colourDust(colour) : dust(ability);
+    }
+
+    /** The same for a caller that holds only the boss: the phase it is fighting, or the kind's colour. */
+    public static int textColor(Entity boss, int ability) {
+        return textColor(TeleportPathController.activePhaseOf(boss), ability);
+    }
+
+    public static DustParticleOptions dust(Entity boss, int ability) {
+        return dust(TeleportPathController.activePhaseOf(boss), ability);
+    }
+
+    /** Full dust of one packed colour a profile chose, built once per colour. */
+    static DustParticleOptions colourDust(int rgb) {
+        DustParticleOptions dust = COLOUR_DUST.get(rgb);
+        if (dust != null) {
+            return dust;
+        }
+        trimColourCache(COLOUR_DUST);
+        return COLOUR_DUST.computeIfAbsent(rgb, colour -> buildDust(colour, 1.0F, 1.0F));
+    }
+
+    /** The faded dust of one packed colour a profile chose, at the brightness the boss asked for. */
+    static DustParticleOptions fadedColourDust(int rgb, int fadedPercent) {
+        long key = (long) fadedPercent << 24 | (rgb & 0xFFFFFFL);
+        DustParticleOptions dust = FADED_COLOUR_DUST.get(key);
+        if (dust != null) {
+            return dust;
+        }
+        trimColourCache(FADED_COLOUR_DUST);
+        return FADED_COLOUR_DUST.computeIfAbsent(key, ignored -> buildDust(rgb, fadedPercent / 100.0F, FADED_SCALE));
+    }
+
+    private static void trimColourCache(Map<?, DustParticleOptions> cache) {
+        if (cache.size() >= MAX_COLOUR_DUST) {
+            LOGGER.debug("Telegraph colour dust cache reached {} colours; starting it over", cache.size());
+            cache.clear();
+        }
+    }
+
+    private static DustParticleOptions buildDust(int rgb, float brightness, float scale) {
+        return new DustParticleOptions(new Vector3f(
+                (rgb >> 16 & 0xFF) / 255.0F * brightness,
+                (rgb >> 8 & 0xFF) / 255.0F * brightness,
+                (rgb & 0xFF) / 255.0F * brightness), scale);
     }
 
     /**
@@ -536,11 +611,7 @@ public final class BossTelegraphUtil {
     private static DustParticleOptions[] buildDust(float brightness, float scale) {
         DustParticleOptions[] dust = new DustParticleOptions[ABILITY_COLORS.length];
         for (int i = 0; i < ABILITY_COLORS.length; i++) {
-            int rgb = ABILITY_COLORS[i];
-            dust[i] = new DustParticleOptions(new Vector3f(
-                    (rgb >> 16 & 0xFF) / 255.0F * brightness,
-                    (rgb >> 8 & 0xFF) / 255.0F * brightness,
-                    (rgb & 0xFF) / 255.0F * brightness), scale);
+            dust[i] = buildDust(ABILITY_COLORS[i], brightness, scale);
         }
         return dust;
     }

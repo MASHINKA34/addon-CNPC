@@ -167,7 +167,8 @@ public final class BossMarkScheduler {
             this.failEffects = phase.mark().getFailEffects();
             this.vfx = phase.mark().getVfx();
             this.wave = BossWaveTuning.of(boss, this.vfx);
-            this.telegraph = BossTelegraphPaint.Settings.of(boss);
+            // The mark's look in the phase it was lit in - its profile's colour too - kept for the whole fuse.
+            this.telegraph = BossTelegraphPaint.Settings.of(boss, BossAbilityKind.MARK);
             this.look = look(phase.mark());
             this.litAt = gameTime;
             this.explodesAt = gameTime + phase.mark().getFuseTicks();
@@ -331,7 +332,7 @@ public final class BossMarkScheduler {
         // of nought is no sparks at all: vanilla reads nought as one particle given a velocity,
         // which is not what a builder who asked for none meant.
         if (carrier != null && pending.look.carrierParticles() > 0) {
-            level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.MARK), carrier.getX(),
+            level.sendParticles(pending.telegraph.dust(BossAbilityKind.MARK), carrier.getX(),
                     carrier.getY() + carrier.getBbHeight() + 0.4D, carrier.getZ(),
                     pending.look.carrierParticles(), 0.2D, 0.1D, 0.2D, 0.0D);
         }
@@ -355,7 +356,7 @@ public final class BossMarkScheduler {
         // In the ability's own colour, so the line and the circle on the floor read as one
         // warning rather than as two.
         carrier.displayClientMessage(line.withStyle(style ->
-                style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.MARK))), true);
+                style.withColor(pending.telegraph.rgb(BossAbilityKind.MARK))), true);
     }
 
     /** How far the fuse has burned, from 0 the tick it was lit to 1 the tick it goes. */
@@ -379,7 +380,7 @@ public final class BossMarkScheduler {
         BossAreaVfxScheduler.schedule(level, pos, pending.vfx, pending.radius,
                 pending.look.vfxTicks(), false, pending.wave);
         pending.look.blastSound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
-        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.MARK), pos.x, pos.y + 0.5D, pos.z,
+        level.sendParticles(pending.telegraph.dust(BossAbilityKind.MARK), pos.x, pos.y + 0.5D, pos.z,
                 24, pending.radius * 0.4D, 0.3D, pending.radius * 0.4D, 0.0D);
         if (pending.mode == BossPhaseData.MARK_MODE_SOAK) {
             gather(level, pending);

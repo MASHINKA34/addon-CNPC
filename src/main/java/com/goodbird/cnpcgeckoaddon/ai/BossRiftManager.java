@@ -160,10 +160,13 @@ public final class BossRiftManager {
         long nextSyncAt;
         long nextLoopAt;
         long nextAmbientAt;
+        /** The colour of the phase that cut it, which its status line is written in: the profile's, or the kind's. */
+        final int colour;
 
         Rift(EntityNPCInterface boss, ServerLevel arena, BossRiftSettings settings, boolean solo, int exitMode,
              BlockPos centre, long gameTime) {
             this.bossId = boss.getUUID();
+            this.colour = BossTelegraphUtil.textColor(boss, BossAbilityKind.RIFT);
             this.bossName = boss.getName().getString();
             this.bossLevel = arena.dimension();
             this.bossChunk = new ChunkPos(boss.blockPosition());
@@ -520,7 +523,7 @@ public final class BossRiftManager {
             line.append("  ").append(Component.translatable("cnpcgeckoaddon.boss.rift_status_crystals",
                     String.valueOf(rift.crystalsCollected), String.valueOf(rift.crystalsPlaced)));
         }
-        return line.withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.RIFT)));
+        return line.withStyle(style -> style.withColor(rift.colour));
     }
 
     private static boolean needsMinions(Rift rift) {
@@ -675,7 +678,7 @@ public final class BossRiftManager {
         BossRiftSettings settings = rift.settings;
         boolean glitter = gameTime >= rift.nextCrystalGlitterAt;
         boolean outline = settings.isCrystalZoneRing() && gameTime % ZONE_RING_INTERVAL_TICKS == 0L;
-        BossTelegraphPaint.Settings paint = outline ? BossTelegraphPaint.Settings.of(boss) : null;
+        BossTelegraphPaint.Settings paint = outline ? BossTelegraphPaint.Settings.of(boss, BossAbilityKind.RIFT) : null;
         for (UUID id : List.copyOf(rift.crystals)) {
             BossRiftCrystalPlacement.Spot zone = rift.crystalZones.get(id);
             Entity entity = zone == null ? null : level.getEntity(id);

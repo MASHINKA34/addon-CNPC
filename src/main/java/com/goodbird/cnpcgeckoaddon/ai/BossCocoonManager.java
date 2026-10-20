@@ -9,6 +9,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
 import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossCaptureState;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
@@ -162,6 +163,9 @@ public final class BossCocoonManager {
         private final BossEffectSet freeEffects;
         /** The clocks and the noises this shell was closed with. */
         private final Look look;
+        /** The colour of the phase it was closed in: the cocoon's profile's own, or the kind's. */
+        private final int colour;
+        private final DustParticleOptions dust;
         /** Stand rule: the ticks the rescuers have put in so far, every one of them counting. */
         private int rescueProgress;
         /** Set by a hit that would have killed the shell; the next tick opens it instead. */
@@ -187,6 +191,8 @@ public final class BossCocoonManager {
             failEffects = phase.cocoon().getFailEffects();
             freeEffects = phase.cocoon().getFreeEffects();
             look = look(phase.cocoon());
+            colour = BossTelegraphUtil.textColor(phase, BossAbilityKind.COCOON);
+            dust = BossTelegraphUtil.dust(phase, BossAbilityKind.COCOON);
         }
     }
 
@@ -219,7 +225,7 @@ public final class BossCocoonManager {
         }
         // The cocoon closing, on the victim rather than the boss: it is theirs now.
         held.look.wrapSound().play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
-        burst(level, victim, held.look.wrapParticles());
+        burst(level, victim, held.look.wrapParticles(), held);
         return true;
     }
 
@@ -442,7 +448,7 @@ public final class BossCocoonManager {
             BossAbilityDamageUtil.applyEffects(victim, BossAbilityKind.COCOON, boss, cocoon.freeEffects);
         }
         cocoon.look.freedSound().play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
-        burst(level, victim, cocoon.look.freedParticles());
+        burst(level, victim, cocoon.look.freedParticles(), cocoon);
     }
 
     /**
@@ -457,14 +463,14 @@ public final class BossCocoonManager {
         BossAbilityDamageUtil.hit(victim, BossAbilityKind.COCOON, boss, cocoon.failDamage,
                 cocoon.failEffects, 0, 0.0D, 0.0D);
         cocoon.look.timeoutSound().play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
-        burst(level, victim, cocoon.look.timeoutParticles());
+        burst(level, victim, cocoon.look.timeoutParticles(), cocoon);
     }
 
     /** The puff of one of the three moments, over the cocoon's own colour. */
-    private static void burst(ServerLevel level, LivingEntity victim, BossParticleCue cue) {
+    private static void burst(ServerLevel level, LivingEntity victim, BossParticleCue cue, Cocoon cocoon) {
         double y = victim.getY() + victim.getBbHeight() * 0.5D;
         cue.emitDust(level, victim.getX(), y, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.1D, BossAbilityKind.COCOON);
-        level.sendParticles(BossTelegraphUtil.dust(BossAbilityKind.COCOON), victim.getX(), y, victim.getZ(),
+        level.sendParticles(cocoon.dust, victim.getX(), y, victim.getZ(),
                 10, 0.4D, 0.5D, 0.4D, 0.0D);
     }
 
@@ -487,7 +493,7 @@ public final class BossCocoonManager {
             int percent = Mth.clamp(cocoon.rescueProgress * 100 / Math.max(1, cocoon.rescueTicks), 0, 99);
             line.append("  " + percent + "%");
         }
-        line.withStyle(style -> style.withColor(BossTelegraphUtil.textColor(BossAbilityKind.COCOON)));
+        line.withStyle(style -> style.withColor(cocoon.colour));
         double rangeSquared = cocoon.look.announceRange() * cocoon.look.announceRange();
         for (ServerPlayer player : level.players()) {
             if (player != victim && !player.isSpectator()

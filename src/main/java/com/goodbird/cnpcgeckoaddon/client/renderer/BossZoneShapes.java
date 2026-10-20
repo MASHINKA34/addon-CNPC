@@ -116,6 +116,11 @@ final class BossZoneShapes {
         private final BlockPos homeBlock;
         /** Whether this client stands in the rift, the only place a rift's fixed spots mean anything. */
         private final boolean inRift;
+        /**
+         * The phase whose shapes are being collected, or null for the boss-wide ones: what an
+         * ability's shapes take their colour from, its profile's in that phase or the kind's.
+         */
+        private BossPhaseData phase;
 
         private Builder(ClientLevel level, EntityNPCInterface npc, Object focus) {
             this.level = level;
@@ -174,6 +179,7 @@ final class BossZoneShapes {
         }
 
         private void phase(BossPhaseData phase, String prefix) {
+            this.phase = phase;
             hazard(phase.hazard(), prefix);
             cover(phase.cover(), prefix);
             platforms(phase.platform().getZones(), prefix);
@@ -188,6 +194,12 @@ final class BossZoneShapes {
             conePoints(phase.cone().getPoints(), prefix);
             castSpots(phase, prefix);
             leap(phase.leap(), prefix);
+            this.phase = null;
+        }
+
+        /** The colour one kind's shapes are drawn in for the phase being collected. */
+        private int rgb(int kind) {
+            return BossZonePreview.colorOf(phase, kind);
         }
 
         private void hazard(BossHazardSettings hazard, String prefix) {
@@ -206,9 +218,11 @@ final class BossZoneShapes {
             Vec3 centre = hazard.getCenterMode() == BossPhaseData.HAZARD_CENTER_POINT
                     ? new Vec3(hazard.getCenterX() + 0.5D, home.y, hazard.getCenterZ() + 0.5D)
                     : home;
-            shapes.add(Shape.ring(BossAbilityKind.HAZARD, label, centre, hazard.getStartRadius(), focused));
+            shapes.add(Shape.ring(BossAbilityKind.HAZARD, label, centre, hazard.getStartRadius(), focused,
+                    rgb(BossAbilityKind.HAZARD)));
             if (hazard.getEndRadius() != hazard.getStartRadius()) {
-                shapes.add(Shape.ring(BossAbilityKind.HAZARD, "", centre, hazard.getEndRadius(), focused));
+                shapes.add(Shape.ring(BossAbilityKind.HAZARD, "", centre, hazard.getEndRadius(), focused,
+                        rgb(BossAbilityKind.HAZARD)));
             }
         }
 
@@ -218,11 +232,12 @@ final class BossZoneShapes {
             if (!cover.isEnabled() && !focused) {
                 return;
             }
+            int rgb = rgb(BossAbilityKind.COVER);
             shapes.add(Shape.ring(BossAbilityKind.COVER, prefix + abilityName(BossAbilityKind.COVER), home,
-                    cover.getRange(), focused));
+                    cover.getRange(), focused, rgb));
             if (cover.getMode() == BossPhaseData.COVER_MODE_SHELTER) {
-                shapes.add(Shape.ring(BossAbilityKind.COVER, "", home, cover.getShelterMinRange(), focused));
-                shapes.add(Shape.ring(BossAbilityKind.COVER, "", home, cover.getShelterMaxRange(), focused));
+                shapes.add(Shape.ring(BossAbilityKind.COVER, "", home, cover.getShelterMinRange(), focused, rgb));
+                shapes.add(Shape.ring(BossAbilityKind.COVER, "", home, cover.getShelterMaxRange(), focused, rgb));
             }
         }
 
@@ -264,7 +279,7 @@ final class BossZoneShapes {
                 Vec3 at = spot(point.getCoordinateMode() == BossMinionSpawnPoint.COORDINATE_FIXED,
                         point.getX(), point.getY(), point.getZ(), rift);
                 if (at != null) {
-                    shapes.add(Shape.point(kind, prefix + numbered(titleKey, index), at, focused));
+                    shapes.add(Shape.point(kind, prefix + numbered(titleKey, index), at, focused, rgb(kind)));
                 }
             }
         }
@@ -286,8 +301,8 @@ final class BossZoneShapes {
                 double radius = point.getRadiusTenths() > 0
                         ? point.getRadiusTenths() / 10.0D : phase.rift().crystalCollectRadius();
                 shapes.add(Shape.point(BossAbilityKind.RIFT, prefix + numbered("cnpcgeckoaddon.boss.rift_crystals", index),
-                        at, focused));
-                shapes.add(Shape.ring(BossAbilityKind.RIFT, "", at, radius, focused));
+                        at, focused, rgb(BossAbilityKind.RIFT)));
+                shapes.add(Shape.ring(BossAbilityKind.RIFT, "", at, radius, focused, rgb(BossAbilityKind.RIFT)));
             }
         }
 
@@ -301,7 +316,7 @@ final class BossZoneShapes {
                 Vec3 at = spot(point.getCoordinateMode() == BossConeAimPoint.COORDINATE_FIXED,
                         point.getX(), point.getY(), point.getZ(), false);
                 shapes.add(Shape.point(BossAbilityKind.CONE, prefix + numbered("cnpcgeckoaddon.boss.cone_point_title", index),
-                        at, focused));
+                        at, focused, rgb(BossAbilityKind.CONE)));
             }
         }
 
@@ -321,7 +336,7 @@ final class BossZoneShapes {
                         ? new Vec3(spot.getX() + 0.5D, spot.getY(), spot.getZ() + 0.5D)
                         : home.add(spot.getX(), spot.getY(), spot.getZ());
                 shapes.add(Shape.point(ability.kind(), prefix + name("cnpcgeckoaddon.boss.cast_spots_settings")
-                        + " · " + abilityName(ability.kind()), at, focused));
+                        + " · " + abilityName(ability.kind()), at, focused, rgb(ability.kind())));
             }
         }
 
@@ -339,7 +354,8 @@ final class BossZoneShapes {
                 default -> null;
             };
             if (at != null) {
-                shapes.add(Shape.point(BossAbilityKind.LEAP, prefix + abilityName(BossAbilityKind.LEAP), at, focused));
+                shapes.add(Shape.point(BossAbilityKind.LEAP, prefix + abilityName(BossAbilityKind.LEAP), at, focused,
+                        rgb(BossAbilityKind.LEAP)));
             }
         }
 
@@ -359,8 +375,8 @@ final class BossZoneShapes {
         /** A box cut to the world's height, or in red uncut when nothing of it is left inside. */
         private void box(int kind, String label, AABB whole, boolean focused) {
             AABB cut = ZoneCoordinates.clampToBuildHeight(whole, level.getMinBuildHeight(), level.getMaxBuildHeight());
-            shapes.add(Shape.box(cut == null ? BossZonePreview.KIND_INVALID : kind, label, cut == null ? whole : cut,
-                    focused));
+            int shown = cut == null ? BossZonePreview.KIND_INVALID : kind;
+            shapes.add(Shape.box(shown, label, cut == null ? whole : cut, focused, rgb(shown)));
         }
     }
 

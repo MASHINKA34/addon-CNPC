@@ -4,6 +4,8 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.ai.BossTelegraphUtil;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelection;
 import com.goodbird.cnpcgeckoaddon.client.ZoneSelectionClient;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import com.goodbird.cnpcgeckoaddon.utils.ZoneCoordinates;
@@ -87,19 +89,34 @@ public final class BossZonePreview {
      * @param point  where a spot stands, or the middle of a ring
      * @param radius how wide a ring is
      * @param focus  whether it is the one being edited, drawn brighter and thicker
+     * @param rgb    the colour it is drawn in: its kind's, or the colour the ability's profile gives
+     *               it in the phase the shape belongs to
      */
-    public record Shape(Type type, int kind, String label, AABB box, Vec3 point, double radius, boolean focus) {
+    public record Shape(Type type, int kind, String label, AABB box, Vec3 point, double radius, boolean focus,
+                        int rgb) {
 
         public static Shape box(int kind, String label, AABB box, boolean focus) {
-            return new Shape(Type.BOX, kind, label, box, box.getCenter(), 0.0D, focus);
+            return box(kind, label, box, focus, colorOf(kind));
+        }
+
+        public static Shape box(int kind, String label, AABB box, boolean focus, int rgb) {
+            return new Shape(Type.BOX, kind, label, box, box.getCenter(), 0.0D, focus, rgb);
         }
 
         public static Shape point(int kind, String label, Vec3 point, boolean focus) {
-            return new Shape(Type.POINT, kind, label, null, point, 0.0D, focus);
+            return point(kind, label, point, focus, colorOf(kind));
+        }
+
+        public static Shape point(int kind, String label, Vec3 point, boolean focus, int rgb) {
+            return new Shape(Type.POINT, kind, label, null, point, 0.0D, focus, rgb);
         }
 
         public static Shape ring(int kind, String label, Vec3 centre, double radius, boolean focus) {
-            return new Shape(Type.RING, kind, label, null, centre, radius, focus);
+            return ring(kind, label, centre, radius, focus, colorOf(kind));
+        }
+
+        public static Shape ring(int kind, String label, Vec3 centre, double radius, boolean focus, int rgb) {
+            return new Shape(Type.RING, kind, label, null, centre, radius, focus, rgb);
         }
     }
 
@@ -213,6 +230,15 @@ public final class BossZonePreview {
             case KIND_PLAIN -> PLAIN_COLOR;
             default -> BossTelegraphUtil.textColor(kind);
         };
+    }
+
+    /**
+     * The same for a shape of one phase: an ability's shapes in the colour its profile gives it
+     * there - read off the phase the open screens edit, so a colour typed into the profile shows
+     * on the arena before it is saved - and every other kind as above.
+     */
+    public static int colorOf(BossPhaseData phase, int kind) {
+        return kind >= 0 && kind < BossAbilityKind.COUNT ? BossTelegraphUtil.textColor(phase, kind) : colorOf(kind);
     }
 
     @SubscribeEvent
@@ -345,7 +371,7 @@ public final class BossZonePreview {
             VertexConsumer lines = source.getBuffer(thin);
             for (Shape shape : shapes) {
                 if (!shape.focus()) {
-                    outline(poseStack, lines, shape, colorOf(shape.kind()), LINE_ALPHA);
+                    outline(poseStack, lines, shape, shape.rgb(), LINE_ALPHA);
                 }
             }
             source.endBatch(thin);
@@ -354,7 +380,7 @@ public final class BossZonePreview {
             VertexConsumer focus = source.getBuffer(thick);
             for (Shape shape : shapes) {
                 if (shape.focus()) {
-                    outline(poseStack, focus, shape, whiten(colorOf(shape.kind())), 1.0F);
+                    outline(poseStack, focus, shape, whiten(shape.rgb()), 1.0F);
                 }
             }
             source.endBatch(thick);
@@ -372,7 +398,7 @@ public final class BossZonePreview {
                 if (shape.label() == null || shape.label().isEmpty() || at.distanceToSqr(eye) > LABEL_RANGE * LABEL_RANGE) {
                     continue;
                 }
-                int rgb = shape.focus() ? whiten(colorOf(shape.kind())) : colorOf(shape.kind());
+                int rgb = shape.focus() ? whiten(shape.rgb()) : shape.rgb();
                 label(poseStack, source, font, camera, at, shape.label(), rgb, shape.focus());
             }
             source.endBatch();
@@ -425,7 +451,7 @@ public final class BossZonePreview {
     }
 
     private static void fill(PoseStack.Pose pose, VertexConsumer consumer, Shape shape) {
-        int rgb = shape.focus() ? whiten(colorOf(shape.kind())) : colorOf(shape.kind());
+        int rgb = shape.focus() ? whiten(shape.rgb()) : shape.rgb();
         switch (shape.type()) {
             case BOX -> faces(pose, consumer, shape.box(), rgb, shape.focus() ? FOCUS_FILL_ALPHA : FILL_ALPHA);
             case POINT -> faces(pose, consumer, post(shape.point()), rgb,
