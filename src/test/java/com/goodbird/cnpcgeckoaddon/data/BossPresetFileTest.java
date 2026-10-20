@@ -81,6 +81,24 @@ class BossPresetFileTest {
     }
 
     @Test
+    @DisplayName("a folder made for presets gets a note on them, once, which no list takes for a preset")
+    void aNewFolderGetsItsNote() throws IOException {
+        Path presets = folder.resolve("config").resolve("presets");
+        CompoundTag boss = configuredBoss().writeToNBT(new CompoundTag());
+
+        BossPresetFiles.write(presets, "demo", boss);
+
+        Path readme = presets.resolve(BossPresetFiles.README);
+        assertTrue(Files.isRegularFile(readme));
+        String note = Files.readString(readme, StandardCharsets.UTF_8);
+        assertTrue(note.contains("offsets from the arena") && note.contains("смещением от арены"), note);
+        assertEquals(List.of("demo"), BossPresetFiles.list(presets));
+        Files.delete(readme);
+        BossPresetFiles.write(presets, "demo_2", boss);
+        assertFalse(Files.exists(readme), "a note the builder deleted stays deleted");
+    }
+
+    @Test
     @DisplayName("a key this build does not know is passed over")
     void unknownKeysAreIgnored() throws IOException {
         TeleportPathData boss = configuredBoss();

@@ -1,9 +1,12 @@
 package com.goodbird.cnpcgeckoaddon.data;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.SnbtPrinterTagVisitor;
 import net.minecraft.nbt.TagParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,8 +35,41 @@ public final class BossPresetFiles {
      */
     public static final long MAX_BYTES = 16L * 1024L * 1024L;
 
+    /** The note a new presets folder is made with, for whoever opens the folder on the server. */
+    public static final String README = "README.txt";
+
+    private static final String README_TEXT = String.join("\n",
+            "Boss presets - CNPC Geckolib addon",
+            "",
+            "Each <name>.snbt file here is one boss: every boss setting of an npc - its phases, abilities,",
+            "zones, totems, loot, fine-tuning and profiles - as SNBT text, the way the npc's own save holds them.",
+            "Save one with /cnpcgecko preset save <name> or Presets... in the boss menu; load it with",
+            "/cnpcgecko preset load <name> or the same screen. Loading replaces every boss setting of the npc,",
+            "while its name, model and stats stay its own. Names are a-z, 0-9, _ and -, up to 32 characters.",
+            "Delete or rename presets here, by hand: the game never does.",
+            "Zones and points set to fixed coordinates are copied as they are - for a preset that fits any",
+            "arena, set them as offsets from the arena.",
+            "A preset saved by an older or newer version of the addon still loads: a setting it lacks takes",
+            "its default, and one this version does not know is passed over.",
+            "",
+            "Пресеты боссов - аддон CNPC Geckolib",
+            "",
+            "Каждый файл <имя>.snbt здесь - один босс: все настройки босса у НПС - фазы, способности, зоны,",
+            "тотемы, лут, тонкая настройка и профили - текстом SNBT, как их хранит сохранение самого НПС.",
+            "Сохранить: /cnpcgecko preset save <имя> или «Пресеты…» в меню босса; загрузить:",
+            "/cnpcgecko preset load <имя> или тот же экран. Загрузка заменяет все настройки босса у НПС,",
+            "а имя, модель и статы остаются его собственными. Имя - a-z, 0-9, _ и -, до 32 символов.",
+            "Удалять и переименовывать пресеты - здесь, руками: игра этого не делает.",
+            "Зоны и точки с фиксированными координатами копируются как есть - для пресета, который",
+            "подходит к любой арене, задавайте их смещением от арены.",
+            "Пресет от старой или новой версии аддона загружается: чего в нём нет - берётся по умолчанию,",
+            "незнакомое этой версии - пропускается.",
+            "");
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
+
     /** The byte order mark an editor may put in front of the text, which SNBT does not expect. */
-    private static final char BOM = '﻿';
+    private static final char BOM = '\uFEFF';
 
     /** How a read went. */
     public enum Status {
@@ -109,7 +145,11 @@ public final class BossPresetFiles {
         if (!BossPresetNames.isValid(name)) {
             throw new IllegalArgumentException("'" + name + "' is not a preset name");
         }
+        boolean newFolder = !Files.isDirectory(folder);
         Files.createDirectories(folder);
+        if (newFolder) {
+            writeReadme(folder);
+        }
         Path file = fileOf(folder, name);
         boolean overwritten = Files.exists(file);
         byte[] text = toText(boss).getBytes(StandardCharsets.UTF_8);
@@ -125,6 +165,20 @@ public final class BossPresetFiles {
             Files.deleteIfExists(partial);
         }
         return new Written(file, text.length, overwritten);
+    }
+
+    /**
+     * Puts the note on presets into a folder just made for them. Only then: a builder who deletes it
+     * does not get it back with every save. A note that cannot be written costs the note, not the save.
+     */
+    private static void writeReadme(Path folder) {
+        Path readme = folder.resolve(README);
+        try {
+            Files.writeString(readme, README_TEXT, StandardCharsets.UTF_8);
+            LOGGER.info("Boss presets folder {} made, with a note on presets in {}", folder, readme.getFileName());
+        } catch (IOException error) {
+            LOGGER.warn("Boss presets folder {} made, but its note {} could not be written", folder, readme, error);
+        }
     }
 
     /**
