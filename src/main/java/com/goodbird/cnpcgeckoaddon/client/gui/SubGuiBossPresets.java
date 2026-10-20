@@ -218,7 +218,7 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
         }
         String preset = selected;
         String question = Component.translatable("cnpcgeckoaddon.boss.preset_load_confirm",
-                npc.getName().getString(), preset).getString();
+                npcName(), preset).getString();
         setSubGui(new SubGuiConfirm(question, () -> {
             saveEditor();
             send(PacketBossPresetRequest.LOAD, preset);
@@ -234,11 +234,16 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
         if (root instanceof GuiNPCInterface2 page && root != this) {
             page.save();
             LOGGER.info("presets: the editor of {} sent to the server as closing it would, before the request",
-                    npc.getName().getString());
+                    npcName());
         } else {
             LOGGER.warn("presets: no npc page under this screen ({}), the server acts on what it last had",
                     root == null ? "none" : root.getClass().getSimpleName());
         }
+    }
+
+    /** The npc's name as the question and the log name it; a screen opened without one says so. */
+    private String npcName() {
+        return npc == null ? "?" : npc.getName().getString();
     }
 
     private void showStatus(String line, boolean good) {
