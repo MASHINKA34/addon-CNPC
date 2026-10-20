@@ -53,8 +53,8 @@ final class BossHurricaneRuntime {
         boss.beginAction(BossAbility.HURRICANE, hurricane.getAnimation(), hurricane.getActionDelayTicks(),
                 gameTime, target, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.HURRICANE, gameTime + hurricane.getActionDelayTicks()
-                + boss.rageDown(hurricane.getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.HURRICANE, boss.cooldownAt(BossAbility.HURRICANE, phase, gameTime,
+                hurricane.getActionDelayTicks()));
         return true;
     }
 

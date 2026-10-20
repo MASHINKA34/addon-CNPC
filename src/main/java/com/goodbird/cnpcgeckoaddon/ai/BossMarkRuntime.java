@@ -42,8 +42,8 @@ final class BossMarkRuntime {
         boss.rememberExtraTargets(targets);
         boss.beginAction(BossAbility.MARK, phase.mark().getAnimation(),
                 phase.mark().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        boss.setAbilityScheduleAt(BossAbility.MARK, gameTime + phase.mark().getActionDelayTicks()
-                + boss.rageDown(phase.mark().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.MARK, boss.cooldownAt(BossAbility.MARK, phase, gameTime,
+                phase.mark().getActionDelayTicks()));
         return true;
     }
 

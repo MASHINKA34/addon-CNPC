@@ -60,8 +60,8 @@ final class BossRangedAttackRuntime {
         }
         boss.beginAction(BossAbility.RANGED_ATTACK, phase.rangedAttack().getAnimation(),
                 phase.rangedAttack().getActionDelayTicks(), gameTime, target, data, phase);
-        boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK, gameTime + phase.rangedAttack().getActionDelayTicks()
-                + boss.rageDown(phase.rangedAttack().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK, boss.cooldownAt(BossAbility.RANGED_ATTACK, phase, gameTime,
+                phase.rangedAttack().getActionDelayTicks()));
         return true;
     }
 
@@ -134,7 +134,7 @@ final class BossRangedAttackRuntime {
             // keeps a cast from being started twice while its burst is still going.
             boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK,
                     Math.max(boss.abilityScheduleAt(BossAbility.RANGED_ATTACK),
-                            gameTime + boss.rageDown(phase.rangedAttack().getCooldownTicks())));
+                            boss.cooldownAt(BossAbility.RANGED_ATTACK, phase, gameTime, 0)));
         }
         boss.holdBusyUntil(gameTime + boss.postActionLockTicks());
     }

@@ -54,8 +54,8 @@ final class BossFluidSpitRuntime {
         }
         boss.beginAction(BossAbility.FLUID_SPIT, phase.fluidSpit().getAnimation(),
                 phase.fluidSpit().getActionDelayTicks(), gameTime, target, data, phase);
-        boss.setAbilityScheduleAt(BossAbility.FLUID_SPIT, gameTime + phase.fluidSpit().getActionDelayTicks()
-                + boss.rageDown(phase.fluidSpit().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.FLUID_SPIT, boss.cooldownAt(BossAbility.FLUID_SPIT, phase, gameTime,
+                phase.fluidSpit().getActionDelayTicks()));
         return true;
     }
 

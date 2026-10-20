@@ -116,8 +116,8 @@ final class BossCoverRuntime {
                 phase.cover().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the wind-up is the time to hide, and an enrage that
         // shortened it would turn a mechanic into a strike nobody can answer.
-        boss.setAbilityScheduleAt(BossAbility.COVER, gameTime + phase.cover().getActionDelayTicks()
-                + boss.rageDown(phase.cover().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.COVER, boss.cooldownAt(BossAbility.COVER, phase, gameTime,
+                phase.cover().getActionDelayTicks()));
         return true;
     }
 

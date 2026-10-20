@@ -131,8 +131,8 @@ final class BossDashRuntime {
         boss.beginAction(BossAbility.DASH, phase.dash().getAnimation(),
                 phase.dash().getActionDelayTicks(), gameTime, target, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.DASH, gameTime + phase.dash().getActionDelayTicks()
-                + boss.rageDown(phase.dash().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.DASH, boss.cooldownAt(BossAbility.DASH, phase, gameTime,
+                phase.dash().getActionDelayTicks()));
         return true;
     }
 

@@ -42,8 +42,8 @@ final class BossCaptureRuntime {
         boss.beginAction(BossAbility.CAPTURE, phase.capture().getAnimation(),
                 phase.capture().getActionDelayTicks(), gameTime, target, data, phase);
         // Windup and hold timing stay aligned with the animation; rage only shortens cooldown.
-        boss.setAbilityScheduleAt(BossAbility.CAPTURE, gameTime + phase.capture().getActionDelayTicks()
-                + boss.rageDown(phase.capture().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.CAPTURE, boss.cooldownAt(BossAbility.CAPTURE, phase, gameTime,
+                phase.capture().getActionDelayTicks()));
         return true;
     }
 

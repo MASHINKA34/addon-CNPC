@@ -48,8 +48,8 @@ final class BossTetherCastRuntime {
         boss.rememberExtraTargets(targets);
         boss.beginAction(BossAbility.TETHER, phase.tether().getAnimation(),
                 phase.tether().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        boss.setAbilityScheduleAt(BossAbility.TETHER, gameTime + phase.tether().getActionDelayTicks()
-                + boss.rageDown(phase.tether().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.TETHER, boss.cooldownAt(BossAbility.TETHER, phase, gameTime,
+                phase.tether().getActionDelayTicks()));
         return true;
     }
 

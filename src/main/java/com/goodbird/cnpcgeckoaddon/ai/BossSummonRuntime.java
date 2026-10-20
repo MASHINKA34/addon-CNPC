@@ -38,8 +38,8 @@ final class BossSummonRuntime {
         }
         boss.beginAction(BossAbility.SUMMON, phase.summon().getAnimation(),
                 phase.summon().getActionDelayTicks(), gameTime, null, data, phase);
-        boss.setAbilityScheduleAt(BossAbility.SUMMON, gameTime + phase.summon().getActionDelayTicks()
-                + boss.rageDown(phase.summon().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.SUMMON, boss.cooldownAt(BossAbility.SUMMON, phase, gameTime,
+                phase.summon().getActionDelayTicks()));
         return true;
     }
 

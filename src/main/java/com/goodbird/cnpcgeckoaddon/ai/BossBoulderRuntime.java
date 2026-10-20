@@ -76,8 +76,8 @@ final class BossBoulderRuntime {
                 phase.boulder().getActionDelayTicks(), gameTime, target, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would launch the stone before the swing does.
-        boss.setAbilityScheduleAt(BossAbility.BOULDER, gameTime + phase.boulder().getActionDelayTicks()
-                + boss.rageDown(phase.boulder().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.BOULDER, boss.cooldownAt(BossAbility.BOULDER, phase, gameTime,
+                phase.boulder().getActionDelayTicks()));
         return true;
     }
 
@@ -190,8 +190,8 @@ final class BossBoulderRuntime {
                 phase.boulderRain().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would start the volley before the swing does.
-        boss.setAbilityScheduleAt(BossAbility.BOULDER_RAIN, gameTime + phase.boulderRain().getActionDelayTicks()
-                + boss.rageDown(phase.boulderRain().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.BOULDER_RAIN, boss.cooldownAt(BossAbility.BOULDER_RAIN, phase, gameTime,
+                phase.boulderRain().getActionDelayTicks()));
         return true;
     }
 

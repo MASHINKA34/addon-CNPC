@@ -56,8 +56,8 @@ final class BossLineAttackRuntime {
                 phase.lineAttack().getActionDelayTicks(), gameTime, target, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would land the hit before the swing does.
-        boss.setAbilityScheduleAt(BossAbility.LINE_ATTACK, gameTime + phase.lineAttack().getActionDelayTicks()
-                + boss.rageDown(phase.lineAttack().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.LINE_ATTACK, boss.cooldownAt(BossAbility.LINE_ATTACK, phase, gameTime,
+                phase.lineAttack().getActionDelayTicks()));
         return true;
     }
 

@@ -39,8 +39,8 @@ final class BossAreaAttackRuntime {
                 phase.areaAttack().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would land the hit before the swing does.
-        boss.setAbilityScheduleAt(BossAbility.GROUND_ATTACK, gameTime + phase.areaAttack().getActionDelayTicks()
-                + boss.rageDown(phase.areaAttack().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.GROUND_ATTACK, boss.cooldownAt(BossAbility.GROUND_ATTACK, phase, gameTime,
+                phase.areaAttack().getActionDelayTicks()));
         return true;
     }
 

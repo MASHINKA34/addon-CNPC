@@ -40,8 +40,8 @@ final class BossMeleeAttackRuntime {
         }
         boss.beginAction(BossAbility.MELEE_ATTACK, phase.meleeAttack().getAnimation(),
                 phase.meleeAttack().getActionDelayTicks(), gameTime, target, data, phase);
-        boss.setAbilityScheduleAt(BossAbility.MELEE_ATTACK, gameTime + phase.meleeAttack().getActionDelayTicks()
-                + boss.rageDown(phase.meleeAttack().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.MELEE_ATTACK, boss.cooldownAt(BossAbility.MELEE_ATTACK, phase, gameTime,
+                phase.meleeAttack().getActionDelayTicks()));
         return true;
     }
 

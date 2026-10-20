@@ -113,7 +113,8 @@ final class BossLeapRuntime {
         boss.beginAction(BossAbility.LEAP, phase.leap().getAnimation(),
                 phase.leap().getActionDelayTicks(), gameTime, target, data, phase);
         // Only the cooldown is scaled - the windup is measured against the leap animation.
-        boss.setAbilityScheduleAt(BossAbility.LEAP, gameTime + phase.leap().getActionDelayTicks() + boss.rageDown(phase.leap().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.LEAP, boss.cooldownAt(BossAbility.LEAP, phase, gameTime,
+                phase.leap().getActionDelayTicks()));
         return true;
     }
 

@@ -96,8 +96,8 @@ final class BossShadowRuntime {
         boss.beginAction(BossAbility.SHADOW, shadow.getAnimation(), shadow.getActionDelayTicks(),
                 gameTime, null, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.SHADOW, gameTime + shadow.getActionDelayTicks()
-                + boss.rageDown(shadow.getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.SHADOW, boss.cooldownAt(BossAbility.SHADOW, phase, gameTime,
+                shadow.getActionDelayTicks()));
         return true;
     }
 

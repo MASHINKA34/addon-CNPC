@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
@@ -1998,9 +1999,26 @@ public final class TeleportPathController {
             if (!ability.isEnabledIn(phase)) {
                 setAbilityScheduleAt(ability, NOT_SCHEDULED);
             } else if (abilityScheduleAt(ability) == NOT_SCHEDULED) {
-                setAbilityScheduleAt(ability, gameTime + rageDown(ability.cooldownTicks(phase)));
+                setAbilityScheduleAt(ability, firstCastAt(ability, phase, gameTime));
             }
         }
+    }
+
+    /**
+     * When an ability armed afresh - on entering a phase, after the schedules were wiped, or
+     * switched back on - first comes due: after a whole cooldown, as it always did, unless its
+     * profile names a delay of its own.
+     */
+    private long firstCastAt(BossAbility ability, BossPhaseData phase, long gameTime) {
+        int delay = phase.profile(ability.kind()).getFirstCastDelayTicks();
+        if (delay == BossAbilityProfile.FIRST_CAST_AFTER_COOLDOWN) {
+            return cooldownAt(ability, phase, gameTime, 0);
+        }
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Boss {} arms {} to come due in {} ticks, its profile's first delay, not after a cooldown",
+                    nameForLog(), ability, delay);
+        }
+        return gameTime + delay;
     }
 
     /** Rotates ability priority so short cooldowns cannot permanently starve another attack. */
@@ -2274,8 +2292,8 @@ public final class TeleportPathController {
         beginAction(BossAbility.HUNT, phase.hunt().getAnimation(),
                 phase.hunt().getActionDelayTicks(), gameTime, prey, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the roar it plays.
-        setAbilityScheduleAt(BossAbility.HUNT, gameTime + phase.hunt().getActionDelayTicks()
-                + rageDown(phase.hunt().getCooldownTicks()));
+        setAbilityScheduleAt(BossAbility.HUNT, cooldownAt(BossAbility.HUNT, phase, gameTime,
+                phase.hunt().getActionDelayTicks()));
         return true;
     }
 
@@ -2642,6 +2660,35 @@ public final class TeleportPathController {
      */
     void holdBusyUntil(long gameTime) {
         busyUntil = Math.max(busyUntil, gameTime);
+    }
+
+    /**
+     * When an ability cast now may go again: {@code extraTicks} from now - its wind-up, for a
+     * start - and then one cooldown, as {@link #rolledCooldownTicks} works it out. Every place
+     * that puts an ability on its cooldown after a cast asks this, so none of them can forget the
+     * spread or put the enrage on an ability whose profile keeps it off.
+     */
+    long cooldownAt(BossAbility ability, BossPhaseData phase, long gameTime, int extraTicks) {
+        return gameTime + extraTicks + rolledCooldownTicks(ability, phase);
+    }
+
+    /**
+     * The cooldown one cast of this ability buys in this phase: the configured one, spread by the
+     * profile - never under a tick - and shortened by the enrage unless the profile keeps it off.
+     * The spread is drawn here, so this is asked once per cooldown it stands for; an ability with
+     * no spread draws nothing and keeps the old flat cooldown to the tick.
+     */
+    int rolledCooldownTicks(BossAbility ability, BossPhaseData phase) {
+        BossAbilityProfile profile = phase.profile(ability.kind());
+        int configured = ability.cooldownTicks(phase);
+        int spread = profile.spreadCooldown(configured, npc.getRandom());
+        int ticks = profile.cooldownUnderRage(spread, this::rageDown);
+        if (LOGGER.isDebugEnabled() && !profile.isDefault()) {
+            LOGGER.debug("Boss {} puts {} on a {} tick cooldown (configured {}, spread +-{} gave {}, enrage {})",
+                    nameForLog(), ability, ticks, configured, profile.getCooldownJitterTicks(), spread,
+                    !profile.isRageCooldown() ? "kept off by the profile" : isRageActive() ? "on" : "not running");
+        }
+        return ticks;
     }
 
     /** When one ability is next allowed to start. */

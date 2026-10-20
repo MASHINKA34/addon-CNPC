@@ -38,8 +38,8 @@ final class BossSeismicRuntime {
         boss.beginAction(BossAbility.SEISMIC, seismic.getAnimation(), seismic.getActionDelayTicks(),
                 gameTime, null, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.SEISMIC, gameTime + seismic.getActionDelayTicks()
-                + boss.rageDown(seismic.getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.SEISMIC, boss.cooldownAt(BossAbility.SEISMIC, phase, gameTime,
+                seismic.getActionDelayTicks()));
         return true;
     }
 

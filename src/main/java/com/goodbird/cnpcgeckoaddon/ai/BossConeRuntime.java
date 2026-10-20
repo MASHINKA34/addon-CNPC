@@ -113,7 +113,7 @@ final class BossConeRuntime {
                 data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
         boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtStart(cone.getCooldownFrom(), gameTime,
-                cone.getActionDelayTicks(), boss.rageDown(cone.getCooldownTicks())));
+                cone.getActionDelayTicks(), boss.rolledCooldownTicks(BossAbility.CONE, phase)));
         return true;
     }
 
@@ -310,7 +310,7 @@ final class BossConeRuntime {
             // the schedule holds, and a stamp put down there would come out longer by the lead.
             BossPhaseData ended = phaseOf(data);
             if (ended != null) {
-                stampCooldownFromEnd(ended.cone(), endedAt);
+                stampCooldownFromEnd(ended, endedAt);
             }
             endedAt = NOT_SCHEDULED;
             if (series == null) {
@@ -344,15 +344,15 @@ final class BossConeRuntime {
      */
     private void finish(BossPhaseData phase, long gameTime) {
         if (phase != null) {
-            stampCooldownFromEnd(phase.cone(), gameTime);
+            stampCooldownFromEnd(phase, gameTime);
         }
         clear();
         boss.holdBusyUntil(gameTime + boss.postActionLockTicks());
     }
 
-    private void stampCooldownFromEnd(BossConeSettings cone, long endedAt) {
-        boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtEnd(cone.getCooldownFrom(), endedAt,
-                boss.rageDown(cone.getCooldownTicks()), boss.abilityScheduleAt(BossAbility.CONE)));
+    private void stampCooldownFromEnd(BossPhaseData phase, long endedAt) {
+        boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtEnd(phase.cone().getCooldownFrom(), endedAt,
+                boss.rolledCooldownTicks(BossAbility.CONE, phase), boss.abilityScheduleAt(BossAbility.CONE)));
     }
 
     /**
@@ -365,7 +365,7 @@ final class BossConeRuntime {
         BossPhaseData phase = phaseOf(data);
         if (phase != null) {
             boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAfterInterrupt(gameTime,
-                    boss.rageDown(phase.cone().getCooldownTicks()), boss.abilityScheduleAt(BossAbility.CONE)));
+                    boss.rolledCooldownTicks(BossAbility.CONE, phase), boss.abilityScheduleAt(BossAbility.CONE)));
         }
         clear();
     }

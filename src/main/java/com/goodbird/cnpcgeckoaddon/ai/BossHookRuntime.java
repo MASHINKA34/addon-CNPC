@@ -72,8 +72,8 @@ final class BossHookRuntime {
         boss.rememberExtraTargets(targets);
         boss.beginAction(BossAbility.HOOK, phase.hook().getAnimation(),
                 phase.hook().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        boss.setAbilityScheduleAt(BossAbility.HOOK, gameTime + phase.hook().getActionDelayTicks()
-                + boss.rageDown(phase.hook().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.HOOK, boss.cooldownAt(BossAbility.HOOK, phase, gameTime,
+                phase.hook().getActionDelayTicks()));
         return true;
     }
 

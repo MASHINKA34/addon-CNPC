@@ -48,8 +48,8 @@ final class BossBeamCastRuntime {
                 phase.beam().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would switch the beams on before the charge does.
-        boss.setAbilityScheduleAt(BossAbility.BEAM, gameTime + phase.beam().getActionDelayTicks()
-                + boss.rageDown(phase.beam().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.BEAM, boss.cooldownAt(BossAbility.BEAM, phase, gameTime,
+                phase.beam().getActionDelayTicks()));
         return true;
     }
 

@@ -36,8 +36,8 @@ final class BossGravityCastRuntime {
                 phase.gravity().getActionDelayTicks(), gameTime, null, data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would open the field before the swing does.
-        boss.setAbilityScheduleAt(BossAbility.GRAVITY, gameTime + phase.gravity().getActionDelayTicks()
-                + boss.rageDown(phase.gravity().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.GRAVITY, boss.cooldownAt(BossAbility.GRAVITY, phase, gameTime,
+                phase.gravity().getActionDelayTicks()));
         return true;
     }
 

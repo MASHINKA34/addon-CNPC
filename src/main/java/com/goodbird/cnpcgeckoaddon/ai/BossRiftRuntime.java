@@ -66,8 +66,8 @@ final class BossRiftRuntime {
         boss.beginAction(BossAbility.RIFT, rift.getAnimation(), rift.getActionDelayTicks(), gameTime,
                 targets.get(0), data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.RIFT, gameTime + rift.getActionDelayTicks()
-                + boss.rageDown(rift.getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.RIFT, boss.cooldownAt(BossAbility.RIFT, phase, gameTime,
+                rift.getActionDelayTicks()));
         return true;
     }
 

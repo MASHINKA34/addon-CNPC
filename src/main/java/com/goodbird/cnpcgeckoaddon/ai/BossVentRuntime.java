@@ -66,8 +66,8 @@ final class BossVentRuntime {
         boss.beginAction(BossAbility.VENT, vent.getAnimation(), vent.getActionDelayTicks(), gameTime,
                 null, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.VENT, gameTime + vent.getActionDelayTicks()
-                + boss.rageDown(vent.getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.VENT, boss.cooldownAt(BossAbility.VENT, phase, gameTime,
+                vent.getActionDelayTicks()));
         return true;
     }
 

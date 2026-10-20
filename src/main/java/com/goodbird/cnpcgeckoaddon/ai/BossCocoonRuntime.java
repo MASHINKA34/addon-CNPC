@@ -86,8 +86,8 @@ final class BossCocoonRuntime {
                 phase.cocoon().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
         // Only the cooldown is scaled: the action delay is measured against the attack
         // animation, and shortening it would close the cocoons before the cast does.
-        boss.setAbilityScheduleAt(BossAbility.COCOON, gameTime + phase.cocoon().getActionDelayTicks()
-                + boss.rageDown(phase.cocoon().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.COCOON, boss.cooldownAt(BossAbility.COCOON, phase, gameTime,
+                phase.cocoon().getActionDelayTicks()));
         return true;
     }
 

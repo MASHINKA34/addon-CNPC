@@ -90,8 +90,8 @@ final class BossPlatformRuntime {
         boss.beginAction(BossAbility.PLATFORM, platform.getAnimation(), platform.getActionDelayTicks(), gameTime,
                 null, data, phase);
         // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.PLATFORM, gameTime + platform.getActionDelayTicks()
-                + boss.rageDown(platform.getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.PLATFORM, boss.cooldownAt(BossAbility.PLATFORM, phase, gameTime,
+                platform.getActionDelayTicks()));
         return true;
     }
 

@@ -57,8 +57,8 @@ final class BossGeyserRuntime {
         boss.rememberExtraTargets(targets);
         boss.beginAction(BossAbility.GEYSER, phase.geyser().getAnimation(),
                 phase.geyser().getActionDelayTicks(), gameTime, targets.get(0), data, phase);
-        boss.setAbilityScheduleAt(BossAbility.GEYSER, gameTime + phase.geyser().getActionDelayTicks()
-                + boss.rageDown(phase.geyser().getCooldownTicks()));
+        boss.setAbilityScheduleAt(BossAbility.GEYSER, boss.cooldownAt(BossAbility.GEYSER, phase, gameTime,
+                phase.geyser().getActionDelayTicks()));
         return true;
     }
 
