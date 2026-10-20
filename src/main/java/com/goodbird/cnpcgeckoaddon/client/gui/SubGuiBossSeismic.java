@@ -168,6 +168,11 @@ public final class SubGuiBossSeismic extends SubGuiFieldScreen {
         y = choice(place, VFX_BUTTON, "cnpcgeckoaddon.boss.seismic_vfx", y,
                 VFX_STYLE_LABELS, vfxStyleIndex(seismic.getVfx()));
         y = toggle(place, BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.seismic_block_wave", y, seismic.isBlockWave());
+        // Where the rings start: round the boss, or round a target's spot.
+        if (place) {
+            addCentreRow(guiLeft + LABEL_X, guiTop + y, RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, seismic);
+        }
+        y += ROW;
 
         if (place) {
             // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
@@ -182,7 +187,11 @@ public final class SubGuiBossSeismic extends SubGuiFieldScreen {
         if (place) {
             addWrappedHint(HINT_LABEL, HINT, guiTop + y);
         }
-        y += wrappedHintHeight(HINT) + BUTTONS_GAP;
+        y += wrappedHintHeight(HINT);
+        if (place) {
+            addWrappedHint(CENTRE_HINT_LABEL, CENTRE_HINT, guiTop + y);
+        }
+        y += wrappedHintHeight(CENTRE_HINT) + BUTTONS_GAP;
         if (place) {
             addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + LABEL_X, guiTop + y, 120, CONTROL_HEIGHT,
                     "cnpcgeckoaddon.boss.effects_settings"));

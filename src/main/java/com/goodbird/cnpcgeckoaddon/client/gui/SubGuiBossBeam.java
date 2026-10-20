@@ -47,10 +47,14 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
     private static final int TRIPLE_FIELD_STEP = 43;
     /** The yes/no buttons start here, so a toggle row's label may run up to this. */
     private static final int TOGGLE_BUTTON_X = 155;
-    /** Where the hints start: ten rows of 21 from 18, and three pixels under the last. */
-    private static final int HINTS_Y = 18 + 10 * 21 + 3;
+    /** Where the hints start: eleven rows of 21 from 18, and three pixels under the last. */
+    private static final int HINTS_Y = 18 + 11 * 21 + 3;
     /** The buttons never sit above this, so a locale whose hints wrap short keeps the old panel. */
-    private static final int MIN_BUTTONS_Y = 258;
+    private static final int MIN_BUTTONS_Y = 279;
+    /** What "centred on a target" means for beams, said under the centre's own hint. */
+    private static final String BEAM_CENTRE_HINT = "cnpcgeckoaddon.boss.beam_centre_hint";
+    /** The label id the beams' centre hint starts from, past the centre hint's lines. */
+    private static final int BEAM_CENTRE_HINT_LABEL = 60;
     private static final int BUTTON_HEIGHT = 20;
     private static final int BOTTOM_MARGIN = 6;
 
@@ -131,9 +135,14 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         addPairRow(ACTION_DELAY_FIELD, COOLDOWN_FIELD, "cnpcgeckoaddon.boss.timing", y,
                 phase.beam().getActionDelayTicks(), 0, 1200, 20,
                 phase.beam().getCooldownTicks(), 1, 12000, 360);
+        y += 21;
+        // Where the beams turn round: the boss, or the spot a target stood on.
+        addCentreRow(guiLeft + 6, y, 236, 20, phase.beam());
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.beam_hint", guiTop + HINTS_Y);
-        addWrappedHint(40, "cnpcgeckoaddon.boss.beam_look_hint", hintY);
+        hintY = addWrappedHint(40, "cnpcgeckoaddon.boss.beam_look_hint", hintY);
+        hintY = addWrappedHint(CENTRE_HINT_LABEL, CENTRE_HINT, hintY);
+        addWrappedHint(BEAM_CENTRE_HINT_LABEL, BEAM_CENTRE_HINT, hintY);
         int buttonsY = guiTop + buttonsY();
         // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
         addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 116, BUTTON_HEIGHT,
@@ -151,7 +160,8 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
      */
     private int buttonsY() {
         int hints = wrappedHintHeight("cnpcgeckoaddon.boss.beam_hint")
-                + wrappedHintHeight("cnpcgeckoaddon.boss.beam_look_hint");
+                + wrappedHintHeight("cnpcgeckoaddon.boss.beam_look_hint")
+                + wrappedHintHeight(CENTRE_HINT) + wrappedHintHeight(BEAM_CENTRE_HINT);
         return Math.max(HINTS_Y + hints + 4, MIN_BUTTONS_Y);
     }
 

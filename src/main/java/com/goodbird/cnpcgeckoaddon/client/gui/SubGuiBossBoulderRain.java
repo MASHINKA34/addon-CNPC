@@ -36,6 +36,12 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
     private static final int TUNING_BUTTON = 18;
     private static final int EFFECTS_BUTTON = 67;
 
+    private static final String RAIN_HINT = "cnpcgeckoaddon.boss.boulder_rain_hint";
+    /** Where the hints start: under the centre's row, the twelfth from the top. */
+    private static final int RAIN_HINT_Y = 295;
+    /** The fine-tuning row never sits above this, so a locale whose hints wrap short keeps the old spacing. */
+    private static final int MIN_BUTTONS_Y = 317;
+
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
             .map(AreaVfxStyles.Style::translationKey)
             .toArray(String[]::new);
@@ -53,14 +59,15 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // The ring, the volley, the stone and what it does on landing are four sets of
-        // numbers, and a builder tuning the height against the interval reads both at once.
-        imageHeight = 346;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // The ring, the volley, the stone and what it does on landing are four sets of
+        // numbers, and a builder tuning the height against the interval reads both at once;
+        // the centre's row and the two hints under them take what the locale makes of them.
+        imageHeight = buttonsY() + 24 + 20 + 6;
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.boulder_rain_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -116,15 +123,29 @@ public final class SubGuiBossBoulderRain extends SubGuiFieldScreen {
         addLabel(new ThemeLabel(VFX_STYLE_BUTTON, "cnpcgeckoaddon.boss.area_vfx", guiLeft + 6, y + 6));
         addButton(new ThemeButton(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
+        y += 21;
+        // Where the stones fall: round the boss, or round a target's spot.
+        addCentreRow(guiLeft + 6, y, 236, 20, phase.boulderRain());
 
-        addWrappedHint(31, "cnpcgeckoaddon.boss.boulder_rain_hint", guiTop + 274);
+        int hintY = addWrappedHint(31, RAIN_HINT, guiTop + RAIN_HINT_Y);
+        addWrappedHint(CENTRE_HINT_LABEL, CENTRE_HINT, hintY);
+        int buttonsY = guiTop + buttonsY();
         // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 296, 116, 20,
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.boulder_rain_tuning"));
-        addProfileButton(guiLeft + 126, guiTop + 296, 116, 20, phase, BossAbilityKind.BOULDER_RAIN);
-        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 320, 120, 20,
+        addProfileButton(guiLeft + 126, buttonsY, 116, 20, phase, BossAbilityKind.BOULDER_RAIN);
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 320, 60, 20);
+        addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
+    }
+
+    /**
+     * Where the fine-tuning row goes, from the panel's top: under both hints, and never above
+     * where it sat before the centre's row pushed everything down one.
+     */
+    private int buttonsY() {
+        return Math.max(RAIN_HINT_Y + wrappedHintHeight(RAIN_HINT) + wrappedHintHeight(CENTRE_HINT) + 4,
+                MIN_BUTTONS_Y);
     }
 
     private int lookIndex() {

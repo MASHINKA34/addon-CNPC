@@ -41,14 +41,15 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Room under the hint for the fine-tuning row as well as the effects and the Done,
-        // with the hint free to wrap to four lines in a locale that needs them.
-        imageHeight = 284;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // Room under the hint for the fine-tuning row as well as the effects and the Done, with
+        // the hint free to wrap to four lines in a locale that needs them - and a row for the
+        // centre with its own hint, as many lines as the locale makes of it.
+        imageHeight = 284 + 21 + wrappedHintHeight(CENTRE_HINT);
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.gravity_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -94,9 +95,13 @@ public final class SubGuiBossGravity extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
         y += 21;
+        // Where the field opens: round the boss, or round a target's spot.
+        addCentreRow(guiLeft + 6, y, 236, 20, phase.gravity());
+        y += 21;
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.gravity_hint", y + 3);
-        int buttonsY = Math.max(hintY + 4, guiTop + 214);
+        hintY = addWrappedHint(CENTRE_HINT_LABEL, CENTRE_HINT, hintY);
+        int buttonsY = Math.max(hintY + 4, guiTop + 235);
         // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
         addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.gravity_tuning"));

@@ -44,12 +44,14 @@ public final class SubGuiBossCover extends SubGuiFieldScreen implements BossZone
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 286;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // A row for the centre and its hint under the rows the screen always had; the hint's
+        // lines are up to the locale, so the panel is sized before super.init() reads it.
+        imageHeight = 286 + 21 + wrappedHintHeight(CENTRE_HINT);
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.cover_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -103,9 +105,13 @@ public final class SubGuiBossCover extends SubGuiFieldScreen implements BossZone
         addButton(new ThemeButton(this, VFX_STYLE_BUTTON, guiLeft + 112, y, 130, 20,
                 VFX_STYLE_LABELS, vfxStyleIndex()));
         y += 21;
+        // Where the strike goes off - and the shelters go down: round the boss, or round a target's spot.
+        addCentreRow(guiLeft + 6, y, 236, 20, phase.cover());
+        y += 21;
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.cover_hint", y + 3);
-        int buttonsY = Math.max(hintY + 4, guiTop + 234);
+        hintY = addWrappedHint(CENTRE_HINT_LABEL, CENTRE_HINT, hintY);
+        int buttonsY = Math.max(hintY + 4, guiTop + 255);
         // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
         addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.cover_tuning"));

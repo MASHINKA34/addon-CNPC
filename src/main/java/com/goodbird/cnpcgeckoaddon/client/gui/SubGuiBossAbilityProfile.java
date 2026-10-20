@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
@@ -17,10 +18,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * One ability's profile in one phase: its timer, its turn in the rotation, the conditions it
- * casts under and which of the enrage's multipliers reach it, a group under a heading each.
+ * casts under, which of the enrage's multipliers reach it, and how its hits are dealt and whom
+ * they land on, a group under a heading each.
  *
  * <p>Opened from the phase's list of profiles and from the ability's own screen, on the same
  * profile object, so the two can never disagree. Everything at its default is the rotation the
@@ -52,6 +55,27 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     private static final int RAGE_COOLDOWN_BUTTON = 13;
     private static final int RAGE_DAMAGE_BUTTON = 14;
     private static final int RAGE_KNOCKBACK_BUTTON = 15;
+    // Damage and targets.
+    private static final int DAMAGE_TYPE_BUTTON = 16;
+    private static final int DAMAGE_PERCENT_MAX_FIELD = 17;
+    private static final int DAMAGE_PERCENT_CURRENT_FIELD = 18;
+    private static final int PARTY_DAMAGE_FIELD = 19;
+    private static final int PARTY_DAMAGE_CAP_FIELD = 20;
+    private static final int TARGET_KIND_BUTTON = 21;
+
+    /** In the profile's own order, so a button's index is the damage type. */
+    private static final String[] DAMAGE_TYPE_LABELS = {
+            "cnpcgeckoaddon.boss.profile.damage_type.normal",
+            "cnpcgeckoaddon.boss.profile.damage_type.piercing",
+            "cnpcgeckoaddon.boss.profile.damage_type.true"
+    };
+    /** As the boss first, then the boss' own three, so a button's index is the profile's kind plus one. */
+    private static final String[] TARGET_KIND_LABELS = {
+            "cnpcgeckoaddon.boss.profile.target_kind.boss",
+            "cnpcgeckoaddon.boss.profile.target_kind.players",
+            "cnpcgeckoaddon.boss.profile.target_kind.npcs",
+            "cnpcgeckoaddon.boss.profile.target_kind.all"
+    };
 
     private static final int TITLE_LABEL = 30;
     /** Each group's heading takes the next label id from here, in the order the groups are laid down. */
@@ -79,6 +103,8 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     private static final int PAIR_WIDTH = 48;
     private static final int TOGGLE_X = 196;
     private static final int TOGGLE_WIDTH = 46;
+    /** A choice among a few: as wide as a pair of numbers, where the pairs start. */
+    private static final int CYCLE_X = PAIR_X;
     private static final int HINT_GAP = 2;
     private static final int BUTTONS_GAP = 5;
     private static final int BOTTOM_MARGIN = 8;
@@ -104,7 +130,7 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     @Override
     public void init() {
         // The panel is centred from imageHeight, so the height is settled before super.init()
-        // reads it: how many lines the hint and the row labels wrap to is up to the locale. Four
+        // reads it: how many lines the hint and the row labels wrap to is up to the locale. Five
         // groups never fit one panel, so the screen scrolls.
         imageHeight = layout(false);
         super.init();
@@ -128,6 +154,7 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
         y = rotationGroup(place, y);
         y = conditionsGroup(place, y);
         y = rageGroup(place, y);
+        y = damageGroup(place, y);
 
         y += HINT_GAP;
         if (place) {
@@ -195,6 +222,29 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
         return y + GROUP_GAP;
     }
 
+    /**
+     * How the hits are dealt - their damage type, shares of the victim's health and the party's
+     * bonus - and whom they land on. The two choices write straight into the profile from their
+     * buttons, so the rage group's handler below stays as it was.
+     */
+    private int damageGroup(boolean place, int y) {
+        y = heading(place, "cnpcgeckoaddon.boss.profile.damage", y);
+        y = cycle(place, DAMAGE_TYPE_BUTTON, "cnpcgeckoaddon.boss.profile.damage_type", y, DAMAGE_TYPE_LABELS,
+                profile.getDamageType(), button -> profile.setDamageType(button.getValue()));
+        y = pair(place, DAMAGE_PERCENT_MAX_FIELD, DAMAGE_PERCENT_CURRENT_FIELD,
+                "cnpcgeckoaddon.boss.profile.damage_percent", y,
+                profile.getDamagePercentMax(), 0, BossAbilityProfile.MAX_DAMAGE_PERCENT, 0,
+                profile.getDamagePercentCurrent(), 0, BossAbilityProfile.MAX_DAMAGE_PERCENT, 0);
+        y = pair(place, PARTY_DAMAGE_FIELD, PARTY_DAMAGE_CAP_FIELD, "cnpcgeckoaddon.boss.profile.party_damage", y,
+                profile.getPartyDamagePercent(), 0, BossAbilityProfile.MAX_PARTY_DAMAGE_PERCENT, 0,
+                profile.getPartyDamageCapPercent(), 0, BossAbilityProfile.MAX_PARTY_DAMAGE_CAP,
+                BossAbilityProfile.DEFAULT_PARTY_DAMAGE_CAP);
+        y = cycle(place, TARGET_KIND_BUTTON, "cnpcgeckoaddon.boss.profile.target_kind", y, TARGET_KIND_LABELS,
+                profile.getTargetKind() - BossAbilityProfile.TARGET_KIND_AS_BOSS,
+                button -> profile.setTargetKind(button.getValue() + BossAbilityProfile.TARGET_KIND_AS_BOSS));
+        return y + GROUP_GAP;
+    }
+
     /** "Profile: Leap slam" - the ability's own name, the one the phase menu shows. */
     private String title() {
         Component name = kind >= 0 && kind < BossAbilityKind.COUNT
@@ -226,6 +276,17 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
             number(leftId, guiLeft + PAIR_X, guiTop + y, PAIR_WIDTH, leftValue, leftMin, leftMax, leftFallback);
             number(rightId, guiLeft + PAIR_SECOND_X, guiTop + y, PAIR_WIDTH, rightValue, rightMin, rightMax,
                     rightFallback);
+        }
+        return y + ROW;
+    }
+
+    /** A choice among a few, cycled by clicking; {@code apply} takes the button with its new value. */
+    private int cycle(boolean place, int id, String key, int y, String[] labels, int value,
+                      Consumer<GuiButtonNop> apply) {
+        if (place) {
+            rowLabel(id, key, y, CYCLE_X);
+            addButton(new ThemeButton(this, id, guiLeft + CYCLE_X, guiTop + y, RIGHT_EDGE - CYCLE_X, CONTROL_HEIGHT,
+                    button -> apply.accept((GuiButtonNop) button), value, labels));
         }
         return y + ROW;
     }
@@ -305,6 +366,10 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
         if (healthMax != null) {
             healthMax.setValue(Integer.toString(profile.getHealthMaxPercent()));
         }
+        applyNumberField(DAMAGE_PERCENT_MAX_FIELD, profile::setDamagePercentMax);
+        applyNumberField(DAMAGE_PERCENT_CURRENT_FIELD, profile::setDamagePercentCurrent);
+        applyNumberField(PARTY_DAMAGE_FIELD, profile::setPartyDamagePercent);
+        applyNumberField(PARTY_DAMAGE_CAP_FIELD, profile::setPartyDamageCapPercent);
     }
 
     @Override

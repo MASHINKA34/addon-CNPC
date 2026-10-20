@@ -92,10 +92,10 @@ public final class SubGuiBossAbilityProfiles extends SubGuiFieldScreen {
     }
 
     /**
-     * What the profile changes, shortest first: "P1 · 80 % · 3/phase" for the priority, the chance
-     * and the limit, an ellipsis for anything else it changes, a dash for nothing. Built from
-     * numbers, with the phase word the phase menu already has; cut short to the column, ellipsis
-     * and all, rather than run under the panel's edge.
+     * What the profile changes, shortest first: "P1 · 80 % · 3/phase · T1" for the priority, the
+     * chance, the limit and a damage type other than the plain one, an ellipsis for anything else
+     * it changes, a dash for nothing. Built from numbers, with the phase word the phase menu
+     * already has; cut short to the column, ellipsis and all, rather than run under the panel's edge.
      */
     private String summary(BossAbilityProfile profile) {
         if (profile.isDefault()) {
@@ -111,6 +111,10 @@ public final class SubGuiBossAbilityProfiles extends SubGuiFieldScreen {
         if (profile.getMaxCastsPerPhase() > BossAbilityProfile.NO_CAST_LIMIT) {
             parts.add(profile.getMaxCastsPerPhase() + "/" + I18n.get("cnpcgeckoaddon.boss.phase").toLowerCase(Locale.ROOT));
         }
+        // T1 through armour, T2 true damage: the number the editor's choice has in the profile.
+        if (profile.getDamageType() != BossAbilityProfile.DAMAGE_NORMAL) {
+            parts.add("T" + profile.getDamageType());
+        }
         // Whatever else the profile changes - the timer, the conditions, the rage - is one mark: the
         // row has no room to spell it out, and the editor is a click away.
         BossAbilityProfile rest = new BossAbilityProfile();
@@ -118,6 +122,7 @@ public final class SubGuiBossAbilityProfiles extends SubGuiFieldScreen {
         rest.setPriority(0);
         rest.setCastChancePercent(BossAbilityProfile.MAX_CAST_CHANCE);
         rest.setMaxCastsPerPhase(BossAbilityProfile.NO_CAST_LIMIT);
+        rest.setDamageType(BossAbilityProfile.DAMAGE_NORMAL);
         if (!rest.isDefault()) {
             parts.add(MORE);
         }

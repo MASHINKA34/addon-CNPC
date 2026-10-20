@@ -1,12 +1,16 @@
 package com.goodbird.cnpcgeckoaddon.client.gui;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossCentreMode;
+import com.goodbird.cnpcgeckoaddon.data.BossCentreSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
+import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
@@ -14,6 +18,8 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,6 +38,7 @@ import java.util.function.Supplier;
  * its own numbers, so every screen keeps exactly the layout it had as a copy.</p>
  */
 public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITextfieldListener {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** The id CustomNPCs screens give their close button. */
     protected static final int DONE_BUTTON = 66;
@@ -41,6 +48,25 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
      * their own controls with.
      */
     protected static final int PROFILE_BUTTON = 990;
+
+    /**
+     * The ids an ability that acts round a point gives the two buttons of its centre, next to the
+     * profile's and as clear of the screens' own.
+     */
+    protected static final int CENTRE_BUTTON = 991;
+    protected static final int CENTRE_TARGET_BUTTON = 992;
+
+    /** The label id the centre's hint starts from: past the ids the six screens give their own hints. */
+    protected static final int CENTRE_HINT_LABEL = 50;
+
+    /** What a centre on a target does with nobody to pick, said under the six screens' rows. */
+    protected static final String CENTRE_HINT = "cnpcgeckoaddon.boss.centre_hint";
+
+    private static final String CENTRE_LABEL = "cnpcgeckoaddon.boss.centre_mode";
+    private static final String[] CENTRE_VALUES = {
+            "cnpcgeckoaddon.boss.centre_mode.boss",
+            "cnpcgeckoaddon.boss.centre_mode.target"
+    };
 
     private static final int HINT_COLOR = 0xA0A0A0;
 
@@ -128,6 +154,36 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
                     applyFields();
                     setSubGui(new SubGuiBossAbilityProfile(this, phase, kind));
                 }));
+    }
+
+    /**
+     * One row for an ability that acts round a point: on the left the switch between the boss and
+     * a target - "Centre: the boss" - and on the right which target, the way the aimed abilities
+     * pick theirs. Both write straight into the settings, so no screen needs a branch for them in
+     * its own button handler.
+     */
+    protected void addCentreRow(int x, int y, int width, int height, BossCentreSettings settings) {
+        int half = (width - 4) / 2;
+        addButton(new ThemeButton(this, CENTRE_BUTTON, x, y, half, height, centreLabel(settings.getCentreMode()),
+                button -> {
+                    settings.setCentreMode(settings.getCentreMode() == BossCentreMode.TARGET
+                            ? BossCentreMode.BOSS : BossCentreMode.TARGET);
+                    ((GuiButtonNop) button).setDisplayText(centreLabel(settings.getCentreMode()));
+                    LOGGER.debug("{}: centre mode of {} set to {}", getClass().getSimpleName(),
+                            settings.getClass().getSimpleName(), settings.getCentreMode());
+                }));
+        addButton(new ThemeButton(this, CENTRE_TARGET_BUTTON, x + width - half, y, half, height,
+                button -> {
+                    settings.setTargetMode(((GuiButtonNop) button).getValue());
+                    LOGGER.debug("{}: centre target mode of {} set to {}", getClass().getSimpleName(),
+                            settings.getClass().getSimpleName(), settings.getTargetMode());
+                }, settings.getTargetMode(), BossTargetMode.LABELS));
+    }
+
+    /** "Centre: the boss", or the target: what the centre's switch reads. */
+    private static String centreLabel(int mode) {
+        return Component.translatable(CENTRE_LABEL,
+                Component.translatable(CENTRE_VALUES[BossCentreMode.clamp(mode)])).getString();
     }
 
     /** The close button each screen ends with, at the spot that screen puts it. */

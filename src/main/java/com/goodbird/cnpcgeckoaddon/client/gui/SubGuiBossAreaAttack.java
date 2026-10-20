@@ -37,12 +37,14 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 280;
         closeOnEsc = true;
     }
 
     @Override
     public void init() {
+        // The centre's row and its hint sit under the rows the screen always had, and how many
+        // lines the hint takes is up to the locale: the panel is sized before super.init() reads it.
+        imageHeight = 304 + wrappedHintHeight(CENTRE_HINT);
         super.init();
         addLabel(new ThemeLabel(30, BossAnimationGuiUtil.phaseTitle("cnpcgeckoaddon.boss.area_phase", phaseIndex),
                 guiLeft + 8, guiTop + 5, 0xFFFFFF));
@@ -80,14 +82,18 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
         addLabel(new ThemeLabel(BLOCK_WAVE_BUTTON, "cnpcgeckoaddon.boss.area_block_wave", guiLeft + 8, y + 6));
         addButton(new ThemeYesNo(this, BLOCK_WAVE_BUTTON, guiLeft + 155, y, 87, 20,
                 phase.areaAttack().isBlockWave()));
+        y += 21;
+        // Where the slam goes off: round the boss, or round a target's spot.
+        addCentreRow(guiLeft + 6, y, 236, 20, phase.areaAttack());
 
-        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.area_vfx_hint", guiLeft + 8, guiTop + 209, 0xA0A0A0));
-        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 221, 0xA0A0A0));
+        addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.area_vfx_hint", guiLeft + 8, guiTop + 230, 0xA0A0A0));
+        addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 242, 0xA0A0A0));
+        int profileY = addWrappedHint(CENTRE_HINT_LABEL, CENTRE_HINT, guiTop + 254) + 2;
         // A row of its own for the profile in the rotation, over the row Effects and Done share.
-        addProfileButton(guiLeft + 6, guiTop + 232, 236, 20, phase, BossAbilityKind.AREA);
-        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 256, 120, 20,
+        addProfileButton(guiLeft + 6, profileY, 236, 20, phase, BossAbilityKind.AREA);
+        addButton(new ThemeButton(this, 67, guiLeft + 6, profileY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 256, 60, 20);
+        addDoneButton(guiLeft + 182, profileY + 24, 60, 20);
     }
 
     private int vfxStyleIndex() {
