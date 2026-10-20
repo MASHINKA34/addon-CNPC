@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossShadowSettings;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
@@ -170,7 +171,14 @@ public final class SubGuiBossShadow extends SubGuiFieldScreen {
                 shadow.getBlastKnockback(), 0, BossShadowSettings.MAX_BLAST_KNOCKBACK, 2);
         y = choice(place, BLAST_VFX_BUTTON, "cnpcgeckoaddon.boss.shadow_blast_vfx", y,
                 VFX_STYLE_LABELS, vfxStyleIndex(shadow.getBlastVfx()));
-        y = wide(place, TUNING_BUTTON, "cnpcgeckoaddon.boss.shadow_tuning", y);
+        if (place) {
+            // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+            int half = (RIGHT_EDGE - LABEL_X) / 2 - 2;
+            addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y, half, CONTROL_HEIGHT,
+                    "cnpcgeckoaddon.boss.shadow_tuning"));
+            addProfileButton(guiLeft + RIGHT_EDGE - half, guiTop + y, half, CONTROL_HEIGHT, phase, BossAbilityKind.SHADOW);
+        }
+        y += ROW;
 
         y += HINT_GAP;
         if (place) {

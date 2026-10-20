@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import net.minecraft.network.chat.Component;
@@ -122,8 +123,10 @@ public final class SubGuiBossMark extends SubGuiFieldScreen {
         // Two effect lists, because the gather does two different things to the people
         // inside it: it shares the hit out when they came, and punishes them when they did not.
         int buttonsY = Math.max(hintY + 4, guiTop + 253);
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, 20,
+        // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.mark_tuning"));
+        addProfileButton(guiLeft + 126, buttonsY, 116, 20, phase, BossAbilityKind.MARK);
         buttonsY += 24;
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.mark_effects"));

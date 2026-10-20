@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -47,7 +48,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
         imageWidth = 256;
         // Taller than an ordinary ability screen: the corridor, its flanks and its wave are
         // three sets of numbers, and squeezing them onto one page beats a second screen.
-        imageHeight = 305;
+        imageHeight = 329;
         closeOnEsc = true;
     }
 
@@ -115,9 +116,11 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
                 phase.lineAttack().isBlockWave()));
 
         addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.line_hint", guiLeft + 6, guiTop + 271, 0xA0A0A0));
-        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 281, 120, 20,
+        // A row of its own for the profile in the rotation, over the row Effects and Done share.
+        addProfileButton(guiLeft + 6, guiTop + 281, 236, 20, phase, BossAbilityKind.LINE);
+        addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 305, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 281, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 305, 60, 20);
     }
 
     private int vfxStyleIndex() {

@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.utils.FluidBlockUtil;
@@ -128,8 +129,10 @@ public final class SubGuiBossGeyser extends SubGuiFieldScreen {
                 "cnpcgeckoaddon.boss.geyser_residue"));
 
         addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.geyser_hint", guiLeft + 6, guiTop + 334, 0xA0A0A0));
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 344, 236, 20,
+        // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 344, 116, 20,
                 "cnpcgeckoaddon.boss.geyser_tuning"));
+        addProfileButton(guiLeft + 126, guiTop + 344, 116, 20, phase, BossAbilityKind.GEYSER);
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 368, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 368, 60, 20);

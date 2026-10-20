@@ -100,6 +100,8 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZone
         addAbilityButton(42, 0, 16, "cnpcgeckoaddon.boss.seismic_settings", BossAbilityKind.SEISMIC);
         addAbilityButton(43, 1, 16, "cnpcgeckoaddon.boss.rift_settings", BossAbilityKind.RIFT);
         addAbilityButton(44, 0, 17, "cnpcgeckoaddon.boss.vent_settings", BossAbilityKind.VENT);
+        // Every ability's turn in the rotation in one list, in the one cell the grid had left.
+        addAbilityButton(45, 1, 17, "cnpcgeckoaddon.boss.profiles", ThemeIcons.TUNING);
         // The grid runs to eighteen rows now, so Done keeps a line of its own below it.
         addDoneButton(guiLeft + 182, guiTop + doneButtonY(), 60, 20);
     }
@@ -201,6 +203,8 @@ public final class SubGuiBossPhase extends SubGuiFieldScreen implements BossZone
             setSubGui(new SubGuiBossRift(npc, phase, phaseIndex));
         } else if (button.id == 44) {
             setSubGui(new SubGuiBossVent(npc, phase, phaseIndex));
+        } else if (button.id == 45) {
+            setSubGui(new SubGuiBossAbilityProfiles(this, phase, phaseIndex));
         }
     }
 

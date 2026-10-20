@@ -115,8 +115,10 @@ public final class SubGuiBossLeap extends SubGuiFieldScreen implements BossZoneS
         // The pick under "use my position", and the fine-tuning a row further down for it.
         addButton(new ThemeButton(this, SELECT_BUTTON, guiLeft + 6, guiTop + 256, 236, 20,
                 ZoneSelectionClient.SELECT_POINT));
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 280, 236, 20,
+        // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 280, 116, 20,
                 "cnpcgeckoaddon.boss.leap_tuning"));
+        addProfileButton(guiLeft + 126, guiTop + 280, 116, 20, phase, BossAbilityKind.LEAP);
 
         refresh();
     }

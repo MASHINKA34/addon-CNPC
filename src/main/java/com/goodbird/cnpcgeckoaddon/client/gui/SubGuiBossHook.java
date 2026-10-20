@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
@@ -103,8 +104,10 @@ public final class SubGuiBossHook extends SubGuiFieldScreen {
                 phase.hook().getActionDelayTicks(), 0, 1200, 10,
                 phase.hook().getCooldownTicks(), 1, 12000, 160);
 
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 232, 236, 20,
+        // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 232, 116, 20,
                 "cnpcgeckoaddon.boss.hook_tuning"));
+        addProfileButton(guiLeft + 126, guiTop + 232, 116, 20, phase, BossAbilityKind.HOOK);
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 256, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 256, 60, 20);

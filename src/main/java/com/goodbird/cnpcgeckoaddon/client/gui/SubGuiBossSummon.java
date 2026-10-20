@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -69,8 +70,10 @@ public final class SubGuiBossSummon extends SubGuiFieldScreen {
         addNumberField(COOLDOWN_FIELD, "cnpcgeckoaddon.boss.cooldown", y,
                 phase.summon().getCooldownTicks(), 20, 12000, 400);
 
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 8, guiTop + 228, 234, 20,
+        // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 8, guiTop + 228, 115, 20,
                 "cnpcgeckoaddon.boss.summon_tuning"));
+        addProfileButton(guiLeft + 127, guiTop + 228, 115, 20, phase, BossAbilityKind.SUMMON);
         addButton(new ThemeButton(this, SPAWN_POINTS_BUTTON, guiLeft + 8, guiTop + 252, 168, 20,
                 "cnpcgeckoaddon.boss.minion_spawn_settings"));
         addDoneButton(guiLeft + 182, guiTop + 252, 60, 20);

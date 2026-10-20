@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRangedAttackSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -40,9 +41,9 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Three rows taller than the panel it used to be: the aim's own numbers and the burst
-        // sit under the rows a builder already knows.
-        imageHeight = 328;
+        // Four rows taller than the panel it used to be: the aim's own numbers and the burst
+        // sit under the rows a builder already knows, and the profile has a row of its own.
+        imageHeight = 352;
         closeOnEsc = true;
     }
 
@@ -95,9 +96,11 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
 
         addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.projectile_hint",
                 guiLeft + 8, guiTop + 284, 0xA0A0A0));
-        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 302, 120, 20,
+        // A row of its own for the profile in the rotation, over the row Effects and Done share.
+        addProfileButton(guiLeft + 6, guiTop + 302, 236, 20, phase, BossAbilityKind.RANGED);
+        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 326, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 302, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 326, 60, 20);
     }
 
     /** One of the two small numbers a shared label names, at the column it is handed. */

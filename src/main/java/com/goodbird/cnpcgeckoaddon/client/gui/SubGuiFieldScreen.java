@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
+import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
@@ -34,6 +35,12 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
 
     /** The id CustomNPCs screens give their close button. */
     protected static final int DONE_BUTTON = 66;
+
+    /**
+     * The id an ability screen gives its profile button: well clear of the ids the screens number
+     * their own controls with.
+     */
+    protected static final int PROFILE_BUTTON = 990;
 
     private static final int HINT_COLOR = 0xA0A0A0;
 
@@ -108,6 +115,19 @@ public abstract class SubGuiFieldScreen extends ScrollableSubGui implements ITex
                 button.setDisplayText(label.get());
             }
         });
+    }
+
+    /**
+     * The button that opens one ability's profile in this phase - its turn in the rotation - on
+     * the screen that edits the ability itself: the same editor the phase's list of profiles opens.
+     * It opens the editor itself, so no screen needs a branch in its own button handler for it.
+     */
+    protected void addProfileButton(int x, int y, int width, int height, BossPhaseData phase, int kind) {
+        addButton(new ThemeButton(this, PROFILE_BUTTON, x, y, width, height, "cnpcgeckoaddon.boss.profile",
+                button -> {
+                    applyFields();
+                    setSubGui(new SubGuiBossAbilityProfile(this, phase, kind));
+                }));
     }
 
     /** The close button each screen ends with, at the spot that screen puts it. */

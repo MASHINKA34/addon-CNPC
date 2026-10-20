@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -36,7 +37,7 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 256;
+        imageHeight = 280;
         closeOnEsc = true;
     }
 
@@ -82,9 +83,11 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
 
         addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.area_vfx_hint", guiLeft + 8, guiTop + 209, 0xA0A0A0));
         addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 221, 0xA0A0A0));
-        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 232, 120, 20,
+        // A row of its own for the profile in the rotation, over the row Effects and Done share.
+        addProfileButton(guiLeft + 6, guiTop + 232, 236, 20, phase, BossAbilityKind.AREA);
+        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 256, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 232, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 256, 60, 20);
     }
 
     private int vfxStyleIndex() {

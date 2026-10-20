@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossMeleeAttackSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -33,9 +34,9 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        // Two rows taller than the panel it used to be: the aim's own numbers sit under the
-        // rows a builder already knows.
-        imageHeight = 304;
+        // Three rows taller than the panel it used to be: the aim's own numbers sit under the
+        // rows a builder already knows, and the profile has a row of its own.
+        imageHeight = 328;
         closeOnEsc = true;
     }
 
@@ -81,9 +82,11 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         addButton(new ThemeYesNo(this, REACH_MODELS_BUTTON, guiLeft + 195, y, 47, 20,
                 phase.meleeAttack().isReachAddsModels()));
 
-        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 278, 120, 20,
+        // A row of its own for the profile in the rotation, over the row Effects and Done share.
+        addProfileButton(guiLeft + 6, guiTop + 278, 236, 20, phase, BossAbilityKind.MELEE);
+        addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 302, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
-        addDoneButton(guiLeft + 182, guiTop + 278, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 302, 60, 20);
     }
 
     private void addTargetModeRow(int id, int y, int mode) {

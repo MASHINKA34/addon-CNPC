@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossRiftSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -153,7 +154,14 @@ public final class SubGuiBossRift extends SubGuiFieldScreen {
         y = wide(place, MINIONS_BUTTON, "cnpcgeckoaddon.boss.rift_minions", y);
         y = wide(place, CRYSTALS_BUTTON, "cnpcgeckoaddon.boss.rift_crystals", y);
         y = wide(place, FAIL_BUTTON, "cnpcgeckoaddon.boss.rift_fail", y);
-        y = wide(place, TUNING_BUTTON, "cnpcgeckoaddon.boss.rift_tuning", y);
+        if (place) {
+            // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+            int half = (RIGHT_EDGE - LABEL_X) / 2 - 2;
+            addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y, half, CONTROL_HEIGHT,
+                    "cnpcgeckoaddon.boss.rift_tuning"));
+            addProfileButton(guiLeft + RIGHT_EDGE - half, guiTop + y, half, CONTROL_HEIGHT, phase, BossAbilityKind.RIFT);
+        }
+        y += ROW;
 
         y += HINT_GAP;
         if (place) {

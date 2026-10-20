@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.BoulderStyles;
@@ -127,8 +128,10 @@ public final class SubGuiBossBoulder extends SubGuiFieldScreen {
 
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.boulder_hint", guiTop + 290);
         addWrappedHint(40, "cnpcgeckoaddon.boss.boulder_style_hint", hintY);
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 328, 236, 20,
+        // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 328, 116, 20,
                 "cnpcgeckoaddon.boss.boulder_tuning"));
+        addProfileButton(guiLeft + 126, guiTop + 328, 116, 20, phase, BossAbilityKind.BOULDER);
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 352, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 352, 60, 20);

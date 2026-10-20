@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossConeAimList;
 import com.goodbird.cnpcgeckoaddon.data.BossConeSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
@@ -167,8 +168,11 @@ public final class SubGuiBossCone extends SubGuiFieldScreen {
         }
         y += ROW;
         if (place) {
-            addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y,
-                    RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.cone_tuning"));
+            // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+            int half = (RIGHT_EDGE - LABEL_X) / 2 - 2;
+            addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y, half, CONTROL_HEIGHT,
+                    "cnpcgeckoaddon.boss.cone_tuning"));
+            addProfileButton(guiLeft + RIGHT_EDGE - half, guiTop + y, half, CONTROL_HEIGHT, phase, BossAbilityKind.CONE);
         }
         y += ROW;
 

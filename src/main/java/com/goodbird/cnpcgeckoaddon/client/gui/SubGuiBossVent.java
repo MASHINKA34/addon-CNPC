@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.AreaVfxStyles;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossVentSettings;
 import net.minecraft.network.chat.Component;
@@ -169,8 +170,11 @@ public final class SubGuiBossVent extends SubGuiFieldScreen {
         }
         y += wrappedHintHeight(HINT) + BUTTONS_GAP;
         if (place) {
-            addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y,
-                    RIGHT_EDGE - LABEL_X, CONTROL_HEIGHT, "cnpcgeckoaddon.boss.vent_tuning"));
+            // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+            int half = (RIGHT_EDGE - LABEL_X) / 2 - 2;
+            addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + LABEL_X, guiTop + y, half, CONTROL_HEIGHT,
+                    "cnpcgeckoaddon.boss.vent_tuning"));
+            addProfileButton(guiLeft + RIGHT_EDGE - half, guiTop + y, half, CONTROL_HEIGHT, phase, BossAbilityKind.VENT);
         }
         y += ROW;
         if (place) {

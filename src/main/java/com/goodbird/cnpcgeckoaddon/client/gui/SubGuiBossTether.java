@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
@@ -44,7 +45,7 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
         this.phase = phase;
         this.phaseIndex = phaseIndex;
         imageWidth = 256;
-        imageHeight = 302;
+        imageHeight = 326;
         closeOnEsc = true;
     }
 
@@ -111,10 +112,12 @@ public final class SubGuiBossTether extends SubGuiFieldScreen {
                 "cnpcgeckoaddon.boss.tether_effects"));
         addButton(new ThemeButton(this, FAIL_EFFECTS_BUTTON, guiLeft + 126, buttonsY, 116, 20,
                 "cnpcgeckoaddon.boss.tether_fail_effects"));
-        // Beside the Done, on the row the Done already had to itself.
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY + 24, 168, 20,
+        // Half the row each: the ability's own fine-tuning, and its profile in the rotation. The
+        // screen grew a row for them, so Done keeps a row of its own under them.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY + 24, 116, 20,
                 "cnpcgeckoaddon.boss.tether_tuning"));
-        addDoneButton(guiLeft + 182, buttonsY + 24, 60, 20);
+        addProfileButton(guiLeft + 126, buttonsY + 24, 116, 20, phase, BossAbilityKind.TETHER);
+        addDoneButton(guiLeft + 182, buttonsY + 48, 60, 20);
     }
 
     private int styleIndex() {

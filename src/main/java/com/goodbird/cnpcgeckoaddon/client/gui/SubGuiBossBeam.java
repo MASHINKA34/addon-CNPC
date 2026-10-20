@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BeamLooks;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
@@ -134,8 +135,10 @@ public final class SubGuiBossBeam extends SubGuiFieldScreen {
         int hintY = addWrappedHint(31, "cnpcgeckoaddon.boss.beam_hint", guiTop + HINTS_Y);
         addWrappedHint(40, "cnpcgeckoaddon.boss.beam_look_hint", hintY);
         int buttonsY = guiTop + buttonsY();
-        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 236, BUTTON_HEIGHT,
+        // Half the row each: the ability's own fine-tuning, and its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, buttonsY, 116, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.boss.beam_tuning"));
+        addProfileButton(guiLeft + 126, buttonsY, 116, BUTTON_HEIGHT, phase, BossAbilityKind.BEAM);
         buttonsY += BUTTON_HEIGHT + 4;
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, buttonsY, 120, BUTTON_HEIGHT,
                 "cnpcgeckoaddon.boss.effects_settings"));
