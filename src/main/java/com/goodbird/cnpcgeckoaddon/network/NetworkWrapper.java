@@ -72,6 +72,12 @@ public class NetworkWrapper {
                 (packet, context) -> PacketSyncNpcCarryState.handle(packet));
         registerPacket(registrar, PacketGuardSelfTest.TYPE, PacketGuardSelfTest::encode,
                 PacketGuardSelfTest::decode, PacketGuardSelfTest::handle);
+        // Boss presets: the screen's request to the server and the answer back. Required on both
+        // sides like every payload here - the jar is on the client and the server alike.
+        registerPacket(registrar, PacketBossPresetRequest.TYPE, PacketBossPresetRequest::encode,
+                PacketBossPresetRequest::decode, PacketBossPresetRequest::handle);
+        registerPacket(registrar, PacketBossPresetReply.TYPE, PacketBossPresetReply::encode,
+                PacketBossPresetReply::decode, PacketBossPresetReply::handle);
     }
 
     /**

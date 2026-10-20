@@ -33,9 +33,10 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZ
     private static final int TUNING_BUTTON = 31;
     private static final int ZONES_BUTTON = 32;
     private static final int THEME_BUTTON = 33;
+    private static final int PRESETS_BUTTON = 34;
 
     /** The menu's height without the theme's switch. */
-    private static final int BASE_HEIGHT = 322;
+    private static final int BASE_HEIGHT = 344;
 
     /** The row the theme's switch adds under the zones' one. */
     private static final int THEME_ROW = 22;
@@ -48,9 +49,10 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZ
         this.data.markConfigured();
         this.npc = npc;
         imageWidth = 256;
-        // Two rows taller than the settings grid: one for the health link, one for the
-        // fine-tuning, and Done on a line of its own under them. The tall-screen drawing tiles
-        // the panel to any height, and the screen scrolls in a window too short for it.
+        // Three rows taller than the settings grid: one for the health link, one for the
+        // fine-tuning, one for the presets, and Done on a line of its own under them. The
+        // tall-screen drawing tiles the panel to any height, and the screen scrolls in a window
+        // too short for it.
         imageHeight = BASE_HEIGHT;
         closeOnEsc = true;
     }
@@ -108,15 +110,18 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZ
                 "cnpcgeckoaddon.boss.health_link_settings").withIcon(ThemeIcons.HEALTH_LINK));
         addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 8, guiTop + 272, 234, 20,
                 "cnpcgeckoaddon.boss.tuning_settings").withIcon(ThemeIcons.TUNING));
+        // The whole boss to or from a file on the server, under everything it would save or replace.
+        addButton(new ThemeButton(this, PRESETS_BUTTON, guiLeft + 8, guiTop + 294, 234, 20,
+                "cnpcgeckoaddon.boss.presets"));
         // Beside Done, where the row was empty: whether this client draws the boss' zones in the
         // world while any of its screens is open.
-        addButton(new ThemeButton(this, ZONES_BUTTON, guiLeft + 8, guiTop + 294, 170, 20, zonesLabel())
+        addButton(new ThemeButton(this, ZONES_BUTTON, guiLeft + 8, guiTop + 316, 170, 20, zonesLabel())
                 .withIcon(ThemeIcons.POINTS));
-        addDoneButton(guiLeft + 182, guiTop + 294, 60, 20);
+        addDoneButton(guiLeft + 182, guiTop + 316, 60, 20);
         if (GeckoTheme.available()) {
             // Under the zones' switch, the other thing this client alone decides: how the
             // addon's screens look.
-            addButton(new ThemeButton(this, THEME_BUTTON, guiLeft + 8, guiTop + 294 + THEME_ROW, 170, 20,
+            addButton(new ThemeButton(this, THEME_BUTTON, guiLeft + 8, guiTop + 316 + THEME_ROW, 170, 20,
                     themeLabel()));
         }
     }
@@ -169,6 +174,9 @@ public final class SubGuiTeleportPath extends SubGuiFieldScreen implements BossZ
         } else if (button.id == TUNING_BUTTON) {
             applyFields();
             setSubGui(new SubGuiBossTuning(data.tuning()));
+        } else if (button.id == PRESETS_BUTTON) {
+            applyFields();
+            setSubGui(new SubGuiBossPresets(npc));
         } else if (button.id == ZONES_BUTTON) {
             BossZonePreview.setShown(!BossZonePreview.isShown());
             button.setDisplayText(zonesLabel());
