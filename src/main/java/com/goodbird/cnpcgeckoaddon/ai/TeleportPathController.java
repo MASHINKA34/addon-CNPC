@@ -351,6 +351,15 @@ public final class TeleportPathController {
     private final BossFinishHold finishHold = new BossFinishHold();
     /** Each ability's chance rolled for its readiness, its skip, and how often it went this phase. */
     private final BossCastRolls castRolls = new BossCastRolls();
+    /** The casts an ability still owes in a row after the one that started it, by its profile. */
+    private final BossAbilityRepeat repeat = new BossAbilityRepeat();
+    /**
+     * The repeat being started right now, or NONE: held from the attempt until the ability winds
+     * up - through the walk to its cast spot, when it has one - like {@link #forcedAbility}.
+     */
+    private BossAbility repeatAttempt = BossAbility.NONE;
+    /** The repeated ability's own clock from before the attempt, handed back if the attempt comes to nothing. */
+    private long repeatScheduleBefore = NOT_SCHEDULED;
     /**
      * The follow-up being started right now, or NONE: the one ability whose starter may skip its
      * switch. Held from the chain's attempt until the ability winds up - through the walk to its
@@ -644,6 +653,8 @@ public final class TeleportPathController {
         tickFinishHold(phase, gameTime);
         // Right after the touchdown that tick may have caught, and above every gate: a leap ends
         // when it lands, and an effect that runs out under a lock or a wind-up still ended then.
+        // A row of repeats times its pause from that same end.
+        tickRepeatWatch(gameTime);
         tickComboWatch(phase, gameTime);
         // Above the busy gate and the pending block below on purpose: a wind-up has to stay
         // marked through a lock, and the mark has to stop on the tick the ability goes off.
@@ -711,6 +722,12 @@ public final class TeleportPathController {
         // and a journey already started carries on. Cooldowns keep running down underneath,
         // so whatever came due in the meantime goes the tick the effect ends.
         if (awaitedFinish(phase, gameTime) != BossAbility.NONE) {
+            return;
+        }
+
+        // A repeat owed to the ability that just went goes before its follow-up, the hop and the
+        // rotation, and holds all three back once its pause is running.
+        if (tickRepeat(level, data, phase, gameTime)) {
             return;
         }
 
@@ -2155,17 +2172,120 @@ public final class TeleportPathController {
      * Counts a start against the ability's limit and spends the readiness its chance was rolled
      * for. Every start comes through here, whatever started it: the rotation, a follow-up, a repeat.
      */
-    private void noteAbilityStarted(BossAbility action, BossPhaseData phase) {
+    private void noteAbilityStarted(BossAbility action, BossPhaseData phase, boolean isRepeat) {
         int kind = action.kind();
         if (kind < 0) {
             return;
         }
         castRolls.started(kind);
-        int limit = phase.profile(kind).getMaxCastsPerPhase();
+        BossAbilityProfile profile = phase.profile(kind);
+        int limit = profile.getMaxCastsPerPhase();
         if (limit > BossAbilityProfile.NO_CAST_LIMIT && castRolls.casts(kind) >= limit) {
             LOGGER.debug("Boss {} has cast {} {} of {} times this phase; it stays silent until the phase changes",
                     nameForLog(), action, castRolls.casts(kind), limit);
         }
+        if (isRepeat) {
+            repeat.repeatStarted();
+            LOGGER.debug("Boss {} repeats {}: {} of {} repeats started", nameForLog(), action, repeat.done(),
+                    repeat.total());
+            return;
+        }
+        int repeats = profile.getRepeatCasts();
+        if (repeats <= 0) {
+            // A fresh cast of the ability a row is owed to, without repeats of its own any more, ends it.
+            if (repeat.holds(action)) {
+                dropRepeats("it was cast afresh with no repeats left in its profile");
+            }
+            return;
+        }
+        if (repeat.isActive() && !repeat.holds(action)) {
+            LOGGER.debug("Boss {} drops the {} repeats still owed to {}: {} started a row of its own",
+                    nameForLog(), repeat.left(), repeat.ability(), action);
+        }
+        repeat.arm(action, repeats, profile.getRepeatDelayTicks(), pendingLinks);
+        LOGGER.debug("Boss {} owes {} {} more casts in a row, {} ticks after each ends", nameForLog(), action,
+                repeats, profile.getRepeatDelayTicks());
+    }
+
+    /**
+     * Starts the next cast a row of repeats owes once it is due, the way the chain starts a
+     * follow-up: its cast spot first, its own starter otherwise, every gate of the starter asked
+     * and the limit too - only the cooldown is skipped, by making the ability due.
+     *
+     * <p>While the last cast's effect runs the boss is free, as it is under a chain. Once the
+     * effect is over the pause runs, and the hop and the rotation are held back through it so
+     * the row stays a row. A cast the boss may not make right now, or one its starter turns
+     * away, ends the row: the casts still owed are dropped, and the clock is the last cast's.</p>
+     *
+     * @return true while the row owns the boss' next start
+     */
+    private boolean tickRepeat(ServerLevel level, TeleportPathData data, BossPhaseData phase, long gameTime) {
+        if (repeatAttempt != BossAbility.NONE) {
+            // Only a walk to the repeat's spot keeps the attempt past its own tick, and this runs
+            // once that walk is over: whatever ended it, the repeat did not start.
+            abandonRepeatAttempt();
+            dropRepeats("the walk to its cast spot ended without the cast");
+            return false;
+        }
+        if (!repeat.isActive()) {
+            return false;
+        }
+        BossAbility ability = repeat.ability();
+        if (repeat.isWindingUp()) {
+            // Nothing is winding up here - the pending block above returns while anything is - so
+            // the cast the row waited on was called off before it went off: a dodge, a stun.
+            dropRepeats("its wind-up was called off before it went off");
+            return false;
+        }
+        if (repeat.isRunning()) {
+            return false;
+        }
+        if (!repeat.isDue(gameTime)) {
+            return true;
+        }
+        if (abilitiesSilenced() || isInvulnerable() || castSpots.blocks(ability)) {
+            dropRepeats("the boss may not cast it now (silenced, immune or held on a spot)");
+            return false;
+        }
+        repeatAttempt = ability;
+        repeatScheduleBefore = abilityScheduleAt(ability);
+        setAbilityScheduleAt(ability, gameTime);
+        if (!castSpots.tryTravel(level, data, phase, ability, gameTime)) {
+            startAbility(ability, level, data, phase, gameTime);
+        }
+        // A start hands the attempt to beginAction, and a walk to the spot keeps it for the arrival.
+        if (repeatAttempt == BossAbility.NONE || castSpots.isTravelling()) {
+            return true;
+        }
+        abandonRepeatAttempt();
+        dropRepeats("its starter turned it away");
+        return false;
+    }
+
+    /** Notes the end of the effect a row of repeats is waiting on, so its pause counts from then. */
+    private void tickRepeatWatch(long gameTime) {
+        if (repeat.isRunning() && !isAbilityRunning(repeat.ability(), gameTime)) {
+            repeat.ended(gameTime);
+        }
+    }
+
+    /** Hands a repeat that never started its own clock back, the way a follow-up's is handed back. */
+    private void abandonRepeatAttempt() {
+        if (repeatAttempt == BossAbility.NONE) {
+            return;
+        }
+        setAbilityScheduleAt(repeatAttempt, repeatScheduleBefore);
+        repeatAttempt = BossAbility.NONE;
+        repeatScheduleBefore = NOT_SCHEDULED;
+    }
+
+    /** Ends a row of repeats early, with a line saying why: the casts still owed are not made. */
+    private void dropRepeats(String why) {
+        if (!repeat.isActive()) {
+            return;
+        }
+        LOGGER.debug("Boss {} drops {} repeats of {} still owed: {}", nameForLog(), repeat.left(), repeat.ability(), why);
+        repeat.clear();
     }
 
     /** Runs one ability's starter, which winds it up when it can and says no when it cannot. */
@@ -2192,7 +2312,10 @@ public final class TeleportPathController {
         if (castLimitReached(ability, phase)) {
             return false;
         }
-        return ability.isEnabledIn(phase) || ability == forcedAbility && ability.isConfiguredIn(phase);
+        // A repeat skips the switch the way a follow-up does: a follow-up started with its switch
+        // off is still owed the rest of its row.
+        return ability.isEnabledIn(phase)
+                || (ability == forcedAbility || ability == repeatAttempt) && ability.isConfiguredIn(phase);
     }
 
     /**
@@ -2306,6 +2429,8 @@ public final class TeleportPathController {
      * when the action ended with its own perform: a slam, a shot, a summon.
      */
     private void watchForFollowUp(BossPhaseData phase, long gameTime) {
+        // An instant cast of a row ends with its own hit: its pause counts from this tick.
+        tickRepeatWatch(gameTime);
         combo.watch(pendingAction, pendingLinks, phase, settings().tuning());
         tickComboWatch(phase, gameTime);
     }
@@ -2322,6 +2447,10 @@ public final class TeleportPathController {
             return;
         }
         for (BossAbility ability : combo.watchedAbilities()) {
+            // A row of repeats is one ability as far as its chain goes: the follow-up waits for its last cast.
+            if (repeat.holds(ability)) {
+                continue;
+            }
             if (!isAbilityRunning(ability, gameTime) && combo.finish(ability, phase, gameTime, settings().tuning())
                     && forcedAbility != BossAbility.NONE) {
                 // The newer follow-up takes the place of the one still walking to its spot.
@@ -2551,9 +2680,16 @@ public final class TeleportPathController {
                              LivingEntity target, TeleportPathData data, BossPhaseData phase) {
         pendingAction = action;
         pendingTargetId = target == null ? -1 : target.getId();
-        // The follow-up the chain is starting takes its place in the chain with it, and is owed
-        // nothing more; every other start opens a chain of its own.
-        if (action != BossAbility.NONE && action == forcedAbility) {
+        // A repeat keeps the place in the chain of the cast that asked for it: a row of repeats is
+        // one link, and the follow-up comes after its last cast.
+        boolean isRepeat = action != BossAbility.NONE && action == repeatAttempt;
+        if (isRepeat) {
+            pendingLinks = repeat.links();
+            repeatAttempt = BossAbility.NONE;
+            repeatScheduleBefore = NOT_SCHEDULED;
+        } else if (action != BossAbility.NONE && action == forcedAbility) {
+            // The follow-up the chain is starting takes its place in the chain with it, and is owed
+            // nothing more; every other start opens a chain of its own.
             pendingLinks = combo.links();
             combo.clearPending();
             forcedAbility = BossAbility.NONE;
@@ -2561,7 +2697,7 @@ public final class TeleportPathController {
         } else {
             pendingLinks = 1;
         }
-        noteAbilityStarted(action, phase);
+        noteAbilityStarted(action, phase, isRepeat);
         pendingLeadTicks = telegraphs.lead(data, action, actionDelay);
         beginCastRoot(data, phase, action);
         if (pendingLeadTicks <= 0 && actionDelay <= 0) {
@@ -2835,6 +2971,9 @@ public final class TeleportPathController {
         if (performer != null) {
             performer.perform(this, level, data, phase, gameTime);
         }
+        if (repeat.performed(pendingAction)) {
+            LOGGER.debug("Boss {} finished its row of {}: the last repeat went off", nameForLog(), pendingAction);
+        }
         // The hold after an instant ability counts from here, there being nothing else to count
         // it from; a lasting one's is counted again from the end of its effect, if it has one.
         finishHold.onPerformed(pendingAction, phase, gameTime);
@@ -3022,6 +3161,10 @@ public final class TeleportPathController {
         castRolls.clearRolls();
         forcedAbility = BossAbility.NONE;
         forcedScheduleBefore = NOT_SCHEDULED;
+        // And a row of repeats: the casts it still owed are owed to a phase or a fight that is over.
+        dropRepeats("the boss changed phase, lost its fight or reset");
+        repeatAttempt = BossAbility.NONE;
+        repeatScheduleBefore = NOT_SCHEDULED;
         // A chase does not outlive the phase, the fight or the boss that started it, and
         // every one of those ends up here. Nor does a sweep, nor a run: unlike a leap's flight
         // a dash is the boss' own legs, and it stops where it is. A series of cones is the boss'
