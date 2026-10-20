@@ -31,6 +31,7 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
     private static final int VFX_STYLE_BUTTON = 14;
     private static final int BLOCK_WAVE_BUTTON = 15;
     private static final int FACE_AXIS_BUTTON = 16;
+    private static final int TUNING_BUTTON = 20;
     private static final int EFFECTS_BUTTON = 67;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
@@ -116,8 +117,14 @@ public final class SubGuiBossLineAttack extends SubGuiFieldScreen {
                 phase.lineAttack().isBlockWave()));
 
         addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.line_hint", guiLeft + 6, guiTop + 271, 0xA0A0A0));
-        // A row of its own for the profile in the rotation, over the row Effects and Done share.
-        addProfileButton(guiLeft + 6, guiTop + 281, 236, 20, phase, BossAbilityKind.LINE);
+        // A row of its own over the row Effects and Done share: half for the ability's own
+        // fine-tuning, half for its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 281, 116, 20,
+                "cnpcgeckoaddon.boss.line_tuning", button -> {
+                    applyFields();
+                    setSubGui(new SubGuiBossLineAttackTuning(phase.lineAttack()));
+                }));
+        addProfileButton(guiLeft + 126, guiTop + 281, 116, 20, phase, BossAbilityKind.LINE);
         addButton(new ThemeButton(this, EFFECTS_BUTTON, guiLeft + 6, guiTop + 305, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 305, 60, 20);

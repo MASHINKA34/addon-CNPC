@@ -3,7 +3,9 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
@@ -102,10 +104,13 @@ final class BossLineAttackRuntime {
             boss.turnTowardAxis(axis, phase.lineAttack().getLength(), SNAP_DEGREES);
         }
         Vec3 origin = npc.position();
+        // The strike's own roar as it goes off, while the builder has it on.
+        phase.lineAttack().getSweepSound().play(level, origin.x, origin.y, origin.z, SoundSource.HOSTILE);
         // Purely for show, and started before the hits so the wave leaves at the same moment
         // the damage lands rather than a tick behind it.
         BossAreaVfxScheduler.scheduleLine(level, origin, axis, phase,
                 BossWaveTuning.of(npc, phase.lineAttack().getVfx()));
+        DustParticleOptions dust = BossTelegraphUtil.dust(phase, BossAbilityKind.LINE);
         int damage = boss.damageUp(BossAbilityKind.LINE, phase.lineAttack().getDamage());
         int sideDamage = sideWaveDamage(damage, phase.lineAttack().getSidePercent());
         int knockback = boss.rageUp(BossAbilityKind.LINE, phase.lineAttack().getKnockback());
@@ -116,6 +121,7 @@ final class BossLineAttackRuntime {
             // against the vector it is handed, which is why the axis goes in negated.
             BossAbilityDamageUtil.hit(target, BossAbilityKind.LINE, npc, side ? sideDamage : damage,
                     phase.lineAttack().getEffects(), knockback, -axis.x, -axis.z);
+            BossCuePlay.atEntity(level, target, null, phase.lineAttack().getHitParticles(), dust);
         }
     }
 

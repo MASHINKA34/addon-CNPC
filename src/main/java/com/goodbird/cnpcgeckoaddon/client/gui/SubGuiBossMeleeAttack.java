@@ -24,6 +24,7 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
     private static final int TARGET_MODE_BUTTON = 8;
     private static final int AIM_TURN_FIELD = 9;
     private static final int REACH_MODELS_BUTTON = 10;
+    private static final int TUNING_BUTTON = 20;
 
     private final EntityNPCInterface npc;
     private final BossPhaseData phase;
@@ -82,8 +83,14 @@ public final class SubGuiBossMeleeAttack extends SubGuiFieldScreen {
         addButton(new ThemeYesNo(this, REACH_MODELS_BUTTON, guiLeft + 195, y, 47, 20,
                 phase.meleeAttack().isReachAddsModels()));
 
-        // A row of its own for the profile in the rotation, over the row Effects and Done share.
-        addProfileButton(guiLeft + 6, guiTop + 278, 236, 20, phase, BossAbilityKind.MELEE);
+        // A row of its own over the row Effects and Done share: half for the ability's own
+        // fine-tuning, half for its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 278, 116, 20,
+                "cnpcgeckoaddon.boss.melee_tuning", button -> {
+                    applyFields();
+                    setSubGui(new SubGuiBossMeleeAttackTuning(phase.meleeAttack()));
+                }));
+        addProfileButton(guiLeft + 126, guiTop + 278, 116, 20, phase, BossAbilityKind.MELEE);
         addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 302, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 302, 60, 20);

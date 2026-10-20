@@ -54,6 +54,15 @@ public final class BossHuntSettings {
     private final BossEffectSet huntEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot huntCastSpot = new BossCastSpot();
+    /**
+     * The roar at the boss as it sets off, the crack and the puff at the prey it catches, and the
+     * trail at its feet while it runs. Born off: the chase never made any of them.
+     */
+    private final BossSoundCue huntStartSound = new BossSoundCue("minecraft:entity.ravager.roar", 1.2F, 1.0F, false);
+    private final BossSoundCue huntCatchSound =
+            new BossSoundCue("minecraft:entity.player.attack.crit", 1.0F, 0.7F, false);
+    private final BossParticleCue huntCatchParticles = new BossParticleCue("minecraft:crit", 10, false);
+    private final BossParticleCue huntTrailParticles = new BossParticleCue("minecraft:smoke", 2, false);
 
     /** Whether the boss ever singles one victim out and goes after them in this phase. */
     public boolean isEnabled() { return huntEnabled; }
@@ -146,6 +155,14 @@ public final class BossHuntSettings {
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return huntCastSpot; }
 
+    public BossSoundCue getStartSound() { return huntStartSound; }
+
+    public BossSoundCue getCatchSound() { return huntCatchSound; }
+
+    public BossParticleCue getCatchParticles() { return huntCatchParticles; }
+
+    public BossParticleCue getTrailParticles() { return huntTrailParticles; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("HuntEnabled", huntEnabled);
         tag.putString("HuntAnimation", huntAnimation);
@@ -165,6 +182,10 @@ public final class BossHuntSettings {
         tag.putBoolean("HuntReachModels", huntReachAddsModels);
         tag.put("HuntEffects", huntEffects.writeToNBT());
         huntCastSpot.writeToNBT(tag, "Hunt");
+        huntStartSound.writeToNBT(tag, "HuntStartSound");
+        huntCatchSound.writeToNBT(tag, "HuntCatchSound");
+        huntCatchParticles.writeToNBT(tag, "HuntCatchParticles");
+        huntTrailParticles.writeToNBT(tag, "HuntTrailParticles");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -193,5 +214,9 @@ public final class BossHuntSettings {
         huntReachAddsModels = !tag.contains("HuntReachModels") || tag.getBoolean("HuntReachModels");
         huntEffects.readFromNBT(tag, "HuntEffects");
         huntCastSpot.readFromNBT(tag, "Hunt");
+        huntStartSound.readFromNBT(tag, "HuntStartSound");
+        huntCatchSound.readFromNBT(tag, "HuntCatchSound");
+        huntCatchParticles.readFromNBT(tag, "HuntCatchParticles");
+        huntTrailParticles.readFromNBT(tag, "HuntTrailParticles");
     }
 }

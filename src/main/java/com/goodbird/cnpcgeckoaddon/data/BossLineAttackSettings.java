@@ -36,6 +36,12 @@ public final class BossLineAttackSettings {
     private final BossEffectSet lineAttackEffects = new BossEffectSet();
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot lineAttackCastSpot = new BossCastSpot();
+    /**
+     * The roar of the strike at the boss as it goes off, and the puff at every victim in its lane or
+     * its flanks - the puff in the strike's own colour. Born off: the strike never made either.
+     */
+    private final BossSoundCue lineSweepSound = new BossSoundCue("minecraft:entity.wither.shoot", 1.2F, 0.6F, false);
+    private final BossParticleCue lineHitParticles = new BossParticleCue(BossParticleCue.DUST_ID, 10, false);
 
     public boolean isEnabled() { return lineAttackEnabled; }
 
@@ -115,6 +121,10 @@ public final class BossLineAttackSettings {
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return lineAttackCastSpot; }
 
+    public BossSoundCue getSweepSound() { return lineSweepSound; }
+
+    public BossParticleCue getHitParticles() { return lineHitParticles; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("LineAttackEnabled", lineAttackEnabled);
         tag.putString("LineAttackAnimation", lineAttackAnimation);
@@ -134,6 +144,8 @@ public final class BossLineAttackSettings {
         tag.putBoolean("LineAttackBlockWave", lineAttackBlockWave);
         tag.put("LineAttackEffects", lineAttackEffects.writeToNBT());
         lineAttackCastSpot.writeToNBT(tag, "LineAttack");
+        lineSweepSound.writeToNBT(tag, "LineSweepSound");
+        lineHitParticles.writeToNBT(tag, "LineHitParticles");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -157,5 +169,7 @@ public final class BossLineAttackSettings {
         lineAttackBlockWave = tag.getBoolean("LineAttackBlockWave");
         lineAttackEffects.readFromNBT(tag, "LineAttackEffects");
         lineAttackCastSpot.readFromNBT(tag, "LineAttack");
+        lineSweepSound.readFromNBT(tag, "LineSweepSound");
+        lineHitParticles.readFromNBT(tag, "LineHitParticles");
     }
 }

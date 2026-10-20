@@ -4,13 +4,17 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectData;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.core.Holder;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
@@ -36,6 +40,11 @@ final class BossHuntRuntime {
     /** The hunt's stride, hung on the boss the way the enrage bonus is and taken off the same way. */
     private static final ResourceLocation MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(CNPCGeckoAddon.MODID, "boss_hunt");
+
+    /** The trail at the boss' feet goes down every other tick while it runs. */
+    private static final long TRAIL_INTERVAL_TICKS = 2L;
+    /** A hundredth of a block a tick, squared: less than that is standing, not running. */
+    private static final double MIN_TRAIL_STEP_SQUARED = 1.0E-4D;
 
     /**
      * The hunt being run right now, frozen on the tick the boss set off.
@@ -64,6 +73,12 @@ final class BossHuntRuntime {
         /** How often the prey may be counted as caught again, and what the reach is judged by. */
         private final int catchIntervalTicks;
         private final boolean reachAddsModels;
+        /** The catch's noise and puff and the trail at the boss' feet, the effects' way: the phase's own. */
+        private final BossSoundCue catchSound;
+        private final BossParticleCue catchParticles;
+        private final BossParticleCue trailParticles;
+        /** The hunt's colour in the phase it was cast in, for a cue set to the ability's dust. */
+        private final DustParticleOptions dust;
         /** Game time the boss may next count the prey as caught. */
         private long nextCatchAt;
 
@@ -80,6 +95,10 @@ final class BossHuntRuntime {
             markAmplifier = phase.hunt().getMarkAmplifier();
             catchIntervalTicks = phase.hunt().getCatchIntervalTicks();
             reachAddsModels = phase.hunt().isReachAddsModels();
+            catchSound = phase.hunt().getCatchSound();
+            catchParticles = phase.hunt().getCatchParticles();
+            trailParticles = phase.hunt().getTrailParticles();
+            dust = BossTelegraphUtil.dust(phase, BossAbilityKind.HUNT);
             nextCatchAt = gameTime;
         }
     }
@@ -137,6 +156,8 @@ final class BossHuntRuntime {
             return;
         }
         hunt = new Hunt(prey, phase, gameTime);
+        // The roar as it sets off, while the builder has it on.
+        phase.hunt().getStartSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         Holder<MobEffect> mark = hunt.glowing ? BossEffectData.resolve(hunt.markEffect) : null;
         if (mark != null) {
             // Not ambient and no particles: the outline is the mark, and a cloud of swirls
@@ -171,6 +192,11 @@ final class BossHuntRuntime {
             return;
         }
         boss.setTargetIfChanged(prey);
+        // The trail at its feet every other tick, while it is really running rather than held in place.
+        if (gameTime % TRAIL_INTERVAL_TICKS == 0L && isMoving()) {
+            current.trailParticles.emitDust(level, npc.getX(), npc.getY() + 0.1D, npc.getZ(),
+                    npc.getBbWidth() * 0.3D, 0.05D, npc.getBbWidth() * 0.3D, 0.01D, current.dust);
+        }
         if (gameTime >= current.nextCatchAt && isWithinCatch(prey, current)) {
             catchPrey(level, current, prey, gameTime);
         }
@@ -201,6 +227,7 @@ final class BossHuntRuntime {
         level.sendParticles(BossTelegraphUtil.dust(boss.activePhase(), BossAbilityKind.HUNT), prey.getX(),
                 prey.getY() + prey.getBbHeight() * 0.5D, prey.getZ(), 12,
                 prey.getBbWidth() * 0.5D, prey.getBbHeight() * 0.3D, prey.getBbWidth() * 0.5D, 0.0D);
+        BossCuePlay.atEntity(level, prey, current.catchSound, current.catchParticles, current.dust);
         if (current.catchEnds) {
             end();
             return;
@@ -278,6 +305,16 @@ final class BossHuntRuntime {
         Component line = Component.translatable("cnpcgeckoaddon.boss.hunt_marked", npc.getDisplayName())
                 .withStyle(style -> style.withColor(colour));
         player.displayClientMessage(line, true);
+    }
+
+    /**
+     * Whether the boss covered ground on this tick: the controller ticks after the npc has moved, so
+     * the step from the last tick's spot is this tick's run. A stationary or held boss is not running.
+     */
+    private boolean isMoving() {
+        double dx = npc.getX() - npc.xo;
+        double dz = npc.getZ() - npc.zo;
+        return dx * dx + dz * dz > MIN_TRAIL_STEP_SQUARED;
     }
 
     /** Whether the boss is on one prey right now. */

@@ -45,6 +45,12 @@ public final class BossRangedAttackSettings {
     private int rangedBurstDelayTicks = 4;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot rangedAttackCastSpot = new BossCastSpot();
+    /**
+     * The noise and the puff at the boss' eyes on every shot of a cast, burst included. Born off:
+     * the shot only ever made whatever noise CustomNPCs gives it, and an old boss must keep to that.
+     */
+    private final BossSoundCue rangedShotSound = new BossSoundCue("minecraft:entity.arrow.shoot", 1.0F, 0.9F, false);
+    private final BossParticleCue rangedMuzzleParticles = new BossParticleCue("minecraft:smoke", 6, false);
 
     public boolean isEnabled() { return rangedAttackEnabled; }
 
@@ -126,6 +132,10 @@ public final class BossRangedAttackSettings {
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return rangedAttackCastSpot; }
 
+    public BossSoundCue getShotSound() { return rangedShotSound; }
+
+    public BossParticleCue getMuzzleParticles() { return rangedMuzzleParticles; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("RangedAttackEnabled", rangedAttackEnabled);
         tag.putString("RangedAttackAnimation", rangedAttackAnimation);
@@ -141,6 +151,8 @@ public final class BossRangedAttackSettings {
         tag.putInt("RangedBurstShots", rangedBurstShots);
         tag.putInt("RangedBurstDelay", rangedBurstDelayTicks);
         rangedAttackCastSpot.writeToNBT(tag, "RangedAttack");
+        rangedShotSound.writeToNBT(tag, "RangedShotSound");
+        rangedMuzzleParticles.writeToNBT(tag, "RangedMuzzleParticles");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -162,5 +174,7 @@ public final class BossRangedAttackSettings {
         rangedBurstShots = value(tag, "RangedBurstShots", MIN_BURST_SHOTS, MIN_BURST_SHOTS, MAX_BURST_SHOTS);
         rangedBurstDelayTicks = value(tag, "RangedBurstDelay", 4, MIN_BURST_DELAY, MAX_BURST_DELAY);
         rangedAttackCastSpot.readFromNBT(tag, "RangedAttack");
+        rangedShotSound.readFromNBT(tag, "RangedShotSound");
+        rangedMuzzleParticles.readFromNBT(tag, "RangedMuzzleParticles");
     }
 }

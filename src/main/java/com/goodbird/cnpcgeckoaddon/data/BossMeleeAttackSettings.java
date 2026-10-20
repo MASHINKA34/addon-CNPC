@@ -34,6 +34,15 @@ public final class BossMeleeAttackSettings {
     private boolean meleeReachAddsModels = true;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot meleeAttackCastSpot = new BossCastSpot();
+    /**
+     * The whoosh of the swing at the boss as it goes off, and the crack and the puff at the victim
+     * it lands on. Born off: the swing never made either, and an old boss must not start to.
+     */
+    private final BossSoundCue meleeSwingSound =
+            new BossSoundCue("minecraft:entity.player.attack.sweep", 1.0F, 0.8F, false);
+    private final BossSoundCue meleeHitSound =
+            new BossSoundCue("minecraft:entity.player.attack.strong", 1.0F, 0.9F, false);
+    private final BossParticleCue meleeHitParticles = new BossParticleCue("minecraft:crit", 8, false);
 
     public boolean isEnabled() { return meleeAttackEnabled; }
 
@@ -92,6 +101,12 @@ public final class BossMeleeAttackSettings {
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return meleeAttackCastSpot; }
 
+    public BossSoundCue getSwingSound() { return meleeSwingSound; }
+
+    public BossSoundCue getHitSound() { return meleeHitSound; }
+
+    public BossParticleCue getHitParticles() { return meleeHitParticles; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("MeleeAttackEnabled", meleeAttackEnabled);
         tag.putString("MeleeAttackAnimation", meleeAttackAnimation);
@@ -105,6 +120,9 @@ public final class BossMeleeAttackSettings {
         tag.putInt("MeleeAimTurn", meleeAimTurnDegrees);
         tag.putBoolean("MeleeReachModels", meleeReachAddsModels);
         meleeAttackCastSpot.writeToNBT(tag, "MeleeAttack");
+        meleeSwingSound.writeToNBT(tag, "MeleeSwingSound");
+        meleeHitSound.writeToNBT(tag, "MeleeHitSound");
+        meleeHitParticles.writeToNBT(tag, "MeleeHitParticles");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -122,5 +140,8 @@ public final class BossMeleeAttackSettings {
         // A boss saved before the switch existed measured its reach hitbox to hitbox.
         meleeReachAddsModels = !tag.contains("MeleeReachModels") || tag.getBoolean("MeleeReachModels");
         meleeAttackCastSpot.readFromNBT(tag, "MeleeAttack");
+        meleeSwingSound.readFromNBT(tag, "MeleeSwingSound");
+        meleeHitSound.readFromNBT(tag, "MeleeHitSound");
+        meleeHitParticles.readFromNBT(tag, "MeleeHitParticles");
     }
 }

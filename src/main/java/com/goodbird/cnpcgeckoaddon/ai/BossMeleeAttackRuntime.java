@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -46,6 +47,8 @@ final class BossMeleeAttackRuntime {
     }
 
     void perform(ServerLevel level, BossPhaseData phase) {
+        // The swing is heard whether or not it finds anybody: it went off all the same.
+        phase.meleeAttack().getSwingSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         LivingEntity target = boss.pendingTarget(level);
         if (!isValidTarget(target, phase)) return;
         float aim = phase.meleeAttack().getAimTurnDegrees();
@@ -61,6 +64,8 @@ final class BossMeleeAttackRuntime {
                 boss.damageUp(BossAbilityKind.MELEE, phase.meleeAttack().getDamage()), phase.meleeAttack().getEffects(),
                 boss.rageUp(BossAbilityKind.MELEE, phase.meleeAttack().getKnockback()),
                 npc.getX() - target.getX(), npc.getZ() - target.getZ());
+        BossCuePlay.atEntity(level, target, phase.meleeAttack().getHitSound(), phase.meleeAttack().getHitParticles(),
+                BossTelegraphUtil.dust(phase, BossAbilityKind.MELEE));
     }
 
     boolean isValidTarget(LivingEntity target, BossPhaseData phase) {

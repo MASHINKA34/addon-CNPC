@@ -3,6 +3,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -54,6 +55,7 @@ final class BossAreaAttackRuntime {
         // the damage lands rather than a tick behind it.
         BossAreaVfxScheduler.schedule(level, centre, phase,
                 BossWaveTuning.of(npc, phase.areaAttack().getVfx()));
+        DustParticleOptions dust = BossTelegraphUtil.dust(phase, BossAbilityKind.AREA);
         for (LivingEntity target : targets(level, phase, centre)) {
             // Shoved away from the middle of the ring, wherever the ring went off.
             BossAbilityDamageUtil.hit(target, BossAbilityKind.AREA, npc,
@@ -61,6 +63,9 @@ final class BossAreaAttackRuntime {
                     phase.areaAttack().getEffects(),
                     boss.rageUp(BossAbilityKind.AREA, phase.areaAttack().getKnockback()),
                     centre.x - target.getX(), centre.z - target.getZ());
+            // The slam's own noise and puff at everyone it came down on, while the builder has them on.
+            BossCuePlay.atEntity(level, target, phase.areaAttack().getHitSound(),
+                    phase.areaAttack().getHitParticles(), dust);
         }
     }
 

@@ -26,6 +26,7 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
     private static final int LOB_SHARE_FIELD = 10;
     private static final int BURST_SHOTS_FIELD = 11;
     private static final int BURST_DELAY_FIELD = 12;
+    private static final int TUNING_BUTTON = 20;
 
     /** Two numbers to a row, the cone screen's columns: the second flush with the right edge. */
     private static final int PAIR_X = 140;
@@ -96,8 +97,14 @@ public final class SubGuiBossRangedAttack extends SubGuiFieldScreen {
 
         addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.projectile_hint",
                 guiLeft + 8, guiTop + 284, 0xA0A0A0));
-        // A row of its own for the profile in the rotation, over the row Effects and Done share.
-        addProfileButton(guiLeft + 6, guiTop + 302, 236, 20, phase, BossAbilityKind.RANGED);
+        // A row of its own over the row Effects and Done share: half for the ability's own
+        // fine-tuning, half for its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, guiTop + 302, 116, 20,
+                "cnpcgeckoaddon.boss.ranged_tuning", button -> {
+                    applyFields();
+                    setSubGui(new SubGuiBossRangedAttackTuning(phase.rangedAttack()));
+                }));
+        addProfileButton(guiLeft + 126, guiTop + 302, 116, 20, phase, BossAbilityKind.RANGED);
         addButton(new ThemeButton(this, 67, guiLeft + 6, guiTop + 326, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, guiTop + 326, 60, 20);

@@ -56,6 +56,12 @@ public final class BossHazardSettings {
     private int hazardRingReach = 32;
     /** Half a flash of the warning edge: painted for this many ticks, then not for as many. */
     private int hazardBlinkTicks = 4;
+    /**
+     * The crackle and the flames at everyone the fire doses, on every dose. Born off: the fire never
+     * made either, and an old boss must not start to.
+     */
+    private final BossSoundCue hazardTickSound = new BossSoundCue("minecraft:block.fire.ambient", 0.8F, 1.0F, false);
+    private final BossParticleCue hazardTickParticles = new BossParticleCue("minecraft:flame", 4, false);
 
     /** Whether the arena turns dangerous in this phase at all. */
     public boolean isEnabled() { return hazardEnabled; }
@@ -175,6 +181,10 @@ public final class BossHazardSettings {
 
     public BossEffectSet getEffects() { return hazardEffects; }
 
+    public BossSoundCue getTickSound() { return hazardTickSound; }
+
+    public BossParticleCue getTickParticles() { return hazardTickParticles; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("HazardEnabled", hazardEnabled);
         tag.putInt("HazardMode", hazardMode);
@@ -197,6 +207,8 @@ public final class BossHazardSettings {
         tag.put("HazardEffects", hazardEffects.writeToNBT());
         tag.putInt("HazardRingReach", hazardRingReach);
         tag.putInt("HazardBlink", hazardBlinkTicks);
+        hazardTickSound.writeToNBT(tag, "HazardTickSound");
+        hazardTickParticles.writeToNBT(tag, "HazardTickParticles");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -226,5 +238,7 @@ public final class BossHazardSettings {
         hazardEffects.readFromNBT(tag, "HazardEffects");
         hazardRingReach = value(tag, "HazardRingReach", 32, MIN_RING_REACH, MAX_RING_REACH);
         hazardBlinkTicks = value(tag, "HazardBlink", 4, MIN_BLINK_TICKS, MAX_BLINK_TICKS);
+        hazardTickSound.readFromNBT(tag, "HazardTickSound");
+        hazardTickParticles.readFromNBT(tag, "HazardTickParticles");
     }
 }

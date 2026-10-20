@@ -50,6 +50,13 @@ public final class BossSummonSettings {
     private final BossMinionSpawnList minionSpawnPoints = new BossMinionSpawnList();
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot summonCastSpot = new BossCastSpot();
+    /**
+     * The noise and the puff at every minion as it stands up. Born off: a summon never made either,
+     * and an old boss must not start to.
+     */
+    private final BossSoundCue summonSpawnSound =
+            new BossSoundCue("minecraft:entity.evoker.prepare_summon", 1.0F, 1.0F, false);
+    private final BossParticleCue summonSpawnParticles = new BossParticleCue("minecraft:poof", 10, false);
 
     public boolean isEnabled() { return summonEnabled; }
 
@@ -149,6 +156,10 @@ public final class BossSummonSettings {
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return summonCastSpot; }
 
+    public BossSoundCue getSpawnSound() { return summonSpawnSound; }
+
+    public BossParticleCue getSpawnParticles() { return summonSpawnParticles; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("SummonEnabled", summonEnabled);
         tag.putString("SummonAnimation", summonAnimation);
@@ -168,6 +179,8 @@ public final class BossSummonSettings {
         tag.putInt("SummonRingInner", summonRingInnerRadius);
         tag.put("MinionSpawnPoints", minionSpawnPoints.writeToNBT());
         summonCastSpot.writeToNBT(tag, "Summon");
+        summonSpawnSound.writeToNBT(tag, "SummonSpawnSound");
+        summonSpawnParticles.writeToNBT(tag, "SummonSpawnParticles");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -191,5 +204,7 @@ public final class BossSummonSettings {
         summonRingInnerRadius = value(tag, "SummonRingInner", 10, 0, MAX_RING_INNER_RADIUS);
         minionSpawnPoints.readFromNBT(tag, "MinionSpawnPoints");
         summonCastSpot.readFromNBT(tag, "Summon");
+        summonSpawnSound.readFromNBT(tag, "SummonSpawnSound");
+        summonSpawnParticles.readFromNBT(tag, "SummonSpawnParticles");
     }
 }

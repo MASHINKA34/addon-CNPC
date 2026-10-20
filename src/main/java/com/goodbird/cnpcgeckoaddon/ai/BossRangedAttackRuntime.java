@@ -6,7 +6,9 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import com.goodbird.cnpcgeckoaddon.utils.ProjectileEntityUtil;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.data.DataRanged;
 import org.slf4j.Logger;
@@ -29,6 +31,10 @@ import org.slf4j.LoggerFactory;
 final class BossRangedAttackRuntime {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
+
+    /** How far the puff at the boss' eyes spreads, and how fast it drifts: a small burst, not a cloud. */
+    private static final double MUZZLE_SPREAD = 0.15D;
+    private static final double MUZZLE_SPEED = 0.02D;
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -183,6 +189,15 @@ final class BossRangedAttackRuntime {
                     : ranged.getFireType() == 1
                     && distanceSquared > phase.rangedAttack().lobBeyondSquared();
             npc.performRangedAttack(target, indirect ? 1.0F : 0.0F);
+            // The shot's own noise and puff at the boss' eyes, every shot of a burst, while the
+            // builder has them on: the projectile is CustomNPCs', the cast is the addon's.
+            if (npc.level() instanceof ServerLevel level) {
+                Vec3 eyes = npc.getEyePosition();
+                phase.rangedAttack().getShotSound().play(level, eyes.x, eyes.y, eyes.z, SoundSource.HOSTILE);
+                phase.rangedAttack().getMuzzleParticles().emitDust(level, eyes.x, eyes.y, eyes.z,
+                        MUZZLE_SPREAD, MUZZLE_SPREAD, MUZZLE_SPREAD, MUZZLE_SPEED,
+                        BossTelegraphUtil.dust(phase, BossAbilityKind.RANGED));
+            }
         } catch (Throwable error) {
             LOGGER.warn("Could not perform configured ranged attack for NPC {}: {}",
                     npc.getName().getString(), error.getMessage());

@@ -9,12 +9,19 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import java.util.ArrayList;
 import java.util.List;
 
-/** How often the prey is bitten, what marks it, and what the catch reach is measured with. */
+/**
+ * How often the prey is bitten, what marks it, what the catch reach is measured with, and the hunt's
+ * noises and puffs - the roar as it sets off, the catch, the trail while it runs - all off at first.
+ */
 public final class SubGuiBossHuntTuning extends SubGuiBossAbilityTuning {
     private static final int CATCH_INTERVAL_FIELD = 1;
     private static final int MARK_EFFECT_FIELD = 2;
     private static final int MARK_LEVEL_FIELD = 3;
     private static final int REACH_MODELS_BUTTON = 4;
+    private static final int START_SOUND_BUTTON = 5;
+    private static final int CATCH_SOUND_BUTTON = 6;
+    private static final int CATCH_PARTICLES_BUTTON = 7;
+    private static final int TRAIL_PARTICLES_BUTTON = 8;
 
     private final BossHuntSettings hunt;
 
@@ -25,7 +32,7 @@ public final class SubGuiBossHuntTuning extends SubGuiBossAbilityTuning {
 
     @Override
     protected int rows() {
-        return 4;
+        return 8;
     }
 
     @Override
@@ -39,6 +46,12 @@ public final class SubGuiBossHuntTuning extends SubGuiBossAbilityTuning {
                 hunt.getMarkLevel(), 1, BossHuntSettings.MAX_MARK_AMPLIFIER + 1, 1);
         addYesNo(REACH_MODELS_BUTTON, "cnpcgeckoaddon.boss.hunt_reach_models", nextRow(),
                 hunt.isReachAddsModels());
+        addCueButton(START_SOUND_BUTTON, "cnpcgeckoaddon.boss.hunt_cue_start", nextRow(), hunt.getStartSound());
+        addCueButton(CATCH_SOUND_BUTTON, "cnpcgeckoaddon.boss.hunt_cue_catch", nextRow(), hunt.getCatchSound());
+        addCueButton(CATCH_PARTICLES_BUTTON, "cnpcgeckoaddon.boss.hunt_cue_catch_particles", nextRow(),
+                hunt.getCatchParticles());
+        addCueButton(TRAIL_PARTICLES_BUTTON, "cnpcgeckoaddon.boss.hunt_cue_trail", nextRow(),
+                hunt.getTrailParticles());
     }
 
     @Override

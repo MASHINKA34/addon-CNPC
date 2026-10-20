@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossMinionSpawnPoint;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSummonSettings;
@@ -88,9 +89,18 @@ final class BossMinionSpawnRuntime {
         for (int i = spawned; i < amount; i++) {
             Vec3 position = findRingPosition(level, phase.summon());
             if (position == null) continue;
-            spawnClone(level, phase.summon().getCloneName(), phase.summon().getCloneTab(),
+            Entity minion = spawnClone(level, phase.summon().getCloneName(), phase.summon().getCloneTab(),
                     position, Float.NaN, boss.currentPhaseIndex(), -1);
+            if (minion != null) {
+                announceSpawn(level, phase, minion);
+            }
         }
+    }
+
+    /** The summon's own noise and puff at a minion standing up, while the builder has them on. */
+    private static void announceSpawn(ServerLevel level, BossPhaseData phase, Entity minion) {
+        BossCuePlay.atEntity(level, minion, phase.summon().getSpawnSound(), phase.summon().getSpawnParticles(),
+                BossTelegraphUtil.dust(phase, BossAbilityKind.SUMMON));
     }
 
     private int spawnConfigured(ServerLevel level, BossPhaseData phase, int desired) {
@@ -116,6 +126,7 @@ final class BossMinionSpawnRuntime {
                     point.getYaw(), phaseIndex, point.getPointId());
             if (minion != null) {
                 spawned++;
+                announceSpawn(level, phase, minion);
                 if (phase.summon().getSpawnOrder() == BossPhaseData.MINION_ORDER_ROUND_ROBIN) {
                     roundRobinCursor.put(phaseIndex, point.getPointId());
                 }

@@ -23,6 +23,7 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
     private static final int VFX_STYLE_BUTTON = 8;
     private static final int VFX_DURATION_FIELD = 9;
     private static final int BLOCK_WAVE_BUTTON = 10;
+    private static final int TUNING_BUTTON = 20;
 
     private static final String[] VFX_STYLE_LABELS = AreaVfxStyles.values().stream()
             .map(AreaVfxStyles.Style::translationKey)
@@ -89,8 +90,14 @@ public final class SubGuiBossAreaAttack extends SubGuiFieldScreen {
         addLabel(new ThemeLabel(31, "cnpcgeckoaddon.boss.area_vfx_hint", guiLeft + 8, guiTop + 230, 0xA0A0A0));
         addLabel(new ThemeLabel(32, "cnpcgeckoaddon.boss.enemies_hint", guiLeft + 8, guiTop + 242, 0xA0A0A0));
         int profileY = addWrappedHint(CENTRE_HINT_LABEL, CENTRE_HINT, guiTop + 254) + 2;
-        // A row of its own for the profile in the rotation, over the row Effects and Done share.
-        addProfileButton(guiLeft + 6, profileY, 236, 20, phase, BossAbilityKind.AREA);
+        // A row of its own over the row Effects and Done share: half for the ability's own
+        // fine-tuning, half for its profile in the rotation.
+        addButton(new ThemeButton(this, TUNING_BUTTON, guiLeft + 6, profileY, 116, 20,
+                "cnpcgeckoaddon.boss.area_tuning", button -> {
+                    applyFields();
+                    setSubGui(new SubGuiBossAreaAttackTuning(phase.areaAttack()));
+                }));
+        addProfileButton(guiLeft + 126, profileY, 116, 20, phase, BossAbilityKind.AREA);
         addButton(new ThemeButton(this, 67, guiLeft + 6, profileY + 24, 120, 20,
                 "cnpcgeckoaddon.boss.effects_settings"));
         addDoneButton(guiLeft + 182, profileY + 24, 60, 20);

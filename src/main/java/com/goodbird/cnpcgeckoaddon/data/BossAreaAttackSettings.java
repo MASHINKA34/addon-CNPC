@@ -32,6 +32,12 @@ public final class BossAreaAttackSettings implements BossCentreSettings {
     private int areaAttackTargetMode = BossTargetMode.MAIN;
     /** Where the boss goes before it casts this, if anywhere. */
     private final BossCastSpot areaAttackCastSpot = new BossCastSpot();
+    /**
+     * The noise and the puff at every victim the slam lands on - the puff in the slam's own colour.
+     * Born off: the slam never made either, and an old boss must not start to.
+     */
+    private final BossSoundCue areaHitSound = new BossSoundCue("minecraft:entity.generic.explode", 1.0F, 1.2F, false);
+    private final BossParticleCue areaHitParticles = new BossParticleCue(BossParticleCue.DUST_ID, 12, false);
 
     public boolean isEnabled() { return areaAttackEnabled; }
 
@@ -90,6 +96,10 @@ public final class BossAreaAttackSettings implements BossCentreSettings {
     /** Where the boss goes before it casts this; a spot that is not set casts from where it stands. */
     public BossCastSpot castSpot() { return areaAttackCastSpot; }
 
+    public BossSoundCue getHitSound() { return areaHitSound; }
+
+    public BossParticleCue getHitParticles() { return areaHitParticles; }
+
     void writeToNBT(CompoundTag tag) {
         tag.putBoolean("AreaAttackEnabled", areaAttackEnabled);
         tag.putString("AreaAttackAnimation", areaAttackAnimation);
@@ -105,6 +115,8 @@ public final class BossAreaAttackSettings implements BossCentreSettings {
         tag.putInt("AreaAttackCentre", areaAttackCentreMode);
         tag.putInt("AreaAttackTargetMode", areaAttackTargetMode);
         areaAttackCastSpot.writeToNBT(tag, "AreaAttack");
+        areaHitSound.writeToNBT(tag, "AreaHitSound");
+        areaHitParticles.writeToNBT(tag, "AreaHitParticles");
     }
 
     void readFromNBT(CompoundTag tag) {
@@ -125,5 +137,7 @@ public final class BossAreaAttackSettings implements BossCentreSettings {
         areaAttackTargetMode = value(tag, "AreaAttackTargetMode",
                 BossTargetMode.MAIN, BossTargetMode.MAIN, BossTargetMode.RANDOM);
         areaAttackCastSpot.readFromNBT(tag, "AreaAttack");
+        areaHitSound.readFromNBT(tag, "AreaHitSound");
+        areaHitParticles.readFromNBT(tag, "AreaHitParticles");
     }
 }

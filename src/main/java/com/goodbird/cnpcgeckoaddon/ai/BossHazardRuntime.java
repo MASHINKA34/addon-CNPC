@@ -2,8 +2,11 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
+import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -56,6 +59,9 @@ final class BossHazardRuntime {
         private final int damage;
         private final int intervalTicks;
         private final BossEffectSet effects;
+        /** The crackle and the flames at everyone a dose reaches, the effects' way: the phase's own. */
+        private final BossSoundCue tickSound;
+        private final BossParticleCue tickParticles;
         /**
          * How far past the safe circle's first edge the fire reaches: the arena's surroundings,
          * not the world. Somebody who died and came back at a bed across the map is out of the
@@ -80,6 +86,8 @@ final class BossHazardRuntime {
             damage = phase.hazard().getDamage();
             intervalTicks = phase.hazard().getIntervalTicks();
             effects = phase.hazard().getEffects();
+            tickSound = phase.hazard().getTickSound();
+            tickParticles = phase.hazard().getTickParticles();
             ringReach = phase.hazard().getRingReach();
             blinkTicks = phase.hazard().getBlinkTicks();
             nextHitAt = opensAt;
@@ -211,10 +219,12 @@ final class BossHazardRuntime {
             return;
         }
         hazard.nextHitAt = gameTime + hazard.intervalTicks;
+        DustParticleOptions dust = BossTelegraphUtil.dust(boss.activePhase(), BossAbilityKind.HAZARD);
         for (LivingEntity victim : victims(level, hazard, gameTime)) {
             // No knockback: the fire is the ground, and the ground does not shove.
             BossAbilityDamageUtil.hit(victim, BossAbilityKind.HAZARD, npc,
                     boss.damageUp(BossAbilityKind.HAZARD, hazard.damage), hazard.effects, 0, 0.0D, 0.0D);
+            BossCuePlay.atEntity(level, victim, hazard.tickSound, hazard.tickParticles, dust);
         }
     }
 
