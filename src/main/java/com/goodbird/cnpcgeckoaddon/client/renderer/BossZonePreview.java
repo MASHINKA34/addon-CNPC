@@ -38,10 +38,13 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Draws a boss' zones and spots into the world for whoever is editing it, and nobody else.
@@ -59,6 +62,8 @@ import java.util.List;
  */
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID, value = Dist.CLIENT)
 public final class BossZonePreview {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** Shapes that belong to no ability, next to the abilities' own kinds, which count from 0. */
     public static final int KIND_AGGRO = -1;
@@ -174,20 +179,25 @@ public final class BossZonePreview {
         }
     }
 
-    /** Puts one box up for ten seconds, whatever is open or closed meanwhile. */
+    /**
+     * Puts one box up for ten seconds, whatever is open or closed meanwhile. An ability's is drawn in
+     * the colour its profile has in the phase the open screens edit, taken now, as it is put up.
+     */
     public static void show(int kind, String label, AABB box) {
-        showTimed(Shape.box(kind, label, box, false));
+        showTimed(Shape.box(kind, label, box, false, colorOfEdited(Minecraft.getInstance().screen, kind)));
     }
 
-    /** Puts one spot up for ten seconds, whatever is open or closed meanwhile. */
+    /** Puts one spot up for ten seconds, whatever is open or closed meanwhile; coloured as above. */
     public static void show(int kind, String label, Vec3 point) {
-        showTimed(Shape.point(kind, label, point, false));
+        showTimed(Shape.point(kind, label, point, false, colorOfEdited(Minecraft.getInstance().screen, kind)));
     }
 
     private static void showTimed(Shape shape) {
         ClientLevel level = Minecraft.getInstance().level;
         if (level != null) {
             TIMED.add(new Timed(shape, level, level.getGameTime() + PREVIEW_TICKS));
+            LOGGER.debug("zone preview: '{}' of kind {} up for {} ticks in #{}", shape.label(), shape.kind(),
+                    PREVIEW_TICKS, String.format(Locale.ROOT, "%06X", shape.rgb()));
         }
     }
 
@@ -239,6 +249,18 @@ public final class BossZonePreview {
      */
     public static int colorOf(BossPhaseData phase, int kind) {
         return kind >= 0 && kind < BossAbilityKind.COUNT ? BossTelegraphUtil.textColor(phase, kind) : colorOf(kind);
+    }
+
+    /**
+     * The same for the phase the stack of screens from {@code root} edits, found the way the zones of
+     * those screens are: an ability's in its profile's colour there, or the kind's when the profile has
+     * none or the screens name no phase; every other kind as {@link #colorOf(int)}.
+     */
+    public static int colorOfEdited(Screen root, int kind) {
+        if (kind < 0 || kind >= BossAbilityKind.COUNT) {
+            return colorOf(kind);
+        }
+        return colorOf(BossZoneShapes.edited(root).phaseData(), kind);
     }
 
     @SubscribeEvent
@@ -325,6 +347,7 @@ public final class BossZonePreview {
             return;
         }
         int kind = ZoneSelectionClient.kind();
+        int rgb = ZoneSelectionClient.colour();
         BlockHitResult aim = ZoneSelectionClient.aimedBlock(partialTick);
         BlockPos aimed = aim == null ? null : aim.getBlockPos();
         Direction face = aim == null ? null : aim.getDirection();
@@ -332,9 +355,9 @@ public final class BossZonePreview {
             if (aim != null) {
                 // On the block the editor writes, which is not always the one in front of the face.
                 BlockPos spot = selection.picked(aimed, face);
-                shapes.add(Shape.box(kind, "", ZoneCoordinates.blockBox(aimed, aimed), true));
+                shapes.add(Shape.box(kind, "", ZoneCoordinates.blockBox(aimed, aimed), true, rgb));
                 shapes.add(Shape.point(kind, spot.getX() + " " + spot.getY() + " " + spot.getZ(),
-                        Vec3.atBottomCenterOf(spot), true));
+                        Vec3.atBottomCenterOf(spot), true, rgb));
             }
             return;
         }
@@ -343,14 +366,14 @@ public final class BossZonePreview {
             if (aimed != null) {
                 BlockPos corner = selection.picked(aimed, face);
                 shapes.add(Shape.box(kind, corner.getX() + " " + corner.getY() + " " + corner.getZ(),
-                        ZoneCoordinates.blockBox(corner, corner), true));
+                        ZoneCoordinates.blockBox(corner, corner), true, rgb));
             }
             return;
         }
         BlockPos size = box.max().subtract(box.min()).offset(1, 1, 1);
         shapes.add(Shape.box(kind, size.getX() + " × " + size.getY() + " × " + size.getZ(),
-                ZoneCoordinates.blockBox(box.min(), box.max()), true));
-        shapes.add(Shape.box(kind, "1", marker(selection.firstCorner()), true));
+                ZoneCoordinates.blockBox(box.min(), box.max()), true, rgb));
+        shapes.add(Shape.box(kind, "1", marker(selection.firstCorner()), true, rgb));
     }
 
     private static void draw(RenderLevelStageEvent event, List<Shape> shapes) {

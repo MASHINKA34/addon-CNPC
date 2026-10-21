@@ -1,6 +1,7 @@
 package com.goodbird.cnpcgeckoaddon.client;
 
 import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
+import com.goodbird.cnpcgeckoaddon.client.renderer.BossZonePreview;
 import com.goodbird.cnpcgeckoaddon.utils.CrashGuard;
 import com.goodbird.cnpcgeckoaddon.utils.EventGuard;
 import net.minecraft.client.Minecraft;
@@ -23,6 +24,10 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Locale;
 
 /**
  * "Select in the world": the npc's editor steps aside, the builder clicks the blocks, and the
@@ -45,6 +50,8 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
  */
 @EventBusSubscriber(modid = CNPCGeckoAddon.MODID, value = Dist.CLIENT)
 public final class ZoneSelectionClient {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     public static final String CANCELLED = "cnpcgeckoaddon.zone.cancelled";
     /** What the button of an editor with a box to pick reads, and of one with a spot to pick. */
@@ -72,6 +79,8 @@ public final class ZoneSelectionClient {
     private static final class Session {
         private final ZoneSelection selection;
         private final int kind;
+        /** What the outline is drawn in, taken as the pick starts rather than read on every frame. */
+        private final int colour;
         private final Screen screen;
         /** The editor whose button started the pick, on top of {@link #screen}'s stack. */
         private final Screen editor;
@@ -82,9 +91,11 @@ public final class ZoneSelectionClient {
         /** Whether the left button is still down from the click last counted. */
         private boolean attackHeld;
 
-        private Session(ZoneSelection selection, int kind, Screen screen, BoxPicked onBox, PointPicked onPoint) {
+        private Session(ZoneSelection selection, int kind, int colour, Screen screen, BoxPicked onBox,
+                        PointPicked onPoint) {
             this.selection = selection;
             this.kind = kind;
+            this.colour = colour;
             this.screen = screen;
             this.editor = topOf(screen);
             this.onBox = onBox;
@@ -142,7 +153,10 @@ public final class ZoneSelectionClient {
         }
         // Hidden on the next tick rather than here: this runs inside the click on the editor's
         // own button, with the editor still walking its widgets.
-        session = new Session(selection, kind, minecraft.screen, onBox, onPoint);
+        int colour = BossZonePreview.colorOfEdited(minecraft.screen, kind);
+        session = new Session(selection, kind, colour, minecraft.screen, onBox, onPoint);
+        LOGGER.debug("zone pick started: {} of kind {}, outlined in #{}", selection.isPoint() ? "a spot" : "a box",
+                kind, String.format(Locale.ROOT, "%06X", colour));
     }
 
     /** Whether the builder is picking blocks right now, with the editor out of the way. */
@@ -167,6 +181,15 @@ public final class ZoneSelectionClient {
     public static int kind() {
         Session current = session;
         return current == null ? 0 : current.kind;
+    }
+
+    /**
+     * The colour the pick under way is outlined in: an ability's in the colour its profile has in the
+     * phase the editor belongs to, taken as the pick started, and any other kind's own.
+     */
+    public static int colour() {
+        Session current = session;
+        return current == null ? BossZonePreview.colorOf(0) : current.colour;
     }
 
     /** The block under the crosshair as far as a pick reaches, or null when it is on none. */

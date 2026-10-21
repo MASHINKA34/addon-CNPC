@@ -63,11 +63,24 @@ final class BossZoneShapes {
     }
 
     /**
-     * The shapes of the boss the given stack of screens edits, or none when it edits no boss.
-     *
-     * @param root  the screen on top of the npc's page, or the one held while its editor stepped aside
+     * What a stack of screens says about the boss it edits: whose settings, the npc they belong to,
+     * the phase a phase's menu narrows it to (-1 for none) and the zone an editor edits.
      */
-    static List<Shape> collect(Screen root, ClientLevel level) {
+    record Edited(TeleportPathData data, EntityNPCInterface npc, int phase, Object focus) {
+
+        /** The phase the screens edit, or null when they edit no boss or no one phase of it. */
+        BossPhaseData phaseData() {
+            return data != null && phase >= 0 && phase < data.getPhaseCount() ? data.getPhase(phase) : null;
+        }
+    }
+
+    /**
+     * Walks the stack of screens from {@code root} up and gathers what its screens know; the deepest
+     * answer wins, so an editor opened over a phase's menu narrows what the boss menu under it said.
+     *
+     * @param root the screen on top of the npc's page, or the one held while its editor stepped aside
+     */
+    static Edited edited(Screen root) {
         TeleportPathData data = null;
         EntityNPCInterface npc = null;
         int phase = -1;
@@ -88,6 +101,20 @@ final class BossZoneShapes {
             }
             screen = screen instanceof GuiBasic basic ? basic.getSubGui() : null;
         }
+        return new Edited(data, npc, phase, focus);
+    }
+
+    /**
+     * The shapes of the boss the given stack of screens edits, or none when it edits no boss.
+     *
+     * @param root  the screen on top of the npc's page, or the one held while its editor stepped aside
+     */
+    static List<Shape> collect(Screen root, ClientLevel level) {
+        Edited edited = edited(root);
+        TeleportPathData data = edited.data();
+        EntityNPCInterface npc = edited.npc();
+        int phase = edited.phase();
+        Object focus = edited.focus();
         if (data == null || npc == null) {
             return List.of();
         }
