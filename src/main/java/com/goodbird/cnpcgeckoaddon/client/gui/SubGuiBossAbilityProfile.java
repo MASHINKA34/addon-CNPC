@@ -8,6 +8,7 @@ import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
+import com.goodbird.cnpcgeckoaddon.data.BossSettingValue;
 import com.goodbird.cnpcgeckoaddon.data.TelegraphLineStyles;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -527,7 +528,10 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
         applyNumberField(JITTER_FIELD, profile::setCooldownJitterTicks);
         GuiTextFieldNop firstDelay = getTextField(FIRST_DELAY_FIELD);
         if (firstDelay != null) {
-            profile.setFirstCastDelayTicks(signed(firstDelay));
+            // Nothing usable typed is the field's own "not set" - after a full cooldown - and never
+            // nought, which would be a cast the moment the phase starts.
+            profile.setFirstCastDelayTicks(signedOr(FIRST_DELAY_FIELD, firstDelay,
+                    BossAbilityProfile.FIRST_CAST_AFTER_COOLDOWN));
             // Shown back as kept: anything under -1 is -1, anything past the ceiling is the ceiling.
             firstDelay.setValue(Integer.toString(profile.getFirstCastDelayTicks()));
         }
@@ -583,17 +587,32 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     }
 
     /**
-     * A field that may hold -1: an empty one is the boss' own as well, and whatever the profile kept
-     * of the typed number - a width under the narrowest is the boss', a lead past the ceiling is the
-     * ceiling - is shown back.
+     * A field that may hold -1: an empty one, a lone minus or anything that is not a number is the
+     * boss' own as well, and whatever the profile kept of the typed number - a width under the
+     * narrowest is the boss', a lead past the ceiling is the ceiling - is shown back.
      */
     private void applySigned(int id, IntConsumer setter, IntSupplier kept) {
         GuiTextFieldNop field = getTextField(id);
         if (field == null) {
             return;
         }
-        setter.accept(field.getValue().trim().isEmpty() ? BossAbilityProfile.AS_BOSS : signed(field));
+        setter.accept(signedOr(id, field, BossAbilityProfile.AS_BOSS));
         field.setValue(Integer.toString(kept.getAsInt()));
+    }
+
+    /**
+     * The number in a field whose "not set" is {@code unset}, or {@code unset} when it holds none.
+     * Not {@code signed()}: a coordinate rightly reads a half-typed number as nought, but nought here
+     * is a setting of its own rather than none.
+     */
+    private int signedOr(int id, GuiTextFieldNop field, int unset) {
+        String typed = field.getValue();
+        int value = BossSettingValue.parseOr(typed, unset);
+        if (value == unset && !typed.trim().equals(Integer.toString(unset))) {
+            LOGGER.debug("{}: field {} of ability kind {} holds no number ('{}'), read as {}",
+                    getClass().getSimpleName(), id, kind, typed, unset);
+        }
+        return value;
     }
 
     /**
