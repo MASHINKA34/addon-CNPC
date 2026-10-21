@@ -1292,6 +1292,8 @@
   "cnpcgeckoaddon.boss.profile.name": "Name (empty = standard)",
   "cnpcgeckoaddon.boss.profile.cast_animation": "Cast animation",
   "cnpcgeckoaddon.boss.profile.end_animation": "End animation",
+  "cnpcgeckoaddon.boss.profile.end_animation_instant": "No lasting effect: the end animation never plays",
+  "cnpcgeckoaddon.boss.profile.end_animation_leap": "Plays on landing, in place of the landing animation",
   "cnpcgeckoaddon.boss.profile_hint": "Defaults are exactly the old behaviour.",
   "cnpcgeckoaddon.boss.invulnerable_settings": "Immune phase...",
   "cnpcgeckoaddon.boss.invulnerable_phase": "Immunity - phase",

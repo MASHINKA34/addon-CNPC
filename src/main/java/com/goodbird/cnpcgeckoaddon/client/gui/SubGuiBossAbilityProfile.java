@@ -118,6 +118,8 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
     /** Each group's heading takes the next label id from here, in the order the groups are laid down. */
     private static final int FIRST_HEADING_LABEL = 40;
     private static final int HINT_LABEL = 60;
+    /** The line under the end animation, where there is one; it wraps from here. */
+    private static final int END_ANIMATION_HINT_LABEL = 70;
     /** Where the second lines of wrapped row labels are counted from. */
     private static final int WRAPPED_LABEL = 100;
 
@@ -340,7 +342,28 @@ public final class SubGuiBossAbilityProfile extends SubGuiFieldScreen {
                 profile.getCastAnimation(), "cnpcgeckoaddon.string_picker.cast_animation", profile::setCastAnimation);
         y = animation(place, END_ANIMATION_FIELD, "cnpcgeckoaddon.boss.profile.end_animation", y,
                 profile.getEndAnimation(), "cnpcgeckoaddon.string_picker.end_animation", profile::setEndAnimation);
+        // Where the end animation never plays, or plays in place of another, the row says so in grey;
+        // the panel grows by that line only where there is one.
+        String endHint = endAnimationHint(kind);
+        if (endHint != null) {
+            if (place) {
+                addWrappedHint(END_ANIMATION_HINT_LABEL, endHint, guiTop + y);
+            }
+            y += wrappedHintHeight(endHint);
+        }
         return y + GROUP_GAP;
+    }
+
+    /**
+     * What the line under the end animation says for this kind: that it never plays for an ability
+     * with nothing running after its hit, that the leap's plays as it lands in place of the landing
+     * animation, or null for the rest, whose end animation plays as their effect runs out.
+     */
+    static String endAnimationHint(int kind) {
+        if (kind >= 0 && kind < BossAbilityKind.COUNT && (BossAbilityKind.INSTANT_ALL & 1L << kind) != 0) {
+            return "cnpcgeckoaddon.boss.profile.end_animation_instant";
+        }
+        return kind == BossAbilityKind.LEAP ? "cnpcgeckoaddon.boss.profile.end_animation_leap" : null;
     }
 
     /** Where the profile's style sits among the choices: nought for the boss', its table's place plus one otherwise. */

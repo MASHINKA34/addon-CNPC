@@ -2547,7 +2547,9 @@ public final class TeleportPathController {
      * after it aside: what the hold's own watch is measured against, and what the status line
      * tells apart from it. The instant ones - a slam, a shot, a swing, a corridor, a rolled
      * stone, the take-cover strike, a summon - leave nothing behind that the boss is still
-     * doing, so they are never running.
+     * doing, so they are never running: they are {@link BossAbilityKind#INSTANT_ABILITIES}, and a
+     * new ability goes either there or into a case below, which is what the profile editor's
+     * line under the end animation reads.
      */
     private boolean isEffectRunning(BossAbility ability, long gameTime) {
         return switch (ability) {

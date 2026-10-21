@@ -1292,6 +1292,8 @@
   "cnpcgeckoaddon.boss.profile.name": "Имя (пусто — стандартное)",
   "cnpcgeckoaddon.boss.profile.cast_animation": "Анимация каста",
   "cnpcgeckoaddon.boss.profile.end_animation": "Анимация конца",
+  "cnpcgeckoaddon.boss.profile.end_animation_instant": "Нет длящегося эффекта: анимация конца не сыграет",
+  "cnpcgeckoaddon.boss.profile.end_animation_leap": "Играет при приземлении вместо анимации посадки",
   "cnpcgeckoaddon.boss.profile_hint": "По умолчанию — ровно прежнее поведение.",
   "cnpcgeckoaddon.boss.invulnerable_settings": "Неуязвимость...",
   "cnpcgeckoaddon.boss.invulnerable_phase": "Неуязвимость - фаза",

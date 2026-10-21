@@ -219,6 +219,22 @@ public final class BossAbilityKind {
     /** Every bit {@link #FINISH_ABILITIES} owns; any other bit in a finish mask is never read. */
     public static final long FINISH_ALL = maskOf(FINISH_ABILITIES);
 
+    /**
+     * The cast abilities that leave nothing running once they have gone off - a slam, a swing, a
+     * spit, a summon, a corridor, a rolled stone, the take-cover strike - so a profile's end
+     * animation, which waits for the effect to run out, never plays for them.
+     *
+     * <p>The other side of {@code TeleportPathController.isEffectRunning}, whose cases are every
+     * other ability the rotation casts: a new ability takes one side or the other, and
+     * {@code BossEffectKindsTest} holds the two to that.</p>
+     */
+    public static final int[] INSTANT_ABILITIES = {
+            AREA, MELEE, FLUID, SUMMON, LINE, BOULDER, COVER
+    };
+
+    /** Every bit {@link #INSTANT_ABILITIES} owns. */
+    public static final long INSTANT_ALL = maskOf(INSTANT_ABILITIES);
+
     private static long maskOf(int[] abilities) {
         long mask = 0L;
         for (int ability : abilities) {
