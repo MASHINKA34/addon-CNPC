@@ -344,11 +344,23 @@ final class BossTargetingRuntime {
      */
     List<LivingEntity> getTargetsAround(ServerLevel level, Vec3 centre, double radius,
                                                 int ability) {
+        return victimsAround(level, centre, radius, ability, profileKindFilter(ability));
+    }
+
+    /**
+     * Whom this ability's profile lets it land on along the paths that never asked the boss' kinds:
+     * the hits round a point, the line strike's corridor and the dash's lane.
+     *
+     * <p>Only a profile that names kinds of its own narrows anything; one left to the boss lets
+     * everyone through, so those paths hit exactly what they hit before profiles. Read once per
+     * search rather than once per candidate.</p>
+     */
+    Predicate<LivingEntity> profileKindFilter(int ability) {
         int kind = boss.profileOf(ability).getTargetKind();
         if (kind == BossAbilityProfile.TARGET_KIND_AS_BOSS) {
-            return victimsAround(level, centre, radius, ability, target -> true);
+            return target -> true;
         }
-        return victimsAround(level, centre, radius, ability, target -> matchesTargetKind(target, kind));
+        return target -> fitsProfileKind(target, kind);
     }
 
     List<LivingEntity> geyserVictims(ServerLevel level, Vec3 centre, double radius) {

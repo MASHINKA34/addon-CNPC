@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -14,12 +15,15 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULED;
 
@@ -40,6 +44,8 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULE
  * Nothing here is saved: a server that goes down mid run leaves the boss where it stopped.</p>
  */
 final class BossDashRuntime {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** The turn left over from the eased wind-up, finished on the tick the run starts. */
     private static final float SNAP_DEGREES = 360.0F;
@@ -164,8 +170,11 @@ final class BossDashRuntime {
         double side = planned.halfWidth() + bossHalf + phase.dash().getSweepSlack();
         AABB box = new AABB(start, start.add(committed.scale(allowed))).inflate(side, 0.0D, side)
                 .expandTowards(0.0D, phase.dash().getHeight(), 0.0D);
+        // Counted by the rule the run hits by, or a lane holding only somebody it passes over would start it.
+        Predicate<LivingEntity> ofKind = boss.profileKindFilter(BossAbilityKind.DASH);
         return !level.getEntitiesOfClass(LivingEntity.class, box, target -> target != npc && target.isAlive()
                 && boss.isAbilityTarget(target, BossAbilityKind.DASH)
+                && ofKind.test(target)
                 && planned.covers(0.0D, allowed, bossHalf + target.getBbWidth() * 0.5D, start.y, top,
                 target.getX(), target.getZ(), target.getY(), target.getY() + target.getBbHeight())).isEmpty();
     }
@@ -320,14 +329,19 @@ final class BossDashRuntime {
                 .inflate(lane.halfWidth() + phase.dash().getSweepSlack(), 0.0D,
                         lane.halfWidth() + phase.dash().getSweepSlack())
                 .expandTowards(0.0D, phase.dash().getHeight(), 0.0D);
+        // The profile's own kinds of target, as the landing round a point already goes by.
+        Predicate<LivingEntity> ofKind = boss.profileKindFilter(BossAbilityKind.DASH);
         List<LivingEntity> met = level.getEntitiesOfClass(LivingEntity.class, sweep, target -> target != npc
                 && target.isAlive() && !struck.contains(target.getUUID())
                 && boss.isAbilityTarget(target, BossAbilityKind.DASH)
+                && ofKind.test(target)
                 && lane.covers(fromAlong, toAlong, bossHalf + target.getBbWidth() * 0.5D, bottom, top,
                 target.getX(), target.getZ(), target.getY(), target.getY() + target.getBbHeight()));
         if (met.isEmpty()) {
             return false;
         }
+        LOGGER.debug("Boss {} runs into {} target(s) on its dash lane (profile target kind {})",
+                npc.getName().getString(), met.size(), boss.profileOf(BossAbilityKind.DASH).getTargetKind());
         met.sort(Comparator.comparingDouble(target -> lane.along(target.getX(), target.getZ())));
         double first = lane.along(met.getFirst().getX(), met.getFirst().getZ());
         boolean stops = phase.dash().isStopOnHit();

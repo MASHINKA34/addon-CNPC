@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -11,8 +12,11 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.entity.EntityNPCInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 
 /**
@@ -25,6 +29,8 @@ import java.util.List;
  * whole wind-up running sideways.</p>
  */
 final class BossLineAttackRuntime {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     /** How long a strike that found an empty corridor waits before looking again. */
     /** The turn left over from the eased wind-up, finished on the tick the strike lands. */
@@ -114,7 +120,10 @@ final class BossLineAttackRuntime {
         int damage = boss.damageUp(BossAbilityKind.LINE, phase.lineAttack().getDamage());
         int sideDamage = sideWaveDamage(damage, phase.lineAttack().getSidePercent());
         int knockback = boss.rageUp(BossAbilityKind.LINE, phase.lineAttack().getKnockback());
-        for (LivingEntity target : targetsIn(level, origin, axis, phase)) {
+        List<LivingEntity> targets = targetsIn(level, origin, axis, phase);
+        LOGGER.debug("Boss {} lands a line strike on {} target(s) in its corridor (profile target kind {})",
+                npc.getName().getString(), targets.size(), boss.profileOf(BossAbilityKind.LINE).getTargetKind());
+        for (LivingEntity target : targets) {
             boolean side = bandOf(origin, axis, phase, target) == Band.SIDE;
             // Pushed down the line rather than away from the boss: this is a strike forward
             // and not a blast, so everyone it catches is thrown the same way. Vanilla shoves
@@ -142,15 +151,17 @@ final class BossLineAttackRuntime {
      * is - it is what keeps the boss from sweeping the world every time it swings - and the
      * shape itself is decided per candidate. Who may be hit at all is left to the
      * controller's own area rule, so a corridor and an area slam can never end up with
-     * different ideas of who counts as an enemy.</p>
+     * different ideas of who counts as an enemy - the profile's own kinds of target included.</p>
      */
     private List<LivingEntity> targetsIn(ServerLevel level, Vec3 origin, Vec3 axis,
                                          BossPhaseData phase) {
         double reach = phase.lineAttack().getWidth() * 0.5D + phase.lineAttack().getSideWidth() + 1.0D;
         AABB box = new AABB(origin, origin.add(axis.scale(phase.lineAttack().getLength())))
                 .inflate(reach, phase.lineAttack().getHeight() + 1.0D, reach);
+        Predicate<LivingEntity> ofKind = boss.profileKindFilter(BossAbilityKind.LINE);
         return level.getEntitiesOfClass(LivingEntity.class, box, target -> target != npc
                 && target.isAlive() && boss.isAbilityTarget(target, BossAbilityKind.LINE)
+                && ofKind.test(target)
                 && bandOf(origin, axis, phase, target) != Band.MISS);
     }
 

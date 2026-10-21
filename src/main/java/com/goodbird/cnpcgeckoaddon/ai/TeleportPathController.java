@@ -3280,6 +3280,11 @@ public final class TeleportPathController {
         return targeting.matchesAbilityTargetKind(candidate, data, ability);
     }
 
+    /** Whom {@code ability}'s profile lets it land on where the boss' kinds were never asked; see BossTargetingRuntime. */
+    Predicate<LivingEntity> profileKindFilter(int ability) {
+        return targeting.profileKindFilter(ability);
+    }
+
     List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange, Predicate<LivingEntity> canHit,
                                          int ability) {
         return targeting.abilityCandidates(level, searchRange, canHit, ability);
