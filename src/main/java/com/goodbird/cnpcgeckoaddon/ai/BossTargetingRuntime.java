@@ -1,5 +1,6 @@
 package com.goodbird.cnpcgeckoaddon.ai;
 
+import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityProfile;
 import com.goodbird.cnpcgeckoaddon.data.BossTargetMode;
@@ -14,6 +15,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import noppes.npcs.entity.EntityNPCInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +33,8 @@ import static com.goodbird.cnpcgeckoaddon.ai.TeleportPathController.NOT_SCHEDULE
  * halves stand aside for it.</p>
  */
 final class BossTargetingRuntime {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
     private final TeleportPathController boss;
     private final EntityNPCInterface npc;
@@ -475,6 +480,21 @@ final class BossTargetingRuntime {
         };
     }
 
+    static boolean fitsProfileKind(LivingEntity candidate, int profileKind) {
+        return fitsProfileKind(candidate instanceof Player, candidate instanceof EntityNPCInterface, profileKind);
+    }
+
+    /**
+     * Whether a candidate of this sort suits an ability whose profile names {@code profileKind}
+     * on a path that never asked the boss' kinds - the boss' own target above all.
+     *
+     * <p>A profile left to the boss takes anybody, which is how those paths always took them, so
+     * an untouched boss keeps its old targets; only kinds of the profile's own turn somebody away.</p>
+     */
+    static boolean fitsProfileKind(boolean player, boolean npc, int profileKind) {
+        return profileKind == BossAbilityProfile.TARGET_KIND_AS_BOSS || matchesTargetKind(player, npc, profileKind);
+    }
+
     List<LivingEntity> abilityCandidates(ServerLevel level, double searchRange,
                                                  Predicate<LivingEntity> canHit, int ability) {
         int kind = abilityTargetKind(ability, boss.settings());
@@ -499,23 +519,41 @@ final class BossTargetingRuntime {
         return isAreaTarget(target) && !BossAbilityDamageUtil.isImmune(target, ability);
     }
 
+    /**
+     * One target for this ability, picked by {@code mode} among the kinds it may land on.
+     *
+     * <p>The boss' own target - the whole answer under the main mode, and the stand-in when nobody
+     * else is in range - only counts when it suits the ability's profile: a profile left to the boss
+     * takes it exactly as before profiles, one that names kinds of its own lets the npc the boss is
+     * fighting go. The main mode then turns to the nearest of the profile's kinds in the ability's
+     * own search range, and with nobody of them about answers null, which every caller already
+     * waits out.</p>
+     */
     LivingEntity selectAbilityTarget(ServerLevel level, int mode, double searchRange,
                                              Predicate<LivingEntity> canHit, int ability) {
         LivingEntity main = npc.getTarget();
-        LivingEntity fallback = main != null && !BossMechanicUtil.hiddenByTotems(main)
+        int profileKind = boss.profileOf(ability).getTargetKind();
+        boolean mainFits = main == null || fitsProfileKind(main, profileKind);
+        LivingEntity fallback = main != null && mainFits && !BossMechanicUtil.hiddenByTotems(main)
                 && canHit.test(main) ? main : null;
-        if (mode == BossTargetMode.MAIN) {
+        if (mode == BossTargetMode.MAIN && mainFits) {
             return fallback;
         }
 
         List<LivingEntity> candidates = abilityCandidates(level, searchRange, canHit, ability);
         if (candidates.isEmpty()) {
+            if (!mainFits && LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Boss {} {}: main target {} is not of target kind {} - no target of that kind within {} blocks",
+                        npc.getName().getString(), BossAbility.ofKind(ability), main.getName().getString(),
+                        profileKind, searchRange);
+            }
             return fallback;
         }
         if (mode == BossTargetMode.RANDOM) {
             return candidates.get(npc.getRandom().nextInt(candidates.size()));
         }
 
+        // The main mode only gets here with the boss' target turned away, and takes the nearest.
         boolean farthest = mode == BossTargetMode.FARTHEST;
         LivingEntity best = null;
         double bestDistance = farthest ? -1.0D : Double.MAX_VALUE;
@@ -525,6 +563,11 @@ final class BossTargetingRuntime {
                 best = candidate;
                 bestDistance = distance;
             }
+        }
+        if (mode == BossTargetMode.MAIN && best != null && LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Boss {} {}: main target {} is not of target kind {} - taking {} instead",
+                    npc.getName().getString(), BossAbility.ofKind(ability), main.getName().getString(),
+                    profileKind, best.getName().getString());
         }
         return best;
     }

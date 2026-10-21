@@ -69,6 +69,39 @@ class BossAbilityTargetKindTest {
     }
 
     @Test
+    @DisplayName("the boss' own target suits an ability only by the profile's own kinds, any under one left to the boss")
+    void theMainTargetFitsByTheProfileAlone() {
+        // {profile kind, player, npc, anything else alive}
+        int[][] table = {
+                {BossAbilityProfile.TARGET_KIND_AS_BOSS, 1, 1, 1},
+                {TeleportPathData.ABILITY_TARGET_PLAYERS, 1, 0, 0},
+                {TeleportPathData.ABILITY_TARGET_PLAYERS_AND_NPCS, 1, 1, 0},
+                {TeleportPathData.ABILITY_TARGET_ALL, 1, 1, 1}
+        };
+        for (int[] row : table) {
+            int kind = row[0];
+            assertEquals(row[1] == 1, BossTargetingRuntime.fitsProfileKind(true, false, kind), "a player, profile " + kind);
+            assertEquals(row[2] == 1, BossTargetingRuntime.fitsProfileKind(false, true, kind), "an npc, profile " + kind);
+            assertEquals(row[3] == 1, BossTargetingRuntime.fitsProfileKind(false, false, kind), "a mob, profile " + kind);
+        }
+    }
+
+    @Test
+    @DisplayName("an untouched profile turns no target of the boss away, whatever the boss aims at")
+    void anUntouchedProfileKeepsEveryMainTarget() {
+        BossPhaseData phase = new BossPhaseData();
+        for (int ability = 0; ability < BossAbilityKind.COUNT; ability++) {
+            int profileKind = phase.profile(ability).getTargetKind();
+            for (boolean player : new boolean[]{false, true}) {
+                for (boolean npc : new boolean[]{false, true}) {
+                    assertTrue(BossTargetingRuntime.fitsProfileKind(player, npc, profileKind),
+                            "ability " + ability + (player ? ", a player" : npc ? ", an npc" : ", a mob"));
+                }
+            }
+        }
+    }
+
+    @Test
     @DisplayName("players only keeps an npc out of an ability the boss would aim at everyone")
     void aProfileNarrowsOrWidensTheBoss() {
         int narrowed = BossTargetingRuntime.effectiveTargetKind(TeleportPathData.ABILITY_TARGET_PLAYERS,
