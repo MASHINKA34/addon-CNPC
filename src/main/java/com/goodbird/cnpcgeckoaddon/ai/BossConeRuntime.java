@@ -62,6 +62,8 @@ final class BossConeRuntime {
     private int phaseIndex = -1;
     /** Game time a cast ended on its wind-up's own tick, until its cooldown has been stamped from it. */
     private long endedAt = NOT_SCHEDULED;
+    /** The cooldown the cast under way drew, once it has needed one; a stagger's stamp reuses it. */
+    private final BossCastCooldown cooldown = new BossCastCooldown();
 
     BossConeRuntime(TeleportPathController boss, EntityNPCInterface npc, BossMinionSpawnRuntime minionSpawns) {
         this.boss = boss;
@@ -111,10 +113,25 @@ final class BossConeRuntime {
         boss.commitAxis(axis);
         boss.beginAction(BossAbility.CONE, cone.getAnimation(), cone.getActionDelayTicks(), gameTime, target,
                 data, phase);
-        // Only the cooldown is scaled: the wind-up is measured against the animation.
-        boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtStart(cone.getCooldownFrom(), gameTime,
-                cone.getActionDelayTicks(), boss.rolledCooldownTicks(BossAbility.CONE, phase)));
+        // Only the cooldown is scaled: the wind-up is measured against the animation. Drawn only when
+        // this stamp uses it: counted from the last cone, the stamp here is only the guard against a
+        // second start, and the cast draws its cooldown at that cone instead.
+        cooldown.reset();
+        int cooldownFrom = cone.getCooldownFrom();
+        boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtStart(cooldownFrom, gameTime,
+                cone.getActionDelayTicks(), countsFromStart(cooldownFrom) ? castCooldown(phase) : 0));
         return true;
+    }
+
+    /** Whether a cone's cooldown counts from the start of the cast, which is when it is drawn, rather than from its last cone. */
+    static boolean countsFromStart(int cooldownFrom) {
+        return cooldownFrom != BossPhaseData.CONE_COOLDOWN_FROM_END;
+    }
+
+    /** The cast's cooldown: drawn once for the whole cast when the profile spreads it; see BossCastCooldown. */
+    private int castCooldown(BossPhaseData phase) {
+        return cooldown.ticks(BossCastCooldown.spreads(phase, BossAbilityKind.CONE),
+                () -> boss.rolledCooldownTicks(BossAbility.CONE, phase));
     }
 
     /**
@@ -317,6 +334,7 @@ final class BossConeRuntime {
             endedAt = NOT_SCHEDULED;
             if (series == null) {
                 phaseIndex = -1;
+                cooldown.reset();
             }
         }
         if (series == null) {
@@ -353,8 +371,10 @@ final class BossConeRuntime {
     }
 
     private void stampCooldownFromEnd(BossPhaseData phase, long endedAt) {
-        boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtEnd(phase.cone().getCooldownFrom(), endedAt,
-                boss.rolledCooldownTicks(BossAbility.CONE, phase), boss.abilityScheduleAt(BossAbility.CONE)));
+        // Counted from the start, the stamp the cast began with stands, and nothing is drawn for it here.
+        int cooldownFrom = phase.cone().getCooldownFrom();
+        boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAtEnd(cooldownFrom, endedAt,
+                countsFromStart(cooldownFrom) ? 0 : castCooldown(phase), boss.abilityScheduleAt(BossAbility.CONE)));
     }
 
     /**
@@ -366,8 +386,13 @@ final class BossConeRuntime {
     void interrupt(TeleportPathData data, long gameTime) {
         BossPhaseData phase = phaseOf(data);
         if (phase != null) {
-            boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAfterInterrupt(gameTime,
-                    boss.rolledCooldownTicks(BossAbility.CONE, phase), boss.abilityScheduleAt(BossAbility.CONE)));
+            // The cast's own draw when it has made one - counted from the start it has - else one now.
+            boolean drawn = cooldown.isRolled();
+            int ticks = castCooldown(phase);
+            boss.setAbilityScheduleAt(BossAbility.CONE, scheduleAfterInterrupt(gameTime, ticks,
+                    boss.abilityScheduleAt(BossAbility.CONE)));
+            LOGGER.debug("Cone strike of NPC {} cut short: next one {} ticks from here at the earliest{}",
+                    npc.getName().getString(), ticks, drawn ? ", by the draw the cast started with" : "");
         }
         clear();
     }
@@ -538,6 +563,7 @@ final class BossConeRuntime {
         series = null;
         phaseIndex = -1;
         endedAt = NOT_SCHEDULED;
+        cooldown.reset();
     }
 
     /** The phase a series belongs to, so a phase that disappears mid series cannot rewrite its hits. */

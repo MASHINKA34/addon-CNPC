@@ -47,6 +47,8 @@ final class BossRangedAttackRuntime {
      * the moment the cast is performed, and the shots still owed have to find them again.
      */
     private int targetId = -1;
+    /** The cooldown the cast drew as it started, which the end of its burst stamps again rather than drawing anew. */
+    private final BossCastCooldown cooldown = new BossCastCooldown();
 
     BossRangedAttackRuntime(TeleportPathController boss, EntityNPCInterface npc) {
         this.boss = boss;
@@ -66,9 +68,17 @@ final class BossRangedAttackRuntime {
         }
         boss.beginAction(BossAbility.RANGED_ATTACK, phase.rangedAttack().getAnimation(),
                 phase.rangedAttack().getActionDelayTicks(), gameTime, target, data, phase);
-        boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK, boss.cooldownAt(BossAbility.RANGED_ATTACK, phase, gameTime,
-                phase.rangedAttack().getActionDelayTicks()));
+        // The cast's one draw: a burst stamps its cooldown again from its last shot, with this same one.
+        cooldown.reset();
+        boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK,
+                gameTime + phase.rangedAttack().getActionDelayTicks() + castCooldown(phase));
         return true;
+    }
+
+    /** The cast's cooldown: drawn once for the whole cast when the profile spreads it; see BossCastCooldown. */
+    private int castCooldown(BossPhaseData phase) {
+        return cooldown.ticks(BossCastCooldown.spreads(phase, BossAbilityKind.RANGED),
+                () -> boss.rolledCooldownTicks(BossAbility.RANGED_ATTACK, phase));
     }
 
     /** Whether a burst is still running, which the busy gate and the finish gate wait for. */
@@ -134,13 +144,18 @@ final class BossRangedAttackRuntime {
      * and the usual pause after a cast.
      */
     private void finish(BossPhaseData phase, long gameTime) {
+        // Taken before clear() lets go of the cast: a spread cooldown is the draw the cast started with.
+        boolean drawn = cooldown.isRolled();
+        int ticks = phase == null ? 0 : castCooldown(phase);
         clear();
         if (phase != null) {
             // Never shorter than what the start already stamped: the wind-up's own stamp is what
             // keeps a cast from being started twice while its burst is still going.
             boss.setAbilityScheduleAt(BossAbility.RANGED_ATTACK,
-                    Math.max(boss.abilityScheduleAt(BossAbility.RANGED_ATTACK),
-                            boss.cooldownAt(BossAbility.RANGED_ATTACK, phase, gameTime, 0)));
+                    Math.max(boss.abilityScheduleAt(BossAbility.RANGED_ATTACK), gameTime + ticks));
+            LOGGER.debug("Boss {} ends a burst of {}: next one {} ticks from its last shot at the earliest{}",
+                    npc.getName().getString(), BossAbility.RANGED_ATTACK, ticks,
+                    drawn ? ", by the draw the cast started with" : "");
         }
         boss.holdBusyUntil(gameTime + boss.postActionLockTicks());
     }
@@ -160,6 +175,7 @@ final class BossRangedAttackRuntime {
         burst.clear();
         phaseIndex = -1;
         targetId = -1;
+        cooldown.reset();
     }
 
     /** The phase a burst belongs to, so a phase that disappears mid burst cannot rewrite its hits. */
