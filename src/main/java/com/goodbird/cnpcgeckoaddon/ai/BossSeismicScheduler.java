@@ -388,7 +388,7 @@ public final class BossSeismicScheduler {
                     look.knockback, centre.x - victim.getX(), centre.z - victim.getZ());
             look.hitSound.play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
             look.hitParticles.emitDust(level, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
-                    victim.getZ(), 0.3D, 0.4D, 0.3D, 0.05D, BossAbilityKind.SEISMIC);
+                    victim.getZ(), 0.3D, 0.4D, 0.3D, 0.05D, look.telegraph.dust(BossAbilityKind.SEISMIC));
             if (look.hitMode >= BossSeismicSettings.HIT_LAUNCH) {
                 // The geyser's throw, so a ring and a column go up the same way for the same number.
                 BossGeyserScheduler.launch(victim, look.launch);
@@ -474,7 +474,7 @@ public final class BossSeismicScheduler {
             victim.invulnerableTime = 0;
         }
         landing.look.slamParticles.emitDust(level, victim.getX(), victim.getY() + 0.2D, victim.getZ(),
-                0.5D, 0.1D, 0.5D, 0.0D, BossAbilityKind.SEISMIC);
+                0.5D, 0.1D, 0.5D, 0.0D, landing.look.telegraph.dust(BossAbilityKind.SEISMIC));
     }
 
     /**
@@ -516,7 +516,8 @@ public final class BossSeismicScheduler {
     private static void dotRing(ServerLevel level, Series series, Vec3 centre, Ring ring) {
         BossParticleCue cue = series.look.pulseParticles;
         int count = Math.min(cue.getCount(), MAX_RING_PARTICLES);
-        ParticleOptions options = count > 0 && cue.isEnabled() ? cue.resolve(BossAbilityKind.SEISMIC) : null;
+        ParticleOptions options = count > 0 && cue.isEnabled()
+                ? cue.resolve(series.look.telegraph.dust(BossAbilityKind.SEISMIC)) : null;
         if (options == null || level.getNearestPlayer(centre.x, centre.y, centre.z,
                 BossTelegraphUtil.audienceRange(series.boss), false) == null) {
             return;

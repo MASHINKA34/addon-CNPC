@@ -10,6 +10,7 @@ import com.goodbird.cnpcgeckoaddon.mixin.IBossController;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -317,6 +318,8 @@ public final class BossPlatformScheduler {
         private final BossWaveTuning wave;
         /** How it flashes, bangs and sounds, taken off the settings on the same tick. */
         private final Look look;
+        /** The ability's dust in the phase the fuse was lit in, for the cues set to it. */
+        private final DustParticleOptions dust;
         private final long litAt;
         private final Burn burn;
 
@@ -335,6 +338,7 @@ public final class BossPlatformScheduler {
             this.vfx = platform.getVfx();
             this.wave = BossWaveTuning.of(boss, this.vfx);
             this.look = look(platform);
+            this.dust = BossTelegraphUtil.dust(boss, BossAbilityKind.PLATFORM);
             this.litAt = litAt;
             this.burn = new Burn(litAt, platform.getFuseTicks(), platform.getLingerTicks(),
                     platform.getLingerIntervalTicks());
@@ -475,7 +479,7 @@ public final class BossPlatformScheduler {
             BlockPos floor = BossFloorUtil.findFloor(level, ground.x, ground.y, ground.z);
             double flashY = (floor == null ? ground.y : floor.getY() + 1.0D) + 1.0D;
             pending.look.blastFlash().emitDust(level, ground.x, flashY, ground.z, 0.0D, 0.0D, 0.0D, 0.0D,
-                    BossAbilityKind.PLATFORM);
+                    pending.dust);
         }
         pending.look.blastSound().play(level, ground.x, ground.y, ground.z, SoundSource.HOSTILE);
 
@@ -576,8 +580,7 @@ public final class BossPlatformScheduler {
             }
             double base = floor.getY() + 1.0D;
             for (double lift : heights) {
-                cue.emitDust(level, corner.x, base + lift, corner.z, 0.0D, 0.0D, 0.0D, 0.0D,
-                        BossAbilityKind.PLATFORM);
+                cue.emitDust(level, corner.x, base + lift, corner.z, 0.0D, 0.0D, 0.0D, 0.0D, pending.dust);
             }
         }
     }
@@ -614,9 +617,9 @@ public final class BossPlatformScheduler {
             }
             double y = floor.getY() + 1.05D;
             if (rise > 0.0D) {
-                cue.emitRising(level, x, y, z, rise, BossAbilityKind.PLATFORM);
+                cue.emitRising(level, x, y, z, rise, pending.dust);
             } else {
-                cue.emitDust(level, x, y, z, 0.0D, 0.0D, 0.0D, 0.0D, BossAbilityKind.PLATFORM);
+                cue.emitDust(level, x, y, z, 0.0D, 0.0D, 0.0D, 0.0D, pending.dust);
             }
         }
     }

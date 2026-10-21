@@ -469,7 +469,7 @@ public final class BossCocoonManager {
     /** The puff of one of the three moments, over the cocoon's own colour. */
     private static void burst(ServerLevel level, LivingEntity victim, BossParticleCue cue, Cocoon cocoon) {
         double y = victim.getY() + victim.getBbHeight() * 0.5D;
-        cue.emitDust(level, victim.getX(), y, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.1D, BossAbilityKind.COCOON);
+        cue.emitDust(level, victim.getX(), y, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.1D, cocoon.dust);
         level.sendParticles(cocoon.dust, victim.getX(), y, victim.getZ(),
                 10, 0.4D, 0.5D, 0.4D, 0.0D);
     }

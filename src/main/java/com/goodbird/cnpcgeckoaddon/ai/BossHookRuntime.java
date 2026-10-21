@@ -2,6 +2,7 @@ package com.goodbird.cnpcgeckoaddon.ai;
 
 import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
+import net.minecraft.core.particles.DustParticleOptions;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.HookCordStyles;
@@ -41,7 +42,7 @@ final class BossHookRuntime {
      */
     private record HookPull(int targetId, long endsAt, double strength, double stopDistance,
                             Vec3 gatherPoint, String cordStyle, double liftMax, double liftPerBlock,
-                            BossParticleCue cordParticles) {
+                            BossParticleCue cordParticles, DustParticleOptions cordDust) {
     }
 
     private final TeleportPathController boss;
@@ -121,12 +122,13 @@ final class BossHookRuntime {
         // Copied on the cast, the way the volley's mark is: a pull runs for seconds, and the
         // phase under it may change while the cord is still drawn.
         BossParticleCue cordParticles = phase.hook().getCordParticles().copy();
+        DustParticleOptions cordDust = BossTelegraphUtil.dust(phase, BossAbilityKind.HOOK);
         boolean textured = HookCordStyles.isTextured(cordStyle);
         for (LivingEntity victim : victims) {
             if (textured) {
                 sendCord(victim.getId(), cordStyle, phase.hook().getPullDurationTicks());
             } else {
-                drawChain(level, victim, cordParticles);
+                drawChain(level, victim, cordParticles, cordDust);
             }
             // No knockback here: what the hook shoves with is the pull below, which runs for
             // as long as the cord holds rather than for one tick.
@@ -136,7 +138,7 @@ final class BossHookRuntime {
             // Re-hooking someone already being dragged just refreshes their pull.
             activePulls.removeIf(pull -> pull.targetId() == victim.getId());
             activePulls.add(new HookPull(victim.getId(), endsAt, strength, stopDistance, gatherPoint,
-                    cordStyle, liftMax, liftPerBlock, cordParticles));
+                    cordStyle, liftMax, liftPerBlock, cordParticles, cordDust));
             applyPull(victim, strength, gatherPoint, liftMax, liftPerBlock);
         }
         playSound(level, cordStyle, phase.hook().getCordSound());
@@ -177,7 +179,7 @@ final class BossHookRuntime {
             applyPull(victim, pull.strength(), pull.gatherPoint(), pull.liftMax(), pull.liftPerBlock());
             // A textured cord is drawn by the client and needs no top-up.
             if ((gameTime & 1L) == 0L && !HookCordStyles.isTextured(pull.cordStyle())) {
-                drawChain(level, victim, pull.cordParticles());
+                drawChain(level, victim, pull.cordParticles(), pull.cordDust());
             }
         }
     }
@@ -268,15 +270,15 @@ final class BossHookRuntime {
         }
     }
 
-    private void drawChain(ServerLevel level, LivingEntity victim, BossParticleCue cordParticles) {
+    private void drawChain(ServerLevel level, LivingEntity victim, BossParticleCue cordParticles,
+                           DustParticleOptions cordDust) {
         Vec3 from = new Vec3(npc.getX(), npc.getEyeY() - 0.2D, npc.getZ());
         Vec3 to = victim.position().add(0.0D, victim.getBbHeight() * 0.5D, 0.0D);
         Vec3 step = to.subtract(from);
         int points = Mth.clamp((int) (step.length() * 2.0D), 1, 64);
         for (int i = 0; i <= points; i++) {
             Vec3 point = from.add(step.scale((double) i / points));
-            cordParticles.emitDust(level, point.x, point.y, point.z, 0.0D, 0.0D, 0.0D, 0.0D,
-                    BossAbilityKind.HOOK);
+            cordParticles.emitDust(level, point.x, point.y, point.z, 0.0D, 0.0D, 0.0D, 0.0D, cordDust);
         }
     }
 }

@@ -124,6 +124,6 @@ final class BossCaptureRuntime {
                 SoundSource.HOSTILE);
         phase.capture().getCaptureParticles().emitDust(level, victim.getX(),
                 victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(),
-                0.25D, 0.5D, 0.25D, 0.02D, BossAbilityKind.CAPTURE);
+                0.25D, 0.5D, 0.25D, 0.02D, BossTelegraphUtil.dust(phase, BossAbilityKind.CAPTURE));
     }
 }

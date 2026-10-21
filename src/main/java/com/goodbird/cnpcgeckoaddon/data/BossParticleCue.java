@@ -173,6 +173,26 @@ public final class BossParticleCue {
     }
 
     /**
+     * The same rising puff, with the dust handed in rather than looked up by ability: a boss' cue
+     * is drawn in the colour its ability's profile has in the phase it was cast in, which only the
+     * caller knows.
+     *
+     * @param dust what {@link #DUST_ID} stands for here, or null for no dust at all
+     */
+    public void emitRising(ServerLevel level, double x, double y, double z, double rise, DustParticleOptions dust) {
+        if (!enabled || level == null || count <= 0) {
+            return;
+        }
+        ParticleOptions options = resolve(dust);
+        if (options == null) {
+            return;
+        }
+        for (int i = 0; i < count; i++) {
+            level.sendParticles(options, x, y, z, 0, 0.0D, 1.0D, 0.0D, rise);
+        }
+    }
+
+    /**
      * The same again, from a caller whose dust is not an ability's colour.
      *
      * <p>The barrier is drawn in the boss bar's accent rather than in any ability's colour, so
@@ -239,6 +259,17 @@ public final class BossParticleCue {
      */
     public ParticleOptions resolve(int ability) {
         return optionsFor(resolvedId(), ability);
+    }
+
+    /**
+     * The same, with the dust handed in: the colour of the ability's profile in the phase it was
+     * cast in, or the kind's own dust when the profile has no colour.
+     *
+     * @param dust what {@link #DUST_ID} stands for here, or null for no dust at all
+     */
+    public ParticleOptions resolve(DustParticleOptions dust) {
+        String id = resolvedId();
+        return isDust(id) ? dust : optionsFor(id, -1);
     }
 
     private static ParticleOptions optionsFor(String id, int ability) {

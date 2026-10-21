@@ -340,7 +340,7 @@ public final class BossVentScheduler {
             BossTelegraphPaint paint = BossTelegraphPaint.of(run.look.telegraph, run.boss,
                     BossTelegraphPaint.CHANNEL_VENT, BossAbilityKind.VENT, activation.warnProgress(gameTime));
             BossTelegraphUtil.box(level, vent.volume(), paint);
-            ParticleOptions dots = particle(run.look.warnParticles);
+            ParticleOptions dots = particle(run.look, run.look.warnParticles);
             if (dots != null) {
                 int count = BossVentGeometry.shareBudget(run.look.particleBudget,
                         run.look.warnParticles.getCount())[0];
@@ -414,7 +414,7 @@ public final class BossVentScheduler {
             BossAreaVfxScheduler.schedule(level, BossVentGeometry.planeCentre(vent.box(), vent.face(), out),
                     look.burstVfx, vent.reach(), look.burstVfxTicks, false, look.wave);
         }
-        ParticleOptions lava = particle(look.burstParticles);
+        ParticleOptions lava = particle(look, look.burstParticles);
         if (lava != null && seen(level, run, vent)) {
             scatter(level, vent, lava,
                     BossVentGeometry.shareBudget(look.particleBudget, look.burstParticles.getCount())[0],
@@ -489,8 +489,8 @@ public final class BossVentScheduler {
         if (!seen(level, run, vent)) {
             return;
         }
-        ParticleOptions fire = particle(look.flameParticles);
-        ParticleOptions smoke = particle(look.smokeParticles);
+        ParticleOptions fire = particle(look, look.flameParticles);
+        ParticleOptions smoke = particle(look, look.smokeParticles);
         int[] counts = BossVentGeometry.shareBudget(look.particleBudget,
                 fire == null ? 0 : look.flameParticles.getCount(), smoke == null ? 0 : look.smokeParticles.getCount());
         if (fire != null) {
@@ -575,7 +575,7 @@ public final class BossVentScheduler {
         }
         // Whoever has left the front since - walked out along it, thrown clear, dead - is let go of.
         pinned.keySet().retainAll(inFront);
-        ParticleOptions front = particle(look.wallParticles);
+        ParticleOptions front = particle(look, look.wallParticles);
         if (front != null && seen(level, run, vent)) {
             scatter(level, vent, front,
                     BossVentGeometry.shareBudget(look.particleBudget, look.wallParticles.getCount())[0],
@@ -724,9 +724,12 @@ public final class BossVentScheduler {
         return BossVentGeometry.planeCentre(vent.box(), vent.face(), FACE_SKIN);
     }
 
-    /** The particle a cue spends, or null when it is off or spends none. */
-    private static ParticleOptions particle(BossParticleCue cue) {
-        return cue.isEnabled() && cue.getCount() > 0 ? cue.resolve(BossAbilityKind.VENT) : null;
+    /**
+     * The particle a cue spends, or null when it is off or spends none; its dust is the ability's
+     * colour in the phase the vents were cast in, which the look took on the cast.
+     */
+    private static ParticleOptions particle(Look look, BossParticleCue cue) {
+        return cue.isEnabled() && cue.getCount() > 0 ? cue.resolve(look.telegraph.dust(BossAbilityKind.VENT)) : null;
     }
 
     /**

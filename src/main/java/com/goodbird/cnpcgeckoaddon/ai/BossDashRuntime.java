@@ -6,6 +6,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
@@ -223,7 +224,8 @@ final class BossDashRuntime {
 
         phase.dash().getStartSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         phase.dash().getStartParticles().emitDust(level, npc.getX(), npc.getY() + 0.1D, npc.getZ(),
-                npc.getBbWidth() * 0.5D, 0.05D, npc.getBbWidth() * 0.5D, 0.02D, BossAbilityKind.DASH);
+                npc.getBbWidth() * 0.5D, 0.05D, npc.getBbWidth() * 0.5D, 0.02D,
+                BossTelegraphUtil.dust(phase, BossAbilityKind.DASH));
     }
 
     /**
@@ -412,7 +414,7 @@ final class BossDashRuntime {
         }
         phase.dash().getSlamSound().play(level, impact.x, impact.y, impact.z, SoundSource.HOSTILE);
         phase.dash().getSlamParticles().emitDust(level, impact.x, impact.y + 0.2D, impact.z,
-                0.0D, 0.0D, 0.0D, 0.0D, BossAbilityKind.DASH);
+                0.0D, 0.0D, 0.0D, 0.0D, BossTelegraphUtil.dust(phase, BossAbilityKind.DASH));
     }
 
     /**
@@ -445,13 +447,22 @@ final class BossDashRuntime {
         return nearest;
     }
 
+    /**
+     * The puff of a run breaking on a chain: the dash's own colour once its profile has one, since
+     * the run is the dash's, and the tether's otherwise - what broke is the chain between the pair -
+     * exactly as before profiles.
+     */
+    static DustParticleOptions chainDust(BossPhaseData phase) {
+        return phase != null && phase.profile(BossAbilityKind.DASH).getTelegraphColor() >= 0
+                ? BossTelegraphUtil.dust(phase, BossAbilityKind.DASH) : BossTelegraphUtil.dust(BossAbilityKind.TETHER);
+    }
+
     /** Ran into a tether's chain: the run is over and the boss is stunned, the leash untouched. */
     private void breakOnChain(ServerLevel level, BossPhaseData phase, Vec3 now, long gameTime) {
         phase.dash().getChainSound().play(level, now.x, now.y, now.z, SoundSource.HOSTILE);
-        // The tether's colour rather than the dash's: what broke is the chain between the pair.
         phase.dash().getChainParticles().emitDust(level, now.x, now.y + npc.getBbHeight() * 0.5D, now.z,
                 npc.getBbWidth() * 0.5D, npc.getBbHeight() * 0.3D, npc.getBbWidth() * 0.5D, 0.0D,
-                BossAbilityKind.TETHER);
+                chainDust(phase));
         // The wall's reasons: only a fight stuns, and the stagger is what ends the run.
         if (boss.isEncounterRunning()) {
             stun(gameTime, phase.dash().getChainStunTicks(), phase.dash().getChainDamagePercent(),

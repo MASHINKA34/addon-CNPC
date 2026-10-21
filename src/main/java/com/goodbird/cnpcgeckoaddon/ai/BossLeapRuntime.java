@@ -5,6 +5,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
@@ -228,7 +229,8 @@ final class BossLeapRuntime {
 
         phase.leap().getTakeoffSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         phase.leap().getTakeoffParticles().emitDust(level, npc.getX(), npc.getY() + 0.1D, npc.getZ(),
-                npc.getBbWidth() * 0.5D, 0.05D, npc.getBbWidth() * 0.5D, 0.05D, BossAbilityKind.LEAP);
+                npc.getBbWidth() * 0.5D, 0.05D, npc.getBbWidth() * 0.5D, 0.05D,
+                BossTelegraphUtil.dust(phase, BossAbilityKind.LEAP));
     }
 
     /**
@@ -334,7 +336,7 @@ final class BossLeapRuntime {
     void playImpactFeedback(ServerLevel level, BossPhaseData phase, Vec3 impact) {
         phase.leap().getLandingSound().play(level, impact.x, impact.y, impact.z, SoundSource.HOSTILE);
         phase.leap().getLandingParticles().emitDust(level, impact.x, impact.y + 0.2D, impact.z,
-                0.0D, 0.0D, 0.0D, 0.0D, BossAbilityKind.LEAP);
+                0.0D, 0.0D, 0.0D, 0.0D, BossTelegraphUtil.dust(phase, BossAbilityKind.LEAP));
         int debris = phase.leap().getDebrisCount();
         if (debris <= 0) {
             return;
@@ -395,13 +397,14 @@ final class BossLeapRuntime {
         }
         double radius = phase.leap().getImpactRadius();
         int points = Mth.clamp((int) Math.round(Mth.TWO_PI * radius / MARKER_SPACING), 8, 48);
+        DustParticleOptions dust = BossTelegraphUtil.dust(phase, BossAbilityKind.LEAP);
         for (int i = 0; i < points; i++) {
             double angle = i * Mth.TWO_PI / points;
             phase.leap().getTrailParticles().emitDust(level,
                     destination.x + Math.cos(angle) * radius,
                     destination.y + 0.15D,
                     destination.z + Math.sin(angle) * radius,
-                    0.0D, 0.0D, 0.0D, 0.0D, BossAbilityKind.LEAP);
+                    0.0D, 0.0D, 0.0D, 0.0D, dust);
         }
     }
 

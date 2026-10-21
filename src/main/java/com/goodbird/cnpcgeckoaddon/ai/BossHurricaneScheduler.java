@@ -13,6 +13,7 @@ import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossSpinState;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.ResourceKey;
@@ -176,6 +177,8 @@ public final class BossHurricaneScheduler {
         final ResourceKey<Level> dimension;
         final EntityNPCInterface boss;
         final Look look;
+        /** The ability's dust in the phase the storm was let go in, for the cues set to it. */
+        final DustParticleOptions dust;
         /** Where the eye stands: on the floor, one block up from the block it lies on. */
         Vec3 pos;
         /** Which way and how fast, and how many walls are left in it. */
@@ -199,11 +202,12 @@ public final class BossHurricaneScheduler {
         double columnAngle;
         long nextLoopAt;
 
-        private Storm(ResourceKey<Level> dimension, EntityNPCInterface boss, Look look, Vec3 pos,
-                      Vec3 velocity, double remainingPath, long diesAt, Vec3 centre) {
+        private Storm(ResourceKey<Level> dimension, EntityNPCInterface boss, Look look, DustParticleOptions dust,
+                      Vec3 pos, Vec3 velocity, double remainingPath, long diesAt, Vec3 centre) {
             this.dimension = dimension;
             this.boss = boss;
             this.look = look;
+            this.dust = dust;
             this.pos = pos;
             this.course = new BossHurricanePath.Course(velocity, look.bounces);
             this.remainingPath = remainingPath;
@@ -284,20 +288,23 @@ public final class BossHurricaneScheduler {
     public static void launch(ServerLevel level, EntityNPCInterface boss, BossPhaseData phase, Vec3 axis,
                               int damage, long gameTime) {
         Look look = look(phase.hurricane(), damage);
+        DustParticleOptions dust = BossTelegraphUtil.dust(phase, BossAbilityKind.HURRICANE);
         Vec3 origin = floorUnder(level, boss, look);
         long diesAt = gameTime + look.lifetimeTicks;
         switch (look.launchMode) {
             case BossPhaseData.HURRICANE_MODE_SPIRAL -> {
                 double gaze = BossHurricanePath.angleOf(origin, origin.x + axis.x, origin.z + axis.z);
                 for (int i = 0; i < look.count; i++) {
-                    Storm storm = new Storm(level.dimension(), boss, look, origin, Vec3.ZERO, 0.0D, diesAt, origin);
+                    Storm storm = new Storm(level.dimension(), boss, look, dust, origin, Vec3.ZERO, 0.0D, diesAt,
+                            origin);
                     storm.spiralAngle = BossHurricanePath.spiralStartAngle(gaze, i, look.count);
                     STORMS.add(storm);
                 }
             }
             case BossPhaseData.HURRICANE_MODE_TYPHOON -> {
                 for (int i = 0; i < look.count; i++) {
-                    Storm storm = new Storm(level.dimension(), boss, look, origin, Vec3.ZERO, 0.0D, diesAt, origin);
+                    Storm storm = new Storm(level.dimension(), boss, look, dust, origin, Vec3.ZERO, 0.0D, diesAt,
+                            origin);
                     // A storm with nowhere to go - no floor anywhere in reach - is not let go at all.
                     if (retarget(level, storm)) {
                         STORMS.add(storm);
@@ -306,7 +313,7 @@ public final class BossHurricaneScheduler {
             }
             default -> {
                 for (Vec3 heading : BossHurricanePath.launchAxes(look.launchMode, axis)) {
-                    STORMS.add(new Storm(level.dimension(), boss, look, origin, heading.scale(look.speed),
+                    STORMS.add(new Storm(level.dimension(), boss, look, dust, origin, heading.scale(look.speed),
                             look.range, diesAt, origin));
                 }
             }
@@ -475,7 +482,7 @@ public final class BossHurricaneScheduler {
     private static int drawColumn(ServerLevel level, Storm storm, int count) {
         Look look = storm.look;
         ParticleOptions options = count > 0 && look.columnParticles.isEnabled()
-                ? look.columnParticles.resolve(BossAbilityKind.HURRICANE) : null;
+                ? look.columnParticles.resolve(storm.dust) : null;
         if (options == null) {
             return 0;
         }
@@ -495,7 +502,7 @@ public final class BossHurricaneScheduler {
     private static int drawBase(ServerLevel level, Storm storm, int count) {
         Look look = storm.look;
         ParticleOptions options = count > 0 && look.baseParticles.isEnabled()
-                ? look.baseParticles.resolve(BossAbilityKind.HURRICANE) : null;
+                ? look.baseParticles.resolve(storm.dust) : null;
         if (options == null) {
             return 0;
         }
@@ -512,7 +519,7 @@ public final class BossHurricaneScheduler {
     private static int drawTrail(ServerLevel level, Storm storm, int count) {
         Look look = storm.look;
         ParticleOptions options = count > 0 && look.trailParticles.isEnabled()
-                ? look.trailParticles.resolve(BossAbilityKind.HURRICANE) : null;
+                ? look.trailParticles.resolve(storm.dust) : null;
         Vec3 heading = storm.course.velocity();
         if (options == null || heading.lengthSqr() < 1.0E-8D) {
             return 0;
@@ -739,7 +746,7 @@ public final class BossHurricaneScheduler {
         }
         look.catchSound.play(level, victim.getX(), victim.getY(), victim.getZ(), SoundSource.HOSTILE);
         look.catchParticles.emitDust(level, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5D,
-                victim.getZ(), 0.3D, 0.5D, 0.3D, 0.05D, BossAbilityKind.HURRICANE);
+                victim.getZ(), 0.3D, 0.5D, 0.3D, 0.05D, storm.dust);
         if (victim instanceof ServerPlayer player) {
             syncState(player, storm, held, gameTime, true);
         }

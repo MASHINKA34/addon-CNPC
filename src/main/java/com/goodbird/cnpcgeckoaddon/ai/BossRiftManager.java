@@ -11,6 +11,7 @@ import com.goodbird.cnpcgeckoaddon.network.PacketSyncBossRiftState;
 import com.goodbird.cnpcgeckoaddon.utils.BossFloorUtil;
 import com.goodbird.cnpcgeckoaddon.utils.PersistentDataUtil;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -162,11 +163,14 @@ public final class BossRiftManager {
         long nextAmbientAt;
         /** The colour of the phase that cut it, which its status line is written in: the profile's, or the kind's. */
         final int colour;
+        /** The dust of that same colour, for the cues of the rift set to the ability's dust. */
+        final DustParticleOptions dust;
 
         Rift(EntityNPCInterface boss, ServerLevel arena, BossRiftSettings settings, boolean solo, int exitMode,
              BlockPos centre, long gameTime) {
             this.bossId = boss.getUUID();
             this.colour = BossTelegraphUtil.textColor(boss, BossAbilityKind.RIFT);
+            this.dust = BossTelegraphUtil.dust(boss, BossAbilityKind.RIFT);
             this.bossName = boss.getName().getString();
             this.bossLevel = arena.dimension();
             this.bossChunk = new ChunkPos(boss.blockPosition());
@@ -350,7 +354,7 @@ public final class BossRiftManager {
         BossRiftSettings settings = rift.settings;
         settings.getEnterSound().play(riftLevel, landing.x, landing.y, landing.z, SoundSource.HOSTILE);
         settings.getEnterParticles().emitDust(riftLevel, landing.x, landing.y + 1.0D, landing.z,
-                0.4D, 0.8D, 0.4D, 0.05D, BossAbilityKind.RIFT);
+                0.4D, 0.8D, 0.4D, 0.05D, rift.dust);
         BossAbilityDamageUtil.applyEffects(player, BossAbilityKind.RIFT, boss, settings.getEffects());
         sync(player, rift);
     }
@@ -464,7 +468,7 @@ public final class BossRiftManager {
             guard(level, rift, player);
             if (ambient) {
                 rift.settings.getAmbientParticles().emitDust(level, player.getX(), player.getY(1.0D), player.getZ(),
-                        1.5D, 1.0D, 1.5D, 0.02D, BossAbilityKind.RIFT);
+                        1.5D, 1.0D, 1.5D, 0.02D, rift.dust);
             }
             if (loop) {
                 rift.settings.getLoopSound().play(level, player.getX(), player.getY(), player.getZ(),
@@ -866,7 +870,7 @@ public final class BossRiftManager {
             }
             rift.settings.getEnterParticles().emitDust(riftLevel, minion.getX(), minion.getY(0.5D), minion.getZ(),
                     minion.getBbWidth() * 0.5D, minion.getBbHeight() * 0.5D, minion.getBbWidth() * 0.5D, 0.02D,
-                    BossAbilityKind.RIFT);
+                    rift.dust);
             minion.discard();
         }
     }

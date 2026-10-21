@@ -12,6 +12,7 @@ import com.goodbird.cnpcgeckoaddon.utils.TickQueue;
 import com.goodbird.cnpcgeckoaddon.world.TemporaryFluidStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
@@ -423,15 +424,19 @@ public final class BossGeyserScheduler {
         private final BossGeyserColumn shape;
         private final BossParticleCue particles;
         private final BossParticleCue smoke;
+        /** The ability's dust in the phase the geyser was cast in, for the cues set to it. */
+        private final DustParticleOptions dust;
 
         private Column(ResourceKey<Level> dimension, EntityNPCInterface boss, Vec3 pos,
-                       BossGeyserColumn shape, BossParticleCue particles, BossParticleCue smoke) {
+                       BossGeyserColumn shape, BossParticleCue particles, BossParticleCue smoke,
+                       DustParticleOptions dust) {
             this.dimension = dimension;
             this.boss = boss;
             this.pos = pos;
             this.shape = shape;
             this.particles = particles;
             this.smoke = smoke;
+            this.dust = dust;
         }
     }
 
@@ -759,7 +764,7 @@ public final class BossGeyserScheduler {
                     hit.stacks());
             if (seen) {
                 look.residueHitParticles().emitDust(level, victim.getX(), victim.getY() + 0.3D, victim.getZ(),
-                        0.3D, 0.2D, 0.3D, 0.02D, BossAbilityKind.GEYSER);
+                        0.3D, 0.2D, 0.3D, 0.02D, residue.telegraph.dust(BossAbilityKind.GEYSER));
             }
         }
         if (residue.clock.soundDue(gameTime)) {
@@ -770,7 +775,7 @@ public final class BossGeyserScheduler {
             // fuse's ring says how long is left of the fuse; the bubbles over the whole
             // circle say it is still wet.
             markRing(level, residue.boss, residue.telegraph, pos, residue.radius, residue.clock.progress(gameTime));
-            scatter(level, pos, residue.radius, look.residueParticles());
+            scatter(level, pos, residue.radius, look.residueParticles(), residue.telegraph.dust(BossAbilityKind.GEYSER));
         }
         return true;
     }
@@ -822,8 +827,9 @@ public final class BossGeyserScheduler {
             return;
         }
         boolean seen = seen(level, sky.boss, sky.pos);
-        ParticleOptions particles = seen ? options(sky.look.skyParticles()) : null;
-        ParticleOptions smoke = seen ? options(sky.look.columnSmoke()) : null;
+        DustParticleOptions dust = sky.telegraph.dust(BossAbilityKind.GEYSER);
+        ParticleOptions particles = seen ? options(sky.look.skyParticles(), dust) : null;
+        ParticleOptions smoke = seen ? options(sky.look.columnSmoke(), dust) : null;
         sky.column.advance(step -> drawSlice(level, sky.pos, sky.column, step,
                 particles, sky.look.skyParticles().getCount(), smoke, sky.look.columnSmoke().getCount()));
     }
@@ -840,7 +846,7 @@ public final class BossGeyserScheduler {
         // lands. No block wave: that was the eruption's, and the floor has been thrown once.
         BossAreaVfxScheduler.schedule(level, pos, look.skyVfx(), sky.radius, look.vfxTicks(), false, sky.wave);
         if (seen(level, sky.boss, pos)) {
-            scatter(level, pos, sky.radius, look.skyHitParticles());
+            scatter(level, pos, sky.radius, look.skyHitParticles(), sky.telegraph.dust(BossAbilityKind.GEYSER));
         }
         look.skyHitSound().play(level, pos.x, pos.y, pos.z, SoundSource.HOSTILE);
         for (LivingEntity victim : victims(level, sky.boss, pos, sky.radius)) {
@@ -875,8 +881,9 @@ public final class BossGeyserScheduler {
      * A cue's count spent over the whole circle, one dot at a random spot on it each, so the
      * puff reads as the circle rather than as a blob at its middle.
      */
-    private static void scatter(ServerLevel level, Vec3 pos, double radius, BossParticleCue cue) {
-        ParticleOptions options = options(cue);
+    private static void scatter(ServerLevel level, Vec3 pos, double radius, BossParticleCue cue,
+                                DustParticleOptions dust) {
+        ParticleOptions options = options(cue, dust);
         if (options == null) {
             return;
         }
@@ -928,7 +935,8 @@ public final class BossGeyserScheduler {
             return;
         }
         COLUMNS.add(new Column(level.dimension(), pending.boss, pending.pos, shape,
-                pending.look.columnParticles(), pending.look.columnSmoke()));
+                pending.look.columnParticles(), pending.look.columnSmoke(),
+                pending.telegraph.dust(BossAbilityKind.GEYSER)));
     }
 
     /** @return whether this column still has slices to come and belongs back in the queue */
@@ -939,16 +947,19 @@ public final class BossGeyserScheduler {
         // The clock runs whether or not anyone is watching: a column nobody saw come up is
         // not held back for the first player to arrive.
         boolean seen = seen(level, column.boss, column.pos);
-        ParticleOptions particles = seen ? options(column.particles) : null;
-        ParticleOptions smoke = seen ? options(column.smoke) : null;
+        ParticleOptions particles = seen ? options(column.particles, column.dust) : null;
+        ParticleOptions smoke = seen ? options(column.smoke, column.dust) : null;
         column.shape.advance(step -> drawSlice(level, column.pos, column.shape, step,
                 particles, column.particles.getCount(), smoke, column.smoke.getCount()));
         return !column.shape.isDone();
     }
 
-    /** What a cue spits, or null while it is switched off, set to nothing or names no particle. */
-    private static ParticleOptions options(BossParticleCue cue) {
-        return cue.isEnabled() && cue.getCount() > 0 ? cue.resolve(BossAbilityKind.GEYSER) : null;
+    /**
+     * What a cue spits, or null while it is switched off, set to nothing or names no particle;
+     * {@code dust} is the ability's colour in the phase the geyser was cast in.
+     */
+    private static ParticleOptions options(BossParticleCue cue, DustParticleOptions dust) {
+        return cue.isEnabled() && cue.getCount() > 0 ? cue.resolve(dust) : null;
     }
 
     /**

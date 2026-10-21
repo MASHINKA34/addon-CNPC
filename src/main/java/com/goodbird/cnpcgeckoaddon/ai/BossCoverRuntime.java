@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.data.BossAbilityKind;
 import com.goodbird.cnpcgeckoaddon.data.BossCoverSettings;
 import com.goodbird.cnpcgeckoaddon.data.BossEffectSet;
 import com.goodbird.cnpcgeckoaddon.data.BossParticleCue;
+import net.minecraft.core.particles.DustParticleOptions;
 import com.goodbird.cnpcgeckoaddon.data.BossPhaseData;
 import com.goodbird.cnpcgeckoaddon.data.BossSoundCue;
 import com.goodbird.cnpcgeckoaddon.data.TeleportPathData;
@@ -67,7 +68,8 @@ final class BossCoverRuntime {
     private record CoverCast(int mode, double range, int damage, int knockback, BossEffectSet effects,
                              String vfx, double shelterRadius, List<Vec3> shelters,
                              double kneeHeight, int waveTicks, int postHeight,
-                             BossSoundCue blastSound, BossParticleCue blastParticles) {
+                             BossSoundCue blastSound, BossParticleCue blastParticles,
+                             DustParticleOptions dust) {
     }
 
     private final TeleportPathController boss;
@@ -117,7 +119,7 @@ final class BossCoverRuntime {
                 cover.getKneeHeight(), waveDuration(cover.getRange(), cover.getWaveSpeed(),
                         cover.getVfxMinTicks(), cover.getVfxMaxTicks()),
                 cover.getPostHeight(), cover.getBlastSound().copy(),
-                cover.getBlastParticles().copy());
+                cover.getBlastParticles().copy(), BossTelegraphUtil.dust(phase, BossAbilityKind.COVER));
         boss.commitCentre(centre);
         boss.beginAction(BossAbility.COVER, phase.cover().getAnimation(),
                 phase.cover().getActionDelayTicks(), gameTime, null, data, phase);
@@ -153,7 +155,7 @@ final class BossCoverRuntime {
         strike.blastParticles().emitDust(level, origin.x,
                 origin.y + npc.getBbHeight() * 0.5D, origin.z,
                 npc.getBbWidth(), npc.getBbHeight() * 0.5D, npc.getBbWidth(), 0.0D,
-                BossAbilityKind.COVER);
+                strike.dust());
         for (LivingEntity victim : boss.coverVictims(level, origin, strike.range())) {
             boolean spared = strike.mode() == BossPhaseData.COVER_MODE_SHELTER
                     ? isSheltered(strike.shelters(), strike.shelterRadius(), victim.position())

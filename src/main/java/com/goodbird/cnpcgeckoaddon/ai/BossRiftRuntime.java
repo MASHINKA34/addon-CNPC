@@ -121,7 +121,7 @@ final class BossRiftRuntime {
         rift.getCutSound().play(level, npc.getX(), npc.getY(), npc.getZ(), SoundSource.HOSTILE);
         rift.getCutParticles().emitDust(level, npc.getX(), npc.getY(0.5D), npc.getZ(),
                 npc.getBbWidth() * 0.8D, npc.getBbHeight() * 0.5D, npc.getBbWidth() * 0.8D, 0.1D,
-                BossAbilityKind.RIFT);
+                BossTelegraphUtil.dust(phase, BossAbilityKind.RIFT));
     }
 
     /** Whether this boss has a rift open right now. */

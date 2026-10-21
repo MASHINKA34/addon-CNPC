@@ -283,7 +283,7 @@ public final class BossTetherManager {
                     SoundSource.HOSTILE);
             tether.look.placeParticles().emitDust(level, victim.getX(),
                     victim.getY() + victim.getBbHeight() * 0.5D, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.0D,
-                    BossAbilityKind.TETHER);
+                    tether.dust);
         }
     }
 
@@ -529,7 +529,7 @@ public final class BossTetherManager {
     /** The puff of a leash ending, over the tether's own colour. */
     private static void burst(ServerLevel level, LivingEntity victim, BossParticleCue cue, DustParticleOptions dust) {
         double y = victim.getY() + victim.getBbHeight() * 0.5D;
-        cue.emitDust(level, victim.getX(), y, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.1D, BossAbilityKind.TETHER);
+        cue.emitDust(level, victim.getX(), y, victim.getZ(), 0.3D, 0.4D, 0.3D, 0.1D, dust);
         level.sendParticles(dust, victim.getX(), y, victim.getZ(),
                 10, 0.4D, 0.5D, 0.4D, 0.0D);
     }
