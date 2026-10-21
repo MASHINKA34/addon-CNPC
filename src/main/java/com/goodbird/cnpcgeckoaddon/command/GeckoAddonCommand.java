@@ -104,18 +104,25 @@ public class GeckoAddonCommand {
                         .executes(context -> selfTest(context.getSource(),
                                 StringArgumentType.getString(context, "site")))));
         // The rest of the line is the name, so a name typed the way the presets screen takes it -
-        // "Demo 2!" - is cleaned the same way rather than refused by the parser.
+        // "Demo 2!" - is cleaned the same way rather than refused by the parser. That is also why
+        // keepLink goes in front of the name: after it, it would only ever be part of the name.
         root.then(Commands.literal("preset").requires(source -> source.hasPermission(2))
                 .then(Commands.literal("save")
                         .then(Commands.argument("name", StringArgumentType.greedyString())
                                 .executes(context -> presetSave(context.getSource(),
                                         StringArgumentType.getString(context, "name")))))
                 .then(Commands.literal("load")
+                        .then(Commands.literal("keepLink")
+                                .then(Commands.argument("name", StringArgumentType.greedyString())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                                BossPresetManager.names(), builder))
+                                        .executes(context -> presetLoad(context.getSource(),
+                                                StringArgumentType.getString(context, "name"), true))))
                         .then(Commands.argument("name", StringArgumentType.greedyString())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                         BossPresetManager.names(), builder))
                                 .executes(context -> presetLoad(context.getSource(),
-                                        StringArgumentType.getString(context, "name")))))
+                                        StringArgumentType.getString(context, "name"), false))))
                 .then(Commands.literal("list").executes(context -> presetList(context.getSource()))));
         event.getDispatcher().register(root);
     }
@@ -146,15 +153,22 @@ public class GeckoAddonCommand {
 
     /**
      * Lays a preset over the npc the sender looks at - any npc, a boss or not yet - or the configured
-     * boss nearest them. Only the boss settings change; the npc's name, model and stats stay its own.
+     * boss nearest them. Only the boss settings change; the npc's name, model and stats stay its own,
+     * and the health link group the preset carried goes unless {@code keepLink} keeps it.
      */
-    private static int presetLoad(CommandSourceStack source, String typed) {
+    private static int presetLoad(CommandSourceStack source, String typed, boolean keepLink) {
         EntityNPCInterface npc = presetTarget(source);
-        BossPresetManager.Result result = BossPresetManager.load(npc, typed, source.getTextName());
+        BossPresetManager.Result result = BossPresetManager.load(npc, typed, source.getTextName(), keepLink);
         switch (result.outcome()) {
             case LOADED -> {
                 source.sendSuccess(() -> Component.literal("Preset " + result.name() + " loaded into "
                         + result.npcName() + " - reopen its menu to see it"), true);
+                if (!result.linkGroup().isEmpty()) {
+                    String group = result.linkGroup();
+                    String line = result.linkKept() ? "Health link group " + group + " kept"
+                            : "Health link group " + group + " dropped - set it again in the boss menu if it is wanted";
+                    source.sendSuccess(() -> Component.literal(line), true);
+                }
                 return 1;
             }
             case BAD_NAME -> source.sendFailure(Component.literal("Bad preset name '" + typed

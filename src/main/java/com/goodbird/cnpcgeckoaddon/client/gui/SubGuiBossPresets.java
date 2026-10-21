@@ -4,6 +4,7 @@ import com.goodbird.cnpcgeckoaddon.CNPCGeckoAddon;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeButton;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeLabel;
 import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeTextField;
+import com.goodbird.cnpcgeckoaddon.client.gui.theme.ThemeYesNo;
 import com.goodbird.cnpcgeckoaddon.data.BossPresetNames;
 import com.goodbird.cnpcgeckoaddon.network.BossPresetClientBridge;
 import com.goodbird.cnpcgeckoaddon.network.NetworkWrapper;
@@ -17,6 +18,7 @@ import noppes.npcs.client.gui.util.GuiNPCInterface2;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
+import noppes.npcs.shared.client.gui.components.GuiButtonYesNo;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import org.slf4j.Logger;
@@ -34,6 +36,10 @@ import java.util.List;
  * that went through closes the editor without that save - the server's copy is the preset now, and
  * the screens still hold the old boss - and says so in the chat; the menu opened again shows the
  * preset. Files are only ever made here, never deleted: the hint says where they are.</p>
+ *
+ * <p>A load takes the boss out of the health link group the preset carries unless Keep health link
+ * says otherwise, and the chat says which it was. The switch is the screen's own, starting at No each
+ * time the screen is opened.</p>
  */
 public final class SubGuiBossPresets extends SubGuiFieldScreen {
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
@@ -43,6 +49,7 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
     private static final int LOAD_BUTTON = 3;
     private static final int PREV_PAGE_BUTTON = 4;
     private static final int NEXT_PAGE_BUTTON = 5;
+    private static final int KEEP_LINK_BUTTON = 6;
     private static final int FIRST_ROW_BUTTON = 100;
 
     private static final int TITLE_LABEL = 30;
@@ -50,6 +57,7 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
     private static final int EMPTY_LABEL = 32;
     private static final int PAGE_LABEL = 33;
     private static final int FIRST_STATUS_LABEL = 34;
+    private static final int KEEP_LINK_LABEL = 36;
     private static final int FIRST_HINT_LABEL = 40;
 
     private static final String HINT = "cnpcgeckoaddon.boss.preset_hint";
@@ -60,7 +68,8 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
     private static final int ROWS_Y = 64;
     private static final int PAGER_Y = ROWS_Y + ROWS * ROW_PITCH;
     private static final int BUTTONS_Y = PAGER_Y + 24;
-    private static final int STATUS_Y = BUTTONS_Y + 26;
+    private static final int KEEP_LINK_Y = BUTTONS_Y + 24;
+    private static final int STATUS_Y = KEEP_LINK_Y + 26;
     private static final int HINT_Y = STATUS_Y + STATUS_LINES * LINE_HEIGHT + 4;
 
     private static final int STATUS_GOOD = 0x80E080;
@@ -83,13 +92,15 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
     private int page;
     private String status = "";
     private boolean statusGood = true;
+    /** Whether a load leaves the boss in the preset's health link group; kept across layouts, not across openings. */
+    private boolean keepLink;
 
     public SubGuiBossPresets(EntityNPCInterface npc) {
         this.npc = npc;
         imageWidth = 256;
         closeOnEsc = true;
         shown = this;
-        send(PacketBossPresetRequest.LIST, "");
+        send(PacketBossPresetRequest.LIST, "", false);
     }
 
     @Override
@@ -119,6 +130,9 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
         addButton(new ThemeButton(this, LOAD_BUTTON, guiLeft + 8, guiTop + BUTTONS_Y, 114, 20,
                 "cnpcgeckoaddon.boss.preset_load"));
         addDoneButton(guiLeft + 182, guiTop + BUTTONS_Y, 60, 20);
+        addLabel(new ThemeLabel(KEEP_LINK_LABEL, "cnpcgeckoaddon.boss.preset_keep_link", guiLeft + 8,
+                guiTop + KEEP_LINK_Y + 6));
+        addButton(new ThemeYesNo(this, KEEP_LINK_BUTTON, guiLeft + 155, guiTop + KEEP_LINK_Y, 87, 20, keepLink));
         for (int line = 0; line < STATUS_LINES; line++) {
             addLabel(new ThemeLabel(FIRST_STATUS_LABEL + line, Component.empty(), STATUS_GOOD, guiLeft + 8,
                     guiTop + STATUS_Y + line * LINE_HEIGHT, imageWidth - 16, LINE_HEIGHT));
@@ -197,6 +211,9 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
             savePreset();
         } else if (button.id == LOAD_BUTTON) {
             askToLoad();
+        } else if (button.id == KEEP_LINK_BUTTON && button instanceof GuiButtonYesNo toggle) {
+            keepLink = toggle.getBoolean();
+            LOGGER.debug("presets: a load {} the preset's health link group", keepLink ? "keeps" : "drops");
         }
     }
 
@@ -208,7 +225,7 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
             return;
         }
         saveEditor();
-        send(PacketBossPresetRequest.SAVE, typedName);
+        send(PacketBossPresetRequest.SAVE, typedName, false);
     }
 
     private void askToLoad() {
@@ -217,11 +234,12 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
             return;
         }
         String preset = selected;
+        boolean keep = keepLink;
         String question = Component.translatable("cnpcgeckoaddon.boss.preset_load_confirm",
                 npcName(), preset).getString();
         setSubGui(new SubGuiConfirm(question, () -> {
             saveEditor();
-            send(PacketBossPresetRequest.LOAD, preset);
+            send(PacketBossPresetRequest.LOAD, preset, keep);
         }));
     }
 
@@ -268,22 +286,27 @@ public final class SubGuiBossPresets extends SubGuiFieldScreen {
         super.close();
     }
 
-    private static void send(int action, String name) {
-        LOGGER.info("presets: asking the server for action {} with '{}'", action, name);
-        NetworkWrapper.sendToServer(new PacketBossPresetRequest(action, name));
+    private static void send(int action, String name, boolean keepLink) {
+        LOGGER.info("presets: asking the server for action {} with '{}'{}", action, name,
+                action == PacketBossPresetRequest.LOAD ? ", keep health link " + keepLink : "");
+        NetworkWrapper.sendToServer(new PacketBossPresetRequest(action, name, keepLink));
     }
 
     /** The server's answer: a load that went closes the editor; anything else lands on the screen, or in the chat. */
     private static void onReply(PacketBossPresetReply reply) {
         Minecraft minecraft = Minecraft.getInstance();
         Component line = reply.key().isEmpty() ? null : Component.translatable(reply.key(), reply.args().toArray());
-        LOGGER.info("presets: the server answered action {} with {}{}, {} presets listed", reply.action(),
+        Component linkLine = reply.linkKey().isEmpty() ? null
+                : Component.translatable(reply.linkKey(), reply.linkArgs().toArray());
+        LOGGER.info("presets: the server answered action {} with {}{}{}, {} presets listed", reply.action(),
                 reply.success() ? "success" : "a refusal", line == null ? "" : " - " + line.getString(),
-                reply.listed() ? reply.names().size() : "no");
+                linkLine == null ? "" : " / " + linkLine.getString(), reply.listed() ? reply.names().size() : "no");
         if (reply.action() == PacketBossPresetRequest.LOAD && reply.success()) {
             closeEditorOf(minecraft, reply.npcId());
             shown = null;
             tell(minecraft, line);
+            // The group the preset carried, dropped or kept, right under the line about the load.
+            tell(minecraft, linkLine);
             return;
         }
         SubGuiBossPresets screen = shown;

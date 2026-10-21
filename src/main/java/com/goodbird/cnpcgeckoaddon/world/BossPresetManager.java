@@ -27,6 +27,9 @@ import java.util.List;
 public final class BossPresetManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(CNPCGeckoAddon.MODID);
 
+    private static final String LINK_DROPPED_KEY = "cnpcgeckoaddon.boss.preset_link_dropped";
+    private static final String LINK_KEPT_KEY = "cnpcgeckoaddon.boss.preset_link_kept";
+
     /** What a request came to, with the line the presets screen shows for it. */
     public enum Outcome {
         LISTED(""),
@@ -60,13 +63,25 @@ public final class BossPresetManager {
     /**
      * What one request came to.
      *
-     * @param name    the preset, as cleaned; what was typed when it could not be
-     * @param npcName the npc it was saved from or loaded into, empty when there was none
-     * @param file    the preset's file, or the folder for a list; null when it never got that far
-     * @param bytes   how big the file written or read is
-     * @param names   the presets there are, for a list
+     * @param name      the preset, as cleaned; what was typed when it could not be
+     * @param npcName   the npc it was saved from or loaded into, empty when there was none
+     * @param file      the preset's file, or the folder for a list; null when it never got that far
+     * @param bytes     how big the file written or read is
+     * @param names     the presets there are, for a list
+     * @param linkGroup the health link group a loaded preset carried, empty when it had none
+     * @param linkKept  whether a load left the boss in that group rather than taking it out
      */
-    public record Result(Outcome outcome, String name, String npcName, Path file, long bytes, List<String> names) {
+    public record Result(Outcome outcome, String name, String npcName, Path file, long bytes, List<String> names,
+                         String linkGroup, boolean linkKept) {
+
+        public Result {
+            linkGroup = linkGroup == null ? "" : linkGroup;
+        }
+
+        /** Anything but a load, which is the one request that can bring a health link group along. */
+        public Result(Outcome outcome, String name, String npcName, Path file, long bytes, List<String> names) {
+            this(outcome, name, npcName, file, bytes, names, "", false);
+        }
 
         /** What the outcome's line names, in the order its key takes them. */
         public List<String> args() {
@@ -75,6 +90,22 @@ public final class BossPresetManager {
                 case LOADED -> List.of(name, npcName);
                 default -> List.of();
             };
+        }
+
+        /**
+         * The translation key of the second line a load brings, about the health link group the
+         * preset carried; empty when it carried none, which leaves nothing to say.
+         */
+        public String linkKey() {
+            if (outcome != Outcome.LOADED || linkGroup.isEmpty()) {
+                return "";
+            }
+            return linkKept ? LINK_KEPT_KEY : LINK_DROPPED_KEY;
+        }
+
+        /** What the second line names: the group, or nothing when there is no such line. */
+        public List<String> linkArgs() {
+            return linkKey().isEmpty() ? List.of() : List.of(linkGroup);
         }
     }
 
@@ -160,9 +191,14 @@ public final class BossPresetManager {
      * touched unless the file reads through as a boss; then the npc rebuilds its goals and is sent out
      * again, as when its own AI page is saved.
      *
-     * @param who whoever asked, for the log
+     * <p>The boss comes out of the health link group the preset carried unless {@code keepLink} says
+     * otherwise: a preset is made to be loaded into more than one npc, and two bosses from it in one
+     * group would share their health or die together.</p>
+     *
+     * @param who      whoever asked, for the log
+     * @param keepLink whether to leave the boss in the preset's health link group
      */
-    public static Result load(EntityNPCInterface npc, String typed, String who) {
+    public static Result load(EntityNPCInterface npc, String typed, String who, boolean keepLink) {
         String name = BossPresetNames.clean(typed);
         if (name.isEmpty()) {
             LOGGER.warn("Boss preset load refused for {}: '{}' leaves no name once cleaned (a-z, 0-9, _ and -, up to {})",
@@ -204,11 +240,34 @@ public final class BossPresetManager {
                     describe(npc), who, error);
             return new Result(Outcome.BAD_FILE, name, npcName(npc), read.file(), read.bytes(), List.of());
         }
+        String group = boss.getHealthLinkGroup();
+        String dropped = dropHealthLink(boss, keepLink);
         npc.updateAI = true;
         npc.updateClient = true;
         LOGGER.info("Boss preset '{}' loaded by {} into {}: {} ({} bytes, {} phases, boss {})", name, who,
                 describe(npc), read.file(), read.bytes(), boss.getPhaseCount(), boss.isEnabled() ? "on" : "off");
-        return new Result(Outcome.LOADED, name, npcName(npc), read.file(), read.bytes(), List.of());
+        if (!group.isEmpty()) {
+            LOGGER.info("Boss preset '{}' loaded into {}: health link group '{}' {}", name, describe(npc), group,
+                    dropped.isEmpty() ? "kept" : "dropped");
+        }
+        return new Result(Outcome.LOADED, name, npcName(npc), read.file(), read.bytes(), List.of(), group,
+                dropped.isEmpty());
+    }
+
+    /**
+     * Takes a boss just laid over from a preset out of the health link group it brought, unless asked
+     * to keep it. The group alone goes, as a shadow copy loses it: the link's mode and the rest of its
+     * settings do nothing without one, and are there again the day a group is set.
+     *
+     * @return the group taken away; empty when it was kept or there was none
+     */
+    public static String dropHealthLink(TeleportPathData boss, boolean keepLink) {
+        String group = boss.getHealthLinkGroup();
+        if (keepLink || group.isEmpty()) {
+            return "";
+        }
+        boss.setHealthLinkGroup("");
+        return group;
     }
 
     private static TeleportPathData bossOf(EntityNPCInterface npc) {

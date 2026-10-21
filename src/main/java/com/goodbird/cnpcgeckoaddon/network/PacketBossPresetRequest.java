@@ -19,6 +19,9 @@ import java.util.List;
  * the player is editing. Which npc that is, is the server's own record - CustomNPCs' editing npc for
  * the player - never an id the client names, and only an operator gets anything but a refusal.
  * Every request is answered with a {@link PacketBossPresetReply}.
+ *
+ * <p>A load says whether the boss keeps the health link group the preset carries; a save and a list
+ * carry the flag too, as false, and never read it.</p>
  */
 public final class PacketBossPresetRequest implements CustomPacketPayload {
     public static final Type<PacketBossPresetRequest> TYPE = NetworkWrapper.typeOf(PacketBossPresetRequest.class);
@@ -37,20 +40,37 @@ public final class PacketBossPresetRequest implements CustomPacketPayload {
 
     private final int action;
     private final String name;
+    private final boolean keepLink;
 
-    public PacketBossPresetRequest(int action, String name) {
+    public PacketBossPresetRequest(int action, String name, boolean keepLink) {
         this.action = action;
         String text = name == null ? "" : name;
         this.name = text.length() > MAX_NAME_LENGTH ? text.substring(0, MAX_NAME_LENGTH) : text;
+        this.keepLink = keepLink;
     }
 
     public void encode(FriendlyByteBuf buffer) {
         buffer.writeVarInt(action);
         buffer.writeUtf(name, MAX_NAME_LENGTH);
+        buffer.writeBoolean(keepLink);
     }
 
     public static PacketBossPresetRequest decode(FriendlyByteBuf buffer) {
-        return new PacketBossPresetRequest(buffer.readVarInt(), buffer.readUtf(MAX_NAME_LENGTH));
+        return new PacketBossPresetRequest(buffer.readVarInt(), buffer.readUtf(MAX_NAME_LENGTH),
+                buffer.readBoolean());
+    }
+
+    public int action() {
+        return action;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    /** Whether a load leaves the boss in the preset's health link group; nothing else reads it. */
+    public boolean keepLink() {
+        return keepLink;
     }
 
     public static void handle(PacketBossPresetRequest packet, MinecraftServer server, ServerPlayer player) {
@@ -63,7 +83,9 @@ public final class PacketBossPresetRequest implements CustomPacketPayload {
             LOGGER.warn("Boss preset request from {} ignored: no action {}", who, packet.action);
             return;
         }
-        LOGGER.debug("Boss preset request from {}: {} '{}'", who, actionName(packet.action), packet.name);
+        LOGGER.debug("Boss preset request from {}: {} '{}'{}", who, actionName(packet.action), packet.name,
+                packet.action == LOAD ? (packet.keepLink ? ", keeping its health link" : ", dropping its health link")
+                        : "");
         EntityNPCInterface npc = null;
         BossPresetManager.Result result;
         if (!player.hasPermissions(2)) {
@@ -73,7 +95,7 @@ public final class PacketBossPresetRequest implements CustomPacketPayload {
         } else {
             npc = editingNpc(player);
             result = packet.action == SAVE ? BossPresetManager.save(npc, packet.name, who)
-                    : BossPresetManager.load(npc, packet.name, who);
+                    : BossPresetManager.load(npc, packet.name, who, packet.keepLink);
         }
         BossPresetManager.Outcome outcome = result.outcome();
         // Every answer but a refusal carries the list as it is now, so the screen never shows a stale one.
@@ -81,7 +103,7 @@ public final class PacketBossPresetRequest implements CustomPacketPayload {
         List<String> names = !listed ? List.of()
                 : outcome == BossPresetManager.Outcome.LISTED ? result.names() : BossPresetManager.names();
         NetworkWrapper.send(player, new PacketBossPresetReply(packet.action, outcome.succeeded(), outcome.key(),
-                result.args(), listed, names, npc == null ? -1 : npc.getId()));
+                result.args(), result.linkKey(), result.linkArgs(), listed, names, npc == null ? -1 : npc.getId()));
     }
 
     /** The npc CustomNPCs has this player editing, as its own menu saves go to; null when there is none. */

@@ -13,13 +13,16 @@ import java.util.List;
  * translation key with what the line names, the presets there are now, and the npc a load went into -
  * the one whose editor the client then closes without saving over the preset.
  *
- * @param action the request answered, one of {@link PacketBossPresetRequest#LIST} and the rest
- * @param key    the line's translation key, empty for a plain list
- * @param listed whether {@code names} is the folder as it is now, rather than nothing known
- * @param npcId  the npc saved from or loaded into, -1 for none
+ * @param action  the request answered, one of {@link PacketBossPresetRequest#LIST} and the rest
+ * @param key     the line's translation key, empty for a plain list
+ * @param linkKey the key of a second line after a load, about the health link group the preset
+ *                carried - dropped or kept - and empty when there is nothing to say
+ * @param listed  whether {@code names} is the folder as it is now, rather than nothing known
+ * @param npcId   the npc saved from or loaded into, -1 for none
  */
-public record PacketBossPresetReply(int action, boolean success, String key, List<String> args, boolean listed,
-                                    List<String> names, int npcId) implements CustomPacketPayload {
+public record PacketBossPresetReply(int action, boolean success, String key, List<String> args, String linkKey,
+                                    List<String> linkArgs, boolean listed, List<String> names, int npcId)
+        implements CustomPacketPayload {
     public static final Type<PacketBossPresetReply> TYPE = NetworkWrapper.typeOf(PacketBossPresetReply.class);
 
     private static final int MAX_KEY_LENGTH = 128;
@@ -33,6 +36,8 @@ public record PacketBossPresetReply(int action, boolean success, String key, Lis
     public PacketBossPresetReply {
         key = key == null ? "" : key;
         args = List.copyOf(args == null ? List.of() : args.subList(0, Math.min(args.size(), MAX_ARGS)));
+        linkKey = linkKey == null ? "" : linkKey;
+        linkArgs = List.copyOf(linkArgs == null ? List.of() : linkArgs.subList(0, Math.min(linkArgs.size(), MAX_ARGS)));
         names = List.copyOf(names == null ? List.of() : names.subList(0, Math.min(names.size(), MAX_NAMES)));
     }
 
@@ -41,6 +46,8 @@ public record PacketBossPresetReply(int action, boolean success, String key, Lis
         buffer.writeBoolean(packet.success);
         buffer.writeUtf(packet.key, MAX_KEY_LENGTH);
         writeStrings(buffer, packet.args, MAX_ARG_LENGTH);
+        buffer.writeUtf(packet.linkKey, MAX_KEY_LENGTH);
+        writeStrings(buffer, packet.linkArgs, MAX_ARG_LENGTH);
         buffer.writeBoolean(packet.listed);
         writeStrings(buffer, packet.names, MAX_NAME_LENGTH);
         buffer.writeInt(packet.npcId);
@@ -51,9 +58,12 @@ public record PacketBossPresetReply(int action, boolean success, String key, Lis
         boolean success = buffer.readBoolean();
         String key = buffer.readUtf(MAX_KEY_LENGTH);
         List<String> args = readStrings(buffer, MAX_ARGS, MAX_ARG_LENGTH);
+        String linkKey = buffer.readUtf(MAX_KEY_LENGTH);
+        List<String> linkArgs = readStrings(buffer, MAX_ARGS, MAX_ARG_LENGTH);
         boolean listed = buffer.readBoolean();
         List<String> names = readStrings(buffer, MAX_NAMES, MAX_NAME_LENGTH);
-        return new PacketBossPresetReply(action, success, key, args, listed, names, buffer.readInt());
+        return new PacketBossPresetReply(action, success, key, args, linkKey, linkArgs, listed, names,
+                buffer.readInt());
     }
 
     private static void writeStrings(FriendlyByteBuf buffer, List<String> strings, int maxLength) {

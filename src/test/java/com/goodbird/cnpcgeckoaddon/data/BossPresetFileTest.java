@@ -92,6 +92,8 @@ class BossPresetFileTest {
         assertTrue(Files.isRegularFile(readme));
         String note = Files.readString(readme, StandardCharsets.UTF_8);
         assertTrue(note.contains("offsets from the arena") && note.contains("смещением от арены"), note);
+        assertTrue(note.contains("preset load keepLink <name>") && note.contains("preset load keepLink <имя>"),
+                "the note says how a load keeps the health link group: " + note);
         assertEquals(List.of("demo"), BossPresetFiles.list(presets));
         Files.delete(readme);
         BossPresetFiles.write(presets, "demo_2", boss);
